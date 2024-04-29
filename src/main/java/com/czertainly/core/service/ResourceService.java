@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.util.List;
@@ -38,4 +39,13 @@ public interface ResourceService {
             UUID attributeUuid,
             List<BaseAttributeContent> request
     ) throws NotFoundException, AttributeException;
+
+
+    /**
+     * Method to retrieve filter fields that can be used for creating rule conditions and actions
+     * @param resource Resource for which to retrieve filter fields
+     * @param settable Indicator whether to retrieve only fields that can be set by an action
+     * @return List of filter fields
+     */
+    List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException;
 }

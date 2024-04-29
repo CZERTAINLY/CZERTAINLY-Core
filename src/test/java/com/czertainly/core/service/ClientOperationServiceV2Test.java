@@ -17,7 +17,10 @@ import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -25,20 +28,29 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.bouncycastle.asn1.crmf.CertReqMsg;
+import org.bouncycastle.asn1.crmf.CertRequest;
+import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.cert.crmf.CRMFException;
+import org.bouncycastle.cert.crmf.CertificateRequestMessage;
+import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessageBuilder;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
+import java.math.BigInteger;
+import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
 
+@SpringBootTest
 public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
     public static final String RA_PROFILE_NAME = "testRaProfile1";
@@ -194,7 +206,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
 
     @Test
-    public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException {
+    public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
@@ -207,8 +219,9 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("true")));
 
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
-        request.setPkcs10(SAMPLE_PKCS10);
+        request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
+//        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
     }
 
     @Disabled
@@ -224,8 +237,8 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
                 .willReturn(WireMock.okJson("{ \"certificateData\": \"" + certificateData + "\" }")));
 
-        ClientCertificateRenewRequestDto request = new ClientCertificateRenewRequestDto();
-        request.setPkcs10(SAMPLE_PKCS10);
+        ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
+        request.setRequest(SAMPLE_PKCS10);
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificate.getUuid(), request, true));
 //        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), raProfile.getSecuredUuid(), certificate.getUuid().toString(), request));
     }
@@ -288,4 +301,24 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     public void testRevokeCertificate_validationFail() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificateAction(UUID.randomUUID(), null, true));
     }
+
+    private static byte[] generateRequestWithPOPSig(
+            BigInteger certReqID, KeyPair kp, String sigAlg) throws OperatorCreationException, CRMFException, IOException {
+        X500Name subject = new X500Name("CN=Example");
+
+        JcaCertificateRequestMessageBuilder certReqBuild
+                = new JcaCertificateRequestMessageBuilder(certReqID);
+
+        certReqBuild
+                .setPublicKey(kp.getPublic())
+                .setSubject(subject)
+                .setProofOfPossessionSigningKeySigner(
+                        new JcaContentSignerBuilder(sigAlg)
+                                .setProvider("BC")
+                                .build(kp.getPrivate()));
+
+        return certReqBuild.build().getEncoded();
+    }
+
+
 }

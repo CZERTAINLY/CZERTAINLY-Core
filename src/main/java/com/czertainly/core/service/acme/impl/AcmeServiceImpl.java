@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
@@ -534,7 +535,7 @@ public class AcmeServiceImpl implements AcmeService {
         try {
             p10Object = new JcaPKCS10CertificationRequest(Base64.getUrlDecoder().decode(request.getCsr()));
             validateCSR(p10Object, order);
-            decodedCsr = CsrUtil.normalizeCsrContent(JcaPKCS10CertificationRequestToString(p10Object));
+            decodedCsr = CertificateRequestUtils.normalizeCsrContent(JcaPKCS10CertificationRequestToString(p10Object));
         } catch (IOException e) {
             logger.error(e.getMessage());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_CSR);
@@ -543,7 +544,8 @@ public class AcmeServiceImpl implements AcmeService {
         logger.debug("Initiating issue Certificate for Order with ID: {}", order.getOrderId());
         ClientCertificateSignRequestDto certificateSignRequestDto = new ClientCertificateSignRequestDto();
         certificateSignRequestDto.setAttributes(getClientOperationAttributes(false, order.getAcmeAccount(), isRaProfileBased));
-        certificateSignRequestDto.setPkcs10(decodedCsr);
+        certificateSignRequestDto.setRequest(decodedCsr);
+        certificateSignRequestDto.setFormat(CertificateRequestFormat.PKCS10);
         order.setStatus(OrderStatus.PROCESSING);
         acmeOrderRepository.save(order);
         createCert(order, certificateSignRequestDto);

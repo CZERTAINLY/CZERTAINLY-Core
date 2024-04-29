@@ -82,34 +82,27 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Property resource cannot be empty.");
         }
 
-        if (ruleRepository.findAllByResource(request.getResource()).stream().map(Rule::getName).toList().contains(request.getName()))
+        if (ruleRepository.findAllByResource(request.getResource()).stream().anyMatch(rule -> Objects.equals(rule.getName(), request.getName())))
             throw new ValidationException("Rule with this name already exists for this resource.");
 
-        if (request.getConditionGroups() == null & request.getConditionGroupsUuids() == null & request.getConditions() == null) {
-            throw new ValidationException("Cannot crate a rule without any conditions or any condition groups.");
-        }
+
+        if (request.getConditions().isEmpty() && request.getConditionGroupsUuids().isEmpty())
+            throw new ValidationException("Rule has to contain at least one condition or condition group.");
 
         Rule rule = new Rule();
 
         List<RuleConditionGroup> ruleConditionGroups = new ArrayList<>();
 
-        if (request.getConditionGroups() != null) {
-            for (RuleConditionGroupRequestDto ruleConditionGroupRequestDto : request.getConditionGroups()) {
-                if (ruleConditionGroupRequestDto.getResource() == request.getResource()) {
-                    ruleConditionGroups.add(createConditionGroupEntity(ruleConditionGroupRequestDto));
-                }
+        for (String conditionGroupUuid : request.getConditionGroupsUuids()) {
+            Optional<RuleConditionGroup> ruleConditionGroup = conditionGroupRepository.findByUuid(SecuredUUID.fromString(conditionGroupUuid));
+            if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == request.getResource()) {
+                ruleConditionGroups.add(ruleConditionGroup.get());
+            } else {
+                throw new ValidationException("Condition group with UUID " + conditionGroupUuid + " is either not present or resource of the group does not match rule resource.");
             }
         }
 
-        if (request.getConditionGroupsUuids() != null) {
-            for (String conditionGroupUuid : request.getConditionGroupsUuids()) {
-                Optional<RuleConditionGroup> ruleConditionGroup = conditionGroupRepository.findByUuid(SecuredUUID.fromString(conditionGroupUuid));
-                if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == request.getResource()) ruleConditionGroups.add(ruleConditionGroup.get());
-            }
-        }
-
-        if (request.getConditions() != null)
-            rule.setConditions(createConditions(request.getConditions(), rule, null));
+        rule.setConditions(createConditions(request.getConditions(), rule, null));
 
         rule.setName(request.getName());
         rule.setDescription(request.getDescription());
@@ -135,35 +128,25 @@ public class RuleServiceImpl implements RuleService {
     @Override
     public RuleDetailDto updateRule(String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException {
 
-        if (request.getConditionGroups() == null & request.getConditionGroupsUuids() == null & request.getConditions() == null) {
-            throw new ValidationException("Cannot update a rule without any conditions or any condition groups.");
-        }
+        if (request.getConditions().isEmpty() && request.getConditionGroupsUuids().isEmpty())
+            throw new ValidationException("Rule has to contain at least one condition or condition group.");
 
 
         Rule rule = getRuleEntity(ruleUuid);
 
         List<RuleConditionGroup> ruleConditionGroups = new ArrayList<>();
 
-        if (request.getConditionGroups() != null) {
-            for (RuleConditionGroupRequestDto ruleConditionGroupRequestDto : request.getConditionGroups()) {
-                if (ruleConditionGroupRequestDto.getResource() == rule.getResource()) {
-                    ruleConditionGroups.add(createConditionGroupEntity(ruleConditionGroupRequestDto));
-                }
-            }
-        }
-
-        if (request.getConditionGroupsUuids() != null) {
-            for (String conditionGroupUuid : request.getConditionGroupsUuids()) {
-                Optional<RuleConditionGroup> ruleConditionGroup = conditionGroupRepository.findByUuid(SecuredUUID.fromString(conditionGroupUuid));
-                if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == rule.getResource()) ruleConditionGroups.add(ruleConditionGroup.get());
+        for (String conditionGroupUuid : request.getConditionGroupsUuids()) {
+            Optional<RuleConditionGroup> ruleConditionGroup = conditionGroupRepository.findByUuid(SecuredUUID.fromString(conditionGroupUuid));
+            if (ruleConditionGroup.isPresent() && ruleConditionGroup.get().getResource() == rule.getResource()) {
+                ruleConditionGroups.add(ruleConditionGroup.get());
+            } else {
+                throw new ValidationException("Condition group with UUID " + conditionGroupUuid + " is either not present or resource of the group does not match rule resource.");
             }
         }
 
         conditionRepository.deleteAll(rule.getConditions());
-        if (request.getConditions() != null) {
-            rule.setConditions(createConditions(request.getConditions(), rule, null));
-        }
-
+        rule.setConditions(createConditions(request.getConditions(), rule, null));
 
         rule.setDescription(request.getDescription());
         rule.setResourceType(request.getResourceType());
@@ -182,17 +165,18 @@ public class RuleServiceImpl implements RuleService {
 
     @Override
     public List<RuleConditionGroupDto> listConditionGroups(Resource resource) {
-        if (resource == null) return conditionGroupRepository.findAll().stream().map(RuleConditionGroup::mapToDto).toList();
+        if (resource == null)
+            return conditionGroupRepository.findAll().stream().map(RuleConditionGroup::mapToDto).toList();
         return conditionGroupRepository.findAllByResource(resource).stream().map(RuleConditionGroup::mapToDto).toList();
     }
 
     @Override
-    public RuleConditionGroupDetailDto createConditionGroup(RuleConditionGroupRequestDto request) {
-        return createConditionGroupEntity(request).mapToDetailDto();
+    public RuleConditionGroupDto createConditionGroup(RuleConditionGroupRequestDto request) {
+        return createConditionGroupEntity(request).mapToDto();
     }
 
     private RuleConditionGroup createConditionGroupEntity(RuleConditionGroupRequestDto request) {
-        if (request.getConditions() == null) {
+        if (request.getConditions().isEmpty()) {
             throw new ValidationException("Cannot create a condition group without any conditions.");
         }
         if (request.getName() == null) {
@@ -205,6 +189,7 @@ public class RuleServiceImpl implements RuleService {
         if (conditionGroupRepository.findAllByResource(request.getResource()).stream().map(RuleConditionGroup::getName).toList().contains(request.getName()))
             throw new ValidationException("Condition group with this name already exists for this resource.");
 
+
         RuleConditionGroup conditionGroup = new RuleConditionGroup();
         conditionGroup.setName(request.getName());
         conditionGroup.setDescription(request.getDescription());
@@ -215,8 +200,8 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleConditionGroupDetailDto getConditionGroup(String conditionGroupUuid) throws NotFoundException {
-        return getConditionGroupEntity(conditionGroupUuid).mapToDetailDto();
+    public RuleConditionGroupDto getConditionGroup(String conditionGroupUuid) throws NotFoundException {
+        return getConditionGroupEntity(conditionGroupUuid).mapToDto();
     }
 
     private RuleConditionGroup getConditionGroupEntity(String conditionGroupUuid) throws NotFoundException {
@@ -224,8 +209,8 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
-        if (request.getConditions() == null) {
+    public RuleConditionGroupDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
+        if (request.getConditions().isEmpty()) {
             throw new ValidationException("Cannot update a condition group without any conditions.");
         }
 
@@ -234,7 +219,7 @@ public class RuleServiceImpl implements RuleService {
         conditionRepository.deleteAll(conditionGroup.getConditions());
         conditionGroup.setConditions(createConditions(request.getConditions(), null, conditionGroup));
         conditionGroupRepository.save(conditionGroup);
-        return conditionGroup.mapToDetailDto();
+        return conditionGroup.mapToDto();
     }
 
     @Override
@@ -249,12 +234,12 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleActionGroupDetailDto createActionGroup(RuleActionGroupRequestDto request) {
-        return createActionGroupEntity(request).mapToDetailDto();
+    public RuleActionGroupDto createActionGroup(RuleActionGroupRequestDto request) {
+        return createActionGroupEntity(request).mapToDto();
     }
 
     private RuleActionGroup createActionGroupEntity(RuleActionGroupRequestDto request) {
-        if (request.getActions() == null) {
+        if (request.getActions().isEmpty()) {
             throw new ValidationException("Cannot create an action group without any actions.");
         }
         if (request.getName() == null) {
@@ -276,8 +261,8 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleActionGroupDetailDto getActionGroup(String actionGroupUuid) throws NotFoundException {
-        return getActionGroupEntity(actionGroupUuid).mapToDetailDto();
+    public RuleActionGroupDto getActionGroup(String actionGroupUuid) throws NotFoundException {
+        return getActionGroupEntity(actionGroupUuid).mapToDto();
     }
 
     private RuleActionGroup getActionGroupEntity(String actionGroupUuid) throws NotFoundException {
@@ -285,9 +270,9 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
-    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
+    public RuleActionGroupDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
 
-        if (request.getActions() == null) {
+        if (request.getActions().isEmpty()) {
             throw new ValidationException("Cannot update an action group without any actions.");
         }
 
@@ -296,7 +281,7 @@ public class RuleServiceImpl implements RuleService {
         actionRepository.deleteAll(actionGroup.getActions());
         actionGroup.setActions(createActions(request.getActions(), null, actionGroup));
         actionGroupRepository.save(actionGroup);
-        return actionGroup.mapToDetailDto();
+        return actionGroup.mapToDto();
     }
 
     @Override
@@ -307,8 +292,10 @@ public class RuleServiceImpl implements RuleService {
     @Override
     public List<RuleTriggerDto> listTriggers(Resource resource, Resource triggerResource) {
         List<RuleTrigger> ruleTriggers = triggerRepository.findAll();
-        if (triggerResource != null) ruleTriggers = ruleTriggers.stream().filter(trigger -> trigger.getTriggerResource() == triggerResource).toList();
-        if (resource != null) ruleTriggers = ruleTriggers.stream().filter(trigger -> (trigger.getResource() == resource)).toList();
+        if (triggerResource != null)
+            ruleTriggers = ruleTriggers.stream().filter(trigger -> trigger.getTriggerResource() == triggerResource).toList();
+        if (resource != null)
+            ruleTriggers = ruleTriggers.stream().filter(trigger -> (trigger.getResource() == resource)).toList();
         return ruleTriggers.stream().map(RuleTrigger::mapToDto).toList();
     }
 
@@ -327,54 +314,50 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
-        if (triggerRepository.findAllByTriggerResource(request.getTriggerResource()).stream().map(RuleTrigger::getName).toList().contains(request.getName()))
+        if (triggerRepository.findAllByTriggerResource(request.getTriggerResource()).stream().anyMatch(trigger -> Objects.equals(trigger.getName(), request.getName())))
             throw new ValidationException("Rule trigger with this name already exists for this trigger resource.");
 
-        if (request.getActionGroups() == null & request.getActionGroupsUuids() == null & request.getRules() == null & request.getRulesUuids() == null & request.getActions() == null) {
-            throw new ValidationException("Cannot create a trigger without any actions, action groups or rules.");
-        }
+        if (request.getActions().isEmpty() && request.getActionGroupsUuids().isEmpty())
+            throw new ValidationException("Trigger must contain at least one action or action group.");
+
 
         RuleTrigger trigger = new RuleTrigger();
 
-        List<RuleActionGroup> actionGroups = new ArrayList<>();
-        if (request.getActionGroups() != null) {
-            for (RuleActionGroupRequestDto actionGroupRequestDto : request.getActionGroups()) {
-                if (actionGroupRequestDto.getResource() == request.getResource()) actionGroups.add(createActionGroupEntity(actionGroupRequestDto));
-            }
-        }
-
-        if (request.getActionGroupsUuids() != null) {
-            for (String actionGroupUuid : request.getActionGroupsUuids()) {
-                Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
-                if (actionGroup.isPresent() && actionGroup.get().getResource() == request.getResource()) actionGroups.add(actionGroup.get());
-            }
-        }
 
         List<Rule> rules = new ArrayList<>();
-        if (request.getRules() != null) {
-            for (RuleRequestDto ruleRequestDto : request.getRules()) {
-                if (ruleRequestDto.getResource() == request.getResource()) rules.add(createRuleEntity(ruleRequestDto));
+
+        for (String ruleUuid : request.getRulesUuids()) {
+            Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
+            if (rule.isPresent() && rule.get().getResource() == request.getResource()) {
+                rules.add(rule.get());
+            } else {
+                throw new ValidationException("Rule with UUID " + ruleUuid + " is either not present or resource of the rule does not match trigger resource.");
             }
         }
 
-        if (request.getRulesUuids() != null) {
-            for (String ruleUuid : request.getRulesUuids()) {
-                Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
-                if (rule.isPresent() && rule.get().getResource() == request.getResource()) rules.add(rule.get());
+        List<RuleAction> actions = createActions(request.getActions(), trigger, null);
+
+        // If there is IGNORE action in actions, do not create any action groups, since it is supposed to be the only action in the trigger
+        if (actions.stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
+            throw new ValidationException("Trigger has action of Ignore type, cannot create action groups for such trigger.");
+        List<RuleActionGroup> actionGroups = new ArrayList<>();
+        for (String actionGroupUuid : request.getActionGroupsUuids()) {
+            Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
+            if (actionGroup.isPresent() && actionGroup.get().getResource() == request.getResource()) {
+                actionGroups.add(actionGroup.get());
+            } else {
+                throw new ValidationException("Action group with UUID " + actionGroupUuid + " is either not present or resource of the group does not match trigger resource.");
             }
         }
 
-        if (request.getActions() != null) trigger.setActions(createActions(request.getActions(), trigger, null));
-
-
+        trigger.setActionGroups(actionGroups);
         trigger.setName(request.getName());
         trigger.setDescription(request.getDescription());
         trigger.setResource(request.getResource());
         trigger.setTriggerResource(request.getTriggerResource());
-        if (request.getTriggerResourceUuid()!= null) trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
         trigger.setTriggerType(request.getTriggerType());
         trigger.setRules(rules);
-        trigger.setActionGroups(actionGroups);
+        trigger.setActions(actions);
         triggerRepository.save(trigger);
         return trigger.mapToDetailDto();
     }
@@ -384,7 +367,8 @@ public class RuleServiceImpl implements RuleService {
         return getRuleTriggerEntity(triggerUuid).mapToDetailDto();
     }
 
-    private RuleTrigger getRuleTriggerEntity(String triggerUuid) throws NotFoundException {
+    @Override
+    public RuleTrigger getRuleTriggerEntity(String triggerUuid) throws NotFoundException {
         return triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(RuleTrigger.class, triggerUuid));
     }
 
@@ -397,54 +381,47 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
-        if (request.getActionGroups() == null & request.getActionGroupsUuids() == null & request.getRules() == null & request.getRulesUuids() == null & request.getActions() == null) {
-            throw new ValidationException("Cannot update a trigger without any actions, action groups or rules.");
+        if (request.getActionGroupsUuids().isEmpty() && request.getActions().isEmpty()) {
+            throw new ValidationException("Cannot update a trigger without any actions or action groups.");
         }
+
 
         RuleTrigger trigger = getRuleTriggerEntity(triggerUuid);
 
-        List<RuleActionGroup> actionGroups = new ArrayList<>();
-        if (request.getActionGroups() != null) {
-            for (RuleActionGroupRequestDto actionGroupRequestDto : request.getActionGroups()) {
-                if (actionGroupRequestDto.getResource() == trigger.getResource()) actionGroups.add(createActionGroupEntity(actionGroupRequestDto));
-            }
-        }
-
-        if (request.getActionGroupsUuids() != null) {
-            for (String actionGroupUuid : request.getActionGroupsUuids()) {
-                Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
-                if (actionGroup.isPresent() && actionGroup.get().getResource() == trigger.getResource()) actionGroups.add(actionGroup.get());
-            }
-        }
-
+        actionRepository.deleteAll(trigger.getActions());
 
         List<Rule> rules = new ArrayList<>();
-        if (request.getRules() != null) {
-            for (RuleRequestDto ruleRequestDto : request.getRules()) {
-                if (ruleRequestDto.getResource() == trigger.getResource()) rules.add(createRuleEntity(ruleRequestDto));
+
+        for (String ruleUuid : request.getRulesUuids()) {
+            Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
+            if (rule.isPresent() && rule.get().getResource() == trigger.getResource()) {
+                rules.add(rule.get());
+            } else {
+                throw new ValidationException("Rule with UUID " + ruleUuid + " is either not present or resource of the rule does not match trigger resource.");
             }
         }
 
-        if (request.getRulesUuids() != null) {
-            for (String ruleUuid : request.getRulesUuids()) {
-                Optional<Rule> rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid));
-                if (rule.isPresent() && rule.get().getResource() == trigger.getResource()) rules.add(rule.get());
+        List<RuleAction> actions = createActions(request.getActions(), trigger, null);
+        // If there is IGNORE action in actions, do not create any action groups, since it is supposed to be the only action in the trigger
+        if (actions.stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE) && !request.getActionGroupsUuids().isEmpty())
+            throw new ValidationException("Trigger has action of Ignore type, cannot create action groups for such trigger.");
+        List<RuleActionGroup> actionGroups = new ArrayList<>();
+
+        for (String actionGroupUuid : request.getActionGroupsUuids()) {
+            Optional<RuleActionGroup> actionGroup = actionGroupRepository.findByUuid(SecuredUUID.fromString(actionGroupUuid));
+            if (actionGroup.isPresent() && actionGroup.get().getResource() == trigger.getResource()) {
+                actionGroups.add(actionGroup.get());
+            } else {
+                throw new ValidationException("Action group with UUID " + actionGroupUuid + " is either not present or resource of the group does not match trigger resource.");
             }
         }
 
-        actionRepository.deleteAll(trigger.getActions());
-        if (request.getActions() != null) {
-            trigger.setActions(createActions(request.getActions(), trigger, null));
-        }
-
-
+        trigger.setActionGroups(actionGroups);
         trigger.setRules(rules);
-
+        trigger.setActions(actions);
         trigger.setDescription(request.getDescription());
         trigger.setTriggerResource(request.getTriggerResource());
-        if (request.getTriggerResourceUuid() != null) trigger.setTriggerResourceUuid(UUID.fromString(request.getTriggerResourceUuid()));
         trigger.setTriggerType(request.getTriggerType());
-        trigger.setActionGroups(actionGroups);
 
         triggerRepository.save(trigger);
         return trigger.mapToDetailDto();
@@ -455,10 +432,12 @@ public class RuleServiceImpl implements RuleService {
         triggerRepository.delete(getRuleTriggerEntity(triggerUuid));
     }
 
+
     private List<RuleCondition> createConditions(List<RuleConditionRequestDto> conditionRequestDtos, Rule rule, RuleConditionGroup conditionGroup) {
         List<RuleCondition> conditions = new ArrayList<>();
         for (RuleConditionRequestDto conditionRequestDto : conditionRequestDtos) {
-            if (conditionRequestDto.getFieldSource() == null || conditionRequestDto.getFieldIdentifier() == null || conditionRequestDto.getOperator() == null) continue;
+            if (conditionRequestDto.getFieldSource() == null || conditionRequestDto.getFieldIdentifier() == null || conditionRequestDto.getOperator() == null)
+                throw new ValidationException("Missing field source, field identifier or operator in a condition.");
             RuleCondition condition = new RuleCondition();
             if (rule != null) {
                 condition.setRule(rule);
@@ -478,7 +457,11 @@ public class RuleServiceImpl implements RuleService {
     private List<RuleAction> createActions(List<RuleActionRequestDto> actionRequestDtos, RuleTrigger trigger, RuleActionGroup actionGroup) {
         List<RuleAction> actions = new ArrayList<>();
         for (RuleActionRequestDto actionRequestDto : actionRequestDtos) {
-            if (actionRequestDto.getActionType() == null) continue;
+            if (actionRequestDto.getActionType() == null)
+                throw new ValidationException("Missing action type in an action.");
+            // If the Action Type is Ignore, it must be the only action in the list
+            if (actionRequestDto.getActionType() == RuleActionType.IGNORE && !actionRequestDtos.isEmpty())
+                throw new ValidationException("Actions contain action with Action Type Ignore, it must be the only action in the list.");
             RuleAction action = new RuleAction();
             if (trigger != null) {
                 action.setRuleTrigger(trigger);
@@ -490,12 +473,11 @@ public class RuleServiceImpl implements RuleService {
             action.setFieldIdentifier(actionRequestDto.getFieldIdentifier());
             action.setActionData(actionRequestDto.getActionData());
             actionRepository.save(action);
+
             actions.add(action);
         }
         return actions;
     }
-
-
 
 
 }

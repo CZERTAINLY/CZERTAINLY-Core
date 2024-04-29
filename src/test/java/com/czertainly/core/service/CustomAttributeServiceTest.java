@@ -16,6 +16,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -91,7 +92,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testListAttributes() {
-        List<CustomAttributeDefinitionDto> attributes = attributeService.listCustomAttributes(null);
+        List<CustomAttributeDefinitionDto> attributes = attributeService.listCustomAttributes(SecurityFilter.create(), null);
         Assertions.assertNotNull(attributes);
         Assertions.assertFalse(attributes.isEmpty());
         Assertions.assertEquals(1, attributes.size());
@@ -234,7 +235,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateResource() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<BaseAttribute> attributes = attributeService.getResourceAttributes(Resource.ROLE);
+        List<BaseAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals(attribute.getUuid(), attributes.get(0).getUuid());
     }
@@ -247,7 +248,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     public void testGetResourceAttributesWithValue() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<BaseAttribute> attributes = attributeService.getResourceAttributes(Resource.ROLE);
+        List<BaseAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
     }
 }

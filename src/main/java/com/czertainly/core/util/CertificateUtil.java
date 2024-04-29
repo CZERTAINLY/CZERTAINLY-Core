@@ -1,5 +1,6 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -13,9 +14,13 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.model.request.CrmfCertificateRequest;
+import com.czertainly.core.model.request.Pkcs10CertificateRequest;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
+import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -31,11 +36,13 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
+import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
@@ -184,17 +191,23 @@ public class CertificateUtil {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
+    public static Map<String, Object> getSAN(CertificateRequest certificateRequest) {
         Map<String, Object> sans = buildEmptySans();
 
         GeneralNames gns = null;
-        Attribute[] certAttributes = csr.getAttributes();
-        for (Attribute attribute : certAttributes) {
-            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
-                gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
-                break;
+
+        if (certificateRequest instanceof Pkcs10CertificateRequest) {
+            Attribute[] certAttributes = ((Pkcs10CertificateRequest) certificateRequest).getJcaObject().getAttributes();
+            for (Attribute attribute : certAttributes) {
+                if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+                    Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
+                    gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                    break;
+                }
             }
+        } else if (certificateRequest instanceof CrmfCertificateRequest) {
+            Extensions extensions = Extensions.getInstance(((CrmfCertificateRequest) certificateRequest).getCertificateRequestMessage().getCertTemplate().getExtensions());
+            gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
         }
 
         if (gns == null) {
@@ -374,26 +387,29 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
-        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()));
-        if (certificate.getPublicKey() == null) {
+    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateRequest.getSubject()));
+        if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
-                            "Invalid Certificate. Public Key is missing"
+                            "Invalid public key in certificate request"
                     )
             );
         }
         try {
-            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificate.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
-            logger.error("Failed to calculate the thumbprint of the certificate");
+            logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
 
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
+        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
-        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
-        modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
-        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
+        if (certificateRequest.getSignatureAlgorithm() == null)
+            modal.setSignatureAlgorithm(null);
+        else
+            modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
+        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(certificateRequest.getSubjectAlternativeNames()));
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
@@ -519,11 +535,11 @@ public class CertificateUtil {
         }
 
         X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
-                owner, new BigInteger( 64, random ), notBefore, notAfter, owner, keyPair.getPublic() );
+                owner, new BigInteger(64, random), notBefore, notAfter, owner, keyPair.getPublic());
 
         PrivateKey privateKey = keyPair.getPrivate();
-        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption" ).build(privateKey);
-        X509CertificateHolder certHolder = builder.build( signer );
+        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption").build(privateKey);
+        X509CertificateHolder certHolder = builder.build(signer);
         X509Certificate cert = new JcaX509CertificateConverter()
                 .setProvider(new BouncyCastleProvider())
                 .getCertificate(certHolder);

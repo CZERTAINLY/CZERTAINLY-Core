@@ -2,15 +2,11 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.RuleActionGroupDetailDto;
 import com.czertainly.api.model.core.rules.RuleActionGroupDto;
-import com.czertainly.api.model.core.rules.RuleConditionGroupDetailDto;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.util.ArrayList;
 import java.util.List;
 
 @Entity
@@ -45,16 +41,8 @@ public class RuleActionGroup extends UniquelyIdentified {
         ruleActionGroupDto.setName(name);
         ruleActionGroupDto.setDescription(description);
         ruleActionGroupDto.setResource(resource);
+        if (actions != null) ruleActionGroupDto.setActions(actions.stream().map(RuleAction::mapToDto).toList());
         return ruleActionGroupDto;
     }
 
-    public RuleActionGroupDetailDto mapToDetailDto() {
-        RuleActionGroupDetailDto actionGroupDetailDto = new RuleActionGroupDetailDto();
-        actionGroupDetailDto.setUuid(uuid.toString());
-        actionGroupDetailDto.setName(name);
-        actionGroupDetailDto.setDescription(description);
-        actionGroupDetailDto.setResource(resource);
-        if (actions != null) actionGroupDetailDto.setActions(actions.stream().map(RuleAction::mapToDto).toList());
-        return actionGroupDetailDto;
-    }
 }

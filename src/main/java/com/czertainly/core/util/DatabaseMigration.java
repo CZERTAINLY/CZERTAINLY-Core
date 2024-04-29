@@ -21,7 +21,7 @@ public class DatabaseMigration {
      * @param filePath The path to the file.
      * @return The checksum of the file.
      */
-    public static int calculateChecksum(String filePath) {
+    public static int calculateChecksum(String filePath) throws IOException {
         final File file = new File(filePath);
         final CRC32 crc32 = new CRC32();
 
@@ -38,7 +38,7 @@ public class DatabaseMigration {
             }
         } catch (IOException e) {
             System.out.printf("Error while trying to read file %s: %s%n", filePath, e.getMessage());
-            System.exit(1);
+            throw e;
         }
 
         return (int) crc32.getValue();
@@ -62,12 +62,23 @@ public class DatabaseMigration {
 
         private final int checksum;
 
+        private final boolean isAltered;
+
         JavaMigrationChecksums(int checksum) {
+            this(checksum, false);
+        }
+
+        JavaMigrationChecksums(int checksum, boolean isAltered) {
             this.checksum = checksum;
+            this.isAltered = isAltered;
         }
 
         public int getChecksum() {
             return checksum;
+        }
+
+        public boolean isAltered() {
+            return isAltered;
         }
     }
 

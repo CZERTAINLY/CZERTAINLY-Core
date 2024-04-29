@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
@@ -14,7 +11,10 @@ import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.UUID;
 
 public interface DiscoveryService extends ResourceExtensionService {
 
@@ -52,5 +52,7 @@ public interface DiscoveryService extends ResourceExtensionService {
     Long statisticsDiscoveryCount(SecurityFilter filter);
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
+
+    void evaluateDiscoveryTriggers(UUID discoveryUuid) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
 
 }

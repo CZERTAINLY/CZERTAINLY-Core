@@ -167,7 +167,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_request_uuid", insertable = false, updatable = false)
-    private CertificateRequest certificateRequest;
+    private CertificateRequestEntity certificateRequestEntity;
 
     @Column(name = "certificate_request_uuid")
     private UUID certificateRequestUuid;
@@ -235,16 +235,16 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         //Check and assign private key availability
         dto.setPrivateKeyAvailability(false);
 
-        if (this.certificateRequest != null) {
+        if (this.certificateRequestEntity != null) {
             final CertificateRequestDto certificateRequestDto = new CertificateRequestDto();
-            certificateRequestDto.setContent(this.certificateRequest.getContent());
-            certificateRequestDto.setCertificateType(this.certificateRequest.getCertificateType());
-            certificateRequestDto.setCommonName(this.certificateRequest.getCommonName());
-            certificateRequestDto.setSubjectDn(this.certificateRequest.getSubjectDn());
-            certificateRequestDto.setSignatureAlgorithm(this.certificateRequest.getSignatureAlgorithm());
-            certificateRequestDto.setPublicKeyAlgorithm(this.certificateRequest.getPublicKeyAlgorithm());
-            certificateRequestDto.setCertificateRequestFormat(this.certificateRequest.getCertificateRequestFormat());
-            certificateRequestDto.setSubjectAlternativeNames(MetaDefinitions.deserialize(this.certificateRequest.getSubjectAlternativeNames()));
+            certificateRequestDto.setContent(this.certificateRequestEntity.getContent());
+            certificateRequestDto.setCertificateType(this.certificateRequestEntity.getCertificateType());
+            certificateRequestDto.setCommonName(this.certificateRequestEntity.getCommonName());
+            certificateRequestDto.setSubjectDn(this.certificateRequestEntity.getSubjectDn());
+            certificateRequestDto.setSignatureAlgorithm(this.certificateRequestEntity.getSignatureAlgorithm());
+            certificateRequestDto.setPublicKeyAlgorithm(this.certificateRequestEntity.getPublicKeyAlgorithm());
+            certificateRequestDto.setCertificateRequestFormat(this.certificateRequestEntity.getCertificateRequestFormat());
+            certificateRequestDto.setSubjectAlternativeNames(MetaDefinitions.deserialize(this.certificateRequestEntity.getSubjectAlternativeNames()));
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()) {
@@ -327,17 +327,17 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         return dto;
     }
 
-    public CertificateRequest prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
-        final CertificateRequest certificateRequest = new CertificateRequest();
-        certificateRequest.setCertificateType(this.certificateType);
-        certificateRequest.setKeyUsage(this.keyUsage);
-        certificateRequest.setCommonName(this.commonName);
-        certificateRequest.setPublicKeyAlgorithm(this.publicKeyAlgorithm);
-        certificateRequest.setSignatureAlgorithm(this.signatureAlgorithm);
-        certificateRequest.setSubjectAlternativeNames(this.subjectAlternativeNames);
-        certificateRequest.setSubjectDn(this.subjectDn);
-        certificateRequest.setCertificateRequestFormat(certificateRequestFormat);
-        return certificateRequest;
+    public CertificateRequestEntity prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
+        final CertificateRequestEntity certificateRequestEntity = new CertificateRequestEntity();
+        certificateRequestEntity.setCertificateType(this.certificateType);
+        certificateRequestEntity.setKeyUsage(this.keyUsage);
+        certificateRequestEntity.setCommonName(this.commonName);
+        certificateRequestEntity.setPublicKeyAlgorithm(this.publicKeyAlgorithm);
+        certificateRequestEntity.setSignatureAlgorithm(this.signatureAlgorithm);
+        certificateRequestEntity.setSubjectAlternativeNames(this.subjectAlternativeNames);
+        certificateRequestEntity.setSubjectDn(this.subjectDn);
+        certificateRequestEntity.setCertificateRequestFormat(certificateRequestFormat);
+        return certificateRequestEntity;
     }
 
     @Override
@@ -676,12 +676,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         return TimeUnit.DAYS.convert(Math.abs(notAfter.getTime() - new Date().getTime()), TimeUnit.MILLISECONDS);
     }
 
-    public CertificateRequest getCertificateRequest() {
-        return certificateRequest;
+    public CertificateRequestEntity getCertificateRequest() {
+        return certificateRequestEntity;
     }
 
-    public void setCertificateRequest(CertificateRequest certificateRequest) {
-        this.certificateRequest = certificateRequest;
+    public void setCertificateRequest(CertificateRequestEntity certificateRequestEntity) {
+        this.certificateRequestEntity = certificateRequestEntity;
     }
 
     public UUID getCertificateRequestUuid() {

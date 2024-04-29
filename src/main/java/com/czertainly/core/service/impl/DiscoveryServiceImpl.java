@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -21,6 +22,8 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.rules.ResourceEvent;
+import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -29,12 +32,11 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
-import com.czertainly.core.dao.repository.DiscoveryRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -87,11 +89,35 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private NotificationProducer notificationProducer;
+    private RuleService ruleService;
+    private Object2TriggerRepository object2TriggerRepository;
+    private EventProducer eventProducer;
     private AttributeEngine attributeEngine;
+    private CertificateRuleEvaluator certificateRuleEvaluator;
+
+    @Autowired
+    public void setRuleService(RuleService ruleService) {
+        this.ruleService = ruleService;
+    }
+
+    @Autowired
+    public void setObject2TriggerRepository(Object2TriggerRepository object2TriggerRepository) {
+        this.object2TriggerRepository = object2TriggerRepository;
+    }
+
+    @Autowired
+    public void setCertificateRuleEvaluator(CertificateRuleEvaluator certificateRuleEvaluator) {
+        this.certificateRuleEvaluator = certificateRuleEvaluator;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Override
@@ -311,11 +337,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
 
             updateDiscovery(modal, response);
-            List<Certificate> certificates = updateCertificates(certificatesDiscovered, modal);
+            updateCertificates(certificatesDiscovered, modal);
 
-            for (Certificate certificate : certificates) {
-                certificateService.validate(certificate);
-            }
+            eventProducer.produceDiscoveryFinishedEventMessage(modal.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), ResourceEvent.DISCOVERY_FINISHED);
+
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             modal.setStatus(DiscoveryStatus.FAILED);
@@ -344,6 +369,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
         connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
 
+
         DiscoveryHistory modal = new DiscoveryHistory();
         modal.setName(request.getName());
         modal.setConnectorName(connector.getName());
@@ -356,6 +382,24 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             modal = discoveryRepository.save(modal);
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, modal.getUuid(), request.getCustomAttributes());
             attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid(), request.getAttributes());
+            if (request.getTriggers() != null) {
+                int triggerOrder = 0;
+                for (UUID triggerUuid : request.getTriggers()) {
+                    RuleTrigger2Object ruleTrigger2Object = new RuleTrigger2Object();
+                    ruleTrigger2Object.setResource(Resource.DISCOVERY);
+                    ruleTrigger2Object.setObjectUuid(modal.getUuid());
+                    ruleTrigger2Object.setTriggerUuid(triggerUuid);
+                    RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
+                    // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
+                    if (trigger.getActions().stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE)) {
+                        ruleTrigger2Object.setTriggerOrder(-1);
+                    } else {
+                        ruleTrigger2Object.setTriggerOrder(triggerOrder);
+                        triggerOrder += 1;
+                    }
+                    object2TriggerRepository.save(ruleTrigger2Object);
+                }
+            }
         }
 
         return modal;
@@ -373,12 +417,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return response.getStatus() == DiscoveryStatus.IN_PROGRESS;
     }
 
-    private List<Certificate> updateCertificates(Set<DiscoveryProviderCertificateDataDto> certificatesDiscovered,
-                                                 DiscoveryHistory modal) {
-        List<Certificate> allCerts = new ArrayList<>();
+    private void updateCertificates(Set<DiscoveryProviderCertificateDataDto> certificatesDiscovered,
+                                    DiscoveryHistory modal) {
         if (certificatesDiscovered.isEmpty()) {
             logger.warn("No certificates were given by the provider for the discovery");
-            return allCerts;
+            return;
         }
 
         for (DiscoveryProviderCertificateDataDto certificate : certificatesDiscovered) {
@@ -386,31 +429,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
                 boolean existingCertificate = certificateRepository.existsByFingerprint(CertificateUtil.getThumbprint(x509Cert.getEncoded()));
                 Certificate entry = certificateService.createCertificateEntity(x509Cert);
-                allCerts.add(entry);
-                createDiscoveryCertificate(entry, modal, !existingCertificate);
-                certificateService.updateCertificateEntity(entry);
-                attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, modal.getUuid(), modal.getName()));
-                Map<String, Object> additionalInfo = new HashMap<>();
-                additionalInfo.put("Discovery Name", modal.getName());
-                additionalInfo.put("Discovery UUID", modal.getUuid());
-                additionalInfo.put("Discovery Connector Name", modal.getConnectorName());
-                additionalInfo.put("Discovery Kind", modal.getKind());
-                certificateEventHistoryService.addEventHistory(
-                        entry.getUuid(),
-                        CertificateEvent.DISCOVERY,
-                        CertificateEventStatus.SUCCESS,
-                        "Discovered from Connector: " + modal.getConnectorName() + " via discovery: " + modal.getName(),
-                        MetaDefinitions.serialize(additionalInfo)
-                );
+                createDiscoveryCertificate(entry, modal, !existingCertificate, certificate.getMeta());
             } catch (Exception e) {
                 logger.error(e.getMessage());
                 logger.error("Unable to create certificate for {}", modal);
             }
         }
-        return allCerts;
     }
 
-    private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal, boolean newlyDiscovered) {
+    private void createDiscoveryCertificate(Certificate entry, DiscoveryHistory modal, boolean newlyDiscovered, List<MetadataAttribute> meta) {
         DiscoveryCertificate discoveryCertificate = new DiscoveryCertificate();
         discoveryCertificate.setCommonName(entry.getCommonName());
         discoveryCertificate.setSerialNumber(entry.getSerialNumber());
@@ -420,6 +447,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryCertificate.setCertificateContent(entry.getCertificateContent());
         discoveryCertificate.setDiscovery(modal);
         discoveryCertificate.setNewlyDiscovered(newlyDiscovered);
+        discoveryCertificate.setMeta(meta);
         discoveryCertificateRepository.save(discoveryCertificate);
     }
 
@@ -455,5 +483,98 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
+    }
+
+    @Override
+    public void evaluateDiscoveryTriggers(UUID discoveryUuid) {
+
+        // Get newly discovered certificates
+        DiscoveryHistory discoveryHistory = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
+        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
+        // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
+        List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
+        List<RuleTrigger> orderedTriggers = new ArrayList<>();
+        List<RuleTrigger> ignoreTriggers = new ArrayList<>();
+        for (RuleTrigger2Object ruleTrigger2Object : ruleTrigger2Objects) {
+            try {
+                RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(ruleTrigger2Object.getTriggerUuid()));
+                if (ruleTrigger2Object.getTriggerOrder() == -1) {
+                    ignoreTriggers.add(trigger);
+                } else {
+                    orderedTriggers.add(trigger);
+                }
+            } catch (NotFoundException e) {
+                logger.error(e.getMessage());
+            }
+        }
+
+        // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
+        for (DiscoveryCertificate discoveryCertificate : discoveredCertificates) {
+                // Get X509 from discovered certificate and create certificate entity, do not save in database yet
+                X509Certificate x509Cert;
+                try {
+                    x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
+                } catch (java.security.cert.CertificateException e) {
+                    logger.error("Unable to create certificate from discovery certificate with UUID {}.", discoveryCertificate.getUuid());
+                    continue;
+                }
+                Certificate entry = certificateService.createCertificateEntity(x509Cert);
+
+                // First, check the triggers that have action with action type set to ignore
+                boolean ignored = false;
+                for (RuleTrigger trigger : ignoreTriggers) {
+                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
+                        ignored = true;
+                        break;
+                    }
+                }
+
+                // If some trigger ignored this certificate, certificate is not saved and continue with next one
+                if (ignored) continue;
+
+                // Save certificate to database
+                certificateService.updateCertificateEntity(entry);
+
+                // Evaluate rest of the triggers in given order
+                for (RuleTrigger trigger : orderedTriggers) {
+                    // If rules are satisfied, perform defined actions
+                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
+                        certificateRuleEvaluator.performRuleActions(trigger, entry);
+                    }
+                }
+
+                // Set metadata attributes, create certificate event history entry and validate certificate
+                try {
+                    attributeEngine.updateMetadataAttributes(discoveryCertificate.getMeta(), new ObjectAttributeContentInfo(discoveryHistory.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid(), discoveryHistory.getName()));
+                } catch (AttributeException e) {
+                    logger.error("Could not update metadata for discovery certificate {}.", discoveryCertificate.getUuid());
+                }
+                Map<String, Object> additionalInfo = new HashMap<>();
+                additionalInfo.put("Discovery Name", discoveryHistory.getName());
+                additionalInfo.put("Discovery UUID", discoveryHistory.getUuid());
+                additionalInfo.put("Discovery Connector Name", discoveryHistory.getConnectorName());
+                additionalInfo.put("Discovery Kind", discoveryHistory.getKind());
+                certificateEventHistoryService.addEventHistory(
+                        entry.getUuid(),
+                        CertificateEvent.DISCOVERY,
+                        CertificateEventStatus.SUCCESS,
+                        "Discovered from Connector: " + discoveryHistory.getConnectorName() + " via discovery: " + discoveryHistory.getName(),
+                        MetaDefinitions.serialize(additionalInfo)
+                );
+                certificateService.validate(entry);
+            }
+    }
+
+    // Check if rules are satisfied for a certificate, rules are considered not satisfied also when an error is encountered
+    private boolean satisfiesRules(Certificate certificate, RuleTrigger trigger, UUID discoveryCertificateUuid) {
+        boolean satisfiesRules;
+        try {
+            satisfiesRules = certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate);
+            return satisfiesRules;
+        } catch (RuleException e) {
+            logger.error("Could not evaluate rules of trigger {} on discovery certificate with UUID {}, reason: {}",
+                    trigger.getName(), discoveryCertificateUuid, e.getMessage());
+            return false;
+        }
     }
 }

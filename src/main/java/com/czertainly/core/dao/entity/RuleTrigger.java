@@ -39,9 +39,6 @@ public class RuleTrigger extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private Resource triggerResource;
 
-    @Column(name = "trigger_resource_uuid")
-    private UUID triggerResourceUuid;
-
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "rule_trigger_2_rule",
@@ -66,7 +63,6 @@ public class RuleTrigger extends UniquelyIdentified {
         ruleTriggerDto.setDescription(description);
         ruleTriggerDto.setResource(resource);
         ruleTriggerDto.setTriggerResource(triggerResource);
-        if (triggerResourceUuid != null) ruleTriggerDto.setTriggerResourceUuid(triggerResourceUuid.toString());
         ruleTriggerDto.setTriggerType(triggerType);
         ruleTriggerDto.setEventName(eventName);
         return ruleTriggerDto;
@@ -79,7 +75,6 @@ public class RuleTrigger extends UniquelyIdentified {
         triggerDetailDto.setDescription(description);
         triggerDetailDto.setResource(resource);
         triggerDetailDto.setTriggerResource(triggerResource);
-        if (triggerResourceUuid != null) triggerDetailDto.setTriggerResourceUuid(triggerResourceUuid.toString());
         triggerDetailDto.setTriggerType(triggerType);
         triggerDetailDto.setEventName(eventName);
         triggerDetailDto.setRules(rules.stream().map(Rule::mapToDto).toList());
