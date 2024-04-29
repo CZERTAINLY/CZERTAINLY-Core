@@ -21,7 +21,7 @@ public class DatabaseMigration {
      * @param filePath The path to the file.
      * @return The checksum of the file.
      */
-    public static int calculateChecksum(String filePath) {
+    public static int calculateChecksum(String filePath) throws IOException {
         final File file = new File(filePath);
         final CRC32 crc32 = new CRC32();
 
@@ -38,7 +38,7 @@ public class DatabaseMigration {
             }
         } catch (IOException e) {
             System.out.printf("Error while trying to read file %s: %s%n", filePath, e.getMessage());
-            System.exit(1);
+            throw e;
         }
 
         return (int) crc32.getValue();
@@ -56,17 +56,28 @@ public class DatabaseMigration {
         V202303211718__Scep_Roles(-285333526),
         V202303230830__AttributeContentJsonMigration(1077049851),
         V202308050825__UpdateAcmeScepRolesPermissions(414709752),
-        V202311071500__IssuerAndSubjectDnMigration(-1352440028),
+        V202311071500__IssuerAndSubjectDnMigration(-1352440028, true),
         V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899);
 
         private final int checksum;
 
+        private final boolean isAltered;
+
         JavaMigrationChecksums(int checksum) {
+            this(checksum, false);
+        }
+
+        JavaMigrationChecksums(int checksum, boolean isAltered) {
             this.checksum = checksum;
+            this.isAltered = isAltered;
         }
 
         public int getChecksum() {
             return checksum;
+        }
+
+        public boolean isAltered() {
+            return isAltered;
         }
     }
 

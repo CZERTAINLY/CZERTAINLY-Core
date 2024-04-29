@@ -405,6 +405,18 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
+    /**
+     * Handler for {@link CertificateRequestException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(CertificateRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleCertificateRequestException(CertificateRequestException ex) {
+        LOG.error("HTTP 400 (CertificateRequestException): {}, {}", ex.getMessage(), ex.getCause().getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
 
     /**
      * Handler for {@link Exception}.
