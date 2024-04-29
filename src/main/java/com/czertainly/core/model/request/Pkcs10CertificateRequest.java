@@ -1,5 +1,6 @@
 package com.czertainly.core.model.request;
 
+import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
@@ -17,9 +18,13 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
     private final byte[] encoded;
     private final JcaPKCS10CertificationRequest jcaObject;
 
-    public Pkcs10CertificateRequest(byte[] request) throws IOException {
+    public Pkcs10CertificateRequest(byte[] request) throws CertificateRequestException {
         this.encoded = request;
-        this.jcaObject =  new JcaPKCS10CertificationRequest(encoded);
+        try {
+            this.jcaObject =  new JcaPKCS10CertificationRequest(encoded);
+        } catch (IOException e) {
+            throw new CertificateRequestException("Error when parsing encoded PKCS10 file.");
+        }
     }
 
     @Override
@@ -33,13 +38,17 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
     }
 
     @Override
-    public PublicKey getPublicKey() throws NoSuchAlgorithmException, InvalidKeyException {
-        return jcaObject.getPublicKey();
+    public PublicKey getPublicKey() throws NoSuchAlgorithmException, CertificateRequestException {
+        try {
+            return jcaObject.getPublicKey();
+        } catch (InvalidKeyException e) {
+            throw new CertificateRequestException("Cannot get public key from certificate request.");
+        }
     }
 
     @Override
     public Map<String, Object> getSubjectAlternativeNames() {
-        return CertificateUtil.getSAN(jcaObject, null);
+        return CertificateUtil.getSAN(this);
     }
 
     @Override
@@ -47,5 +56,6 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
         return jcaObject.getSignatureAlgorithm();
     }
 
+    public JcaPKCS10CertificationRequest getJcaObject() { return jcaObject;}
 
 }

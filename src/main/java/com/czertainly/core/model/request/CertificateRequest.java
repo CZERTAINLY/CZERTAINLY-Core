@@ -1,5 +1,6 @@
 package com.czertainly.core.model.request;
 
+import com.czertainly.api.exception.CertificateRequestException;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.openssl.PEMException;
@@ -34,7 +35,7 @@ public interface CertificateRequest {
      *
      * @return public key
      */
-    PublicKey getPublicKey() throws NoSuchAlgorithmException, InvalidKeyException, PEMException;
+    PublicKey getPublicKey() throws NoSuchAlgorithmException, CertificateRequestException;
 
     /**
      * Get the subject alternative names

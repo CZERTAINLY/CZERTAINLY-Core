@@ -9,6 +9,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
@@ -439,6 +440,7 @@ public class ScepServiceImpl implements ScepService {
         ClientCertificateSignRequestDto requestDto = new ClientCertificateSignRequestDto();
         try {
             requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setFormat(CertificateRequestFormat.PKCS10);
             requestDto.setAttributes(issueAttributes);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
@@ -505,14 +507,14 @@ public class ScepServiceImpl implements ScepService {
         if (raProfile != null) requestDto.setRaProfileUuid(raProfile.getUuid());
         try {
             requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setFormat(CertificateRequestFormat.PKCS10);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }
         CertificateDetailDto response;
         try {
             response = clientOperationService.submitCertificateRequest(requestDto);
-        } catch (CertificateException | IOException | NoSuchAlgorithmException |
-                 InvalidKeyException | AttributeException | ConnectorException e) {
+        } catch (CertificateException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
 

@@ -1,5 +1,6 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
@@ -145,7 +146,7 @@ public class CertificateRequestUtils {
         return csr;
     }
 
-    public static CertificateRequest createCertificateRequest(byte[] certificateRequest, CertificateRequestFormat format) throws IOException {
+    public static CertificateRequest createCertificateRequest(byte[] certificateRequest, CertificateRequestFormat format) throws CertificateRequestException {
         switch (format) {
             case PKCS10 -> {
                 return new Pkcs10CertificateRequest(certificateRequest);

@@ -1178,7 +1178,7 @@ public class CertificateServiceImpl implements CertificateService {
             UUID keyUuid,
             UUID raProfileUuid,
             UUID sourceCertificateUuid
-    ) throws NoSuchAlgorithmException, InvalidKeyException, IOException, ConnectorException, AttributeException {
+    ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
 

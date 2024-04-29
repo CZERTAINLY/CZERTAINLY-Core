@@ -405,6 +405,16 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
+    /**
+     * Handler for {@link CertificateRequestException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(CertificateRequestException.class)
+    public ErrorMessageDto handleCertificateRequestException(CertificateRequestException ex) {
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
 
     /**
      * Handler for {@link Exception}.

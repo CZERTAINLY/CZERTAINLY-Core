@@ -776,6 +776,7 @@ public class LocationServiceImpl implements LocationService {
         clientCertificateSignRequestDto.setAttributes(issueAttributes);
         // TODO: support for different types of certificate
         clientCertificateSignRequestDto.setRequest(csr);
+        clientCertificateSignRequestDto.setFormat(CertificateRequestFormat.PKCS10);
         clientCertificateSignRequestDto.setCustomAttributes(certificateCustomAttributes);
         ClientCertificateDataResponseDto clientCertificateDataResponseDto;
         try {
