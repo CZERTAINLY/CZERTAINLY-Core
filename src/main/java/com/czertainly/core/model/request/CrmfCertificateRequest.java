@@ -42,7 +42,7 @@ public class CrmfCertificateRequest implements CertificateRequest {
         try {
             return new JcaPEMKeyConverter().getPublicKey(subjectPublicKeyInfo);
         } catch (PEMException e) {
-            throw new CertificateRequestException("Cannot get public key from certificate request.");
+            throw new CertificateRequestException("Cannot get public key from certificate request.", e);
         }
     }
 

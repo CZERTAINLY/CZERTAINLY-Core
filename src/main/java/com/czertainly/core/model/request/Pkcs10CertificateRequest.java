@@ -23,7 +23,7 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
         try {
             this.jcaObject =  new JcaPKCS10CertificationRequest(encoded);
         } catch (IOException e) {
-            throw new CertificateRequestException("Error when parsing encoded PKCS10 file.");
+            throw new CertificateRequestException("Cannot process PKCS#10 request", e);
         }
     }
 
@@ -42,7 +42,7 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
         try {
             return jcaObject.getPublicKey();
         } catch (InvalidKeyException e) {
-            throw new CertificateRequestException("Cannot get public key from certificate request.");
+            throw new CertificateRequestException("Cannot get public key from certificate request.", e);
         }
     }
 
