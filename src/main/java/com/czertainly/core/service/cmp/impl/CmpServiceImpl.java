@@ -76,7 +76,7 @@ public class CmpServiceImpl implements CmpService {
     @Autowired
     public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
-    // -- HANDLER
+    // -- HANDLER, VALIDATORS
     private CrmfMessageHandler crmfMessageHandler;
     @Autowired
     public void setCrmfMessageHandler(CrmfMessageHandler crmfMessageHandler) { this.crmfMessageHandler = crmfMessageHandler; }
@@ -86,6 +86,10 @@ public class CmpServiceImpl implements CmpService {
     private RevocationMessageHandler revocationMessageHandler;
     @Autowired
     public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) { this.revocationMessageHandler = revocationMessageHandler; }
+
+    @Autowired private HeaderValidator headerValidator;
+    @Autowired private BodyValidator bodyValidator;
+    @Autowired private ProtectionValidator protectionValidator;
 
     // -- OTHERS
     private AttributeEngine attributeEngine;
@@ -126,10 +130,9 @@ public class CmpServiceImpl implements CmpService {
         try {
             PKIMessage pkiResponse;
 
-            new HeaderValidator(config3gppProfile).validate(pkiRequest);
-            new BodyValidator(config3gppProfile).validate(pkiRequest);
-            new ProtectionValidator(config3gppProfile)
-                    .validate(pkiRequest);
+            headerValidator.validate(pkiRequest, config3gppProfile);
+            bodyValidator.validate(pkiRequest, config3gppProfile);
+            protectionValidator.validate(pkiRequest, config3gppProfile);
 
             //see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2, PKI Message Body
             switch (pkiRequest.getBody().getType()) {
@@ -168,10 +171,9 @@ public class CmpServiceImpl implements CmpService {
                     PkiMessageDumper.logPrefix(pkiResponse, profileName),
                     PkiMessageDumper.dumpPkiMessage(verbose, pkiResponse));
 
-            new HeaderValidator(config3gppProfile).validate(pkiResponse);
-            new BodyValidator(config3gppProfile).validate(pkiResponse);
-            new ProtectionValidator(config3gppProfile)
-                    .validate(pkiResponse);
+            headerValidator.validate(pkiResponse, config3gppProfile);
+            bodyValidator.validate(pkiResponse, config3gppProfile);
+            protectionValidator.validate(pkiResponse, config3gppProfile);
 
             //if(true)throw new CmpProcessingException(1,"kurvitko");
 
