@@ -1,14 +1,21 @@
 package com.czertainly.core.service.cmp.message.handler;
 
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.validator.impl.POPValidator;
 import com.czertainly.core.service.cmp.mock.MockCaImpl;
+import com.czertainly.core.service.v2.ClientOperationService;
 import org.bouncycastle.asn1.cmp.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,6 +52,19 @@ public class CrmfMessageHandler implements MessageHandler {
             PKIBody.TYPE_KEY_UPDATE_REQ,    // kur      [7]  CertReqMessages,       --Key Update Request
             PKIBody.TYPE_KEY_RECOVERY_REQ,  // krr      [9]  CertReqMessages,       --Key Recovery Req     (not implemented)
             PKIBody.TYPE_CROSS_CERT_REQ);   // ccr      [13] CertReqMessages,       --Cross-Cert.  Request (not implemented)
+
+    private ClientOperationService clientOperationService;
+    private CertificateService certificateService;
+
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
     /**
      *<pre>
@@ -108,6 +128,20 @@ public class CrmfMessageHandler implements MessageHandler {
 
         PKIMessage response = MockCaImpl
                 .handleCrmfCertificateRequest(request, configuration);
+
+        // request = CRMF
+        // authorityUuid should be from RA Profile
+        // ClientCertificateDataResponseDto clientCertificateDataResponseDto = clientOperationService.issueCertificate(authorityUuid, raProfileUuid, request);
+        // clientCertificateDataResponseDto.getUuid() <-- UUID of the certificate entity and we need to check that it was issued
+
+        // when it was issued, it has
+        // Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromUUID(uuid));
+        // certificate.getState() == CertificateState.ISSUED; // check if it was issued, it can be also FAILED, or REJECTED
+        // certificate.getCertificateContent();
+        // certificateService.getCertificateChain();
+
+        // clientOperationService.renewCertificate(authorityUuid, raProfileUuid, certificateUuid, request);
+        // clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request);
 
         if(response != null) { return response; }
         throw new CmpProcessingException(
