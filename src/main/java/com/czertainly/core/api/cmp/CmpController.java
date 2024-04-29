@@ -1,7 +1,7 @@
 package com.czertainly.core.api.cmp;
 
 import com.czertainly.api.model.core.acme.ProblemDocument;
-import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpBaseException;
 import io.swagger.v3.oas.annotations.ExternalDocumentation;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -58,7 +58,7 @@ public interface CmpController {
     ResponseEntity<Object> doGet(
             @PathVariable String cmpProfileName,
             @RequestParam(required = false) @Schema(description = "DER encoded CMP data",type = "string",format = "binary") byte[] message
-    ) throws CmpException;
+    ) throws CmpBaseException;
 
     @Operation(
             summary = "CMP Post Operation", //TODO [toce] najit nejake blizsi info o http/post
@@ -84,6 +84,6 @@ public interface CmpController {
             produces = {"application/pkixcmp"}
     )
     ResponseEntity<Object> doPost(@PathVariable String cmpProfileName, @RequestBody @Schema(description = "Binary CMP data",type = "string",format = "binary") byte[] request
-    ) throws CmpException;
+    ) throws CmpBaseException;
 }
 

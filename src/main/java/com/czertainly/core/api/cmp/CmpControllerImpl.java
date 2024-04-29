@@ -1,6 +1,6 @@
 package com.czertainly.core.api.cmp;
 
-import com.czertainly.core.api.cmp.error.CmpException;
+import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
 import com.czertainly.core.service.cmp.CmpService;
@@ -24,12 +24,12 @@ public class CmpControllerImpl implements CmpController {
     }
 
     @Override
-    public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpException {
+    public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpBaseException {
         throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
 
     @Override
-    public ResponseEntity<Object> doPost(String cmpProfileName, byte[] request) throws CmpException {
+    public ResponseEntity<Object> doPost(String cmpProfileName, byte[] request) throws CmpBaseException {
         return cmpService.handlePost(cmpProfileName, request);
     }
 }

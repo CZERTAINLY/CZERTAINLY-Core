@@ -7,16 +7,17 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.api.cmp.error.*;
-import com.czertainly.core.api.cmp.message.ConfigurationContext;
-import com.czertainly.core.api.cmp.message.PkiMessageDumper;
-import com.czertainly.core.api.cmp.message.handler.CertConfirmMessageHandler;
-import com.czertainly.core.api.cmp.message.handler.CrmfMessageHandler;
-import com.czertainly.core.api.cmp.message.handler.RevocationMessageHandler;
-import com.czertainly.core.api.cmp.message.validator.impl.BodyValidator;
-import com.czertainly.core.api.cmp.message.validator.impl.HeaderValidator;
-import com.czertainly.core.api.cmp.message.validator.impl.ProtectionValidator;
-import com.czertainly.core.api.cmp.mock.MockCaImpl;
-import com.czertainly.core.api.cmp.profiles.Mobile3gppProfileContext;
+import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.message.PkiMessageDumper;
+import com.czertainly.core.service.cmp.message.PkiMessageError;
+import com.czertainly.core.service.cmp.message.handler.CertConfirmMessageHandler;
+import com.czertainly.core.service.cmp.message.handler.CrmfMessageHandler;
+import com.czertainly.core.service.cmp.message.handler.RevocationMessageHandler;
+import com.czertainly.core.service.cmp.message.validator.impl.BodyValidator;
+import com.czertainly.core.service.cmp.message.validator.impl.HeaderValidator;
+import com.czertainly.core.service.cmp.message.validator.impl.ProtectionValidator;
+import com.czertainly.core.service.cmp.mock.MockCaImpl;
+import com.czertainly.core.service.cmp.profiles.Mobile3gppProfileContext;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.dao.entity.Certificate;
@@ -75,6 +76,17 @@ public class CmpServiceImpl implements CmpService {
     @Autowired
     public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
+    // -- HANDLER
+    private CrmfMessageHandler crmfMessageHandler;
+    @Autowired
+    public void setCrmfMessageHandler(CrmfMessageHandler crmfMessageHandler) { this.crmfMessageHandler = crmfMessageHandler; }
+    private CertConfirmMessageHandler certConfirmMessageHandler;
+    @Autowired
+    public void setCertConfirmMessageHandler(CertConfirmMessageHandler certConfirmMessageHandler) { this.certConfirmMessageHandler = certConfirmMessageHandler; }
+    private RevocationMessageHandler revocationMessageHandler;
+    @Autowired
+    public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) { this.revocationMessageHandler = revocationMessageHandler; }
+
     // -- OTHERS
     private AttributeEngine attributeEngine;
     @Autowired
@@ -83,7 +95,7 @@ public class CmpServiceImpl implements CmpService {
     }
 
     @Override
-    public ResponseEntity<Object> handlePost(String profileName, byte[] request) throws CmpException {
+    public ResponseEntity<Object> handlePost(String profileName, byte[] request) throws CmpBaseException {
         boolean verbose = false;
         try { MockCaImpl.init();} catch (Exception e) {
             throw new IllegalStateException("mock of CA cannot start", e);
@@ -124,17 +136,11 @@ public class CmpServiceImpl implements CmpService {
                 case PKIBody.TYPE_INIT_REQ:                        // ( 1)       ir, Initial Request; CertReqMessages
                 case PKIBody.TYPE_CERT_REQ:                        // ( 2)       cr, Certification Req; CertReqMessages
                 case PKIBody.TYPE_KEY_UPDATE_REQ:                  // ( 7)      kur, Key Update Request; CertReqMessages
-                    pkiResponse = new CrmfMessageHandler()
-                            .handle(pkiRequest, config3gppProfile);
-                    break;
+                    pkiResponse = crmfMessageHandler.handle(pkiRequest, config3gppProfile); break;
                 case PKIBody.TYPE_REVOCATION_REQ:                  // (11)       rr, Revocation Request; RevReqContent
-                    pkiResponse = new RevocationMessageHandler()
-                            .handle(pkiRequest, config3gppProfile);
-                    break;
+                    pkiResponse = revocationMessageHandler.handle(pkiRequest, config3gppProfile); break;
                 case PKIBody.TYPE_CERT_CONFIRM:                    // (24) certConf, Certificate confirm; CertConfirmContent
-                    pkiResponse = new CertConfirmMessageHandler()
-                            .handle(pkiRequest, config3gppProfile);
-                    break;
+                    pkiResponse = certConfirmMessageHandler.handle(pkiRequest, config3gppProfile); break;
                 case PKIBody.TYPE_CROSS_CERT_REQ:
                 case PKIBody.TYPE_KEY_RECOVERY_REQ:
                 case PKIBody.TYPE_GEN_MSG:
@@ -170,7 +176,7 @@ public class CmpServiceImpl implements CmpService {
             //if(true)throw new CmpProcessingException(1,"kurvitko");
 
             return buildOk(pkiResponse);
-        } catch (CmpException e) {
+        } catch (CmpBaseException e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
             LOG.error("{} | processing failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
                     requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
