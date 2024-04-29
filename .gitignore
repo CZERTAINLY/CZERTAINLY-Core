@@ -33,3 +33,4 @@ target/
 .DS_Store
 
 application-*.properties
+/.mvn
