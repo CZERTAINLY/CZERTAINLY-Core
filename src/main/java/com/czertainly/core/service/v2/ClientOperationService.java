@@ -30,7 +30,7 @@ public interface ClientOperationService {
 
     CertificateDetailDto submitCertificateRequest(
             ClientCertificateRequestDto request
-    ) throws ConnectorException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, AttributeException;
+    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException;
 
     ClientCertificateDataResponseDto issueRequestedCertificate(
             SecuredParentUUID authorityUuid,

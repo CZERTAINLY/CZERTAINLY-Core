@@ -59,17 +59,17 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleConditionGroupDetailDto createConditionGroup(RuleConditionGroupRequestDto request) {
+    public RuleConditionGroupDto createConditionGroup(RuleConditionGroupRequestDto request) {
         return ruleService.createConditionGroup(request);
     }
 
     @Override
-    public RuleConditionGroupDetailDto getConditionGroup(String conditionGroupUuid) throws NotFoundException {
+    public RuleConditionGroupDto getConditionGroup(String conditionGroupUuid) throws NotFoundException {
         return ruleService.getConditionGroup(conditionGroupUuid);
     }
 
     @Override
-    public RuleConditionGroupDetailDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
+    public RuleConditionGroupDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
         return ruleService.updateConditionGroup(conditionGroupUuid, request);
     }
 
@@ -84,17 +84,17 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleActionGroupDetailDto createActionGroup(RuleActionGroupRequestDto request) {
+    public RuleActionGroupDto createActionGroup(RuleActionGroupRequestDto request) {
         return ruleService.createActionGroup(request);
     }
 
     @Override
-    public RuleActionGroupDetailDto getActionGroup(String actionGroupUuid) throws NotFoundException {
+    public RuleActionGroupDto getActionGroup(String actionGroupUuid) throws NotFoundException {
         return ruleService.getActionGroup(actionGroupUuid);
     }
 
     @Override
-    public RuleActionGroupDetailDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
+    public RuleActionGroupDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
         return ruleService.updateActionGroup(actionGroupUuid, request);
     }
 

@@ -1,22 +1,18 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import jakarta.persistence.*;
 import lombok.Data;
 
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
-import java.util.List;
 
 @Data
 @Entity
 @Table(name = "certificate_request")
-public class CertificateRequest extends UniquelyIdentifiedAndAudited  {
+public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited  {
 
     @Column(name = "certificate_type")
     @Enumerated(EnumType.STRING)

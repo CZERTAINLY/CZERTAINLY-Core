@@ -41,6 +41,7 @@ import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -61,7 +62,6 @@ import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -1169,13 +1169,27 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public CertificateDetailDto submitCertificateRequest(String csr, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, InvalidKeyException, IOException, ConnectorException, AttributeException {
+    public CertificateDetailDto submitCertificateRequest(
+            String certificateRequest,
+            CertificateRequestFormat certificateRequestFormat,
+            List<RequestAttributeDto> signatureAttributes,
+            List<RequestAttributeDto> csrAttributes,
+            List<RequestAttributeDto> issueAttributes,
+            UUID keyUuid,
+            UUID raProfileUuid,
+            UUID sourceCertificateUuid
+    ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
 
-        final JcaPKCS10CertificationRequest jcaObject = CsrUtil.csrStringToJcaObject(csr);
+        // create certificate request from CSR and parse the data
+        byte[] decodedCsr = Base64.getDecoder().decode(certificateRequest);
+        CertificateRequest request = CertificateRequestUtils.createCertificateRequest(decodedCsr, certificateRequestFormat);
+
         Certificate certificate = new Certificate();
-        CertificateUtil.prepareCsrObject(certificate, jcaObject);
+        // prepare certificate request data for certificate
+        CertificateUtil.prepareCsrObject(certificate, request);
+
         certificate.setKeyUuid(keyUuid);
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
@@ -1184,54 +1198,75 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setRaProfileUuid(raProfileUuid);
         certificate.setSourceCertificateUuid(sourceCertificateUuid);
 
-        // set owner of certificate to logged user
+        // TODO: the owner of certificate and requester may be different entities, we should handle this
+        //  for example when the requests are coming from protocols, where owner should not be the protocol
+        // set owner of certificate to user that requested it
         try {
             NameAndUuidDto userIdentification = AuthHelper.getUserIdentification();
             certificate.setOwner(userIdentification.getName());
             certificate.setOwnerUuid(UUID.fromString(userIdentification.getUuid()));
         } catch (Exception e) {
-            logger.warn("Unable to set owner of new certificate to logged user: {}", e.getMessage());
+            logger.warn("Unable to set owner of new certificate: {}", e.getMessage());
         }
 
         // find if exists same certificate request by content
-        CertificateRequest certificateRequest;
-        byte[] decodedCSR = Base64.getDecoder().decode(csr);
-        final String csrFingerprint = CertificateUtil.getThumbprint(decodedCSR);
-        Optional<CertificateRequest> certificateRequestOptional = certificateRequestRepository.findByFingerprint(csrFingerprint);
+        CertificateRequestEntity certificateRequestEntity;
 
+        final String certificateRequestFingerprint = CertificateUtil.getThumbprint(decodedCsr);
+        // get the certificate request by fingerprint, if exists
+        Optional<CertificateRequestEntity> certificateRequestOptional =
+                certificateRequestRepository.findByFingerprint(certificateRequestFingerprint);
 
-        List<ResponseAttributeDto> requestAttributes = null;
-        List<ResponseAttributeDto> requestSignatureAttributes = null;
+        List<ResponseAttributeDto> requestAttributes;
+        List<ResponseAttributeDto> requestSignatureAttributes;
         if (certificateRequestOptional.isPresent()) {
-            certificateRequest = certificateRequestOptional.get();
+            certificateRequestEntity = certificateRequestOptional.get();
             // if no CSR attributes are assigned to CSR, update them with ones provided
-            requestAttributes = attributeEngine.getObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificateRequest.getUuid());
-            requestSignatureAttributes = attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequest.getUuid());
+            requestAttributes = attributeEngine.getObjectDataAttributesContent(
+                    null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
+            );
+            requestSignatureAttributes = attributeEngine.getObjectDataAttributesContent(
+                    null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
+            );
             if (requestAttributes.isEmpty() && csrAttributes != null && !csrAttributes.isEmpty()) {
-                requestAttributes = attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificateRequest.getUuid(), csrAttributes);
+                requestAttributes = attributeEngine.updateObjectDataAttributesContent(
+                        null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
+                );
             }
             if (requestSignatureAttributes.isEmpty() && signatureAttributes != null && !signatureAttributes.isEmpty()) {
-                requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequest.getUuid(), signatureAttributes);
+                requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
+                        null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
+                );
             }
         } else {
-            certificateRequest = certificate.prepareCertificateRequest(CertificateRequestFormat.PKCS10);
-            certificateRequest.setFingerprint(csrFingerprint);
-            certificateRequest.setContent(csr);
-            certificateRequest = certificateRequestRepository.save(certificateRequest);
+            certificateRequestEntity = certificate.prepareCertificateRequest(certificateRequestFormat);
+            certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
+            certificateRequestEntity.setContent(certificateRequest);
+            certificateRequestEntity = certificateRequestRepository.save(certificateRequestEntity);
 
-            requestAttributes = attributeEngine.updateObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificateRequest.getUuid(), csrAttributes);
-            requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequest.getUuid(), signatureAttributes);
+            requestAttributes = attributeEngine.updateObjectDataAttributesContent(
+                    null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
+            );
+            requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
+                    null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
+            );
         }
 
-        certificate.setCertificateRequest(certificateRequest);
-        certificate.setCertificateRequestUuid(certificateRequest.getUuid());
+        certificate.setCertificateRequest(certificateRequestEntity);
+        certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate = certificateRepository.save(certificate);
 
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes));
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS, "Certificate request created with the provided parameters", "");
+        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+        );
+        certificateEventHistoryService.addEventHistory(
+                certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
+                "Certificate request created", ""
+        );
 
         logger.info("Certificate request submitted and certificate created {}", certificate);
 
@@ -1522,7 +1557,7 @@ public class CertificateServiceImpl implements CertificateService {
         return "";
     }
 
-    private void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException {
+    public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException {
         Certificate certificate = getCertificateEntity(uuid);
 
         // check if there is change in RA profile compared to current state
@@ -1582,7 +1617,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, currentRaProfileName + " -> " + newRaProfileName, "");
     }
 
-    private void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
+    public void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
         // check if there is change in group compared to current state
@@ -1605,7 +1640,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, currentGroupName + " -> " + newGroupName, "");
     }
 
-    private void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException {
+    public void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
         // if there is no change, do not update and save request to Auth service

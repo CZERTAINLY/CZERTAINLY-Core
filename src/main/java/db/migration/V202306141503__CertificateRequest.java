@@ -1,7 +1,7 @@
 package db.migration;
 
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.core.dao.entity.CertificateRequest;
+import com.czertainly.core.dao.entity.CertificateRequestEntity;
 import com.czertainly.core.util.CertificateUtil;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
@@ -43,7 +43,7 @@ public class V202306141503__CertificateRequest extends BaseJavaMigration {
 
     private void migrateCertificateToCertificateRequest(final Statement select) throws SQLException, CertificateException, NoSuchAlgorithmException {
         final List<String> sqlCommands = new ArrayList<>();
-        final List<CertificateRequest> certificateRequests = new ArrayList<>();
+        final List<CertificateRequestEntity> certificateRequestEntities = new ArrayList<>();
         UUID certificateRequestUuid;
 
         try (final ResultSet certificates = select.executeQuery("SELECT * FROM certificate")) {
@@ -51,8 +51,8 @@ public class V202306141503__CertificateRequest extends BaseJavaMigration {
                 final String csrContent = certificates.getString("csr");
                 final String certificateUuid = certificates.getString("uuid");
 
-                final CertificateRequest certificateRequest = findCsrByContent(certificateRequests, csrContent);
-                if (certificateRequest == null) {
+                final CertificateRequestEntity certificateRequestEntity = findCsrByContent(certificateRequestEntities, csrContent);
+                if (certificateRequestEntity == null) {
                     final String commonName = certificates.getString("common_name");
                     if (csrContent == null) {
                         logger.info("There is no CSR for certificate {}.", commonName);
@@ -97,12 +97,12 @@ public class V202306141503__CertificateRequest extends BaseJavaMigration {
                     logger.info(sqlCommand);
                     sqlCommands.add(sqlCommand);
 
-                    final CertificateRequest certRequest = new CertificateRequest();
+                    final CertificateRequestEntity certRequest = new CertificateRequestEntity();
                     certRequest.setUuid(certificateRequestUuid);
                     certRequest.setContent(csrContent);
-                    certificateRequests.add(certRequest);
+                    certificateRequestEntities.add(certRequest);
                 } else {
-                    certificateRequestUuid = certificateRequest.getUuid();
+                    certificateRequestUuid = certificateRequestEntity.getUuid();
                 }
 
                 final String sqlUpdateCommand =
@@ -117,8 +117,8 @@ public class V202306141503__CertificateRequest extends BaseJavaMigration {
         executeCommands(select, SQL_FOR_FINAL_STEPS);
     }
 
-    private CertificateRequest findCsrByContent(final List<CertificateRequest> certificateRequests, final String csrContent) {
-        Optional<CertificateRequest> certificateRequestOptional = certificateRequests.stream().filter(cr -> cr.getContent().equals(csrContent)).findFirst();
+    private CertificateRequestEntity findCsrByContent(final List<CertificateRequestEntity> certificateRequestEntities, final String csrContent) {
+        Optional<CertificateRequestEntity> certificateRequestOptional = certificateRequestEntities.stream().filter(cr -> cr.getContent().equals(csrContent)).findFirst();
         return certificateRequestOptional.isPresent() ? certificateRequestOptional.get() : null;
     }
 

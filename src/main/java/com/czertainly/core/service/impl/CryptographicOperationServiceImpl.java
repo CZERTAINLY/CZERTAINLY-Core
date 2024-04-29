@@ -16,7 +16,6 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
 import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
@@ -37,7 +36,7 @@ import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.CertificateRequestUtils;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
@@ -506,7 +505,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 principal,
-                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getKeyAlgorithm().getCode())
+                CertificateRequestUtils.publicKeyObjectFromString(key, publicKeyItem.getKeyAlgorithm().getCode())
         );
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
@@ -525,7 +524,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         PKCS10CertificationRequest csr = p10Builder.build(signer);
 
         // Convert the data from byte array to string
-        return CsrUtil.byteArrayCsrToString(csr.getEncoded());
+        return CertificateRequestUtils.byteArrayCsrToString(csr.getEncoded());
     }
 
     private List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {

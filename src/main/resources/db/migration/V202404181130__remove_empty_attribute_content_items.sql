@@ -1,0 +1,2 @@
+DELETE FROM attribute_content_2_object WHERE attribute_content_item_uuid IN (SELECT uuid FROM attribute_content_item WHERE json->>'data' IS NULL);
+DELETE FROM attribute_content_item WHERE json->>'data' IS NULL;

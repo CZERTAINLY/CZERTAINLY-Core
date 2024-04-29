@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.Certificate;
@@ -129,11 +130,37 @@ public interface CertificateService extends ResourceExtensionService  {
      */
     void  updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException;
 
+
     /**
-     * Method to update the Objects of multiple certificates
-     *
-     * @param request Request to update multiple objects
+     * Method to switch RA profile of a Certificate
+     * @param uuid          UUID of the certificate
+     * @param raProfileUuid UUID of the RA profile to switch to
      */
+    void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException;
+
+    /**
+     * Method to change Certificate Group for a Certificate
+     * @param uuid      UUID of the certificate
+     * @param groupUuid UUID of the certificate group
+     */
+    void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException;
+
+
+    /**
+     * Method to change Owner for a Certificate
+     * @param uuid        UUID of the certificate
+     * @param ownerUuid   UUID of the certificate owner
+     * @param ownerName   Name of the certificate owner
+     */
+    void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException;
+
+
+
+        /**
+         * Method to update the Objects of multiple certificates
+         *
+         * @param request Request to update multiple objects
+         */
     void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
 
     /**
@@ -223,6 +250,7 @@ public interface CertificateService extends ResourceExtensionService  {
     /**
      * Create certificate request entity and certificate in status New, store it in the database ready for issuing
      * @param csr - PKCS10 certificate request to be added
+     * @param csrFormat - format of the certificate request
      * @param signatureAttributes signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
      *                            this parameter should be left empty
      * @param csrAttributes Attributes used to create CSR
@@ -232,7 +260,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param sourceCertificateUuid UUID of the source certificate specified in case of renew/rekey operation
      * return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, InvalidKeyException, IOException, ConnectorException, AttributeException;
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate

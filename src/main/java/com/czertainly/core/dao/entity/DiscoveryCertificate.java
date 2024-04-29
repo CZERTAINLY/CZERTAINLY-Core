@@ -1,13 +1,17 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Entity
@@ -47,6 +51,10 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     @Column(name = "newly_discovered", nullable = false)
     private boolean newlyDiscovered;
+
+    @Column(name = "meta", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<MetadataAttribute> meta;
 
     @Override
     public DiscoveryCertificateDto mapToDto() {
@@ -158,4 +166,14 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     public void setNewlyDiscovered(boolean newlyDiscovered) {
         this.newlyDiscovered = newlyDiscovered;
     }
+
+    public List<MetadataAttribute> getMeta() {
+        return meta;
+    }
+
+    public void setMeta(List<MetadataAttribute> meta) {
+        this.meta = meta;
+    }
+
+
 }
