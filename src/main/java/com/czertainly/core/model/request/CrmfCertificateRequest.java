@@ -2,16 +2,14 @@ package com.czertainly.core.model.request;
 
 import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.core.util.CertificateUtil;
-import org.bouncycastle.asn1.crmf.CRMFObjectIdentifiers;
+import lombok.Getter;
+import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
-import org.bouncycastle.cert.crmf.CertificateRequestMessage;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessage;
 import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
-import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.Map;
@@ -19,11 +17,15 @@ import java.util.Map;
 public class CrmfCertificateRequest implements CertificateRequest {
 
     private final byte[] encoded;
+    @Getter
     private final JcaCertificateRequestMessage certificateRequestMessage;
 
     public CrmfCertificateRequest(byte[] request) {
         this.encoded = request;
-        this.certificateRequestMessage = new JcaCertificateRequestMessage(request);
+        CertReqMessages certReqMessages = CertReqMessages.getInstance(request);
+        // we take only the first request
+        // TODO: support multiple requests
+        this.certificateRequestMessage = new JcaCertificateRequestMessage(certReqMessages.toCertReqMsgArray()[0]);
     }
 
     @Override
@@ -54,10 +56,6 @@ public class CrmfCertificateRequest implements CertificateRequest {
     @Override
     public AlgorithmIdentifier getSignatureAlgorithm() {
         return certificateRequestMessage.getCertTemplate().getSigningAlg();
-    }
-
-    public JcaCertificateRequestMessage getCertificateRequestMessage() {
-        return this.certificateRequestMessage;
     }
 
 }
