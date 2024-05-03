@@ -31,7 +31,6 @@ import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
-import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
@@ -286,7 +285,7 @@ public class AttributeEngine {
             }
             if (!resources.isEmpty()) {
                 // check for invalid resources
-                List<String> invalidResources = resources.stream().filter(r -> !r.supportCustomAttributes()).map(Resource::getLabel).toList();
+                List<String> invalidResources = resources.stream().filter(r -> !r.hasCustomAttributes()).map(Resource::getLabel).toList();
                 if (!invalidResources.isEmpty()) {
                     throw new AttributeException("Unsupported Resources for Custom Attribute: " + StringUtils.join(invalidResources, ", "), customAttribute.getUuid(), customAttribute.getName(), customAttribute.getType(), null);
                 }

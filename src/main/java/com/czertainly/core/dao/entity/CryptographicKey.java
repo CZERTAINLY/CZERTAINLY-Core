@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.DtoMapper;
@@ -7,6 +8,8 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.Where;
+import org.hibernate.annotations.WhereJoinTable;
 
 import java.io.Serializable;
 import java.util.HashSet;
@@ -39,18 +42,16 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "token_instance_uuid")
     private UUID tokenInstanceReferenceUuid;
 
-    @Column(name = "owner")
-    private String owner;
+    @JsonBackReference
+    @ManyToMany(fetch = FetchType.EAGER)
+    @JoinTable(name = "resource_object_association", joinColumns = @JoinColumn(name = "object_uuid"), inverseJoinColumns = @JoinColumn(name = "group_uuid"))
+    @WhereJoinTable(clause = "resource = 'CRYPTOGRAPHIC_KEY' AND type = 'GROUP'")
+    private Set<Group> groups = new HashSet<>();
 
-    @Column(name = "owner_uuid")
-    private UUID ownerUuid;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
-    private Group group;
-
-    @Column(name = "group_uuid")
-    private UUID groupUuid;
+    @OneToMany(fetch = FetchType.EAGER)
+    @JoinColumn(name = "object_uuid")
+    @Where(clause = "resource = 'CRYPTOGRAPHIC_KEY'")
+    private List<OwnerAssociation> owners;
 
     @JsonBackReference
     @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -118,37 +119,16 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
     }
 
-    public String getOwner() {
-        return owner;
+    public NameAndUuidDto getOwner() {
+        return owners == null || owners.isEmpty() ? null : owners.get(0).getOwnerInfo();
     }
 
-    public void setOwner(String owner) {
-        this.owner = owner;
+    public Set<Group> getGroups() {
+        return groups;
     }
 
-    public UUID getOwnerUuid() {
-        return ownerUuid;
-    }
-
-    public void setOwnerUuid(UUID ownerUuid) {
-        this.ownerUuid = ownerUuid;
-    }
-
-    public Group getGroup() {
-        return group;
-    }
-
-    public void setGroup(Group group) {
-        this.group = group;
-        if (group != null) this.groupUuid = group.getUuid();
-    }
-
-    public UUID getGroupUuid() {
-        return groupUuid;
-    }
-
-    public void setGroupUuid(UUID groupUuid) {
-        this.groupUuid = groupUuid;
+    public void setGroups(Set<Group> groups) {
+        this.groups = groups;
     }
 
     // Get the list of items for the key
@@ -188,9 +168,13 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         }
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
-        if(group != null ) dto.setGroup(group.mapToDto());
-        dto.setOwner(owner);
-        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
+        if (groups != null) {
+            dto.setGroups(groups.stream().map(Group::mapToDto).toList());
+        }
+        if (getOwner() != null) {
+            dto.setOwnerUuid(getOwner().getUuid());
+            dto.setOwner(getOwner().getName());
+        }
         dto.setItems(getKeyItemsSummary());
         dto.setAssociations((items.size() -1 ) + certificates.size());
         return dto;
@@ -209,11 +193,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
-        dto.setOwner(owner);
-        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
-
-        if (group != null) {
-            dto.setGroup(group.mapToDto());
+        if (groups != null) {
+            dto.setGroups(groups.stream().map(Group::mapToDto).toList());
+        }
+        if (getOwner() != null) {
+            dto.setOwnerUuid(getOwner().getUuid());
+            dto.setOwner(getOwner().getName());
         }
         if(certificates != null && !certificates.isEmpty()) {
             dto.setAssociations(certificates.stream().map(e -> {

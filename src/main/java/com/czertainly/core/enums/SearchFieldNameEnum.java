@@ -14,7 +14,7 @@ public enum SearchFieldNameEnum {
     RA_PROFILE(SearchableFields.RA_PROFILE_NAME, "RA Profile", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.RA_PROFILE),
     CERTIFICATE_STATE(SearchableFields.CERTIFICATE_STATE, "State", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     CERTIFICATE_VALIDATION_STATUS(SearchableFields.CERTIFICATE_VALIDATION_STATUS, "Validation status", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
-    GROUP(SearchableFields.GROUP_NAME, "Group", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.GROUP),
+    GROUP(SearchableFields.GROUP_NAME, "Groups", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.GROUP),
     OWNER(SearchableFields.OWNER, "Owner", SearchFieldTypeEnum.STRING, true, Resource.CERTIFICATE, null),
     ISSUER_COMMON_NAME(SearchableFields.ISSUER_COMMON_NAME, "Issuer Common Name", SearchFieldTypeEnum.STRING, false, Resource.CERTIFICATE, null),
     SIGNATURE_ALGORITHM(SearchableFields.SIGNATURE_ALGORITHM, "Signature Algorithm", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
@@ -34,7 +34,7 @@ public enum SearchFieldNameEnum {
     SIGNATURE_VALIDATION(SearchableFields.SIGNATURE_VALIDATION, "Signature Validation", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     COMPLIANCE_STATUS(SearchableFields.COMPLIANCE_STATUS, "Compliance Status", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     PRIVATE_KEY(SearchableFields.PRIVATE_KEY, "Has private key", SearchFieldTypeEnum.BOOLEAN, false, Resource.CERTIFICATE, null),
-    TRUSTED_CA(SearchableFields.TRUSTED_CA, "Trusted CA", SearchFieldTypeEnum.BOOLEAN, true, Resource.CERTIFICATE, null),
+    TRUSTED_CA(SearchableFields.TRUSTED_CA, "Trusted CA", SearchFieldTypeEnum.BOOLEAN, false, Resource.CERTIFICATE, null),
 
     // Cryptographic Key
     NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.CRYPTOGRAPHIC_KEY, null),
@@ -45,7 +45,7 @@ public enum SearchFieldNameEnum {
     KEY_TOKEN_PROFILE(SearchableFields.CK_TOKEN_PROFILE, "Token profile", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN_PROFILE),
     KEY_TOKEN_INSTANCE_LABEL(SearchableFields.CK_TOKEN_INSTANCE, "Token instance", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN),
     KEY_LENGTH(SearchableFields.CKI_LENGTH, "Key Size", SearchFieldTypeEnum.NUMBER, false, Resource.CRYPTOGRAPHIC_KEY, null),
-    CK_GROUP(SearchableFields.CK_GROUP, "Group", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, Resource.GROUP),
+    CK_GROUP(SearchableFields.CK_GROUP, "Groups", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, Resource.GROUP),
     CK_OWNER(SearchableFields.CK_OWNER, "Owner", SearchFieldTypeEnum.STRING, true, Resource.CRYPTOGRAPHIC_KEY, null),
     CK_KEY_USAGE(SearchableFields.CKI_USAGE, "Key Usage", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, null),
 

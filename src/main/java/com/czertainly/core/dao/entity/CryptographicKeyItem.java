@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.cryptography.key.KeyCompromiseReason;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -11,13 +12,18 @@ import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
 @Entity
 @Table(name = "cryptographic_key_item")
+@EntityListeners(AuditingEntityListener.class)
 public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDetailDto> {
 
     @Column(name = "name")
@@ -70,6 +76,14 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Enumerated(EnumType.STRING)
     @Column(name = "reason")
     private KeyCompromiseReason reason;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    @CreatedDate
+    protected LocalDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    @LastModifiedDate
+    protected LocalDateTime updatedAt;
 
     public String getName() {
         return name;
@@ -209,6 +223,22 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.fingerprint = fingerprint;
     }
 
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public LocalDateTime getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(LocalDateTime updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
@@ -257,9 +287,14 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setKeyWrapperUuid(cryptographicKey.getUuid().toString());
         dto.setAssociations((cryptographicKey.getItems().size() - 1) + cryptographicKey.getCertificates().size());
         dto.setDescription(cryptographicKey.getDescription());
-        if (cryptographicKey.getGroup() != null) dto.setGroup(cryptographicKey.getGroup().mapToDto());
-        dto.setOwner(cryptographicKey.getOwner());
-        if (cryptographicKey.getOwnerUuid() != null) dto.setOwnerUuid(cryptographicKey.getOwnerUuid().toString());
+        if (cryptographicKey.getGroups() != null) {
+            dto.setGroups(cryptographicKey.getGroups().stream().map(Group::mapToDto).toList());
+        }
+        NameAndUuidDto owner = cryptographicKey.getOwner();
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getUuid());
+            dto.setOwner(owner.getName());
+        }
         dto.setCreationTime(cryptographicKey.getCreated());
         dto.setTokenInstanceName(cryptographicKey.getTokenInstanceReference().getName());
         dto.setTokenInstanceUuid(cryptographicKey.getTokenInstanceReferenceUuid().toString());

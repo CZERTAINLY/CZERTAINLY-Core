@@ -301,24 +301,25 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateCertificateGroup() throws NotFoundException, CertificateOperationException, AttributeException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(group.getUuid().toString());
+        uuidDto.setGroupUuids(List.of(group.getUuid().toString()));
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
-        Assertions.assertEquals(group, certificate.getGroup());
+        Assertions.assertTrue(certificate.getGroups().stream().findFirst().isPresent());
+        Assertions.assertEquals(group, certificate.getGroups().stream().findFirst().get());
     }
 
     @Test
     public void testUpdateCertificateGroup_certificateNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(group.getUuid().toString());
+        uuidDto.setGroupUuids(List.of(group.getUuid().toString()));
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), uuidDto));
     }
 
     @Test
     public void testUpdateCertificateGroup_groupNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid("abfbc322-29e1-11ed-a261-0242ac120002");
+        uuidDto.setGroupUuids(List.of(UUID.randomUUID().toString()));
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
     }
 
@@ -330,7 +331,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         request.setOwnerUuid("newOwner");
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
 
-        Assertions.assertEquals(request.getOwnerUuid(), certificate.getOwner());
+        Assertions.assertEquals(request.getOwnerUuid(), certificate.getOwner().getUuid());
     }
 
     @Test

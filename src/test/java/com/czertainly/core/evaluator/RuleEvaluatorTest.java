@@ -29,12 +29,12 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public class RuleEvaluatorTest extends BaseSpringBootTest {
@@ -125,10 +125,10 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         Group group = new Group();
         group.setName("group");
 
-        certificate.setGroup(group);
+        certificate.setGroups(Set.of(group));
 
         condition.setOperator(FilterConditionOperator.EQUALS);
-        condition.setFieldIdentifier("group.name");
+        condition.setFieldIdentifier("groups.name");
         condition.setValue("group");
         Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
 
@@ -265,10 +265,13 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         action.setFieldIdentifier("group");
         Group group = new Group();
         group.setName("groupName");
-        groupRepository.save(group);
+        group = groupRepository.save(group);
         action.setActionData(group.getUuid());
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals(group.getName(), certificate.getGroup().getName());
+
+//        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertTrue(certificate.getGroups().stream().findFirst().isPresent());
+        Assertions.assertEquals(group.getName(), certificate.getGroups().stream().findFirst().get().getName());
     }
 
     @Test
@@ -287,7 +290,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         ));
 
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals("ownerName", certificate.getOwner());
+        Assertions.assertEquals("ownerName", certificate.getOwner().getName());
     }
 
     @Test

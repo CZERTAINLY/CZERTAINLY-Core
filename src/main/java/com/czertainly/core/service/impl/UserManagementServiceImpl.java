@@ -20,6 +20,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.GroupService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
 import jakarta.transaction.Transactional;
@@ -42,15 +43,33 @@ import java.util.UUID;
 public class UserManagementServiceImpl implements UserManagementService {
     private static final Logger logger = LoggerFactory.getLogger(UserManagementServiceImpl.class);
 
-    @Autowired
     private UserManagementApiClient userManagementApiClient;
 
-    @Autowired
     private CertificateService certificateService;
+    private GroupService groupService;
+    private ResourceObjectAssociationService objectAssociationService;
+
+    private AttributeEngine attributeEngine;
 
     @Autowired
-    private GroupService groupService;
-    private AttributeEngine attributeEngine;
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setGroupService(GroupService groupService) {
+        this.groupService = groupService;
+    }
+
+    @Autowired
+    public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
+        this.objectAssociationService = objectAssociationService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -126,7 +145,10 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DELETE)
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
-        certificateService.removeCertificateUser(UUID.fromString(userUuid));
+
+        UUID uuid = UUID.fromString(userUuid);
+        certificateService.removeCertificateUser(uuid);
+        objectAssociationService.removeOwnerAssociations(uuid);
         attributeEngine.deleteAllObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
     }
 

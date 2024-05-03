@@ -8,9 +8,11 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RuleAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.Set;
+import java.util.UUID;
 
 @Component("certificates")
 public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
@@ -26,18 +28,21 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
     public void performAction(RuleAction action, Certificate object, Resource resource) throws NotFoundException, AttributeException, CertificateOperationException, RuleException {
         if (action.getActionType() == RuleActionType.SET_FIELD & action.getFieldSource() == FilterFieldSource.PROPERTY) {
             SecuredUUID certificateUuid = object.getSecuredUuid();
-            SecuredUUID propertyUuid = SecuredUUID.fromString(action.getActionData().toString());
+            String propertyUuid = action.getActionData().toString();
             switch (action.getFieldIdentifier()) {
-                case "raProfile" -> certificateService.switchRaProfile(certificateUuid, propertyUuid);
-                case "group" -> certificateService.updateCertificateGroup(object.getSecuredUuid(), propertyUuid);
-                case "owner" -> certificateService.updateOwner(certificateUuid, String.valueOf(propertyUuid), null);
+                case "raProfile":
+                    certificateService.switchRaProfile(certificateUuid, SecuredUUID.fromString(propertyUuid));
+                    break;
+                case "group":
+                    certificateService.updateCertificateGroups(object.getSecuredUuid(), Set.of(UUID.fromString(propertyUuid)));
+                    break;
+                case "owner":
+                    certificateService.updateOwner(certificateUuid, propertyUuid);
+                    break;
             }
         }
         else {
             super.performAction(action, object, Resource.CERTIFICATE);
         }
     }
-
-
 }
-

@@ -119,8 +119,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             // Get value of property from the object
             Object objectValue;
             try {
-                objectValue = PropertyUtils.getProperty(object, fieldIdentifier);
-            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                objectValue = getPropertyValue(object, fieldIdentifier, false);
+            } catch (Exception e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
             // Determine field type from field identifier using Searchable field enum
@@ -133,7 +133,16 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
             try {
-                return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+                if (!(objectValue instanceof Collection<?> objectValues)) {
+                    return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+                }
+                for (Object item : objectValues) {
+                    Object o = getPropertyValue(item, fieldIdentifier, true);
+                    if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
+                        return false;
+                    }
+                }
+                return true;
             } catch (Exception e) {
                 throw new RuleException("Condition is not set properly: " + e.getMessage());
             }
@@ -231,7 +240,8 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
                 try {
                     PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
-                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new RuleException(e.getMessage());
                 }
             }
@@ -248,14 +258,35 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     throw new RuleException("Cannot set custom attributes for an object not in database.");
 
                 ObjectMapper objectMapper = new ObjectMapper();
-                List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData , new TypeReference<>() {});
+                List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData, new TypeReference<>() {
+                });
                 attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier, attributeContents);
             }
         }
     }
 
+    private Object getPropertyValue(Object object, String fieldIdentifier, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        final int indexOfDot = fieldIdentifier.lastIndexOf(".");
+        boolean isNested = indexOfDot != -1;
+        try {
+            if (alreadyNested) {
+                return PropertyUtils.getProperty(object, fieldIdentifier.substring(indexOfDot + 1));
+            }
+            return PropertyUtils.getProperty(object, fieldIdentifier);
+        } catch (NoSuchMethodException e) {
+            if (!isNested || alreadyNested) {
+                throw e;
+            }
 
+            final String parentPropertyIdentifier = fieldIdentifier.substring(0, indexOfDot);
+            Object tmpValue = PropertyUtils.getProperty(object, parentPropertyIdentifier);
+            if (tmpValue instanceof Collection<?>) {
+                return tmpValue;
+            }
 
+            throw e;
+        }
+    }
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
     private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorActionMap;

@@ -9,15 +9,14 @@ import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Group;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.GroupService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -33,13 +32,21 @@ import java.util.stream.Collectors;
 public class GroupServiceImpl implements GroupService {
     private static final Logger logger = LoggerFactory.getLogger(GroupServiceImpl.class);
 
-    @Autowired
     private GroupRepository groupRepository;
 
-    @Autowired
-    private CertificateRepository certificateRepository;
+    private ResourceObjectAssociationService objectAssociationService;
 
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setGroupRepository(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
+    @Autowired
+    public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
+        this.objectAssociationService = objectAssociationService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -50,7 +57,6 @@ public class GroupServiceImpl implements GroupService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public List<GroupDto> listGroups(SecurityFilter filter) {
-        List<Group> groups;
         return groupRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(Group::mapToDto)
@@ -113,11 +119,8 @@ public class GroupServiceImpl implements GroupService {
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
     public void deleteGroup(SecuredUUID uuid) throws NotFoundException {
         Group group = getGroupEntity(uuid);
-        for (Certificate certificate : certificateRepository.findByGroup(group)) {
-            certificate.setGroup(null);
-            certificate.setGroupUuid(null);
-            certificateRepository.save(certificate);
-        }
+
+        objectAssociationService.removeGroupAssociations(group.getUuid());
         attributeEngine.deleteAllObjectAttributeContent(Resource.GROUP, group.getUuid());
         groupRepository.delete(group);
     }
