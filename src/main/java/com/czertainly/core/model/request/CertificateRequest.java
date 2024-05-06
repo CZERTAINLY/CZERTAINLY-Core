@@ -1,12 +1,10 @@
 package com.czertainly.core.model.request;
 
 import com.czertainly.api.exception.CertificateRequestException;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.openssl.PEMException;
 
-import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.Map;
@@ -22,6 +20,13 @@ public interface CertificateRequest {
      * @return encoded request
      */
     byte[] getEncoded();
+
+    /**
+     * Get the format of the request
+     *
+     * @return format
+     */
+    CertificateRequestFormat getFormat();
 
     /**
      * Get subject of the request as X500Name
