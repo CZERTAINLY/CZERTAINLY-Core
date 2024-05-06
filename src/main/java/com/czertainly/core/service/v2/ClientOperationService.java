@@ -58,7 +58,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRenewRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
+    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void renewCertificateAction(
             final UUID certificateUuid,
@@ -71,7 +71,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRekeyRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
+    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void rekeyCertificateAction(
             final UUID certificateUuid,
