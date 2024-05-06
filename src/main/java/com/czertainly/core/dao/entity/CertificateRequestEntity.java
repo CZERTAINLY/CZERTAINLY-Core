@@ -53,4 +53,9 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited  {
             this.fingerprint = CertificateUtil.getThumbprint(contentDecoded);
         }
     }
+
+    public byte[] getContentDecoded() {
+        return Base64.getDecoder().decode(content);
+    }
+
 }
