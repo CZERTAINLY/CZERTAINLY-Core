@@ -23,18 +23,34 @@ public class CmpProcessingException extends CmpBaseException {
      * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
      * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
      */
-//    public CmpProcessingException(int failureInfo, ImplFailureInfo implFailureInfo) {
-//        this(failureInfo,implFailureInfo, null);
-//    }
+    public CmpProcessingException(int failureInfo, ImplFailureInfo implFailureInfo) {
+        this(null, failureInfo,implFailureInfo, null);
+    }
 
     /**
      * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
      * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
      * @param ex failure reason
      */
-//    public CmpProcessingException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
-//        this(failureInfo.intValue(),implFailureInfo, ex);
-//    }
+    public CmpProcessingException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
+        this(null, failureInfo.intValue(),implFailureInfo, ex);
+    }
+
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
+     * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
+     */
+    public CmpProcessingException(ASN1OctetString tid, int failureInfo, ImplFailureInfo implFailureInfo) {
+        this(tid, failureInfo, implFailureInfo, null);
+    }
+
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
+     * @param errorDetails string description of error
+     */
+    public CmpProcessingException(int failureInfo, String errorDetails) {
+        super(null, failureInfo, errorDetails, null);
+    }
 
     /**
      * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})

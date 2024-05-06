@@ -6,6 +6,7 @@ import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.service.cmp.util.CertUtil;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.CertTemplate;
@@ -104,6 +105,7 @@ public class MockCaImpl {
                 throw new IllegalStateException("cannot generate certResp for given message body/type, type="
                         +request.getBody().getType());
         }
+        ASN1OctetString tid = request.getHeader().getTransactionID();
         X509Certificate newIssuedCert;
         List<CMPCertificate> extraCerts = null;
         try {
@@ -127,7 +129,7 @@ public class MockCaImpl {
                 }
             }
         } catch (Exception e) {
-            throw new CmpProcessingException(PKIFailureInfo.badCertTemplate, "problem with create certificate", e);
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertTemplate, "problem with create certificate", e);
         }
 
         PKIMessage response;
@@ -156,7 +158,7 @@ public class MockCaImpl {
                     .addExtraCerts(extraCerts)
                     .build();
         } catch (Exception e) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure, "problem with create response message", e);
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure, "problem with create response message", e);
         }
 
         return response;
@@ -345,7 +347,7 @@ public class MockCaImpl {
                     .addExtraCerts(getExtraCerts(chainOfIssuerCerts))
                     .build();
         } catch (Exception e) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(message.getHeader().getTransactionID(), PKIFailureInfo.systemFailure,
                     "problem with create pkiConf response message", e);
         }
     }
@@ -380,8 +382,8 @@ public class MockCaImpl {
                     .addExtraCerts(getExtraCerts(chainOfIssuerCerts))
                     .build();
         } catch (Exception e) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
-                    "TID="+message.getHeader().getTransactionID()+" | problem processing recovation response message", e);
+            throw new CmpProcessingException(message.getHeader().getTransactionID(), PKIFailureInfo.systemFailure,
+                    " problem processing recovation response message", e);
         }
     }
 

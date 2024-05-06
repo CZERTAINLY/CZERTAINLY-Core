@@ -2,6 +2,7 @@ package com.czertainly.core.api.cmp.error;
 
 import com.czertainly.core.service.cmp.message.PkiMessageError;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.slf4j.Logger;
@@ -46,14 +47,17 @@ public class CmpBaseException extends Exception {
         if (ex instanceof CmpBaseException) {
             this.failureInfo = ((CmpBaseException) ex).failureInfo;
             this.errorDetails = ((CmpBaseException) ex).errorDetails;
-            LOG.error("exception at: {} {}", tid, errorDetails, ex);
+            if(tid != null) LOG.error("exception at: {} {}", tid, errorDetails, ex);
+            else LOG.error("exception at: {}", errorDetails, ex);
         } else {
             this.failureInfo = failureInfo;
             this.errorDetails = errorDetails;
             if (ex != null) {
-                LOG.error("exception at: {} ", tid, ex);
+                if(tid==null)LOG.error("exception at: ", ex);
+                else LOG.error("exception at: {} ", tid, ex);
             } else {
-                LOG.error("error at: {} {}", tid, errorDetails);
+                if(tid==null) LOG.error("error at: {}", errorDetails);
+                else LOG.error("error at: {} {}", tid, errorDetails);
             }
         }
     }
