@@ -2,6 +2,7 @@ package com.czertainly.core.api.cmp.error;
 
 import com.czertainly.core.api.cmp.CmpController;
 import com.czertainly.core.service.cmp.message.PkiMessageError;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.slf4j.Logger;
@@ -22,17 +23,34 @@ public class CmpProcessingException extends CmpBaseException {
      * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
      * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
      */
-    public CmpProcessingException(int failureInfo, ImplFailureInfo implFailureInfo) {
-        this(failureInfo,implFailureInfo, null);
-    }
+//    public CmpProcessingException(int failureInfo, ImplFailureInfo implFailureInfo) {
+//        this(failureInfo,implFailureInfo, null);
+//    }
 
     /**
      * @param failureInfo protocol-based error by rfc4120 (type as ${@link PKIFailureInfo})
      * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
      * @param ex failure reason
      */
-    public CmpProcessingException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
-        this(failureInfo.intValue(),implFailureInfo, ex);
+//    public CmpProcessingException(PKIFailureInfo failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
+//        this(failureInfo.intValue(),implFailureInfo, ex);
+//    }
+
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
+     * @param errorDetails string description of error
+     */
+    public CmpProcessingException(ASN1OctetString tid, int failureInfo, String errorDetails) {
+        super(tid, failureInfo,errorDetails, null);
+    }
+
+    /**
+     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
+     * @param errorDetails string description of error
+     * @param ex failure reason
+     */
+    public CmpProcessingException(ASN1OctetString tid, int failureInfo, String errorDetails, Exception ex) {
+        super(tid, failureInfo,errorDetails, ex);
     }
 
     /**
@@ -40,27 +58,10 @@ public class CmpProcessingException extends CmpBaseException {
      * @param implFailureInfo implementation-based error (czertainly scope, see ${@link ImplFailureInfo})
      * @param ex failure reason
      */
-    public CmpProcessingException(int failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
-        super(failureInfo, implFailureInfo.name() + "("+implFailureInfo.getCode()+"): "+ implFailureInfo.getDescription(), ex);
+    public CmpProcessingException(ASN1OctetString tid, int failureInfo, ImplFailureInfo implFailureInfo, Exception ex) {
+        super(tid, failureInfo, implFailureInfo.name() + "("+implFailureInfo.getCode()+"): "+ implFailureInfo.getDescription(), ex);
         this.failureInfo = failureInfo;
         this.implFailureInfo = implFailureInfo;
-    }
-
-    /**
-     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
-     * @param errorDetails string description of error
-     */
-    public CmpProcessingException(int failureInfo, String errorDetails) {
-        super(failureInfo,errorDetails, null);
-    }
-
-    /**
-     * @param failureInfo protocol-based error by rfc4120 (type as integer, see ${@link PKIFailureInfo})
-     * @param errorDetails string description of error
-     * @param ex failure reason
-     */
-    public CmpProcessingException(int failureInfo, String errorDetails, Exception ex) {
-        super(failureInfo,errorDetails, ex);
     }
 
     /**

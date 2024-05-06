@@ -1,12 +1,21 @@
 package com.czertainly.core.service.cmp.impl;
 
+import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.core.api.cmp.error.*;
+import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.provider.CzertainlyProvider;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
+import com.czertainly.core.provider.key.CzertainlyPublicKey;
+import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.PkiMessageError;
@@ -76,6 +85,18 @@ public class CmpServiceImpl implements CmpService {
     @Autowired
     public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
+    // -- CRYPTO
+    private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+    @Autowired
+    public void setCryptographicOperationsApiClient(CryptographicOperationsApiClient cryptographicOperationsApiClient) {
+        this.cryptographicOperationsApiClient = cryptographicOperationsApiClient;
+    }
+    private CryptographicKeyService cryptographicKeyService;
+    @Autowired
+    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
+        this.cryptographicKeyService = cryptographicKeyService;
+    }
+
     // -- HANDLER, VALIDATORS
     private CrmfMessageHandler crmfMessageHandler;
     @Autowired
@@ -126,13 +147,41 @@ public class CmpServiceImpl implements CmpService {
 
         // -- (processing) part
         CmpProfile profile = cmpProfileRepository.findByName(profileName).orElse(null);//najdi v databasi
-        ConfigurationContext config3gppProfile = new Mobile3gppProfileContext(profile, pkiRequest);
+        //*
+        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(profile.getName(),
+                true, cryptographicOperationsApiClient);
+        CryptographicKey key = profile.getSigningCertificate().getKey();
+        CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
+        // Get the private key from the configuration of cmp Profile
+        CzertainlyPrivateKey signerPrivateKey = new CzertainlyPrivateKey(
+                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                item.getKeyReferenceUuid().toString(),
+                key.getTokenInstanceReference().getConnector().mapToDto(),
+                item.getKeyAlgorithm().getLabel()
+        );
+        CryptographicKeyItem itemPub = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PUBLIC_KEY);
+        CzertainlyPublicKey x = new CzertainlyPublicKey(
+                key.getTokenInstanceReference().getTokenInstanceUuid(),
+                itemPub.getKeyReferenceUuid().toString(),
+                new ConnectorDto());
+        X509Certificate signerCertificate;
+        try {
+            Certificate cert = profile.getSigningCertificate();
+            LOG.info("CERT = {}, {}", cert.getFingerprint(), cert.getSerialNumber());
+            signerCertificate = CertificateUtil.getX509Certificate(cert.getCertificateContent().getContent());
+        } catch (CertificateException e) {
+            throw new RuntimeException(e);
+        }
+        //*/
+
+        ConfigurationContext config3gppProfile = new Mobile3gppProfileContext(profile, pkiRequest,
+                czertainlyProvider, signerPrivateKey, signerCertificate);
         try {
             PKIMessage pkiResponse;
 
             headerValidator.validate(pkiRequest, config3gppProfile);
             bodyValidator.validate(pkiRequest, config3gppProfile);
-            protectionValidator.validate(pkiRequest, config3gppProfile);
+            protectionValidator.validateIn(pkiRequest, config3gppProfile);
 
             //see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2, PKI Message Body
             switch (pkiRequest.getBody().getType()) {
@@ -173,7 +222,7 @@ public class CmpServiceImpl implements CmpService {
 
             headerValidator.validate(pkiResponse, config3gppProfile);
             bodyValidator.validate(pkiResponse, config3gppProfile);
-            protectionValidator.validate(pkiResponse, config3gppProfile);
+            protectionValidator.validateOut(pkiResponse, config3gppProfile);
 
             //if(true)throw new CmpProcessingException(1,"kurvitko");
 
@@ -267,10 +316,10 @@ public class CmpServiceImpl implements CmpService {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | Requested CMP Profile not found");
         }
-        if (!cmpProfile.isEnabled()) {
+        /*if (!cmpProfile.isEnabled()) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | CMP Profile is not enabled");
-        }
+        }*/
         if (cmpProfile.getSigningCertificate() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | CMP Profile does not have any associated CA certificate for signature");

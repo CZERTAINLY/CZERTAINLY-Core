@@ -1,10 +1,14 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
+import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
+import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
+import com.czertainly.core.service.cmp.message.validator.BiValidator;
 import com.czertainly.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.ASN1BitString;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -53,40 +57,114 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 @Transactional
-public class ProtectionValidator implements Validator<PKIMessage, Void> {
+public class ProtectionValidator implements BiValidator<Void, Void> {
 
     private static final Logger LOG = LoggerFactory.getLogger(ProtectionValidator.class.getName());
-    
+
     @Override
-    public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
-        ASN1BitString protection = message.getProtection();
-        ASN1OctetString tid = message.getHeader().getTransactionID();
+    public Void validateIn(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
+        ASN1BitString protection = request.getProtection();
+        ASN1OctetString tid = request.getHeader().getTransactionID();
+
+        /*
+         * The protectionAlg field specifies the algorithm used to protect the
+         * message.  If no protection bits are supplied (note that PKIProtection
+         * is OPTIONAL) then this field MUST be omitted; if protection bits are
+         * supplied, then this field MUST be supplied.
+         */
+        if (protection == null && request.getHeader().getProtectionAlg() == null) {
+            return null;
+        }
 
         if (protection == null) {
-            switch (message.getBody().getType()) {
+            throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
+                ImplFailureInfo.CMPVALPRO530);
+        }
+
+        final AlgorithmIdentifier protectionAlg = request.getHeader().getProtectionAlg();
+        if (protectionAlg == null) {
+            throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
+                    ImplFailureInfo.CMPVALPRO532);
+        }
+
+        ProtectionMethod czrtProtectionMethod = configuration.getProfile().getRequestProtectionMethod();
+        if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
+            if(ProtectionMethod.SIGNATURE.equals(czrtProtectionMethod)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong (response) configuration: SIGNATURE is not setup");
+            }
+            new ProtectionMacValidator().validate(request, configuration);
+        } else if (PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm())) {
+            if(ProtectionMethod.SIGNATURE.equals(czrtProtectionMethod)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong (response) configuration: SIGNATURE is not setup");
+            }
+            new ProtectionPBMac1Validator().validate(request, configuration);
+        } else {
+            if(ProtectionMethod.SHARED_SECRET.equals(czrtProtectionMethod)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong (response) configuration: SHARED_SECRET is not setup");
+            }
+            new ProtectionSignatureValidator().validate(request, configuration);
+        }
+        return null;
+    }
+
+    @Override
+    public Void validateOut(PKIMessage response, ConfigurationContext configuration) throws CmpBaseException {
+        ASN1BitString protection = response.getProtection();
+        ASN1OctetString tid = response.getHeader().getTransactionID();
+
+         /*
+          * The protectionAlg field specifies the algorithm used to protect the
+          * message.  If no protection bits are supplied (note that PKIProtection
+          * is OPTIONAL) then this field MUST be omitted; if protection bits are
+          * supplied, then this field MUST be supplied.
+          */
+        if (protection == null && response.getHeader().getProtectionAlg() == null) {
+            return null;
+        }
+
+        if (protection == null) {
+            switch (response.getBody().getType()) {
                 case PKIBody.TYPE_ERROR:
                 case PKIBody.TYPE_CONFIRM:
                 case PKIBody.TYPE_REVOCATION_REP:
-                    LOG.warn("TID={} | ignore protection for type={}", tid, PkiMessageDumper.msgTypeAsString(message.getBody()));
+                    LOG.warn("TID={} | ignore protection for type={}", tid, PkiMessageDumper.msgTypeAsString(response.getBody()));
                     return null;
                 default:
                     throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
-                            ImplFailureInfo.CMPVALPRO530);
+                            ImplFailureInfo.CMPVALPRO531);
             }
         }
 
-        final AlgorithmIdentifier protectionAlg = message.getHeader().getProtectionAlg();
+        final AlgorithmIdentifier protectionAlg = response.getHeader().getProtectionAlg();
         if (protectionAlg == null) {
             throw new CmpProcessingException(PKIFailureInfo.notAuthorized,
-                    ImplFailureInfo.CMPVALPRO531);
+                    ImplFailureInfo.CMPVALPRO533);
         }
+
+        ProtectionMethod czrtProtectionMethod = configuration.getProfile().getResponseProtectionMethod();
         if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
-            new ProtectionMacValidator().validate(message, configuration);
+            if(ProtectionMethod.SIGNATURE.equals(czrtProtectionMethod)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong (response) configuration: SIGNATURE is not setup");
+            }
+            new ProtectionMacValidator().validate(response, configuration);
         } else if (PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm())) {
-            new ProtectionPBMac1Validator().validate(message, configuration);
+            if(ProtectionMethod.SIGNATURE.equals(czrtProtectionMethod)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong (response) configuration: SIGNATURE is not setup");
+            }
+            new ProtectionPBMac1Validator().validate(response, configuration);
         } else {
-            new ProtectionSignatureValidator().validate(message, configuration);
+            if(ProtectionMethod.SHARED_SECRET.equals(czrtProtectionMethod)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong (response) configuration: SHARED SECRET is not configured");
+            }
+            new ProtectionSignatureValidator().validate(response, configuration);
         }
+
         return null;
     }
 }

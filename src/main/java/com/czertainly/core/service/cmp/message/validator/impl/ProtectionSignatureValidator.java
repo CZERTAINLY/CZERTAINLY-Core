@@ -15,6 +15,8 @@ import org.bouncycastle.asn1.cmp.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.io.FileOutputStream;
+import java.math.BigInteger;
 import java.security.KeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
@@ -56,12 +58,6 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
      */
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
-        ConfigurationContext.ProtectionType typeOfProtection = configuration.getProtectionType();
-        if(ConfigurationContext.ProtectionType.SHARED_SECRET.equals(typeOfProtection)) {
-            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "wrong configuration: SHARED SECRET is not configured");
-        }
-
         ASN1OctetString tid = message.getHeader().getTransactionID();
         String msgType = PkiMessageDumper.msgTypeAsString(message.getBody().getType());
         CMPCertificate[] extraCerts = message.getExtraCerts();
@@ -76,13 +72,21 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
             PKIHeader header = message.getHeader();
             byte[] protectedBytes = new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER);
             byte[] protectionBytes = message.getProtection().getBytes();
-            Signature signature = Signature.getInstance(header.getProtectionAlg().getAlgorithm().getId(), CryptoUtil.getBouncyCastleProvider());
+            X509Certificate singerCertificate = extraCertsAsX509.get(0);
+            LOG.info("CERT, sn={}", singerCertificate.getSerialNumber().toString(16));
+            Signature signature = Signature.getInstance(
+                    header.getProtectionAlg().getAlgorithm().getId(),
+                    CryptoUtil.getBouncyCastleProvider());
             signature.initVerify(extraCertsAsX509.get(0).getPublicKey());
             signature.update(protectedBytes);
             if (!signature.verify(protectionBytes, 0, protectionBytes.length)) {
                 throw new CmpProcessingException(PKIFailureInfo.wrongIntegrity,
                         ImplFailureInfo.CRYPTOSIG542);
             }
+
+            FileOutputStream keyfos = new FileOutputStream("toceczr.cert");
+            keyfos.write(extraCertsAsX509.get(0).getEncoded());
+            keyfos.close();
         } catch(CmpProcessingException ex) {
             throw ex;
         }  catch (final KeyException | NoSuchAlgorithmException ex) {

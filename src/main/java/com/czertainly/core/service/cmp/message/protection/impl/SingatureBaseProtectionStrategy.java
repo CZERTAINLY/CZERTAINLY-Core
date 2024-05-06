@@ -4,6 +4,9 @@ import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.service.cmp.util.CertUtil;
+import com.czertainly.core.service.cmp.util.OIDS;
+import org.bouncycastle.asn1.ASN1Encodable;
+import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERBitString;
@@ -11,8 +14,10 @@ import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
-import java.security.Signature;
+import java.io.OutputStream;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
@@ -21,7 +26,19 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 /**
- * Implementation of signature-based protection of {@link PKIMessage}.
+ * <p></p>Implementation of signature-based (see rfc4210, 5.1.3) protection of {@link PKIMessage}.
+ * When protection is applied, the following structure is used:</p>
+ *
+ * <pre>
+ *         PKIProtection ::= BIT STRING
+ *
+ *         ProtectedPart ::= SEQUENCE {
+ *             header    PKIHeader,
+ *             body      PKIBody
+ *         }
+ * </pre>
+ *
+ * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3">PKI Message Protection</a>
  */
 public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy implements ProtectionStrategy {
 
@@ -34,7 +51,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
 
     @Override
     public AlgorithmIdentifier getProtectionAlg() throws CmpConfigurationException {
-        return configuration.getSignatureAlgorithm();
+        return configuration.getSignatureAlgorithm().asANS1AlgorithmIdentifier();
     }
 
     /**
@@ -53,30 +70,22 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
      */
     @Override
     public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
-        Signature sig = Signature.getInstance(getProtectionAlg().getAlgorithm().getId());
-        sig.initSign(configuration.getPrivateKeyForSigning());
-        sig.update(new ProtectedPart(header, body).getEncoded(ASN1Encoding.DER));
-        return new DERBitString(sig.sign());
+        //Signature sig = Signature.getInstance(getProtectionAlg().getAlgorithm().getId());
+        //sig.initSign(configuration.getPrivateKeyForSigning());
+        //sig.update(new ProtectedPart(header, body).getEncoded(ASN1Encoding.DER));
+        //return new DERBitString(sig.sign());
 
-        // -- podivat se do SCEP, podepisuje se via provider/CzertainlyProvider,
-        // -- @see ScepResposne.createSignedData
-        /*PrivateKey signerPrivateKey = configuration.getPrivateKeyForSigning();
-        CMSSignedDataGenerator cmsSignedDataGenerator = new CMSSignedDataGenerator();
-        String signatureAlgorithmName = AlgorithmUtil.getSignatureAlgorithmName(
-                getProtectionAlg().getAlgorithm().getId(),
-                signerPrivateKey.getAlgorithm())
-                .replace("SHA-", "SHA").replace("WITH", "with");
-
-        ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithmName)
-                .setProvider(signerProvider)
-                .build(signerPrivateKey);
-        JcaSignerInfoGeneratorBuilder builder = new JcaSignerInfoGeneratorBuilder(
-                new JcaDigestCalculatorProviderBuilder()
-                .setProvider(BouncyCastleProvider.PROVIDER_NAME).build());
-        cmsSignedDataGenerator.addSignerInfoGenerator(builder.build(contentSigner, signerCertificate));
-
-        CMSSignedData signedResponseData = cmsSignedDataGenerator.generate(new CMSProcessableByteArray(new ProtectedPart(header, body).getEncoded(ASN1Encoding.DER)), true);
-        return new DERBitString(signedResponseData.getEncoded());*/
+        ASN1EncodableVector v = new ASN1EncodableVector();
+        v.addAll(new ASN1Encodable[]{header,body});
+        //OIDS a1 = OIDS.findMatch(getProtectionAlg().getAlgorithm().getId());
+        ContentSigner signer = new JcaContentSignerBuilder(
+                configuration.getSignatureAlgorithm().asJcaName())
+                .setProvider(configuration.getSignatureProvider())
+                .build(configuration.getPrivateKeyForSigning());
+        OutputStream sOut = signer.getOutputStream();
+        sOut.write(new org.bouncycastle.asn1.DERSequence(v).getEncoded(ASN1Encoding.DER));
+        sOut.close();
+        return new DERBitString(signer.getSignature());
     }
 
     @Override

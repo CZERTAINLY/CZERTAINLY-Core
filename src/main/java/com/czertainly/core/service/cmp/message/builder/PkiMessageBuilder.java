@@ -15,6 +15,7 @@ import org.bouncycastle.asn1.crmf.CertRequest;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.cert.cmp.ProtectedPKIMessageBuilder;
 
 import java.util.Collections;
 import java.util.Date;
@@ -294,7 +295,7 @@ public class PkiMessageBuilder {
         }
         CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
         CertRequest certRequest = certReqMsg.getCertReq();
-        final CertResponse[] response = {
+        CertResponse[] response = {
                 new CertResponse(
                         certRequest.getCertReqId(),
                         new PKIStatusInfo(PKIStatus.granted),

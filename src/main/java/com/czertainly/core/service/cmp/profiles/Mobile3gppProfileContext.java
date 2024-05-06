@@ -1,27 +1,30 @@
 package com.czertainly.core.service.cmp.profiles;
 
+import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpCrmfValidationException;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.service.cmp.message.protection.impl.PasswordBasedMacProtectionStrategy;
 import com.czertainly.core.service.cmp.message.protection.impl.SingatureBaseProtectionStrategy;
 import com.czertainly.core.service.cmp.mock.MockCaImpl;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.service.cmp.util.AlgorithmHelper;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.CertReqMsg;
 import org.bouncycastle.asn1.crmf.CertTemplate;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 
 import java.security.PrivateKey;
+import java.security.Provider;
 import java.security.cert.X509Certificate;
 import java.util.List;
 
@@ -29,15 +32,27 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
 
     private final PKIMessage requestMessage;
     private final CmpProfile profile;
+    private final Provider czertainlyProvider;
+    private final CzertainlyPrivateKey signerPrivateKey;
+    private final X509Certificate signerCertificate;
 
-    public Mobile3gppProfileContext(CmpProfile profile, PKIMessage inMessage) {
-        this.requestMessage =inMessage;
+    public Mobile3gppProfileContext(CmpProfile profile, PKIMessage pkiRequest, Provider czertainlyProvider,
+                                    CzertainlyPrivateKey signerPrivateKey, X509Certificate signerCertificate) {
+        this.requestMessage =pkiRequest;
         this.profile = profile;
+        this.czertainlyProvider=czertainlyProvider;
+        this.signerPrivateKey = signerPrivateKey;
+        this.signerCertificate = signerCertificate;
     }
 
     @Override
     public String getName() {
         return profile.getName();
+    }
+
+    @Override
+    public CmpProfile getProfile() {
+        return profile;
     }
 
     /**
@@ -150,25 +165,14 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
     }
 
     @Override
-    public ProtectionType getProtectionType() {
-        // tohle je message-based, todo vyresit dle cmp profilu
-        AlgorithmIdentifier protectionAlg = requestMessage.getHeader().getProtectionAlg();
-        if (CMPObjectIdentifiers.passwordBasedMac.equals(protectionAlg.getAlgorithm())) {
-            return ProtectionType.SHARED_SECRET;
-        } else if (PKCSObjectIdentifiers.id_PBMAC1.equals(protectionAlg.getAlgorithm())) {
-            return ProtectionType.SHARED_SECRET;
-        }
-        return ProtectionType.SIGNATURE;
-    }
-
-    @Override
     public ProtectionStrategy getProtectionStrategy() throws CmpBaseException {
-        switch (getProtectionType()){
+        ProtectionMethod czrtProtectionMethod = getProfile().getResponseProtectionMethod();
+        switch (getProfile().getResponseProtectionMethod()){
             case SIGNATURE: return new SingatureBaseProtectionStrategy(this);
             case SHARED_SECRET: return new PasswordBasedMacProtectionStrategy(this);
             default:
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                        "wrong config3gppProfile: unknow type of protection strategy, type="+getProtectionType());
+                        "wrong config3gppProfile: unknown type of protection strategy, type="+czrtProtectionMethod);
         }
     }// pri vyberu
 
@@ -248,7 +252,12 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      */
     @Override
     public PrivateKey getPrivateKeyForSigning() {
-        return MockCaImpl.getPrivateKeyForSigning();
+        return signerPrivateKey;//MockCaImpl.getPrivateKeyForSigning();
+    }
+
+    @Override
+    public Provider getSignatureProvider() {
+        return czertainlyProvider;
     }
 
     /**
@@ -256,7 +265,10 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      * @return list of certificate, useful for signature-based protection
      */
     @Override
-    public List<X509Certificate> getExtraCertsCertificateChain() { return MockCaImpl.getChainOfIssuerCerts(); }
+    public List<X509Certificate> getExtraCertsCertificateChain() {
+        //return MockCaImpl.getChainOfIssuerCerts();
+        return List.of(signerCertificate);
+    }
 
     /**
      * <b>scope: SignatureBased Protection</b>
@@ -264,7 +276,7 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong signature name).
      */
     @Override
-    public AlgorithmIdentifier getSignatureAlgorithm() throws CmpConfigurationException {
+    public AlgorithmHelper getSignatureAlgorithm() throws CmpConfigurationException {
         AlgorithmIdentifier algorithmIdentifier = requestMessage.getHeader().getProtectionAlg();
         if(algorithmIdentifier == null) {
             algorithmIdentifier = SIGNATURE_ALGORITHM_IDENTIFIER_FINDER.find("SHA256withECDSA");//db query/cmp profile.getSignatureName
@@ -272,6 +284,6 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of SIGNATURE algorithm");
             }
         }
-        return algorithmIdentifier;
+        return new AlgorithmHelper(algorithmIdentifier);
     }
 }

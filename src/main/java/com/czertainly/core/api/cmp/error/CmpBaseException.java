@@ -1,6 +1,7 @@
 package com.czertainly.core.api.cmp.error;
 
 import com.czertainly.core.service.cmp.message.PkiMessageError;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.slf4j.Logger;
@@ -26,6 +27,7 @@ public class CmpBaseException extends Exception {
         if (ex instanceof CmpBaseException) {
             this.failureInfo = ((CmpBaseException) ex).failureInfo;
             this.errorDetails = ((CmpBaseException) ex).errorDetails;
+            LOG.error("exception at: {}", errorDetails, ex);
         } else {
             this.failureInfo = PKIFailureInfo.systemFailure;
             this.errorDetails = ex.getLocalizedMessage();
@@ -38,20 +40,20 @@ public class CmpBaseException extends Exception {
      * @param errorDetails  description of details related to the error
      * @param ex            the underlying exception
      */
-    protected CmpBaseException(int failureInfo, String errorDetails, Throwable ex) {
+    protected CmpBaseException(ASN1OctetString tid, int failureInfo, String errorDetails, Throwable ex) {
         super(ex == null || ex.getMessage() == null ? errorDetails : ex.getMessage(),
                 ex == null || ex.getCause() == null ? ex : ex.getCause());
         if (ex instanceof CmpBaseException) {
             this.failureInfo = ((CmpBaseException) ex).failureInfo;
             this.errorDetails = ((CmpBaseException) ex).errorDetails;
-            LOG.error("exception at: {}", errorDetails, ex);
+            LOG.error("exception at: {} {}", tid, errorDetails, ex);
         } else {
             this.failureInfo = failureInfo;
             this.errorDetails = errorDetails;
             if (ex != null) {
-                LOG.error("exception at: ", ex);
+                LOG.error("exception at: {} ", tid, ex);
             } else {
-                LOG.error("error at: {}", errorDetails);
+                LOG.error("error at: {} {}", tid, errorDetails);
             }
         }
     }

@@ -1,5 +1,6 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
+import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
@@ -37,11 +38,6 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
      */
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
-        ConfigurationContext.ProtectionType typeOfProtection = configuration.getProtectionType();
-        if(ConfigurationContext.ProtectionType.SIGNATURE.equals(typeOfProtection)) {
-            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "wrong configuration: SIGNATURE is not setup");
-        }
         try {
             PKIHeader header = message.getHeader();
             byte[] passwordAsBytes = configuration.getSharedSecret();

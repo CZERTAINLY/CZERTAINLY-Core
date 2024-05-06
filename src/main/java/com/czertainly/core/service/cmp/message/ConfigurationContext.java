@@ -3,7 +3,9 @@ package com.czertainly.core.service.cmp.message;
 import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
+import com.czertainly.core.service.cmp.util.AlgorithmHelper;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.CertRepMessage;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
@@ -14,6 +16,7 @@ import org.bouncycastle.operator.DefaultMacAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 
 import java.security.PrivateKey;
+import java.security.Provider;
 import java.security.cert.X509Certificate;
 import java.util.List;
 
@@ -51,6 +54,8 @@ public interface ConfigurationContext {
 
     ASN1OctetString getSenderKID();
 
+    CmpProfile getProfile();
+
     /* ------------------------------------------------------------------------------------ */
     //
     //  Protection config
@@ -62,11 +67,6 @@ public interface ConfigurationContext {
         ProtectionType(String name) {this.name=name;}
         public String getName() { return name; }
     }
-    /**
-     * @return type of protection is allowed for incoming messages
-     *          which is configured at czertainly server(profile)
-     */
-    ProtectionType getProtectionType();
 
     /**
      * @return get protection strategy (how message will be protected at response part
@@ -142,6 +142,8 @@ public interface ConfigurationContext {
      */
     PrivateKey getPrivateKeyForSigning();
 
+    Provider getSignatureProvider();
+
     /**
      * <b>scope: SIGNATURE-BASED protection</b>
      *
@@ -149,5 +151,5 @@ public interface ConfigurationContext {
      *
      * @see <a href="https://docs.oracle.com/en/java/javase/17/docs/specs/security/standard-names.html">Java Security Standard Algorithm Names Specification</a>
      */
-    AlgorithmIdentifier getSignatureAlgorithm() throws CmpConfigurationException;
+    AlgorithmHelper getSignatureAlgorithm() throws CmpConfigurationException;
 }

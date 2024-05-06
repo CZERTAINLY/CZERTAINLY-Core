@@ -42,8 +42,10 @@ public enum ImplFailureInfo {
     CMPVALPOP509(509, "validation pop: subject in template is missing"),
 
     // -- validation: protection (PRO)
-    CMPVALPRO530(530, "validation protection: protection element is missing"),
-    CMPVALPRO531(531, "validation protection: protectionAlg element is missing"),
+    CMPVALPRO530(530, "validation (request): protection element is missing"),
+    CMPVALPRO531(531, "validation (response): protection element is missing"),
+    CMPVALPRO532(532, "validation (request): protectionAlg element is missing"),
+    CMPVALPRO533(533, "validation (response): protectionAlg element is missing"),
 
     CRYPTOSIG541(541, "signature-based protection: extraCerts is empty"),
     CRYPTOSIG542(542, "signature-based protection: signature verification is broken"),
