@@ -143,7 +143,7 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         raProfile.setEnabled(true);
 
         raProfile = raProfileRepository.save(raProfile);
-        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes("endEntityProfile", List.of(new ObjectAttributeContent(new NameAndIdDto(1, "profile")))));
+        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(new ObjectAttributeContent(new NameAndIdDto(1, "profile")))));
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
