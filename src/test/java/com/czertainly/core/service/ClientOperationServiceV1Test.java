@@ -126,7 +126,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         contentMap.setData(new NameAndIdDto(1, "profile"));
 
         raProfile = raProfileRepository.save(raProfile);
-        var result = attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes("endEntityProfile", List.of(contentMap)));
+        var result = attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(contentMap)));
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
