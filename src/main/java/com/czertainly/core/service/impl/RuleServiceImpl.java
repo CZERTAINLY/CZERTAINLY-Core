@@ -323,6 +323,12 @@ public class RuleServiceImpl implements RuleService {
 
         RuleTrigger trigger = new RuleTrigger();
 
+        trigger.setName(request.getName());
+        trigger.setDescription(request.getDescription());
+        trigger.setResource(request.getResource());
+        trigger.setTriggerResource(request.getTriggerResource());
+        trigger.setTriggerType(request.getTriggerType());
+        triggerRepository.save(trigger);
 
         List<Rule> rules = new ArrayList<>();
 
@@ -351,14 +357,8 @@ public class RuleServiceImpl implements RuleService {
         }
 
         trigger.setActionGroups(actionGroups);
-        trigger.setName(request.getName());
-        trigger.setDescription(request.getDescription());
-        trigger.setResource(request.getResource());
-        trigger.setTriggerResource(request.getTriggerResource());
-        trigger.setTriggerType(request.getTriggerType());
         trigger.setRules(rules);
         trigger.setActions(actions);
-        triggerRepository.save(trigger);
         return trigger.mapToDetailDto();
     }
 
@@ -389,6 +389,7 @@ public class RuleServiceImpl implements RuleService {
         RuleTrigger trigger = getRuleTriggerEntity(triggerUuid);
 
         actionRepository.deleteAll(trigger.getActions());
+        trigger.getActions().clear();
 
         List<Rule> rules = new ArrayList<>();
 
