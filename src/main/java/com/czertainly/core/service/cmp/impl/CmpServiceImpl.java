@@ -177,12 +177,10 @@ public class CmpServiceImpl implements CmpService {
             bodyValidator.validate(pkiResponse, config3gppProfile);
             protectionValidator.validateOut(pkiResponse, config3gppProfile);
 
-            //if(true)throw new CmpProcessingException(tid, 1,"kurvitko");
-
             return buildOk(pkiResponse);
         } catch (CmpBaseException e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
-            if(verbose) {//protoze request je uz zalogovanej vyse!
+            if(verbose) {
                 LOG.error("{} | processing failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             } else {
@@ -195,7 +193,7 @@ public class CmpServiceImpl implements CmpService {
                     pkiRequest.getHeader(),
                     PKIFailureInfo.badDataFormat,
                     ImplFailureInfo.CMPSRV101);
-            if(verbose) {//protoze request je uz zalogovanej vyse!
+            if(verbose) {
                 LOG.error("{} | parsing failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             } else {
@@ -205,7 +203,7 @@ public class CmpServiceImpl implements CmpService {
             return buildBadRequest(pkiResponse);
         } catch (Exception e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e);
-            if(verbose) {//protoze request je uz zalogovanej vyse!
+            if(verbose) {
                 LOG.error("{} | handling failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             } else {
@@ -288,10 +286,10 @@ public class CmpServiceImpl implements CmpService {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | Requested CMP Profile not found");
         }
-        /*if (!cmpProfile.isEnabled()) {
+        if (!cmpProfile.getEnabled()) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | CMP Profile is not enabled");
-        }*/
+        }
         if (cmpProfile.getSigningCertificate() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | CMP Profile does not have any associated CA certificate for signature");
