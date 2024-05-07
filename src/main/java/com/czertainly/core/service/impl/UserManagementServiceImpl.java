@@ -35,6 +35,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -111,11 +112,12 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setLastName(request.getLastName());
         requestDto.setDescription(request.getDescription());
 
-        if (request.getGroupUuid() != null) {
-            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(request.getGroupUuid()));
-            requestDto.setGroupName(groupDto.getName());
-            requestDto.setGroupUuid(request.getGroupUuid());
+        List<NameAndUuidDto> groups = new ArrayList<>();
+        for (String groupUuid : request.getGroupUuids()) {
+            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(groupUuid));
+            groups.add(new NameAndUuidDto(groupDto.getUuid(), groupDto.getName()));
         }
+        requestDto.setGroups(groups);
 
         UserDetailDto response = userManagementApiClient.createUser(requestDto);
         if (certificate != null) {
@@ -257,10 +259,13 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
 
-        if (request.getGroupUuid() != null) {
-            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(request.getGroupUuid()));
-            requestDto.setGroupName(groupDto.getName());
-            requestDto.setGroupUuid(request.getGroupUuid());
+        if (request.getGroupUuids() != null) {
+            List<NameAndUuidDto> groups = new ArrayList<>();
+            for (String groupUuid : request.getGroupUuids()) {
+                GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(groupUuid));
+                groups.add(new NameAndUuidDto(groupDto.getUuid(), groupDto.getName()));
+            }
+            requestDto.setGroups(groups);
         }
 
         UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);
