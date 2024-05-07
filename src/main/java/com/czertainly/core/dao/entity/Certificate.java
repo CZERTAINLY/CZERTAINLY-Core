@@ -1,7 +1,6 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -104,48 +103,24 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
 
-//    @OneToMany(fetch = FetchType.LAZY)
-//    @JoinTable(name = "resource_object_association", joinColumns = @JoinColumn(name = "object_uuid"), inverseJoinColumns = @JoinColumn(name = "group_uuid"))
-//    @WhereJoinTable(clause = "resource = 'CERTIFICATE' AND group_uuid IS NOT NULL")
-//    private Set<Group> groups;
-
-    @ManyToMany(fetch = FetchType.LAZY, targetEntity = Group.class)
-    @JoinTable(name = "resource_object_association", joinColumns = @JoinColumn(name = "object_uuid", insertable = false, updatable = false), inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false))
-    @WhereJoinTable(clause = "resource = 'CERTIFICATE' AND type = 'GROUP'")
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "group_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    )
+    @WhereJoinTable(clause = "resource = 'CERTIFICATE'")
     private Set<Group> groups = new HashSet<>();
 
-//    @OneToMany(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "object_uuid")
-//    @Where(clause = "resource = 'CERTIFICATE'")
-//    private List<GroupAssociation> groups;
-
-//    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinTable(name = "resource_object_association", joinColumns = @JoinColumn(name = "object_uuid"))
-//    @WhereJoinTable(clause = "resource = CERTIFICATE AND owner_uuid IS NOT NULL")
-//    @JoinFormula("(SELECT r.uuid FROM resource_object_association r WHERE r.object_uuid = uuid AND r.resource = 'CERTIFICATE' AND owner_uuid IS NOT NULL)")
-
-    //    @ManyToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
-//    @Where(clause = "resource = 'CERTIFICATE' AND owner_uuid IS NOT NULL")
-//    @Transient
-//    private NameAndUuidDto owner;
-
-//    @OneToOne(fetch = FetchType.LAZY)
-//    @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false)
-//    @Where(clause = "resource = 'CERTIFICATE'")
-//    private OwnerAssociation ownerAssociation;
-
-    @OneToMany(fetch = FetchType.LAZY)
-    @JoinColumn(name = "object_uuid", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     @Where(clause = "resource = 'CERTIFICATE'")
-    private List<OwnerAssociation> owners = new ArrayList<>();
+    private OwnerAssociation owner;
 
     @Column(name = "status_validation_timestamp")
     private LocalDateTime statusValidationTimestamp;
 
-    @OneToMany(
-            mappedBy = "certificate",
-            fetch = FetchType.LAZY
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY
             //orphanRemoval = true
     )
     @JsonBackReference
@@ -230,10 +205,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setCertificateType(certificateType);
         dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
-        if (getOwner() != null) {
-            dto.setOwnerUuid(getOwner().getUuid());
-            dto.setOwner(getOwner().getName());
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
         }
+//        if (owners != null && !owners.isEmpty()) {
+//            dto.setOwnerUuid(owners.get(0).getOwnerUuid().toString());
+//            dto.setOwner(owners.get(0).getOwnerUsername());
+//        }
 
         /*
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
@@ -274,15 +253,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()) {
-            if (!key.getItems()
-                    .stream()
-                    .filter(
-                            item -> item.getType()
-                                    .equals(KeyType.PRIVATE_KEY)
-                                    && item.getState().equals(KeyState.ACTIVE)
-                    ).toList()
-                    .isEmpty()
-            ) {
+            if (!key.getItems().stream().filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE)).toList().isEmpty()) {
                 dto.setPrivateKeyAvailability(true);
             }
         }
@@ -309,9 +280,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setFingerprint(fingerprint);
         dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
-        if (getOwner() != null) {
-            dto.setOwnerUuid(getOwner().getUuid());
-            dto.setOwner(getOwner().getName());
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
         }
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
@@ -335,21 +306,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         }
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
-//            dto.setGroups(groups.stream().map(g -> g.getGroup().mapToDto()).toList());
         }
 
         //Check and assign private key availability
         dto.setPrivateKeyAvailability(false);
         if (key != null && !key.getItems().isEmpty()) {
-            if (!key.getItems()
-                    .stream()
-                    .filter(
-                            item -> item.getType()
-                                    .equals(KeyType.PRIVATE_KEY)
-                                    && item.getState().equals(KeyState.ACTIVE)
-                    ).toList()
-                    .isEmpty()
-            ) {
+            if (!key.getItems().stream().filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE)).toList().isEmpty()) {
                 dto.setPrivateKeyAvailability(true);
             }
         }
@@ -371,8 +333,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
-                .append("commonName", commonName).append("serialNumber", serialNumber).toString();
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid).append("commonName", commonName).append("serialNumber", serialNumber).toString();
     }
 
     public String getCommonName() {
@@ -595,13 +556,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfileUuid = raProfileUuid;
     }
 
-    public NameAndUuidDto getOwner() {
-        return owners == null || owners.isEmpty() ? null : owners.get(0).getOwnerInfo();
+    public OwnerAssociation getOwner() {
+        return owner;
     }
 
     public Set<Group> getGroups() {
         return groups;
-//        return groups.stream().map(GroupAssociation::getGroup).collect(Collectors.toSet());
     }
 
     public void setGroups(Set<Group> groups) {

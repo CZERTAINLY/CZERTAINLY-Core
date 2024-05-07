@@ -1,7 +1,6 @@
 package db.migration;
 
 import com.czertainly.api.model.core.auth.*;
-import com.czertainly.core.dao.entity.AssociationType;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.util.AuthHelper;
@@ -11,7 +10,6 @@ import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
 import java.io.IOException;
-import java.io.ObjectInputValidation;
 import java.net.URISyntaxException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -38,26 +36,33 @@ public class V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration extends
 
     private void createDBTable(Context context) throws SQLException {
         String sqlCommands = """
-                CREATE TABLE "resource_object_association"
+                CREATE TABLE "group_association"
                 (
                     "uuid"                          UUID      NOT NULL,
-                    "type"                          TEXT      NOT NULL,
                     "resource"                      TEXT      NOT NULL,
                     "object_uuid"                   UUID      NOT NULL,
-                    "group_uuid"                    UUID      NULL,
-                    "owner_uuid"                    UUID      NULL,
-                    "owner_username"                TEXT      NULL,
+                    "group_uuid"                    UUID      NOT NULL,
                     PRIMARY KEY ("uuid"),
                     FOREIGN KEY ("group_uuid") REFERENCES "group" ("uuid")
                 );
-                
+                                
+                CREATE TABLE "owner_association"
+                (
+                    "uuid"                          UUID      NOT NULL,
+                    "resource"                      TEXT      NOT NULL,
+                    "object_uuid"                   UUID      NOT NULL,
+                    "owner_uuid"                    UUID      NOT NULL,
+                    "owner_username"                TEXT      NOT NULL,
+                    PRIMARY KEY ("uuid")
+                );
+                                
                 ALTER TABLE cryptographic_key_item
                     ADD COLUMN created_at TIMESTAMP NULL,
                     ADD COLUMN updated_at TIMESTAMP NULL;
                     
                 UPDATE cryptographic_key_item SET created_at = (SELECT k.i_cre FROM cryptographic_key AS k WHERE k.uuid = cryptographic_key_item.cryptographic_key_uuid);
                 UPDATE cryptographic_key_item SET updated_at = created_at;
-                
+                                
                 ALTER TABLE cryptographic_key_item
                     ALTER COLUMN created_at SET NOT NULL,
                     ALTER COLUMN updated_at SET NOT NULL;
@@ -70,7 +75,8 @@ public class V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration extends
 
     private void migrateGroupsAndOwners(Context context, String tableName, Resource resource) throws SQLException {
         try (final Statement selectStatement = context.getConnection().createStatement();
-             final PreparedStatement insertStatement = context.getConnection().prepareStatement("INSERT INTO resource_object_association(uuid, type, resource, object_uuid, group_uuid, owner_uuid, owner_username) VALUES (?,?,?,?,?,?,?)")) {
+             final PreparedStatement insertGroupStatement = context.getConnection().prepareStatement("INSERT INTO group_association(uuid, resource, object_uuid, group_uuid) VALUES (?,?,?,?)");
+             final PreparedStatement insertOwnerStatement = context.getConnection().prepareStatement("INSERT INTO owner_association(uuid, resource, object_uuid, owner_uuid, owner_username) VALUES (?,?,?,?,?)")) {
 
             ResultSet rows = selectStatement.executeQuery(String.format("SELECT uuid, group_uuid, owner, owner_uuid FROM %s WHERE group_uuid IS NOT NULL OR owner_uuid IS NOT NULL", tableName));
             while (rows.next()) {
@@ -79,28 +85,24 @@ public class V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration extends
                 UUID ownerUuid = rows.getObject("owner_uuid", UUID.class);
 
                 if (groupUuid != null) {
-                    insertStatement.setObject(1, UUID.randomUUID());
-                    insertStatement.setString(2, AssociationType.GROUP.toString());
-                    insertStatement.setString(3, resource.toString());
-                    insertStatement.setObject(4, objectUuid);
-                    insertStatement.setObject(5, groupUuid);
-                    insertStatement.setObject(6, null);
-                    insertStatement.setString(7, null);
-                    insertStatement.addBatch();
+                    insertGroupStatement.setObject(1, UUID.randomUUID());
+                    insertGroupStatement.setString(2, resource.toString());
+                    insertGroupStatement.setObject(3, objectUuid);
+                    insertGroupStatement.setObject(4, groupUuid);
+                    insertGroupStatement.addBatch();
                 }
                 if (ownerUuid != null) {
-                    insertStatement.setObject(1, UUID.randomUUID());
-                    insertStatement.setString(2, AssociationType.OWNER.toString());
-                    insertStatement.setString(3, resource.toString());
-                    insertStatement.setObject(4, objectUuid);
-                    insertStatement.setObject(5, null);
-                    insertStatement.setObject(6, ownerUuid);
-                    insertStatement.setString(7, rows.getString("owner"));
-                    insertStatement.addBatch();
+                    insertOwnerStatement.setObject(1, UUID.randomUUID());
+                    insertOwnerStatement.setString(2, resource.toString());
+                    insertOwnerStatement.setObject(3, objectUuid);
+                    insertOwnerStatement.setObject(4, ownerUuid);
+                    insertOwnerStatement.setString(5, rows.getString("owner"));
+                    insertOwnerStatement.addBatch();
                 }
             }
 
-            insertStatement.executeBatch();
+            insertGroupStatement.executeBatch();
+            insertOwnerStatement.executeBatch();
         }
     }
 

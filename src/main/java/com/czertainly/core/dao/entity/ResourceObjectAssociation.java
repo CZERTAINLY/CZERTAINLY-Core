@@ -14,16 +14,8 @@ import java.util.*;
 
 @Getter
 @Setter
-@Entity
-@Table(name = "resource_object_association")
-@Inheritance(strategy = InheritanceType.SINGLE_TABLE)
-@DiscriminatorColumn(name = "type", discriminatorType = DiscriminatorType.STRING)
+@MappedSuperclass
 public class ResourceObjectAssociation extends UniquelyIdentified {
-
-    @Column(name = "type", nullable = false, insertable = false, updatable = false)
-    @Enumerated(EnumType.STRING)
-    private AssociationType type;
-
     @Column(name = "resource", nullable = false)
     @Enumerated(EnumType.STRING)
     private Resource resource;

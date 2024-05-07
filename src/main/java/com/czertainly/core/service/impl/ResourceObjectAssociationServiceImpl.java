@@ -64,6 +64,12 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     @Override
+    public List<UUID> getGroupUuids(Resource resource, UUID objectUuid) {
+        List<GroupAssociation> groupAssociations = groupAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid);
+        return groupAssociations.stream().map(GroupAssociation::getGroupUuid).toList();
+    }
+
+    @Override
     public Set<Group> setGroups(Resource resource, UUID objectUuid, Set<UUID> groupUuids) throws NotFoundException {
         Set<Group> groups = new HashSet<>();
 
@@ -96,6 +102,12 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
             long associationsDeleted = groupAssociationRepository.deleteByGroupUuid(groupUuid);
             logger.debug("Removed {} group associations of group UUID {}", associationsDeleted, groupUuid);
         }
+    }
+
+    @Override
+    public NameAndUuidDto getOwner(Resource resource, UUID objectUuid) {
+        OwnerAssociation ownerAssociation = ownerAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid);
+        return ownerAssociation == null ? null : new NameAndUuidDto(ownerAssociation.getOwnerUuid().toString(), ownerAssociation.getOwnerUsername());
     }
 
     @Override

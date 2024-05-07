@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.DtoMapper;
@@ -42,16 +41,20 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "token_instance_uuid")
     private UUID tokenInstanceReferenceUuid;
 
-    @JsonBackReference
-    @ManyToMany(fetch = FetchType.EAGER)
-    @JoinTable(name = "resource_object_association", joinColumns = @JoinColumn(name = "object_uuid"), inverseJoinColumns = @JoinColumn(name = "group_uuid"))
-    @WhereJoinTable(clause = "resource = 'CRYPTOGRAPHIC_KEY' AND type = 'GROUP'")
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "group_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    )
+    @WhereJoinTable(clause = "resource = 'CRYPTOGRAPHIC_KEY'")
     private Set<Group> groups = new HashSet<>();
 
-    @OneToMany(fetch = FetchType.EAGER)
-    @JoinColumn(name = "object_uuid")
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     @Where(clause = "resource = 'CRYPTOGRAPHIC_KEY'")
-    private List<OwnerAssociation> owners;
+    private OwnerAssociation owner;
 
     @JsonBackReference
     @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -119,8 +122,8 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
     }
 
-    public NameAndUuidDto getOwner() {
-        return owners == null || owners.isEmpty() ? null : owners.get(0).getOwnerInfo();
+    public OwnerAssociation getOwner() {
+        return owner;
     }
 
     public Set<Group> getGroups() {
@@ -171,12 +174,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
-        if (getOwner() != null) {
-            dto.setOwnerUuid(getOwner().getUuid());
-            dto.setOwner(getOwner().getName());
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
         }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() -1 ) + certificates.size());
+        dto.setAssociations((items.size() - 1) + certificates.size());
         return dto;
     }
 
@@ -196,11 +199,11 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
-        if (getOwner() != null) {
-            dto.setOwnerUuid(getOwner().getUuid());
-            dto.setOwner(getOwner().getName());
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
         }
-        if(certificates != null && !certificates.isEmpty()) {
+        if (certificates != null && !certificates.isEmpty()) {
             dto.setAssociations(certificates.stream().map(e -> {
                 KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
                 keyAssociationDto.setName(e.getCommonName());

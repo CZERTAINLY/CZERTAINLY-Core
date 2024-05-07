@@ -7,6 +7,7 @@ import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -22,7 +23,10 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
@@ -70,12 +74,21 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private CertificateRuleEvaluator certificateRuleEvaluator;
 
+    @Autowired
+    private ResourceObjectAssociationService associationService;
+
     private Certificate certificate;
 
     private RuleCondition condition;
 
     private RuleTrigger trigger;
     private RuleAction action;
+
+    @Autowired
+    private ObjectMapper objectMapper;
+
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
 
     private WireMockServer mockServer;
 
@@ -259,19 +272,24 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSetCertificateGroup() {
+    public void testSetCertificateGroup() throws JsonProcessingException {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
         action.setFieldIdentifier("group");
         Group group = new Group();
         group.setName("groupName");
         group = groupRepository.save(group);
-        action.setActionData(group.getUuid());
+
+        Group group2 = new Group();
+        group2.setName("groupName2");
+        group2 = groupRepository.save(group2);
+        action.setActionData(objectMapper.writeValueAsString(List.of(group.getUuid(), group2.getUuid())));
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
 
-//        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
-        Assertions.assertTrue(certificate.getGroups().stream().findFirst().isPresent());
-        Assertions.assertEquals(group.getName(), certificate.getGroups().stream().findFirst().get().getName());
+        List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(2, groupUuids.size());
+        Assertions.assertTrue(groupUuids.contains(group.getUuid()));
+        Assertions.assertTrue(groupUuids.contains(group2.getUuid()));
     }
 
     @Test
@@ -290,7 +308,10 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         ));
 
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals("ownerName", certificate.getOwner().getName());
+
+        NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertNotNull(owner);
+        Assertions.assertEquals("ownerName", owner.getName());
     }
 
     @Test

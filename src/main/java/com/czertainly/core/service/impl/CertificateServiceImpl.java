@@ -22,7 +22,6 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
-import com.czertainly.api.model.core.search.DynamicSearchInternalResponse;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -40,7 +39,6 @@ import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
-import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -1511,7 +1509,7 @@ public class CertificateServiceImpl implements CertificateService {
         Set<Group> newGroups = objectAssociationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), groupUuids);
 //        certificate.setGroups(newGroups);
 
-//        certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+//        certificate = certificateRepository.findWithJoinFetchByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         String newGroupNames = newGroups.isEmpty() ? UNDEFINED_CERTIFICATE_OBJECT_NAME : String.join(", ", newGroups.stream().map(Group::getName).toList());
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, currentGroupNames + " -> " + newGroupNames, "");
@@ -1526,7 +1524,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         UUID newOwnerUuid = ownerUuid == null ? null : UUID.fromString(ownerUuid);
-        String currentOwnerName = certificate.getOwner() == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : certificate.getOwner().getName();
+        String currentOwnerName = certificate.getOwner() == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : certificate.getOwner().getOwnerUsername();
 
         String newOwnerName = UNDEFINED_CERTIFICATE_OBJECT_NAME;
         NameAndUuidDto newOwner = objectAssociationService.setOwner(Resource.CERTIFICATE, uuid.getValue(), newOwnerUuid);
