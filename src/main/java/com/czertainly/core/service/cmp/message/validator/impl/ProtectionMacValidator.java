@@ -1,13 +1,12 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
 import com.czertainly.core.service.cmp.util.CryptoUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 
@@ -38,8 +37,9 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
      */
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
+        PKIHeader header = message.getHeader();
+        ASN1OctetString tid = header.getTransactionID();
         try {
-            PKIHeader header = message.getHeader();
             byte[] passwordAsBytes = configuration.getSharedSecret();
             PBMParameter pbmParameter = PBMParameter.getInstance(
                     header.getProtectionAlg().getParameters());      // -- PBMParameter
@@ -71,13 +71,13 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
                     message.getBody()).getEncoded(ASN1Encoding.DER));
             // -- check counted bytes (mac) vs. bytes from protection field
             if (!Arrays.equals(mac.doFinal(), message.getProtection().getBytes())) {
-                throw new CmpProcessingException(PKIFailureInfo.badMessageCheck,
+                throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                         "mac validation: check of PasswordBasedMac protection failed");
             }
         }
         catch (CmpBaseException e) { throw e; }
         catch (Exception e) {
-            throw new CmpProcessingException(PKIFailureInfo.badMessageCheck,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     e.getLocalizedMessage());
         }
         return null;// validation is ok

@@ -1,6 +1,5 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.api.cmp.error.ImplFailureInfo;
@@ -15,13 +14,10 @@ import org.bouncycastle.asn1.cmp.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.io.FileOutputStream;
-import java.math.BigInteger;
 import java.security.KeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.cert.X509Certificate;
-import java.util.List;
 
 
 /**
@@ -62,31 +58,26 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
         String msgType = PkiMessageDumper.msgTypeAsString(message.getBody().getType());
         CMPCertificate[] extraCerts = message.getExtraCerts();
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
-            LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getName());
+            LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getProfile().getName());
             throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
                     ImplFailureInfo.CRYPTOSIG541);
         }
 
         try {
-            List<X509Certificate> extraCertsAsX509 = CertUtil.toX509Certificates(extraCerts);
             PKIHeader header = message.getHeader();
             byte[] protectedBytes = new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER);
             byte[] protectionBytes = message.getProtection().getBytes();
-            X509Certificate singerCertificate = extraCertsAsX509.get(0);
-            LOG.info("CERT, sn={}", singerCertificate.getSerialNumber().toString(16));
+            X509Certificate singerCertificate = CertUtil.toX509Certificates(extraCerts).get(0);
             Signature signature = Signature.getInstance(
                     header.getProtectionAlg().getAlgorithm().getId(),
                     CryptoUtil.getBouncyCastleProvider());
-            signature.initVerify(extraCertsAsX509.get(0).getPublicKey());
+            signature.initVerify(singerCertificate.getPublicKey());
             signature.update(protectedBytes);
             if (!signature.verify(protectionBytes, 0, protectionBytes.length)) {
                 throw new CmpProcessingException(PKIFailureInfo.wrongIntegrity,
                         ImplFailureInfo.CRYPTOSIG542);
             }
 
-            FileOutputStream keyfos = new FileOutputStream("toceczr.cert");
-            keyfos.write(extraCertsAsX509.get(0).getEncoded());
-            keyfos.close();
         } catch(CmpProcessingException ex) {
             throw ex;
         }  catch (final KeyException | NoSuchAlgorithmException ex) {

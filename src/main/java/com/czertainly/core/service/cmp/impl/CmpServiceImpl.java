@@ -1,31 +1,20 @@
 package com.czertainly.core.service.cmp.impl;
 
-import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.core.api.cmp.error.*;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
-import com.czertainly.core.provider.CzertainlyProvider;
-import com.czertainly.core.provider.key.CzertainlyPrivateKey;
-import com.czertainly.core.provider.key.CzertainlyPublicKey;
-import com.czertainly.core.service.CryptographicKeyService;
+import com.czertainly.core.service.cmp.CertificateKeyService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.PkiMessageError;
-import com.czertainly.core.service.cmp.message.handler.CertConfirmMessageHandler;
-import com.czertainly.core.service.cmp.message.handler.CrmfMessageHandler;
-import com.czertainly.core.service.cmp.message.handler.RevocationMessageHandler;
+import com.czertainly.core.service.cmp.message.handler.*;
 import com.czertainly.core.service.cmp.message.validator.impl.BodyValidator;
 import com.czertainly.core.service.cmp.message.validator.impl.HeaderValidator;
 import com.czertainly.core.service.cmp.message.validator.impl.ProtectionValidator;
-import com.czertainly.core.service.cmp.mock.MockCaImpl;
 import com.czertainly.core.service.cmp.profiles.Mobile3gppProfileContext;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
@@ -38,7 +27,6 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.CmpService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
-import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -56,6 +44,7 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 @Service
@@ -81,26 +70,19 @@ public class CmpServiceImpl implements CmpService {
     private List<X509Certificate> caCertificateChain = new ArrayList<>();
     private X509Certificate recipient;
     private List<RequestAttributeDto> issueAttributes;
+    private List<RequestAttributeDto> revokeAttributes;
     private CertificateService certificateService;
     @Autowired
     public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
     // -- CRYPTO
-    private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+    private CertificateKeyService certificateKeyService;
     @Autowired
-    public void setCryptographicOperationsApiClient(CryptographicOperationsApiClient cryptographicOperationsApiClient) {
-        this.cryptographicOperationsApiClient = cryptographicOperationsApiClient;
-    }
-    private CryptographicKeyService cryptographicKeyService;
-    @Autowired
-    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
-        this.cryptographicKeyService = cryptographicKeyService;
-    }
+    private void setCertificateKeyService(CertificateKeyService certificateKeyService) {  this.certificateKeyService = certificateKeyService; }
 
-    // -- HANDLER, VALIDATORS
+    // -- HANDLER
     private CrmfMessageHandler crmfMessageHandler;
-    @Autowired
-    public void setCrmfMessageHandler(CrmfMessageHandler crmfMessageHandler) { this.crmfMessageHandler = crmfMessageHandler; }
+    @Autowired public void setCrmfMessageHandler(CrmfMessageHandler crmfMessageHandler) { this.crmfMessageHandler = crmfMessageHandler; }
     private CertConfirmMessageHandler certConfirmMessageHandler;
     @Autowired
     public void setCertConfirmMessageHandler(CertConfirmMessageHandler certConfirmMessageHandler) { this.certConfirmMessageHandler = certConfirmMessageHandler; }
@@ -108,6 +90,7 @@ public class CmpServiceImpl implements CmpService {
     @Autowired
     public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) { this.revocationMessageHandler = revocationMessageHandler; }
 
+    // -- VALIDATORS
     @Autowired private HeaderValidator headerValidator;
     @Autowired private BodyValidator bodyValidator;
     @Autowired private ProtectionValidator protectionValidator;
@@ -121,13 +104,10 @@ public class CmpServiceImpl implements CmpService {
 
     @Override
     public ResponseEntity<Object> handlePost(String profileName, byte[] request) throws CmpBaseException {
-        boolean verbose = false;
-        try { MockCaImpl.init();} catch (Exception e) {
-            throw new IllegalStateException("mock of CA cannot start", e);
-        }
+        boolean verbose = true;
 
         init(profileName);
-        //validateProfile(profileName);
+        validateProfile(profileName);
 
         final PKIMessage pkiRequest;
         try { pkiRequest = PKIMessage.getInstance(request); }
@@ -137,45 +117,18 @@ public class CmpServiceImpl implements CmpService {
                     PKIFailureInfo.badRequest,
                     ImplFailureInfo.CMPSRV100));
         }
-        ASN1OctetString tid = pkiRequest.getHeader().getTransactionID();
         String requestAsString = PkiMessageDumper.dumpPkiMessage(pkiRequest);
         String logPrefix = PkiMessageDumper.logPrefix(pkiRequest, profileName);
         LOG.info("{} | request processing: {}",
                 logPrefix,
                 PkiMessageDumper.dumpPkiMessage(verbose, pkiRequest));
-        //LOG.info("{} | {}", logPrefix, Base64.getEncoder().encodeToString(request));
+        if(verbose) LOG.info("{} | request as base64: {}",
+                logPrefix,
+                Base64.getEncoder().encodeToString(request));
 
         // -- (processing) part
-        CmpProfile profile = cmpProfileRepository.findByName(profileName).orElse(null);//najdi v databasi
-        //*
-        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(profile.getName(),
-                true, cryptographicOperationsApiClient);
-        CryptographicKey key = profile.getSigningCertificate().getKey();
-        CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
-        // Get the private key from the configuration of cmp Profile
-        CzertainlyPrivateKey signerPrivateKey = new CzertainlyPrivateKey(
-                key.getTokenInstanceReference().getTokenInstanceUuid(),
-                item.getKeyReferenceUuid().toString(),
-                key.getTokenInstanceReference().getConnector().mapToDto(),
-                item.getKeyAlgorithm().getLabel()
-        );
-        CryptographicKeyItem itemPub = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PUBLIC_KEY);
-        CzertainlyPublicKey x = new CzertainlyPublicKey(
-                key.getTokenInstanceReference().getTokenInstanceUuid(),
-                itemPub.getKeyReferenceUuid().toString(),
-                new ConnectorDto());
-        X509Certificate signerCertificate;
-        try {
-            Certificate cert = profile.getSigningCertificate();
-            LOG.info("CERT = {}, {}", cert.getFingerprint(), cert.getSerialNumber());
-            signerCertificate = CertificateUtil.getX509Certificate(cert.getCertificateContent().getContent());
-        } catch (CertificateException e) {
-            throw new RuntimeException(e);
-        }
-        //*/
-
-        ConfigurationContext config3gppProfile = new Mobile3gppProfileContext(profile, pkiRequest,
-                czertainlyProvider, signerPrivateKey, signerCertificate);
+        ConfigurationContext config3gppProfile = new Mobile3gppProfileContext(cmpProfile, pkiRequest,
+                certificateKeyService, issueAttributes, revokeAttributes);
         try {
             PKIMessage pkiResponse;
 
@@ -224,26 +177,41 @@ public class CmpServiceImpl implements CmpService {
             bodyValidator.validate(pkiResponse, config3gppProfile);
             protectionValidator.validateOut(pkiResponse, config3gppProfile);
 
-            //if(true)throw new CmpProcessingException(1,"kurvitko");
+            //if(true)throw new CmpProcessingException(tid, 1,"kurvitko");
 
             return buildOk(pkiResponse);
         } catch (CmpBaseException e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
-            LOG.error("{} | processing failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
-                    requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            if(verbose) {//protoze request je uz zalogovanej vyse!
+                LOG.error("{} | processing failed: \n\n response:\n {}", logPrefix,
+                        PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            } else {
+                LOG.error("{} | processing failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
+                        requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            }
             return buildBadRequest(pkiResponse);
         } catch (IOException e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(
                     pkiRequest.getHeader(),
                     PKIFailureInfo.badDataFormat,
                     ImplFailureInfo.CMPSRV101);
-            LOG.error("{} | parsing failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
-                    requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            if(verbose) {//protoze request je uz zalogovanej vyse!
+                LOG.error("{} | parsing failed: \n\n response:\n {}", logPrefix,
+                        PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            } else {
+                LOG.error("{} | parsing failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
+                        requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            }
             return buildBadRequest(pkiResponse);
         } catch (Exception e) {
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e);
-            LOG.error("{} | handling failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
-                    requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            if(verbose) {//protoze request je uz zalogovanej vyse!
+                LOG.error("{} | handling failed: \n\n response:\n {}", logPrefix,
+                        PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            } else {
+                LOG.error("{} | handling failed: \n\nrequest:\n {}\n response:\n {}", logPrefix,
+                        requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
+            }
             return buildBadRequest(pkiResponse);
         }
     }
@@ -254,6 +222,7 @@ public class CmpServiceImpl implements CmpService {
                 .header("Content-Type", HTTP_HEADER_CONTENT_TYPE)
                 .body(PkiMessageError.encode(pkiMessage));
     }
+
     private ResponseEntity buildOk(PKIMessage pkiMessage) throws IOException {
         return ResponseEntity
                 .status(HttpStatus.OK)
@@ -272,6 +241,8 @@ public class CmpServiceImpl implements CmpService {
             cmpProfile = raProfile.getCmpProfile();
             String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpIssueCertificateAttributes() : null;
             issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
+            String revokeAttributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpRevokeCertificateAttributes() : null;
+            revokeAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(revokeAttributesJson, DataAttribute.class));
         } else {
             cmpProfile = cmpProfileRepository.findByName(profileName).orElse(null);
             if (cmpProfile == null) {
@@ -282,6 +253,7 @@ public class CmpServiceImpl implements CmpService {
                 return;
             }
             issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CMP_PROFILE, cmpProfile.getUuid());
+            revokeAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.CMP_PROFILE, cmpProfile.getUuid());
         }
 
         Certificate cmpCaCertificate = cmpProfile.getSigningCertificate();
@@ -370,4 +342,5 @@ public class CmpServiceImpl implements CmpService {
 
         return certificateChain;
     }
+
 }

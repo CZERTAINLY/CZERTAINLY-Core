@@ -12,7 +12,7 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
  *
  * @see {@link CmpServiceImpl} where are handlers used
  */
-public interface MessageHandler {
+public interface MessageHandler<R> {
 
     /**
      * Processing of <code>request</code> in order to get related <code>response</code>.
@@ -23,7 +23,7 @@ public interface MessageHandler {
      * @throws CmpProcessingException if any error occurs during handling
      *                      given message
      */
-    PKIMessage handle(PKIMessage request, ConfigurationContext configuration)
+    R handle(PKIMessage request, ConfigurationContext configuration)
             throws CmpBaseException;
 
 }

@@ -4,11 +4,9 @@ import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
-import com.czertainly.core.service.cmp.message.validator.impl.ProtectionValidator;
-import com.czertainly.core.service.cmp.mock.MockCaImpl;
-import org.bouncycastle.asn1.cmp.PKIBody;
-import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.bouncycastle.asn1.cmp.PKIMessage;
+import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
+import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.cmp.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,7 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 @Transactional
-public class CertConfirmMessageHandler implements MessageHandler {
+public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
 
     /**
      * <pre>
@@ -75,17 +73,21 @@ public class CertConfirmMessageHandler implements MessageHandler {
      */
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
+        ASN1OctetString tid = request.getHeader().getTransactionID();
         if(PKIBody.TYPE_CERT_CONFIRM!=request.getBody().getType()) {
-            throw new CmpProcessingException(
-                    PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "confirmation (certConf) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
         }
 
-        PKIMessage response = MockCaImpl
-                .handleCertConfirm(request, configuration);//.getBody().getContent();
-
-        if(response != null) { return response; }
-        throw new CmpProcessingException(
-                PKIFailureInfo.systemFailure, "general problem while handling PKIMessage, type=certConf");
+        try {
+            return new PkiMessageBuilder(configuration)
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(request))
+                    .addBody(new PKIBody(PKIBody.TYPE_CONFIRM, new PKIConfirmContent()))
+                    .addExtraCerts(null)
+                    .build();
+        } catch (Exception e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                    "problem build pkiConfirm response message, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()), e);
+        }
     }
 }

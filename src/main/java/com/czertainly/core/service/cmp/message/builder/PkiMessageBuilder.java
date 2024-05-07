@@ -69,6 +69,7 @@ public class PkiMessageBuilder {
 
     private final ConfigurationContext config;
     private final ProtectionStrategy protectionStrategy;
+    private ASN1OctetString transactionID;
 
     public PkiMessageBuilder(ConfigurationContext configuration) throws CmpBaseException {
         this.config = configuration;
@@ -115,6 +116,7 @@ public class PkiMessageBuilder {
         headerBuilder.setGeneralInfo(template.getGeneralInfo());               // -- generalInfo  , InfoTypeAndValue SEQUENCE (1..MAX)
 
         this.pkiHeader = headerBuilder.build();
+        this.transactionID = template.getTransactionID();
         return this;
     }
 
@@ -127,7 +129,7 @@ public class PkiMessageBuilder {
      */
     public PkiMessageBuilder addBody(PKIBody pkiBody) throws CmpProcessingException {
         if(pkiBody == null) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure, "PKI body is null");
+            throw new CmpProcessingException(transactionID, PKIFailureInfo.systemFailure, "PKI body is null");
         }
         this.pkiBody = pkiBody;
         return this;
@@ -162,11 +164,11 @@ public class PkiMessageBuilder {
 
     public PKIMessage build() throws Exception {
         if(pkiHeader == null) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(transactionID, PKIFailureInfo.systemFailure,
                     "response message cannot be without PKIHeader");
         }
         if(pkiBody == null) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
+            throw new CmpProcessingException(transactionID, PKIFailureInfo.systemFailure,
                     "response message cannot be without PKIBody");
         }
         return new PKIMessage(

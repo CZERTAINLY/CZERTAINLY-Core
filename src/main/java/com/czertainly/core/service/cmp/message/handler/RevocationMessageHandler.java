@@ -1,13 +1,35 @@
 package com.czertainly.core.service.cmp.message.handler;
 
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
+import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
-import com.czertainly.core.service.cmp.mock.MockCaImpl;
+import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
+import com.czertainly.core.service.v2.ClientOperationService;
+import org.bouncycastle.asn1.ASN1Enumerated;
+import org.bouncycastle.asn1.ASN1Integer;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.crmf.CertId;
+import org.bouncycastle.asn1.crmf.CertTemplate;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.GeneralName;
+import org.hibernate.validator.constraintvalidators.RegexpURLValidator;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.Optional;
 
 /**
  * <p>5.3.9.  Revocation Request Content</p>
@@ -42,7 +64,23 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 @Transactional
-public class RevocationMessageHandler implements MessageHandler {
+public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
+
+    private ClientOperationService clientOperationService;
+    private RegexpURLValidator regexpURLValidator;
+
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) { this.clientOperationService = clientOperationService; }
+
+    private CertificateService certificateService;
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
+
+    private CertificateRepository certificateRepository;
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) { this.certificateRepository = certificateRepository; }
+
+
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
         if(PKIBody.TYPE_REVOCATION_REQ!=request.getBody().getType()) {
@@ -50,128 +88,91 @@ public class RevocationMessageHandler implements MessageHandler {
                     PKIFailureInfo.systemFailure,
                     "revocation (rr) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
         }
+        ASN1OctetString tid = request.getHeader().getTransactionID();
         RevReqContent revBody = (RevReqContent) request.getBody().getContent();
-        RevDetails[] revocations = revBody.toRevDetailsArray();
 
-        PKIMessage response = MockCaImpl
-                .handleRevocationRequest(request, configuration);
+        RevRepContentBuilder rrcb = new RevRepContentBuilder();
+        //rrcb.add(new PKIStatusInfo(PKIStatus.revocationNotification));
+        for (var revocation : revBody.toRevDetailsArray()) {
+            CertTemplate certDetails = revocation.getCertDetails();
+            CertId certId = new CertId(new GeneralName(certDetails.getIssuer()),
+                    certDetails.getSerialNumber());
+            try {
+                revokeCertificate(tid, revocation, configuration);
+                // mam pollovat, za kazdy certifikat, jak dopadla revokace?
+                rrcb.add(new PKIStatusInfo(PKIStatus.revocationNotification), certId);
+            } catch (Exception e) {
+                rrcb.add(new PKIStatusInfo(PKIStatus.revocationWarning/*rejection??*/), certId);
+            }
+        }
 
-        if(response != null) { return response; }
-        throw new CmpProcessingException(
-                PKIFailureInfo.systemFailure,
-                "general problem while handling message, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()));
+        try {
+            return new PkiMessageBuilder(configuration)
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(request))
+                    .addBody(new PKIBody(PKIBody.TYPE_REVOCATION_REP, rrcb.build()))
+                    .addExtraCerts(null)
+                    .build();
+        } catch (Exception e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
+                    " problem build revocation response message", e);
+        }
     }
 
-    // --
-    // -- ACME, how to revoke certificate, inspiration
-    // --
-//    public ResponseEntity<?> revokeCertificate(String acmeProfileName, String requestJson, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException, ConnectorException, CertificateException {
-//        if (requestJson.isEmpty()) {
-//            logger.error("Update Account request is empty. JWS is malformed for profile: {}", acmeProfileName);
-//            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED);
-//        }
-//
-//        // Parse and check the JWS request
-//        AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
-//        validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
-//
-//        CertificateRevocationRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), CertificateRevocationRequest.class);
-//        logger.debug("Certificate revocation is triggered with the payload: {}", request.toString());
-//
-//        String base64UrlCertificate = request.getCertificate();
-//        X509Certificate x509Certificate = CertificateUtil.getX509CertificateFromBase64Url(base64UrlCertificate);
-//        String base64Certificate = CertificateUtil.getBase64FromX509Certificate(x509Certificate);
-//
-//        ClientCertificateRevocationDto revokeRequest = new ClientCertificateRevocationDto();
-//
-//        Certificate cert = certificateService.getCertificateEntityByContent(base64Certificate);
-//        if (cert.getState().equals(CertificateState.REVOKED)) {
-//            logger.error("Certificate is already revoked. Serial number: {}, Fingerprint: {}", cert.getSerialNumber(), cert.getFingerprint());
-//            throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);
-//        }
-//
-//        if (jwsRequest.isJwkPresent()) {
-//            PublicKey certPublicKey = x509Certificate.getPublicKey();
-//            PublicKey jwsPublicKey = jwsRequest.getPublicKey();
-//
-//            String pemPubKeyCert = AcmePublicKeyProcessor.publicKeyPemStringFromObject(certPublicKey);
-//            String pemPubKeyJws = AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsPublicKey);
-//            if (!pemPubKeyCert.equals(pemPubKeyJws)) { // check that the public key of the certificate matches the public key of the JWS
-//                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
-//            }
-//        }
-//
-//        // if the revocation reason is null, set it to UNSPECIFIED, otherwise get the code from the request
-//        final CertificateRevocationReason reason = request.getReason() == null ? CertificateRevocationReason.UNSPECIFIED : CertificateRevocationReason.fromReasonCode(request.getReason());
-//        // when the reason is null, it means, that is not in the list
-//        if (reason == null) {
-//            final String details = "Allowed revocation reason codes are: " + Arrays.toString(Arrays.stream(CertificateRevocationReason.values()).map(CertificateRevocationReason::getCode).toArray());
-//            throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.BAD_REVOCATION_REASON, details);
-//        }
-//
-//        revokeRequest.setReason(reason);
-//        // TODO: acme account should be identified from certificate, now empty revocation attributes are always used
-//        revokeRequest.setAttributes(getClientOperationAttributes(true, null, isRaProfileBased));
-//
-//        try {
-//            clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);
-//            return ResponseEntity
-//                    .ok()
-//                    .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-//                    .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
-//                    .build();
-//        } catch (NotFoundException | AttributeException e) {
-//            return ResponseEntity
-//                    .badRequest()
-//                    .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
-//                    .header(AcmeConstants.LINK_HEADER_NAME, generateLinkHeader(acmeProfileName, isRaProfileBased))
-//                    .build();
-//        }
-//    }
+    private CertificateRevocationReason getReason(RevDetails revocation, ASN1OctetString tid)
+            throws CmpProcessingException {
+        Extensions crlEntryDetails = revocation.getCrlEntryDetails();
+        Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
+        Long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
+                .getValue().longValue();
+        CertificateRevocationReason reason = reasonCodeExt == null ? CertificateRevocationReason.UNSPECIFIED : CertificateRevocationReason.fromReasonCode(reasonCode.intValue());
+        if (reason == null) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+                    "Revocation reason could not be found");
+        }
+        return reason;
+    }
 
+    private String getSerialNumber(RevDetails revocation, ASN1OctetString tid)
+            throws CmpProcessingException {
+        ASN1Integer serialNumber = revocation.getCertDetails().getSerialNumber();
+        if (serialNumber == null) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+                    "certificate's serialNumber could not be found");
+        }
+        return serialNumber.getValue().toString(16);
+    }
 
-        // --
-        // -- SCEP inspirace pro renewal
-        //
-//    private void renewalValidation(ScepRequest scepRequest) throws ScepException {
-//        JcaPKCS10CertificationRequest pkcs10Request = scepRequest.getPkcs10Request();
-//        Certificate extCertificate;
-//        try {
-//            extCertificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(scepRequest.getSignerCertificate()));
-//        } catch (NotFoundException e) {
-//            // Certificate is not found with the fingerprint. Meaning its not a renewal request. So do nothing
-//            return;
-//        } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
-//            throw new ScepException("Unable to parse the signer certificate");
-//        }
-//        if (!(new X500Name(extCertificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
-//            throw new ScepException("Subject DN for the renewal request does not match the original certificate");
-//        }
-//        try {
-//            if (!scepRequest.verifySignature(scepRequest.getSignerCertificate().getPublicKey())) {
-//                throw new ScepException("SCEP Request signature verification failed");
-//            }
-//        } catch (OperatorCreationException | CMSException e) {
-//            throw new ScepException("Exception when verifying signature." + e.getMessage());
-//        }
-//        // No need to verify the same key pair used in request since it is already handled by the rekey method in client operations
-//        checkRenewalTimeframe(extCertificate);
-//    }
-//
-//    private void checkRenewalTimeframe(Certificate certificate) throws ScepException {
-//        // Empty renewal threshold or the value 0 will be considered as null value and the half life of the certificate will be assumed
-//        if (scepProfile.getRenewalThreshold() == null || scepProfile.getRenewalThreshold() == 0) {
-//            // If the renewal timeframe is not given, we consider that renewal is possible only after the certificate
-//            // crosses its half lime time
-//            if (certificate.getValidity() / 2 < certificate.getExpiryInDays()) {
-//                throw new ScepException("Cannot renew certificate. Validity exceeds the half life time of certificate", FailInfo.BAD_REQUEST);
-//            }
-//        } else if (certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRED) || certificate.getState().equals(CertificateState.REVOKED)) {
-//            throw new ScepException("Cannot renew certificate. Certificate is already in expired or revoked state", FailInfo.BAD_REQUEST);
-//        } else {
-//            if (certificate.getExpiryInDays() > scepProfile.getRenewalThreshold()) {
-//                throw new ScepException("Cannot renew certificate. Validity exceeds the configured value in SCEP profile", FailInfo.BAD_REQUEST);
-//            }
-//        }
-//    }
+    private void revokeCertificate(ASN1OctetString tid, RevDetails revocation, ConfigurationContext configuration)
+            throws CmpProcessingException {
+        CertificateRevocationReason reason = getReason(revocation, tid);
+        String serialNumber = getSerialNumber(revocation, tid);
+        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
+        if (certificate.isEmpty()) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+                    "certificate for revocation could not be found, serialNumber="+serialNumber);
+        }
+        if (CertificateState.REVOKED.equals(certificate.get().getState())) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertTemplate,
+                    "Certificate is already revoked");
+        }
+
+        try {
+            ClientCertificateRevocationDto dto = new ClientCertificateRevocationDto();
+            dto.setReason(reason);
+            dto.setAttributes(configuration.getClientOperationAttributes(true));
+            RaProfile raProfile = configuration.getProfile().getRaProfile();
+            // -- (1)revoke request (ask for issue)
+            clientOperationService.revokeCertificate(
+                    SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
+                    certificate.get().getRaProfile().getSecuredUuid(),
+                    certificate.get().getUuid().toString(),
+                    dto);
+        } catch (ConnectorException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
+                    "cannot revoke certificate", e);
+        } catch (AttributeException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                    "cannot revoke certificate - wrong attributes", e);
+        }
+    }
 }

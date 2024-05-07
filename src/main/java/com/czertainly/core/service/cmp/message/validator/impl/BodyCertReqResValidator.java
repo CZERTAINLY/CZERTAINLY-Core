@@ -5,6 +5,7 @@ import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.validator.BiValidator;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.CertReqMsg;
@@ -82,42 +83,43 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
      */
     @Override
     public Void validateIn(PKIMessage request, ConfigurationContext configuration) throws CmpProcessingException {
+        ASN1OctetString tid = request.getHeader().getTransactionID();
         CertReqMessages content = (CertReqMessages) request.getBody().getContent();
         int bodyType = request.getBody().getType();
         CertReqMsg[] certReqMsgs = content.toCertReqMsgArray();
         if (certReqMsgs == null) {
-            throw new CmpCrmfValidationException(bodyType, PKIFailureInfo.addInfoNotAvailable,
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.addInfoNotAvailable,
                     PkiMessageDumper.msgTypeAsString(bodyType) +": missing 'certReqMsgs'");
         }
         if (certReqMsgs.length == 0) {
-            throw new CmpCrmfValidationException(bodyType, PKIFailureInfo.badDataFormat,
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badDataFormat,
                     PkiMessageDumper.msgTypeAsString(bodyType) +": 'certReqMsgs' cannot be empty");
         }
         if (certReqMsgs[0] == null) {
-            throw new CmpCrmfValidationException(bodyType, PKIFailureInfo.addInfoNotAvailable,
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.addInfoNotAvailable,
                     PkiMessageDumper.msgTypeAsString(bodyType) +": 'certReqMsgs' has no value");
         }
         // -- CertReqMsg/certReq
         CertReqMsg certReqMsg = certReqMsgs[0];
         CertRequest certReq = certReqMsg.getCertReq();
         if (!Objects.equals(certReq.getCertReqId(), ZERO)) {
-            throw new CmpProcessingException(PKIFailureInfo.badDataFormat,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
                     PkiMessageDumper.msgTypeAsString(bodyType)+": certReq must be zero");
         }
         // -- certTemplate/version,  version MUST be 2 if supplied.
         CertTemplate certTemplate = certReq.getCertTemplate();
         int versionInTemplate = certTemplate.getVersion();
         if (versionInTemplate != -1 && versionInTemplate != 2) {
-            throw new CmpProcessingException(
+            throw new CmpProcessingException(tid,
                     PKIFailureInfo.badCertTemplate,
                     PkiMessageDumper.msgTypeAsString(bodyType)+": certTemplate version must be -1 or 2");
         }
         // -- certTemplate/subject
         if (Objects.isNull(certTemplate.getSubject())) {
-            throw new CmpCrmfValidationException(bodyType, PKIFailureInfo.badCertTemplate,
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badCertTemplate,
                     PkiMessageDumper.msgTypeAsString(bodyType)+": subject in template is missing");
         }
-        configuration.validateCertReq(bodyType, content);
+        configuration.validateRequest(request);
         return null;//validation is ok
     }
 
@@ -174,7 +176,7 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
         } else {
             validateNegativeStatus(certResponse.getStatus());
         }
-        configuration.validateCertRep(response.getBody().getType(), content);
+        configuration.validateResponse(response);
         return null;
     }
 }

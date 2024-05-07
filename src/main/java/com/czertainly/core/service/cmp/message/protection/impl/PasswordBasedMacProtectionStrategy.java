@@ -12,6 +12,8 @@ import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DefaultMacAlgorithmIdentifierFinder;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -27,29 +29,35 @@ import java.util.List;
  */
 public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy implements ProtectionStrategy {
 
+    private final DefaultDigestAlgorithmIdentifierFinder DIGEST_ALGORITHM_IDENTIFIER_FINDER =
+            new DefaultDigestAlgorithmIdentifierFinder();
+    private final DefaultMacAlgorithmIdentifierFinder MAC_ALGORITHM_IDENTIFIER_FINDER =
+            new DefaultMacAlgorithmIdentifierFinder();
+
     private Mac mac;
     private AlgorithmIdentifier protectionAlgorithm;
 
-    public PasswordBasedMacProtectionStrategy(ConfigurationContext configuration)
+    public PasswordBasedMacProtectionStrategy(ConfigurationContext configuration,
+                                              AlgorithmIdentifier headerProtectionAlgorithm,
+                                              byte[] sharedSecret,
+                                              byte[] protectionSalt,
+                                              int iterationCount)
             throws CmpBaseException {
-        super(configuration);
-        byte[] sharedSecret = configuration.getSharedSecret();//RA's shared secret
-        byte[] protectionSalt = configuration.getSalt();
+        super(configuration, headerProtectionAlgorithm);
         byte[] calculatingBaseKey = new byte[sharedSecret.length + protectionSalt.length];
         System.arraycopy(sharedSecret, 0, calculatingBaseKey, 0, sharedSecret.length);
         System.arraycopy(protectionSalt, 0, calculatingBaseKey, sharedSecret.length, protectionSalt.length);
 
         try {
             Provider bouncyCastleProvider = CryptoUtil.getBouncyCastleProvider();
-            AlgorithmIdentifier digestAlgorithm = configuration.getDigestAlgorithm();
+            AlgorithmIdentifier digestAlgorithm = getDigestAlgorithm();
             MessageDigest digest = MessageDigest.getInstance(digestAlgorithm.getAlgorithm().getId(),bouncyCastleProvider);
-            int iterationCount = configuration.getIterationCount();
             for (int i = 0; i < iterationCount; i++) {
                 calculatingBaseKey = digest.digest(calculatingBaseKey);
                 digest.reset();
             }
 
-            AlgorithmIdentifier macAlgorithm = configuration.getMacAlgorithm();
+            AlgorithmIdentifier macAlgorithm = getMacAlgorithm();
             this.mac = Mac.getInstance(macAlgorithm.getAlgorithm().getId(),bouncyCastleProvider);
             this.mac.init(new SecretKeySpec(calculatingBaseKey, mac.getAlgorithm()));
             this.protectionAlgorithm = new AlgorithmIdentifier(
@@ -87,4 +95,34 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     @Override
     public ASN1OctetString getSenderKID() { return configuration.getSenderKID(); }
 
+    private AlgorithmIdentifier getDigestAlgorithm() throws CmpConfigurationException {
+        PBMParameter pbmParameter = PBMParameter.getInstance(
+                headerProtectionAlgorithm.getParameters());
+        AlgorithmIdentifier algorithmIdentifier = pbmParameter.getOwf();
+        if(algorithmIdentifier == null) {
+            algorithmIdentifier = DIGEST_ALGORITHM_IDENTIFIER_FINDER.find("SHA256");//db query/cmp profile.getSignatureName
+            if(algorithmIdentifier == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of DIGEST algorithm");
+            }
+        }
+        return algorithmIdentifier;
+    }
+
+    /**
+     * scope: PasswordBased-MAC  Protection
+     * @return algorithm for mac (for PKI Protection field)
+     * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong mac name).
+     */
+    private AlgorithmIdentifier getMacAlgorithm() throws CmpConfigurationException {
+        PBMParameter pbmParameter = PBMParameter.getInstance(
+                headerProtectionAlgorithm.getParameters());
+        AlgorithmIdentifier algorithmIdentifier = pbmParameter.getMac();
+        if(algorithmIdentifier == null) {
+            algorithmIdentifier = MAC_ALGORITHM_IDENTIFIER_FINDER.find("HMACSHA256");//db query/cmp profile.getSignatureName
+            if(algorithmIdentifier == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of MAC algorithm");
+            }
+        }
+        return algorithmIdentifier;
+    }
 }

@@ -72,12 +72,12 @@ public class CertUtil {
      * @throws CertificateException if certificate could not be converted
      */
     public static CMPCertificate[] toCmpCertificates(List<X509Certificate> certs) throws CertificateException {
-        final CMPCertificate[] ret = new CMPCertificate[certs.size()];
+        CMPCertificate[] cmpCertificates = new CMPCertificate[certs.size()];
         int index = 0;
-        for (final X509Certificate aktCert : certs) {
-            ret[index++] = toCmpCertificate(aktCert);
+        for (X509Certificate x509Cert : certs) {
+            cmpCertificates[index++] = toCmpCertificate(x509Cert);
         }
-        return ret;
+        return cmpCertificates;
     }
 
     /**

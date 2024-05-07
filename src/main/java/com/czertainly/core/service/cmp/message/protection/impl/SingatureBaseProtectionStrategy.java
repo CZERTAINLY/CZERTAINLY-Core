@@ -1,10 +1,16 @@
 package com.czertainly.core.service.cmp.message.protection.impl;
 
+import com.czertainly.api.model.core.cmp.ProtectionMethod;
+import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpConfigurationException;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.service.cmp.CertificateKeyService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
+import com.czertainly.core.service.cmp.util.AlgorithmHelper;
 import com.czertainly.core.service.cmp.util.CertUtil;
 import com.czertainly.core.service.cmp.util.OIDS;
+import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
 import org.bouncycastle.asn1.ASN1Encoding;
@@ -15,13 +21,13 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 
 import java.io.OutputStream;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.Arrays;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -42,16 +48,31 @@ import java.util.stream.Collectors;
  */
 public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy implements ProtectionStrategy {
 
-    protected final LinkedList<X509Certificate> certificationsChain;
+    private final DefaultSignatureAlgorithmIdentifierFinder SIGNATURE_ALGORITHM_IDENTIFIER_FINDER =
+            new DefaultSignatureAlgorithmIdentifierFinder();
 
-    public SingatureBaseProtectionStrategy(ConfigurationContext configuration){
-        super(configuration);
-        this.certificationsChain = new LinkedList<>(configuration.getExtraCertsCertificateChain());
+    private final List<X509Certificate> certificationsChain;
+    private final CertificateKeyService certificateKeyService;
+
+    public SingatureBaseProtectionStrategy(ConfigurationContext configuration,
+                                           AlgorithmIdentifier headerProtectionAlgorithm,
+                                           CertificateKeyService certificateKeyService)
+            throws CmpConfigurationException {
+        super(configuration, headerProtectionAlgorithm);
+        try {
+            Certificate signingCertificate = configuration.getProfile().getSigningCertificate();
+            this.certificationsChain = List.of(CertificateUtil.getX509Certificate(
+                    signingCertificate.getCertificateContent().getContent()));
+        } catch (CertificateException e) {
+            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                    "problem to get singerCertificate");
+        }
+        this.certificateKeyService = certificateKeyService;
     }
 
     @Override
     public AlgorithmIdentifier getProtectionAlg() throws CmpConfigurationException {
-        return configuration.getSignatureAlgorithm().asANS1AlgorithmIdentifier();
+        return getSignatureAlgorithm().asANS1AlgorithmIdentifier();
     }
 
     /**
@@ -69,19 +90,13 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.2">Algorithm Use Profile</a>
      */
     @Override
-    public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
-        //Signature sig = Signature.getInstance(getProtectionAlg().getAlgorithm().getId());
-        //sig.initSign(configuration.getPrivateKeyForSigning());
-        //sig.update(new ProtectedPart(header, body).getEncoded(ASN1Encoding.DER));
-        //return new DERBitString(sig.sign());
-
-        ASN1EncodableVector v = new ASN1EncodableVector();
+    public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {ASN1EncodableVector v = new ASN1EncodableVector();
         v.addAll(new ASN1Encodable[]{header,body});
         //OIDS a1 = OIDS.findMatch(getProtectionAlg().getAlgorithm().getId());
         ContentSigner signer = new JcaContentSignerBuilder(
-                configuration.getSignatureAlgorithm().asJcaName())
-                .setProvider(configuration.getSignatureProvider())
-                .build(configuration.getPrivateKeyForSigning());
+                getSignatureAlgorithm().asJcaName())
+                .setProvider(certificateKeyService.getProvider(configuration.getProfile().getName()))
+                .build(certificateKeyService.getPrivateKey(configuration.getProfile().getSigningCertificate()));
         OutputStream sOut = signer.getOutputStream();
         sOut.write(new org.bouncycastle.asn1.DERSequence(v).getEncoded(ASN1Encoding.DER));
         sOut.close();
@@ -122,4 +137,24 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     public ASN1OctetString getSenderKID() { return CertUtil.extractSubjectKeyIdentifierFromCert(getCaCertificate()); }
 
     private X509Certificate getCaCertificate() { return certificationsChain.get(0); }
+
+    /**
+     * <b>scope: SIGNATURE-BASED protection</b>
+     *
+     * @return get name of signature algorithm, which is configured at czertainly server
+     *
+     * @see <a href="https://docs.oracle.com/en/java/javase/17/docs/specs/security/standard-names.html">Java Security Standard Algorithm Names Specification</a>
+     */
+    private AlgorithmHelper getSignatureAlgorithm() throws CmpConfigurationException {
+        AlgorithmIdentifier signatureAlg = headerProtectionAlgorithm;
+        if(ProtectionMethod.SHARED_SECRET.equals(configuration.getProtectionMethod())
+                || signatureAlg == null) {
+            signatureAlg = SIGNATURE_ALGORITHM_IDENTIFIER_FINDER.find("SHA256withECDSA");//db query/cmp profile.getSignatureName
+            if(signatureAlg == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "wrong name of SIGNATURE algorithm");
+            }
+        }
+        return new AlgorithmHelper(signatureAlg);
+    }
 }
