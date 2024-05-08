@@ -32,10 +32,10 @@ import java.util.List;
 
 /**
  * Handle (czertainly) supported CRMF-based message - ir/cr/kur; concrete handle (how to get/update certificate)
- * delegates to another specific handlers, e.g. {@link IrCrMessageHandler} or {@link KeyUpdateRequestMessageHandler}.
+ * delegates to another specific handlers, e.g. {@link CrmfIrCrMessageHandler} or {@link CrmfKurMessageHandler}.
  *
- * @see IrCrMessageHandler
- * @see KeyUpdateRequestMessageHandler
+ * @see CrmfIrCrMessageHandler
+ * @see CrmfKurMessageHandler
  */
 @Component
 @Transactional
@@ -57,8 +57,8 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
     @Autowired
     public void setPollFeature(PollFeature pollFeature) { this.pollFeature = pollFeature; }
 
-    @Autowired private IrCrMessageHandler irCrMessageHandler;
-    @Autowired private KeyUpdateRequestMessageHandler kurMessageHandler;
+    @Autowired private CrmfIrCrMessageHandler crmfIrCrMessageHandler;
+    @Autowired private CrmfKurMessageHandler kurMessageHandler;
 
     /**
      *<pre>
@@ -124,7 +124,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
                 .validate(request, configuration);
 
         ClientCertificateDataResponseDto requestedCert = switch (request.getBody().getType()) {
-            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> irCrMessageHandler.handle(request, configuration);
+            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> crmfIrCrMessageHandler.handle(request, configuration);
             case PKIBody.TYPE_KEY_UPDATE_REQ -> kurMessageHandler.handle(request, configuration);
             case PKIBody.TYPE_KEY_RECOVERY_REQ, PKIBody.TYPE_CROSS_CERT_REQ ->
                     throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,

@@ -39,9 +39,9 @@ import java.util.*;
  */
 @Component
 @Transactional
-public class IrCrMessageHandler implements MessageHandler<ClientCertificateDataResponseDto> {
+public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateDataResponseDto> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(IrCrMessageHandler.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CrmfIrCrMessageHandler.class.getName());
     private static final List<Integer> ALLOWED_TYPES = List.of(
             PKIBody.TYPE_INIT_REQ,          // ir       [0]  CertReqMessages,       --Initialization Req
             PKIBody.TYPE_CERT_REQ);         // cr       [2]  CertReqMessages,       --Certification Req

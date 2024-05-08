@@ -14,7 +14,6 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
-import com.czertainly.core.service.cmp.util.CertUtil;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -49,9 +48,9 @@ import java.util.Optional;
  */
 @Component
 @Transactional
-public class KeyUpdateRequestMessageHandler implements MessageHandler<ClientCertificateDataResponseDto> {
+public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDataResponseDto> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(KeyUpdateRequestMessageHandler.class.getName());
+    private static final Logger LOG = LoggerFactory.getLogger(CrmfKurMessageHandler.class.getName());
 
     private CertificateRepository certificateRepository;
     @Autowired
