@@ -20,6 +20,16 @@ import java.util.UUID;
 @Repository
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
+    /**
+     * Fetch certificate by given <code>uuid</code> with
+     * related content, see {@link CertificateContent}.
+     *
+     * @param uuid identifier of given certificate
+     * @return certificate with related {@link CertificateContent}
+     */
+    @Query("SELECT c FROM Certificate c JOIN FETCH c.certificateContent WHERE c.uuid= ?1")
+    Optional<Certificate> findByUuidWithCertificateContent(UUID uuid);
+
     Optional<Certificate> findByUuid(UUID uuid);
 
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);

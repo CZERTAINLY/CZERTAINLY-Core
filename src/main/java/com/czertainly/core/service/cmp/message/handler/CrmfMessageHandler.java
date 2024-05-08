@@ -16,8 +16,10 @@ import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.service.cmp.message.validator.impl.POPValidator;
 import com.czertainly.core.service.cmp.util.CertUtil;
 import com.czertainly.core.util.CertificateUtil;
+import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -138,8 +140,12 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         }
 
         // -- polling against the database
+        CertReqMessages crmf = (CertReqMessages) request.getBody().getContent();
+        ASN1Integer serialNumber = crmf.toCertReqMsgArray()[0].getCertReq().getCertTemplate().getSerialNumber();
+
         Certificate polledCert = pollFeature.pollCertificate(tid,
-                "n/a", requestedCert.getUuid(), CertificateState.ISSUED);
+                serialNumber==null?"n/a":serialNumber.getValue().toString(16), requestedCert.getUuid(),
+                CertificateState.ISSUED);
         // -- parse polled certificate (as X509)
         X509Certificate parsedCert = parseCertificate(tid, polledCert);
         // -- field: caPubs
