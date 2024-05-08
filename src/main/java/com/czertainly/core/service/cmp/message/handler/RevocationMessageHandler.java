@@ -26,6 +26,8 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.hibernate.validator.constraintvalidators.RegexpURLValidator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -66,20 +68,20 @@ import java.util.Optional;
 @Transactional
 public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
 
+    private static final Logger LOG = LoggerFactory.getLogger(RevocationMessageHandler.class.getName());
+
     private ClientOperationService clientOperationService;
-    private RegexpURLValidator regexpURLValidator;
 
     @Autowired
     public void setClientOperationService(ClientOperationService clientOperationService) { this.clientOperationService = clientOperationService; }
-
-    private CertificateService certificateService;
-    @Autowired
-    public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
     private CertificateRepository certificateRepository;
     @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) { this.certificateRepository = certificateRepository; }
 
+    private PollFeature pollFeature;
+    @Autowired
+    public void setPollFeature(PollFeature pollFeature) { this.pollFeature = pollFeature; }
 
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
@@ -91,25 +93,37 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         ASN1OctetString tid = request.getHeader().getTransactionID();
         RevReqContent revBody = (RevReqContent) request.getBody().getContent();
 
-        RevRepContentBuilder rrcb = new RevRepContentBuilder();
-        //rrcb.add(new PKIStatusInfo(PKIStatus.revocationNotification));
-        for (var revocation : revBody.toRevDetailsArray()) {
+        RevDetails[] revocations = revBody.toRevDetailsArray();
+        int revocationCount = revocations.length;
+        RevRepContentBuilder revocationResponseBuilder = new RevRepContentBuilder();
+        LOG.debug("TID={} | revocations started (count={})", tid, revocationCount);
+        for (var revocation : revocations) {
+            //RevDetails revocation = revBody.toRevDetailsArray()[0];
             CertTemplate certDetails = revocation.getCertDetails();
             CertId certId = new CertId(new GeneralName(certDetails.getIssuer()),
                     certDetails.getSerialNumber());
             try {
-                revokeCertificate(tid, revocation, configuration);
-                // mam pollovat, za kazdy certifikat, jak dopadla revokace?
-                rrcb.add(new PKIStatusInfo(PKIStatus.revocationNotification), certId);
+                Certificate certificate = getCertificate(revocation, tid);
+                revokeCertificate(tid, revocation, certificate, configuration);
+                pollFeature.pollCertificate(tid,
+                        certificate.getSerialNumber(), certificate.getUuid().toString(), CertificateState.REVOKED);
+                revocationResponseBuilder.add(
+                        new PKIStatusInfo(PKIStatus.revocationNotification), certId);
+                LOG.trace("TID={}, SN={} | revocations of certificate is done (remaining={})", tid, getSerialNumber(revocation), --revocationCount);
             } catch (Exception e) {
-                rrcb.add(new PKIStatusInfo(PKIStatus.revocationWarning/*rejection??*/), certId);
+                LOG.error("TID={}, SN={} | revocation of certificate failed, reason={}", tid, getSerialNumber(revocation), e.getLocalizedMessage(), e);
+                revocationResponseBuilder.add(
+                        new PKIStatusInfo(PKIStatus.rejection/*rejection??*/), certId);
             }
+        }
+        if(revocationCount!=0) {
+            LOG.error("TID={} | some revocations failed (count={})", tid, revocationCount);
         }
 
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(request))
-                    .addBody(new PKIBody(PKIBody.TYPE_REVOCATION_REP, rrcb.build()))
+                    .addBody(new PKIBody(PKIBody.TYPE_REVOCATION_REP, revocationResponseBuilder.build()))
                     .addExtraCerts(null)
                     .build();
         } catch (Exception e) {
@@ -118,61 +132,67 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         }
     }
 
+    private Certificate getCertificate(RevDetails revocation, ASN1OctetString tid)
+            throws CmpProcessingException {
+        String serialNumber = getSerialNumber(revocation);
+        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
+        if (certificate.isEmpty()) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+                    "SN="+getSerialNumber(revocation)+" | certificate for revocation could not be found");
+        }
+        return certificate.get();
+    }
+
+    private String getSerialNumber(RevDetails revocation) {
+        ASN1Integer serialNumber = revocation.getCertDetails().getSerialNumber();//nul tady nenastavne viz. BodyRevocationValidator
+        return serialNumber.getValue().toString(16);
+    }
+
     private CertificateRevocationReason getReason(RevDetails revocation, ASN1OctetString tid)
             throws CmpProcessingException {
         Extensions crlEntryDetails = revocation.getCrlEntryDetails();
         Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
         Long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
                 .getValue().longValue();
-        CertificateRevocationReason reason = reasonCodeExt == null ? CertificateRevocationReason.UNSPECIFIED : CertificateRevocationReason.fromReasonCode(reasonCode.intValue());
-        if (reason == null) {
+        CertificateRevocationReason reason = CertificateRevocationReason.UNSPECIFIED;
+        if(reasonCode != null) {
+            CertificateRevocationReason.fromReasonCode(reasonCode.intValue());
+        }
+        if(reason == null) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
-                    "Revocation reason could not be found");
+                    "SN="+getSerialNumber(revocation)+" | revocation reason could not be found");
         }
         return reason;
     }
 
-    private String getSerialNumber(RevDetails revocation, ASN1OctetString tid)
+    private void revokeCertificate(ASN1OctetString tid, RevDetails revocation, Certificate certificate,
+                                   ConfigurationContext configuration)
             throws CmpProcessingException {
-        ASN1Integer serialNumber = revocation.getCertDetails().getSerialNumber();
-        if (serialNumber == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
-                    "certificate's serialNumber could not be found");
-        }
-        return serialNumber.getValue().toString(16);
-    }
-
-    private void revokeCertificate(ASN1OctetString tid, RevDetails revocation, ConfigurationContext configuration)
-            throws CmpProcessingException {
-        CertificateRevocationReason reason = getReason(revocation, tid);
-        String serialNumber = getSerialNumber(revocation, tid);
-        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
-        if (certificate.isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
-                    "certificate for revocation could not be found, serialNumber="+serialNumber);
-        }
-        if (CertificateState.REVOKED.equals(certificate.get().getState())) {
+        String sn = certificate.getSerialNumber();
+        if (CertificateState.REVOKED.equals(certificate.getState())) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertTemplate,
-                    "Certificate is already revoked");
+                    "SN="+sn+" | Certificate is already revoked");
         }
-
+        CertificateRevocationReason reason = getReason(revocation, tid);
         try {
             ClientCertificateRevocationDto dto = new ClientCertificateRevocationDto();
             dto.setReason(reason);
             dto.setAttributes(configuration.getClientOperationAttributes(true));
             RaProfile raProfile = configuration.getProfile().getRaProfile();
             // -- (1)revoke request (ask for issue)
+            LOG.trace("TID={}, SN={} | revocation request (begin)", tid, sn);
             clientOperationService.revokeCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
-                    certificate.get().getRaProfile().getSecuredUuid(),
-                    certificate.get().getUuid().toString(),
+                    certificate.getRaProfile().getSecuredUuid(),
+                    certificate.getUuid().toString(),
                     dto);
+            LOG.trace("TID={}, SN={} | revocation request (  end)", tid, sn);
         } catch (ConnectorException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "cannot revoke certificate", e);
+                    "SN="+sn+" | cannot revoke certificate", e);
         } catch (AttributeException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "cannot revoke certificate - wrong attributes", e);
+                    "SN="+sn+" | cannot revoke certificate - wrong attributes", e);
         }
     }
 }
