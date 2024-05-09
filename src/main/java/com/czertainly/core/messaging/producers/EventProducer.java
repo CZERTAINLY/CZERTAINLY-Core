@@ -4,7 +4,7 @@ import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.rules.ResourceEvent;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
 import org.slf4j.Logger;

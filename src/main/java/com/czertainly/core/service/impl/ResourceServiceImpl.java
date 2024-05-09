@@ -6,6 +6,9 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceDto;
+import com.czertainly.api.model.core.other.ResourceEvent;
+import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -154,6 +157,27 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
+    public List<ResourceDto> listResources() {
+        List<ResourceDto> resources = new ArrayList<>();
+
+        for (Resource resource : Resource.values()) {
+            if (resource == Resource.NONE) {
+                continue;
+            }
+
+            ResourceDto resourceDto = new ResourceDto();
+            resourceDto.setResource(resource);
+            resourceDto.setHasObjectAccess(resource.hasObjectAccess());
+            resourceDto.setHasCustomAttributes(resource.supportCustomAttributes());
+            resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
+            resourceDto.setHasRuleEvaluator(resource == Resource.CERTIFICATE);
+            resources.add(resourceDto);
+        }
+
+        return resources;
+    }
+
+    @Override
     public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
         return switch (resourceName) {
             case ACME_PROFILE -> acmeProfileService.listResourceObjects(SecurityFilter.create());
@@ -236,8 +260,13 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
+        if (resource != Resource.CERTIFICATE) {
+            return List.of();
+        }
+
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource);
-        if (settable) searchFieldDataByGroupDtos.removeIf(dto -> dto.getFilterFieldSource() == FilterFieldSource.META);
+        if (settable)
+            searchFieldDataByGroupDtos.removeIf(dto -> dto.getFilterFieldSource() != FilterFieldSource.CUSTOM);
 
         List<SearchFieldNameEnum> enums = SearchFieldNameEnum.getEnumsForResource(resource);
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
@@ -251,7 +280,7 @@ public class ResourceServiceImpl implements ResourceService {
                 // Filter field has values of an Enum
                 if (fieldEnum.getFieldProperty().getEnumClass() != null)
                     fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getFieldProperty().getEnumClass().getEnumConstants()));
-                // Filter field has values of all objects of another entity
+                    // Filter field has values of all objects of another entity
                 else if (fieldEnum.getFieldResource() != null)
                     fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
                     // Filter field has values of all possible values of a property
@@ -264,6 +293,11 @@ public class ResourceServiceImpl implements ResourceService {
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
 
         return searchFieldDataByGroupDtos;
+    }
+
+    @Override
+    public List<ResourceEventDto> listResourceEvents(Resource resource) {
+        return ResourceEvent.listEventsByResource(resource).stream().map(e -> new ResourceEventDto(e, e.getProducedResource())).toList();
     }
 
 }
