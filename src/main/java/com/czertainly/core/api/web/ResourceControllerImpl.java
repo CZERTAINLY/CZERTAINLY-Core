@@ -3,7 +3,8 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.ResourceController;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.ResourceEvent;
+import com.czertainly.api.model.core.other.ResourceDto;
+import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
@@ -30,12 +31,17 @@ public class ResourceControllerImpl implements ResourceController {
     private ResourceService resourceService;
 
     @Override
+    public List<ResourceDto> listResources() {
+        return resourceService.listResources();
+    }
+
+    @Override
     public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
         return resourceService.listResourceRuleFilterFields(resource, settable);
     }
 
     @Override
-    public List<ResourceEvent> listResourceEvents(Resource resource) {
-        return ResourceEvent.listEventsByResource(resource);
+    public List<ResourceEventDto> listResourceEvents(Resource resource) {
+        return resourceService.listResourceEvents(resource);
     }
 }

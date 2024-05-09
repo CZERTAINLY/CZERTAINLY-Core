@@ -56,6 +56,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
     @Autowired
     private ConnectorRepository connectorRepository;
 
+    private DataAttribute testAttribute;
+    private DataAttribute testAttribute2;
     private Location location;
     private Location locationNoMultiEntries;
     private Location locationNoKeyManagement;
@@ -114,7 +116,6 @@ public class LocationServiceTest extends BaseSpringBootTest {
         certificateLocation.setWithKey(true);
         certificateLocation.setCertificate(certificate);
         certificateLocation.setLocation(location);
-        //certificateLocationRepository.save(certificateLocation);
         cls.add(certificateLocation);
 
         location.getCertificates().addAll(cls);
@@ -123,68 +124,38 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location = locationRepository.save(location);
         locationNoMultiEntries = locationRepository.save(locationNoMultiEntries);
         locationNoKeyManagement = locationRepository.save(locationNoKeyManagement);
-
-        // sample attribute
-        DataAttribute attribute = new DataAttribute();
-        attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1d");
-        attribute.setName("sample");
-
-        DataAttributeProperties properties = new DataAttributeProperties();
-        properties.setLabel("Sample attribute");
-        attribute.setDescription("description");
-        attribute.setContentType(AttributeContentType.STRING);
-        attribute.setType(AttributeType.DATA);
-        properties.setRequired(true);
-        properties.setReadOnly(false);
-        properties.setVisible(true);
-        attribute.setProperties(properties);
-        attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, List.of(attribute));
     }
 
     private void prepareDataAttributesDefinitions() throws AttributeException {
-        DataAttribute attribute = new DataAttribute();
-        attribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
-        attribute.setName("attribute");
+        testAttribute = new DataAttribute();
+        testAttribute.setUuid("5e9146a6-da8a-403f-99cb-d5d64d93ce1c");
+        testAttribute.setName("attribute");
 
         DataAttributeProperties properties = new DataAttributeProperties();
         properties.setLabel("Attribute");
-        attribute.setDescription("description");
-        attribute.setContentType(AttributeContentType.STRING);
-        attribute.setType(AttributeType.DATA);
+        testAttribute.setDescription("description");
+        testAttribute.setContentType(AttributeContentType.STRING);
+        testAttribute.setType(AttributeType.DATA);
         properties.setRequired(true);
         properties.setReadOnly(false);
         properties.setVisible(true);
-        attribute.setProperties(properties);
+        testAttribute.setProperties(properties);
 
-        DataAttribute sample = new DataAttribute();
-        sample.setUuid("c9819613-725e-4f01-89fb-cb896a26e555");
-        sample.setName("sample");
+        testAttribute2 = new DataAttribute();
+        testAttribute2.setUuid("c9819613-725e-4f01-89fb-cb896a26e555");
+        testAttribute2.setName("sample");
 
         DataAttributeProperties sampleProps = new DataAttributeProperties();
         sampleProps.setLabel("Sample Attribute");
-        sample.setDescription("Desc");
-        sample.setContentType(AttributeContentType.STRING);
-        sample.setType(AttributeType.DATA);
+        testAttribute2.setDescription("Desc");
+        testAttribute2.setContentType(AttributeContentType.STRING);
+        testAttribute2.setType(AttributeType.DATA);
         sampleProps.setRequired(true);
         sampleProps.setReadOnly(false);
         sampleProps.setVisible(true);
-        sample.setProperties(sampleProps);
+        testAttribute2.setProperties(sampleProps);
 
-//        DataAttribute test = new DataAttribute();
-//        test.setUuid("a88abe01-2968-4fda-80fd-b434a49db579");
-//        test.setName("testLocation");
-//
-//        DataAttributeProperties testProps = new DataAttributeProperties();
-//        testProps.setLabel("Test location");
-//        test.setDescription("description");
-//        test.setContentType(AttributeContentType.STRING);
-//        test.setType(AttributeType.DATA);
-//        testProps.setRequired(true);
-//        testProps.setReadOnly(false);
-//        testProps.setVisible(true);
-//        test.setProperties(testProps);
-
-        attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, List.of(attribute, sample));
+        attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, List.of(testAttribute, testAttribute2));
     }
 
     private Location createLocation() throws AttributeException, NotFoundException {
@@ -196,7 +167,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(true);
 
-        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes("attribute", List.of(new StringAttributeContent("location")));
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("location")));
         attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
         return location;
     }
@@ -210,7 +181,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location.setSupportKeyManagement(true);
         location.setSupportMultipleEntries(false);
 
-        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes("attribute", List.of(new StringAttributeContent("location_multi")));
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("location_multi")));
         attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
 
         return location;
@@ -225,7 +196,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
         location.setSupportKeyManagement(false);
         location.setSupportMultipleEntries(true);
 
-        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes("attribute", List.of(new StringAttributeContent("location_no_key")));
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("location_no_key")));
         attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
 
         return location;
@@ -276,7 +247,8 @@ public class LocationServiceTest extends BaseSpringBootTest {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName("testLocation2");
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setName("sample");
+        requestAttributeDto.setUuid(testAttribute2.getUuid());
+        requestAttributeDto.setName(testAttribute2.getName());
         requestAttributeDto.setContent(List.of(new StringAttributeContent("test")));
         request.setAttributes(List.of(requestAttributeDto));
 
