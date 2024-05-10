@@ -1,15 +1,14 @@
 package com.czertainly.core.service.cmp.message.protection.impl;
 
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpConfigurationException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.service.cmp.CertificateKeyService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.service.cmp.util.AlgorithmHelper;
 import com.czertainly.core.service.cmp.util.CertUtil;
-import com.czertainly.core.service.cmp.util.OIDS;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -23,6 +22,8 @@ import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.io.OutputStream;
 import java.security.cert.CertificateException;
@@ -47,6 +48,8 @@ import java.util.stream.Collectors;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3">PKI Message Protection</a>
  */
 public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy implements ProtectionStrategy {
+
+    private static final Logger LOG = LoggerFactory.getLogger(SingatureBaseProtectionStrategy.class.getName());
 
     private final DefaultSignatureAlgorithmIdentifierFinder SIGNATURE_ALGORITHM_IDENTIFIER_FINDER =
             new DefaultSignatureAlgorithmIdentifierFinder();
@@ -90,9 +93,16 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.2">Algorithm Use Profile</a>
      */
     @Override
-    public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {ASN1EncodableVector v = new ASN1EncodableVector();
+    public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
+        ASN1EncodableVector v = new ASN1EncodableVector();
         v.addAll(new ASN1Encodable[]{header,body});
         //OIDS a1 = OIDS.findMatch(getProtectionAlg().getAlgorithm().getId());
+        if(configuration.dumpSinging()) {
+            PkiMessageDumper.dumpSingerCertificate(
+                    "protection",
+                    CertificateUtil.parseCertificate(configuration.getProfile().getSigningCertificate().getCertificateContent().getContent()),
+                    null);
+        }
         ContentSigner signer = new JcaContentSignerBuilder(
                 getSignatureAlgorithm().asJcaName())
                 .setProvider(certificateKeyService.getProvider(configuration.getProfile().getName()))

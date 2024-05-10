@@ -31,6 +31,7 @@ import org.bouncycastle.asn1.sec.SECObjectIdentifiers;
 import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.ua.UAObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
@@ -47,6 +48,7 @@ import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
+import java.security.cert.X509Certificate;
 import java.text.ParseException;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -57,7 +59,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * @author Andreas Kretschmer (cmp-ra-component/Apache 2.0 Licence)
  *
  * @see <a href="https://github.com/siemens/cmp-ra-component/blob/main/src/main/java/com/siemens/pki/cmpracomponent/util/MessageDumper.java">...</a>
- * @see <a href="https://law.stackexchange.com/questions/59999/can-i-copy-pieces-of-apache-licensed-source-code-if-i-attribute">...</a>
  */
 public class PkiMessageDumper {
 
@@ -77,6 +78,33 @@ public class PkiMessageDumper {
                     LOG.error("error filling typemap", e);
                 }
             }
+        }
+    }
+
+    public static void dumpSingerCertificate(String location,
+                                             X509Certificate singerCertificate,
+                                             CMPCertificate[] extraCerts) {
+        if("builder".equals(location)) {
+            if (extraCerts != null && extraCerts.length > 0) {
+                for (var i = 0; i < extraCerts.length; i++) {
+                    org.bouncycastle.asn1.x509.Certificate cert = extraCerts[i].getX509v3PKCert();
+                    LOG.info("{}", String.format("%s - [%s]\nsubject=%s, \nsn=%s, \nissuer=%s",
+                            location.toUpperCase(),
+                            i,
+                            cert.getSubject(),
+                            cert.getSerialNumber(),
+                            cert.getIssuer()));
+                }
+            } else {
+                LOG.info("extraCerts are empty");
+            }
+        } else {
+            LOG.info("{}", String.format("%s - [%s]\nsubject=%s, \nsn=%s, \nissuer=%s",
+                    location.toUpperCase(),
+                    0,
+                    singerCertificate.getSubjectX500Principal(),
+                    singerCertificate.getSerialNumber(),
+                    singerCertificate.getIssuerX500Principal()));
         }
     }
 
@@ -130,7 +158,7 @@ public class PkiMessageDumper {
             case PKIBody.TYPE_POLL_REQ ->          {return String.format(format, "pollReq", type/*25*/ );}
             case PKIBody.TYPE_POLL_REP ->          {return String.format(format, "pollRep", type/*26*/ );}
         }
-        return "<uknown-type>";
+        return "<unknown-type>";
     }
 
     /**

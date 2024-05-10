@@ -68,6 +68,9 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
             byte[] protectedBytes = new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER);
             byte[] protectionBytes = message.getProtection().getBytes();
             X509Certificate singerCertificate = CertUtil.toX509Certificates(extraCerts).get(0);
+            if(configuration.dumpSinging()) {
+                PkiMessageDumper.dumpSingerCertificate("validator", singerCertificate, null);
+            }
             Signature signature = Signature.getInstance(
                     header.getProtectionAlg().getAlgorithm().getId(),
                     CryptoUtil.getBouncyCastleProvider());
