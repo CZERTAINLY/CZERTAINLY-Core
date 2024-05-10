@@ -461,7 +461,7 @@ public class RuleServiceImpl implements RuleService {
             if (actionRequestDto.getActionType() == null)
                 throw new ValidationException("Missing action type in an action.");
             // If the Action Type is Ignore, it must be the only action in the list
-            if (actionRequestDto.getActionType() == RuleActionType.IGNORE && !actionRequestDtos.isEmpty())
+            if (actionRequestDto.getActionType() == RuleActionType.IGNORE && actionRequestDtos.size() > 1)
                 throw new ValidationException("Actions contain action with Action Type Ignore, it must be the only action in the list.");
             RuleAction action = new RuleAction();
             if (trigger != null) {
