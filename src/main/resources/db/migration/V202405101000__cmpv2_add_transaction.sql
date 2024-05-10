@@ -1,3 +1,5 @@
+DROP TABLE IF EXISTS cmp_transaction CASCADE;
+
 CREATE TABLE cmp_transaction
 (
    uuid              uuid      NOT NULL,
