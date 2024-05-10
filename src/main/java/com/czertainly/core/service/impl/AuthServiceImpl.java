@@ -4,7 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
-import com.czertainly.api.model.core.auth.ResourceDetailDto;
+import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.core.aop.AuditLogged;
@@ -45,8 +45,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Override
-    public List<ResourceDetailDto> getAllResources() {
-        return resourceApiClient.getAllResources();
+    public List<AuthResourceDto> getAuthResources() {
+        return resourceApiClient.getAuthResources();
     }
 
     @Override

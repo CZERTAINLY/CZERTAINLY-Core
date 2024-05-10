@@ -5,7 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.rules.ResourceEvent;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.CertificateEventHistoryService;
