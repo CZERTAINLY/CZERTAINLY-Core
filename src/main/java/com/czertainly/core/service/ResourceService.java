@@ -2,11 +2,12 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceDto;
+import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -14,6 +15,13 @@ import java.util.List;
 import java.util.UUID;
 
 public interface ResourceService {
+
+    /**
+     * Method to retrieve resources available in platform
+     * @return List of resources
+     */
+    List<ResourceDto> listResources();
+
     /**
      * Function to get the list of objects available to be displayed for object level access for Access Control
      *
@@ -48,4 +56,12 @@ public interface ResourceService {
      * @return List of filter fields
      */
     List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException;
+
+    /**
+     * Method to retrieve events supported by resource
+     * @param resource Resource for which to retrieve events
+     * @return List of events
+     */
+    List<ResourceEventDto> listResourceEvents(Resource resource);
+
 }

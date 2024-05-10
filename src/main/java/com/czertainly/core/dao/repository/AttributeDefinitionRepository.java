@@ -18,19 +18,19 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     Optional<AttributeDefinition> findByUuidAndTypeAndGlobalTrue(UUID uuid, AttributeType type);
     Optional<AttributeDefinition> findByAttributeUuid(UUID uuid);
     List<AttributeDefinition> findByTypeAndConnectorUuid(AttributeType type, UUID connectorUuid);
-    List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidIn(AttributeType type, UUID connectorUuid, List<UUID> uuids);
+    List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType type, UUID connectorUuid, List<UUID> uuids, List<String> names);
     List<AttributeDefinition> findByTypeAndContentType(AttributeType type, AttributeContentType contentType);
     List<AttributeDefinition> findByTypeAndGlobal(AttributeType type, boolean global);
     List<AttributeDefinition> findByConnectorUuidAndTypeAndGlobal(UUID connectorUuid, AttributeType type, boolean global);
     Optional<AttributeDefinition> findByTypeAndNameAndGlobal(AttributeType attributeType, String attributeName, boolean global);
-    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType attributeType, UUID connectorUuid, UUID attributeUuid, String attributeName);
-    Boolean existsByTypeAndName(AttributeType type, String attributeName);
-    Boolean existsByTypeAndNameAndGlobalTrue(AttributeType type, String attributeName);
     Optional<AttributeDefinition> findByConnectorUuidAndAttributeUuid(UUID connectorUuid, UUID attributeUuid);
     Optional<AttributeDefinition> findByTypeAndConnectorUuidAndName(AttributeType type, UUID connectorUuid, String attributeName);
+    Optional<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType attributeType, UUID connectorUuid, UUID attributeUuid, String attributeName);
     Optional<AttributeDefinition> findByTypeAndName(AttributeType type, String attributeName);
     List<AttributeDefinition> findByType(AttributeType type);
 
+    Boolean existsByTypeAndName(AttributeType type, String attributeName);
+    Boolean existsByTypeAndNameAndGlobalTrue(AttributeType type, String attributeName);
 
     @Modifying
     @Query("UPDATE AttributeDefinition ad SET ad.connectorUuid = NULL WHERE ad.type = ?1 AND ad.connectorUuid = ?2")
