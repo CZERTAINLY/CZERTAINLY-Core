@@ -740,7 +740,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private Certificate validateOldCertificateForOperation(String certificateUuid, String raProfileUuid, ResourceAction action) throws NotFoundException {
-        Certificate oldCertificate = certificateService.getCertificateEntityWithContent(SecuredUUID.fromString(certificateUuid));
+        Certificate oldCertificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid)).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         if (!oldCertificate.getState().equals(CertificateState.ISSUED)) {
             throw new ValidationException(String.format("Cannot perform operation %s on certificate in state %s. Certificate: %s", action.getCode(), oldCertificate.getState().getLabel(), oldCertificate));
         }

@@ -9,6 +9,9 @@ import com.czertainly.core.api.cmp.error.CmpBaseException;
 import com.czertainly.core.api.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.entity.cmp.CmpTransaction;
+import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.message.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
@@ -31,6 +34,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.UUID;
 
 /**
  * Handle (czertainly) supported CRMF-based message - ir/cr/kur; concrete handle (how to get/update certificate)
@@ -58,6 +62,10 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
     private PollFeature pollFeature;
     @Autowired
     public void setPollFeature(PollFeature pollFeature) { this.pollFeature = pollFeature; }
+
+    private CmpTransactionRepository cmpTransactionRepository;
+    @Autowired
+    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) { this.cmpTransactionRepository = cmpTransactionRepository; }
 
     @Autowired private CrmfIrCrMessageHandler crmfIrCrMessageHandler;
     @Autowired private CrmfKurMessageHandler kurMessageHandler;
@@ -146,11 +154,19 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         Certificate polledCert = pollFeature.pollCertificate(tid,
                 serialNumber==null?"n/a":serialNumber.getValue().toString(16), requestedCert.getUuid(),
                 CertificateState.ISSUED);
+
         // -- parse polled certificate (as X509)
         X509Certificate parsedCert = parseCertificate(tid, polledCert);
         // -- field: caPubs
         CMPCertificate[] caPubs = createCaPubs(tid, polledCert);
 
+        // -- store as transaction (tid+uuid of cert)
+        cmpTransactionRepository.save(createTransactionEntity(
+                tid.toString(),
+                configuration.getProfile(),
+                polledCert.getUuid().toString()));
+
+        // -- create response
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(request))
@@ -164,6 +180,15 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
                     "CRMF message cannot be build, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()), e);
         }
+    }
+
+    private CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
+                                                   String certificateUuid) {
+        CmpTransaction cmpTransaction = new CmpTransaction();
+        cmpTransaction.setTransactionId(transactionId);
+        cmpTransaction.setCmpProfile(cmpProfile);
+        cmpTransaction.setCertificateUuid(UUID.fromString(certificateUuid));
+        return cmpTransaction;
     }
 
     /**

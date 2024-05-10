@@ -48,4 +48,7 @@ public interface ConfigurationContext {
     ProtectionStrategy getProtectionStrategy() throws CmpBaseException;
 
     List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke);
+
+    //if I want to scan extra cert field
+    boolean dumpSinging();
 }

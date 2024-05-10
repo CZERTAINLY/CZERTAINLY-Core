@@ -200,4 +200,9 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
     public List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke) {
         return (isRevoke) ? revokeAttributes : issueAttributes;
     }
+
+    @Override
+    public boolean dumpSinging() {
+        return true;//default: false (true pro vyvojove ucely)
+    }
 }

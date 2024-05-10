@@ -31,14 +31,6 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
 
-    /**
-     * Get certificate with related content ({@link com.czertainly.core.dao.entity.CertificateContent}) together
-     * @param uuid identifier of certificate which is subject for findings
-     * @return founded certificate
-     * @throws NotFoundException if certificate is not exist at database
-     */
-    Certificate getCertificateEntityWithContent(SecuredUUID uuid) throws NotFoundException;
-
     // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);
 

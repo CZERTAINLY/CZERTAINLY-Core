@@ -7,6 +7,7 @@ import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,16 +21,7 @@ import java.util.UUID;
 @Repository
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
-    /**
-     * Fetch certificate by given <code>uuid</code> with
-     * related content, see {@link CertificateContent}.
-     *
-     * @param uuid identifier of given certificate
-     * @return certificate with related {@link CertificateContent}
-     */
-    @Query("SELECT c FROM Certificate c JOIN FETCH c.certificateContent WHERE c.uuid= ?1")
-    Optional<Certificate> findByUuidWithCertificateContent(UUID uuid);
-
+    @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
 
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);

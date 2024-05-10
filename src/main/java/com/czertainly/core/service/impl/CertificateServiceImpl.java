@@ -261,25 +261,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public Certificate getCertificateEntityWithContent(SecuredUUID uuid) throws NotFoundException {
-        Certificate entity = certificateRepository.findByUuidWithCertificateContent(uuid.getValue()).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        if (entity.getRaProfileUuid() != null) {
-            raProfileService.getRaProfile(SecuredUUID.fromUUID(entity.getRaProfileUuid()));
-        } else {
-            if (!raProfileService.evaluateNullableRaPermissions(SecurityFilter.create())) {
-                AuthenticationServiceExceptionDto dto = new AuthenticationServiceExceptionDto();
-                dto.setStatusCode(403);
-                dto.setCode("ACCESS_DENIED");
-                dto.setMessage("Access Denied. Certificate does not have any RA Profile association. Required 'Detail' permission for all 'Ra Profiles'");
-                throw new AuthenticationServiceException(dto);
-            }
-        }
-        return entity;
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     // This method does not need security as it is not exposed by the controllers. This method also does not use uuid
     public Certificate getCertificateEntityByContent(String content) {
         CertificateContent certificateContent = certificateContentRepository.findByContent(content);
