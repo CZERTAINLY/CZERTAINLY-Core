@@ -155,12 +155,13 @@ public class CmpServiceImpl implements CmpService {
 
         // -- (processing) part
         ConfigurationContext configuration = switch(cmpProfile.getVariant()) {
-            case V3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
+            /*   3gpp*/case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
                     certificateKeyService, issueAttributes, revokeAttributes);
-            case VDEFAULT -> new CmpConfigurationContext(cmpProfile, pkiRequest,
+            /*rfc4210*/case V2 -> new CmpConfigurationContext(cmpProfile, pkiRequest,
                     certificateKeyService, issueAttributes, revokeAttributes);
+            /*rfc9483*/case V3 -> throw new UnsupportedOperationException("not implemented");
             default -> throw new CmpConfigurationException(pkiRequest.getHeader().getTransactionID(),
-                    PKIFailureInfo.systemFailure, "profile does not have a profile variant");
+                    PKIFailureInfo.systemFailure, "profile does not have a existing/known profile variant");
         };
 
         try {

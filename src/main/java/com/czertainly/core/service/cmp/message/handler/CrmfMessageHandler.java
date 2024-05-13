@@ -137,7 +137,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         CertReqMsg[] certRequests = certReqMessages.toCertReqMsgArray();
         List<CMPCertificate> listOfCaCerts = null;
         List<CertResponse> listOfCertResponses = new ArrayList<>();
-        // -- czertainly is (right now) able to handle only one (first), see {@link CrmfCertificateRequest}
+        // -- czertainly is (right now) able to handle only (first) one, see {@link CrmfCertificateRequest}
         //for(var certRequest : certRequests) {
 
             List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
