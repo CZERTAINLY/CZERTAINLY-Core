@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
 import com.czertainly.core.service.cmp.message.CertificateKeyService;
@@ -33,10 +34,13 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.CmpService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
+import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.bouncycastle.asn1.util.ASN1Dump;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -48,6 +52,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import static com.czertainly.core.service.cmp.CmpConstants.*;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -300,25 +305,7 @@ public class CmpServiceImpl implements CmpService {
             revokeAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.CMP_PROFILE, cmpProfile.getUuid());
         }
 
-        Certificate cmpCaCertificate = cmpProfile.getSigningCertificate();
-        if (cmpCaCertificate == null) {
-            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+profileName+" | CMP profile does not have any associated CA certificate");
-        }
 
-        try {
-            this.recipient = CertificateUtil.parseCertificate(cmpCaCertificate.getCertificateContent().getContent());
-        } catch (CertificateException e) {
-            // This should not occur
-            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+profileName+" | Error converting the certificate to x509 object");
-        }
-        try {
-            this.caCertificateChain = loadCertificateChain(cmpCaCertificate);
-        } catch (NotFoundException e) {
-            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+profileName+" | Failed to load certificate chain of CMP profile CA certificate");
-        }
         LOG.debug("PN={} | CMP service initialized: isRaProfileBased: {}, raProfile: {}, cmpProfile: {}", profileName, raProfileBased, raProfile, cmpProfile);
     }
 
@@ -336,12 +323,28 @@ public class CmpServiceImpl implements CmpService {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | CMP Profile is not enabled");
         }
-        if (cmpProfile.getSigningCertificate() == null) {
-            throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | CMP Profile does not have any associated CA certificate for signature");
-        }
-        if (!CertificateUtil.isCertificateCmpAcceptable(cmpProfile.getSigningCertificate())) {
-           throw new CmpConfigurationException(PKIFailureInfo.systemFailure,"CMP Profile does not have associated acceptable CA certificate");
+
+        if(ProtectionMethod.SIGNATURE.equals(cmpProfile.getResponseProtectionMethod())) {
+            Certificate cmpCaCertificate = cmpProfile.getSigningCertificate();
+            if (cmpCaCertificate == null) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "PN="+incomingProfileName+" | CMP profile does not have any associated CA certificate");
+            }
+
+            try { this.recipient = CertificateUtil.parseCertificate(cmpCaCertificate.getCertificateContent().getContent()); }
+            catch (CertificateException e) { // This should not occur
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "PN="+incomingProfileName+" | Error converting the certificate to x509 object");
+            }
+            try { this.caCertificateChain = loadCertificateChain(cmpCaCertificate); }
+            catch (NotFoundException e) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                        "PN="+incomingProfileName+" | Failed to load certificate chain of CMP profile CA certificate");
+            }
+
+            if (!CertificateUtil.isCertificateCmpAcceptable(cmpCaCertificate)) {
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,"CMP Profile does not have associated acceptable CA certificate");
+            }
         }
         if (!raProfileBased && cmpProfile.getRaProfile() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
