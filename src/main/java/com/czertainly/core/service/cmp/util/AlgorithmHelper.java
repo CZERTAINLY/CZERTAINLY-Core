@@ -14,7 +14,7 @@ public class AlgorithmHelper {
     }
 
     /**
-     * ANS1 structure is differnet from java standard names, (X9.ecdsa_with_SHA256 (1.2.840.10045.4.3.2))
+     * ANS1 structure is different from java standard names, (X9.ecdsa_with_SHA256 (1.2.840.10045.4.3.2))
      *
      * @return name of algorithm as ANS1 Object Identifier structure, e.g. 1.2.840.10045.4.3.2
      */

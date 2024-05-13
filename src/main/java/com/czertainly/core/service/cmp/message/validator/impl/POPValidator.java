@@ -1,9 +1,9 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.api.cmp.error.ImplFailureInfo;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
@@ -148,7 +148,6 @@ public class POPValidator implements Validator<PKIMessage, Void> {
                      */
                     throw new CmpProcessingException(PKIFailureInfo.badPOP,
                             ImplFailureInfo.CMPVALPOP508);
-                    // TODO [tocecz] this feature is not implemented yet (3gpp profile does not talk about)
                 }
             default:
                 throw new CmpProcessingException(PKIFailureInfo.badPOP,

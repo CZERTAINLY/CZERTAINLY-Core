@@ -5,14 +5,16 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -25,13 +27,13 @@ import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.hibernate.validator.constraintvalidators.RegexpURLValidator;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 import java.util.Optional;
+import java.util.UUID;
 
 /**
  * <p>5.3.9.  Revocation Request Content</p>
@@ -83,6 +85,10 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     @Autowired
     public void setPollFeature(PollFeature pollFeature) { this.pollFeature = pollFeature; }
 
+    private CmpTransactionRepository cmpTransactionRepository;
+    @Autowired
+    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) { this.cmpTransactionRepository = cmpTransactionRepository; }
+
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
         if(PKIBody.TYPE_REVOCATION_REQ!=request.getBody().getType()) {
@@ -92,6 +98,12 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         }
         ASN1OctetString tid = request.getHeader().getTransactionID();
         RevReqContent revBody = (RevReqContent) request.getBody().getContent();
+
+        Optional<CmpTransaction> trx = cmpTransactionRepository.findByTransactionId(tid.toString());
+        if(!trx.isEmpty()) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.transactionIdInUse,
+                    "revocation processing failed - given transaction is already used");
+        }
 
         RevDetails[] revocations = revBody.toRevDetailsArray();
         int revocationCount = revocations.length;
@@ -107,13 +119,23 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
                 revokeCertificate(tid, revocation, certificate, configuration);
                 pollFeature.pollCertificate(tid,
                         certificate.getSerialNumber(), certificate.getUuid().toString(), CertificateState.REVOKED);
+                cmpTransactionRepository.save(createTransactionEntity(
+                        tid.toString(),
+                        configuration.getProfile(),
+                        certificate.getUuid().toString()));
+
                 revocationResponseBuilder.add(
                         new PKIStatusInfo(PKIStatus.revocationNotification), certId);
                 LOG.trace("TID={}, SN={} | revocations of certificate is done (remaining={})", tid, getSerialNumber(revocation), --revocationCount);
             } catch (Exception e) {
                 LOG.error("TID={}, SN={} | revocation of certificate failed, reason={}", tid, getSerialNumber(revocation), e.getLocalizedMessage(), e);
                 revocationResponseBuilder.add(
-                        new PKIStatusInfo(PKIStatus.rejection/*rejection??*/), certId);
+                        new PKIStatusInfo(
+                                PKIStatus.rejection,
+                                new PKIFreeText("problem with revocation"),
+                                new PKIFailureInfo(PKIFailureInfo.systemFailure)),
+                        certId
+                        );
             }
         }
         if(revocationCount!=0) {
@@ -132,6 +154,16 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         }
     }
 
+    private CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
+                                                   String certificateUuid) {
+        CmpTransaction cmpTransaction = new CmpTransaction();
+        cmpTransaction.setTransactionId(transactionId);
+        cmpTransaction.setCmpProfile(cmpProfile);
+        cmpTransaction.setCertificateUuid(UUID.fromString(certificateUuid));
+        cmpTransaction.setState(CmpTransaction.CmpTransactionState.CERT_REVOKED);
+        return cmpTransaction;
+    }
+
     private Certificate getCertificate(RevDetails revocation, ASN1OctetString tid)
             throws CmpProcessingException {
         String serialNumber = getSerialNumber(revocation);
@@ -144,7 +176,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     }
 
     private String getSerialNumber(RevDetails revocation) {
-        ASN1Integer serialNumber = revocation.getCertDetails().getSerialNumber();//nul tady nenastavne viz. BodyRevocationValidator
+        ASN1Integer serialNumber = revocation.getCertDetails().getSerialNumber();
         return serialNumber.getValue().toString(16);
     }
 

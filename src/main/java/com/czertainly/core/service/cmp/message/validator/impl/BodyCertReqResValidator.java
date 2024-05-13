@@ -1,8 +1,8 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpCrmfValidationException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.validator.BiValidator;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -119,7 +119,7 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
             throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badCertTemplate,
                     PkiMessageDumper.msgTypeAsString(bodyType)+": subject in template is missing");
         }
-        configuration.validateRequest(request);
+        configuration.validateOnCrmfRequest(request);
         return null;//validation is ok
     }
 
@@ -163,20 +163,21 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
      */
     @Override
     public Void validateOut(PKIMessage response, ConfigurationContext configuration) throws CmpProcessingException {
+        ASN1OctetString tid = response.getHeader().getTransactionID();
         CertRepMessage content = (CertRepMessage) response.getBody().getContent();
         CertResponse[] responses = content.getResponse();
         CertResponse certResponse = responses[0];
-        assertEqual(certResponse.getCertReqId(), ZERO, "value must be zero");
+        assertEqual(tid, certResponse.getCertReqId(), ZERO, "value must be zero");
         CertifiedKeyPair certifiedKeyPair = certResponse.getCertifiedKeyPair();
         if (certifiedKeyPair != null) {
-            validatePositiveStatus(certResponse.getStatus());
+            validatePositiveStatus(tid, certResponse.getStatus());
             CertOrEncCert certOrEncCert = certifiedKeyPair.getCertOrEncCert();
-            checkValueNotNull(certOrEncCert, PKIFailureInfo.badDataFormat, "CertOrEncCert");
-            checkValueNotNull(certOrEncCert.getCertificate(), PKIFailureInfo.badDataFormat, "Certificate");
+            checkValueNotNull(tid, certOrEncCert, PKIFailureInfo.badDataFormat, "CertOrEncCert");
+            checkValueNotNull(tid, certOrEncCert.getCertificate(), PKIFailureInfo.badDataFormat, "Certificate");
         } else {
-            validateNegativeStatus(certResponse.getStatus());
+            validateNegativeStatus(tid, certResponse.getStatus());
         }
-        configuration.validateResponse(response);
+        configuration.validateOnCrmfResponse(response);
         return null;
     }
 }

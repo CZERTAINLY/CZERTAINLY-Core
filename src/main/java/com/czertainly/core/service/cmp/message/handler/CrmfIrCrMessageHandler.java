@@ -5,11 +5,12 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -87,6 +88,10 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
                     "cannot issue certificate", e);
         }
         // CrmfMessageHandler get certificate in sync manner (via polling ...)
+    }
+
+    public CmpTransaction.CmpTransactionState getTransactionState() {
+        return CmpTransaction.CmpTransactionState.CERT_ISSUED;
     }
 
 }

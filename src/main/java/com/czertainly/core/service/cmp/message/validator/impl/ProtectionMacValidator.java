@@ -1,14 +1,14 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
-import com.czertainly.core.service.cmp.util.CryptoUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
@@ -58,14 +58,14 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
             //   previous iteration.  The output of the final iteration (called
             //   "BASEKEY" for ease of reference, with a size of "H")
             MessageDigest dig = MessageDigest.getInstance(owf.getAlgorithm().getId(),
-                    CryptoUtil.getBouncyCastleProvider());
+                    BouncyCastleProvider.PROVIDER_NAME);
             for (int i = 0; i < pbmParameter.getIterationCount().getValue().intValue(); i++) {
                 basekey = dig.digest(basekey);
                 dig.reset();
             }
             // create mac instance
             String macId = pbmParameter.getMac().getAlgorithm().getId();
-            Mac mac = Mac.getInstance(macId, CryptoUtil.getBouncyCastleProvider());
+            Mac mac = Mac.getInstance(macId, BouncyCastleProvider.PROVIDER_NAME);
             mac.init(new SecretKeySpec(basekey, macId));
             mac.update(new ProtectedPart(header,
                     message.getBody()).getEncoded(ASN1Encoding.DER));

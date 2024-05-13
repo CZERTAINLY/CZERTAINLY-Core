@@ -1,16 +1,16 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.api.cmp.error.ImplFailureInfo;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.validator.Validator;
-import com.czertainly.core.service.cmp.util.CryptoUtil;
-import com.czertainly.core.service.cmp.util.CertUtil;
+import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,7 +18,6 @@ import java.security.KeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
 import java.security.cert.X509Certificate;
-
 
 /**
  * <h6>Signature validator</h6>
@@ -67,13 +66,13 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
             PKIHeader header = message.getHeader();
             byte[] protectedBytes = new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER);
             byte[] protectionBytes = message.getProtection().getBytes();
-            X509Certificate singerCertificate = CertUtil.toX509Certificates(extraCerts).get(0);
+            X509Certificate singerCertificate = CertificateUtil.getX509Certificate(extraCerts[0].getEncoded());
             if(configuration.dumpSinging()) {
                 PkiMessageDumper.dumpSingerCertificate("validator", singerCertificate, null);
             }
             Signature signature = Signature.getInstance(
                     header.getProtectionAlg().getAlgorithm().getId(),
-                    CryptoUtil.getBouncyCastleProvider());
+                    BouncyCastleProvider.PROVIDER_NAME);
             signature.initVerify(singerCertificate.getPublicKey());
             signature.update(protectedBytes);
             if (!signature.verify(protectionBytes, 0, protectionBytes.length)) {

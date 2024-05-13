@@ -1,4 +1,4 @@
-package com.czertainly.core.service.cmp.util;
+package com.czertainly.core.util;
 
 import java.util.function.Supplier;
 
@@ -23,9 +23,5 @@ public class NullUtil {
      */
     public static <T> T defaultIfNull(final T value, final T defaultValue) {
         return value != null ? value : defaultValue;
-    }
-
-    public static <T> T computeValueIfNotNull(final T value, final Supplier<T> defaultSupplier) {
-        return value == null ? null : defaultSupplier.get();
     }
 }

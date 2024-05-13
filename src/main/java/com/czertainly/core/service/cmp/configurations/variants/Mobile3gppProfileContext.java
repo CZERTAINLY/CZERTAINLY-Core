@@ -1,66 +1,26 @@
-package com.czertainly.core.service.cmp.profiles;
+package com.czertainly.core.service.cmp.configurations.variants;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.core.api.cmp.error.CmpConfigurationException;
-import com.czertainly.core.api.cmp.error.CmpCrmfValidationException;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.CertificateKeyService;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
-import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
-import com.czertainly.core.service.cmp.message.protection.impl.PasswordBasedMacProtectionStrategy;
-import com.czertainly.core.service.cmp.message.protection.impl.SingatureBaseProtectionStrategy;
+import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.message.CertificateKeyService;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
-import com.czertainly.core.service.cmp.util.CertUtil;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.CertReqMsg;
 import org.bouncycastle.asn1.crmf.CertTemplate;
-import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 
 import java.util.List;
 
-public class Mobile3gppProfileContext implements ConfigurationContext {
-
-    private final PKIMessage requestMessage;
-    private final CmpProfile profile;
-    private final CertificateKeyService certificateKeyService;
-    private final List<RequestAttributeDto> issueAttributes;
-    private final List<RequestAttributeDto> revokeAttributes;
+public class Mobile3gppProfileContext extends CmpConfigurationContext {
 
     public Mobile3gppProfileContext(CmpProfile profile, PKIMessage pkiRequest,
                                     CertificateKeyService certificateKeyService,
                                     List<RequestAttributeDto> issueAttributes,
                                     List<RequestAttributeDto> revokeAttributes) {
-        this.requestMessage =pkiRequest;
-        this.profile = profile;
-        this.certificateKeyService=certificateKeyService;
-        this.issueAttributes = issueAttributes;
-        this.revokeAttributes = revokeAttributes;
-    }
-
-    @Override
-    public CmpProfile getProfile() { return profile; }
-
-    /**
-     * <b>scope: header template - response part</b>
-     * @return pki header recipient
-     */
-    @Override
-    public GeneralName getRecipient() { return null; /*requestMessage.getHeader().getRecipient();*/ }
-
-    /**
-     * <b>scope: header template - response part</b>
-     * @return pki header recipient
-     */
-    @Override
-    public ASN1OctetString getSenderKID() {
-        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
-        return senderKID == null ? new DEROctetString(new byte[0]) : senderKID;
+        super(profile, pkiRequest, certificateKeyService, issueAttributes, revokeAttributes);
     }
 
     /**
@@ -77,7 +37,7 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      *
      */
     @Override
-    public void validateRequest(PKIMessage request) throws CmpProcessingException {
+    public void validateOnCrmfRequest(PKIMessage request) throws CmpProcessingException {
         ASN1OctetString tid = request.getHeader().getTransactionID();
         int bodyType = request.getBody().getType();
         switch (bodyType) {
@@ -143,7 +103,7 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
      *
      */
     @Override
-    public void validateResponse(PKIMessage response) throws CmpProcessingException {
+    public void validateOnCrmfResponse(PKIMessage response) throws CmpProcessingException {
         ASN1OctetString tid = response.getHeader().getTransactionID();
         switch (response.getBody().getType()) {
             case PKIBody.TYPE_INIT_REP:
@@ -160,49 +120,4 @@ public class Mobile3gppProfileContext implements ConfigurationContext {
         }
     }
 
-    @Override
-    public ProtectionMethod getProtectionMethod() throws CmpConfigurationException {
-        return getProfile().getRequestProtectionMethod();
-        //return ProtectionMethod.SHARED_SECRET;
-    }
-
-    @Override
-    public ProtectionStrategy getProtectionStrategy() throws CmpBaseException {
-        ProtectionMethod czrtProtectionMethod = getProfile().getResponseProtectionMethod();
-        //return ProtectionMethod.SHARED_SECRET;
-        switch (czrtProtectionMethod){
-            case SIGNATURE:
-                return new SingatureBaseProtectionStrategy(this,
-                    requestMessage.getHeader().getProtectionAlg(), certificateKeyService);
-            case SHARED_SECRET:
-                byte[] salt = CertUtil.generateRandomBytes(20);//precist z db
-                int iterationCount = 1000;//precist z db
-                return new PasswordBasedMacProtectionStrategy(this,
-                        requestMessage.getHeader().getProtectionAlg(),
-                        getSharedSecret(), salt, iterationCount);
-            default:
-                throw new CmpConfigurationException(requestMessage.getHeader().getTransactionID(),
-                        PKIFailureInfo.systemFailure,
-                        "wrong config3gppProfile: unknown type of protection strategy, type="+czrtProtectionMethod);
-        }
-    }// pri vyberu
-
-    @Override
-    public byte[] getSharedSecret() {
-        /* senderKID field MUST hold an identifier
-         *    that indicates to the receiver the appropriate shared secret
-         *    information to use to verify the message */
-        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();//muze byt pouzit pro dohledani v db
-        return profile.getSharedSecret().getBytes();
-    }
-
-    @Override
-    public List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke) {
-        return (isRevoke) ? revokeAttributes : issueAttributes;
-    }
-
-    @Override
-    public boolean dumpSinging() {
-        return true;//default: false (true pro vyvojove ucely)
-    }
 }

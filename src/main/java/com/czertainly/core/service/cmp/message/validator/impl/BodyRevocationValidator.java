@@ -1,9 +1,10 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.BiValidator;
 import org.bouncycastle.asn1.ASN1Enumerated;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.x509.Extension;
@@ -41,22 +42,23 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
     @Override
     public Void validateIn(PKIMessage request, ConfigurationContext configuration) throws CmpProcessingException {
         assertEqualBodyType(PKIBody.TYPE_REVOCATION_REQ, request);
+        ASN1OctetString tid = request.getHeader().getTransactionID();
         RevReqContent content = (RevReqContent) request.getBody().getContent();
         RevDetails[] revDetails = content.toRevDetailsArray();
-        checkOneElementInArray(revDetails, "RevDetails");
+        checkOneElementInArray(tid, revDetails, "RevDetails");
         CertTemplate certDetails = revDetails[0].getCertDetails();
-        checkValueNotNull(certDetails, PKIFailureInfo.addInfoNotAvailable, "certDetails");
-        checkValueNotNull(certDetails.getSerialNumber(), PKIFailureInfo.addInfoNotAvailable, "SerialNumber");
-        checkValueNotNull(certDetails.getIssuer(), PKIFailureInfo.addInfoNotAvailable, "Issuer");
+        checkValueNotNull(tid, certDetails, PKIFailureInfo.addInfoNotAvailable, "certDetails");
+        checkValueNotNull(tid, certDetails.getSerialNumber(), PKIFailureInfo.addInfoNotAvailable, "SerialNumber");
+        checkValueNotNull(tid, certDetails.getIssuer(), PKIFailureInfo.addInfoNotAvailable, "Issuer");
         Extensions crlEntryDetails = revDetails[0].getCrlEntryDetails();
-        checkValueNotNull(crlEntryDetails, PKIFailureInfo.addInfoNotAvailable, "CrlEntryDetails");
+        checkValueNotNull(tid, crlEntryDetails, PKIFailureInfo.addInfoNotAvailable, "CrlEntryDetails");
         Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        checkValueNotNull(reasonCodeExt, PKIFailureInfo.addInfoNotAvailable, "reasonCode");
+        checkValueNotNull(tid, reasonCodeExt, PKIFailureInfo.addInfoNotAvailable, "reasonCode");
 
         long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
                 .getValue().longValue();
         if (reasonCode < 0 || reasonCode > 10) {
-            throw new CmpProcessingException(PKIFailureInfo.badDataFormat, "reasonCode is out of range <0,10>");
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat, "reasonCode is out of range <0,10>");
         }
 
         return null;// validation is ok
@@ -86,22 +88,18 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
     @Override
     public Void validateOut(PKIMessage response, ConfigurationContext configuration) throws CmpProcessingException {
         assertEqualBodyType(PKIBody.TYPE_REVOCATION_REP, response);
+        ASN1OctetString tid = response.getHeader().getTransactionID();
         RevRepContent content = (RevRepContent) response.getBody().getContent();
         PKIStatusInfo[] statuses = content.getStatus();
-        checkOneElementInArray(statuses, "status");
+        checkOneElementInArray(tid, statuses, "status");
 
         PKIStatusInfo statusInfo = statuses[0];
         if (statusInfo.getStatus().intValue() == PKIStatus.GRANTED) {
-            validatePositiveStatus(statusInfo);
+            validatePositiveStatus(tid, statusInfo);
         } else {
-            validateNegativeStatus(statusInfo);
+            validateNegativeStatus(tid, statusInfo);
         }
 
         return null;// validation is ok
     }
 }
-// TODO [tocecz], dle roman.cinkais - ale protocol je pak neuplny
-// 3g99, 9.5	CMPv2 Profiling
-// 3gpp, 10.3.1.1	General Requirements
-//      This CMPv2 profile shall only include certificate request and key update functions.
-//      Revocation processing and PKCS#10 requests shall not be part of this CMPv2 profile.

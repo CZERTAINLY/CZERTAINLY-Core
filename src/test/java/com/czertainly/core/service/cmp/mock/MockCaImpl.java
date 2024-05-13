@@ -1,10 +1,10 @@
 package com.czertainly.core.service.cmp.mock;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
-import com.czertainly.core.service.cmp.util.CertUtil;
+import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
@@ -119,7 +119,7 @@ public class MockCaImpl {
             X500Name subject = requestTemplate.getSubject();
             newIssuedCert = createCertificateV2(subject, publicKey,
                     chainOfIssuerCerts.get(0)/*issuingCert*/, requestTemplate.getExtensions());
-            // remove ROOT CA certificate - TODO [tocecz] jeste overit v 3gpp
+            // remove ROOT CA certificate
             LinkedList<X509Certificate> withoutRootCa = new LinkedList<>(chainOfIssuerCerts);
             // withoutRootCa.remove(withoutRootCa.size() - 1);
             if(!withoutRootCa.isEmpty()) {
@@ -142,9 +142,8 @@ public class MockCaImpl {
              *    @see https://www.rfc-editor.org/rfc/rfc4210#section-5.3.2
              * Scope: ip, cp, kup, ccp
              * Location: (optional) CertRepMessage.caPubs
-             * RESULT: TODO [tomascejka] ke zvazeni, kde caPubs plnit a kdy?
              */
-            CMPCertificate[] caPubs = CertUtil.toCmpCertificates(chainOfIssuerCerts);/*new CMPCertificate[2];
+            CMPCertificate[] caPubs = CertificateUtil.toCmpCertificates(chainOfIssuerCerts);/*new CMPCertificate[2];
             caPubs[1] = CMPCertificate.getInstance(CA_ROOT_CERT.getEncoded());
             caPubs[0] = CMPCertificate.getInstance(CA_INTERMEDIATE_CERT.getEncoded());*/
 

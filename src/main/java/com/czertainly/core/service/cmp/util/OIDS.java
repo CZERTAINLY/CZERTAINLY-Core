@@ -6,77 +6,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 public enum OIDS {
 
-    // X.500 Attributes 2.5.4.*
-    CommonName("2.5.4.3"),
-    Surname("2.5.4.4"),
-    SerialNumber("2.5.4.5"),
-    CountryName("2.5.4.6"),
-    LocalityName("2.5.4.7"),
-    StateName("2.5.4.8"),
-    StreetAddress("2.5.4.9"),
-    OrgName("2.5.4.10"),
-    OrgUnitName("2.5.4.11"),
-    Title("2.5.4.12"),
-    GivenName("2.5.4.42"),
-    Initials("2.5.4.43"),
-    GenerationQualifier("2.5.4.44"),
-    DNQualifier("2.5.4.46"),
-
-    // Certificate Extension 2.5.29.*
-    SubjectDirectoryAttributes("2.5.29.9"),
-    SubjectKeyID("2.5.29.14"),
-    KeyUsage("2.5.29.15"),
-    PrivateKeyUsage("2.5.29.16"),
-    SubjectAlternativeName("2.5.29.17"),
-    IssuerAlternativeName("2.5.29.18"),
-    BasicConstraints("2.5.29.19"),
-    CRLNumber("2.5.29.20"),
-    ReasonCode("2.5.29.21"),
-    HoldInstructionCode("2.5.29.23"),
-    InvalidityDate("2.5.29.24"),
-    DeltaCRLIndicator("2.5.29.27"),
-    IssuingDistributionPoint("2.5.29.28"),
-    CertificateIssuer("2.5.29.29"),
-    NameConstraints("2.5.29.30"),
-    CRLDistributionPoints("2.5.29.31"),
-    CertificatePolicies("2.5.29.32"),
-    CE_CERT_POLICIES_ANY("2.5.29.32.0"),
-    PolicyMappings("2.5.29.33"),
-    AuthorityKeyID("2.5.29.35"),
-    PolicyConstraints("2.5.29.36"),
-    extendedKeyUsage("2.5.29.37"),
-    anyExtendedKeyUsage("2.5.29.37.0"),
-    FreshestCRL("2.5.29.46"),
-    InhibitAnyPolicy("2.5.29.54"),
-
-    // PKIX 1.3.6.1.5.5.7.
-    AuthInfoAccess("1.3.6.1.5.5.7.1.1"),
-    SubjectInfoAccess("1.3.6.1.5.5.7.1.11"),
-    // key usage purposes - PKIX.3.*
-    serverAuth("1.3.6.1.5.5.7.3.1"),
-    clientAuth("1.3.6.1.5.5.7.3.2"),
-    codeSigning("1.3.6.1.5.5.7.3.3"),
-    emailProtection("1.3.6.1.5.5.7.3.4"),
-    ipsecEndSystem("1.3.6.1.5.5.7.3.5"),
-    ipsecTunnel("1.3.6.1.5.5.7.3.6"),
-    ipsecUser("1.3.6.1.5.5.7.3.7"),
-    KP_TimeStamping("1.3.6.1.5.5.7.3.8", "timeStamping") {
-        @Override
-        boolean isEnabled() { return false; }
-    },
-    OCSPSigning("1.3.6.1.5.5.7.3.9"),
-    // access descriptors - PKIX.48.*
-    OCSP("1.3.6.1.5.5.7.48.1"),
-    OCSPBasicResponse("1.3.6.1.5.5.7.48.1.1"),
-    OCSPNonceExt("1.3.6.1.5.5.7.48.1.2"),
-    OCSPNoCheck("1.3.6.1.5.5.7.48.1.5"),
-    caIssuers("1.3.6.1.5.5.7.48.2"),
-    AD_TimeStamping("1.3.6.1.5.5.7.48.3", "timeStamping") {
-        @Override
-        boolean isEnabled() { return false; }
-    },
-    caRepository("1.3.6.1.5.5.7.48.5", "caRepository"),
-
     // NIST --
     // AES 2.16.840.1.101.3.4.1.*
     AES("2.16.840.1.101.3.4.1"),
@@ -192,38 +121,6 @@ public enum OIDS {
     DigestedData("1.2.840.113549.1.7.5"),
     EncryptedData("1.2.840.113549.1.7.6"),
 
-    // PKCS9 1.2.840.113549.1.9.*
-    EmailAddress("1.2.840.113549.1.9.1"),
-    UnstructuredName("1.2.840.113549.1.9.2"),
-    ContentType("1.2.840.113549.1.9.3"),
-    MessageDigest("1.2.840.113549.1.9.4"),
-    SigningTime("1.2.840.113549.1.9.5"),
-    CounterSignature("1.2.840.113549.1.9.6"),
-    ChallengePassword("1.2.840.113549.1.9.7"),
-    UnstructuredAddress("1.2.840.113549.1.9.8"),
-    ExtendedCertificateAttributes("1.2.840.113549.1.9.9"),
-    IssuerAndSerialNumber("1.2.840.113549.1.9.10"),
-    ExtensionRequest("1.2.840.113549.1.9.14"),
-    SMIMECapability("1.2.840.113549.1.9.15"),
-    TimeStampTokenInfo("1.2.840.113549.1.9.16.1.4"),
-    SigningCertificate("1.2.840.113549.1.9.16.2.12"),
-    SignatureTimestampToken("1.2.840.113549.1.9.16.2.14"),
-    CHACHA20_POLY1305("1.2.840.113549.1.9.16.3.18", "CHACHA20-POLY1305"),
-    FriendlyName("1.2.840.113549.1.9.20"),
-    LocalKeyID("1.2.840.113549.1.9.21"),
-    CertTypeX509("1.2.840.113549.1.9.22.1"),
-    CMSAlgorithmProtection("1.2.840.113549.1.9.52"),
-
-    // PKCS12 1.2.840.113549.1.12.*
-    PBEWithSHA1AndRC4_128("1.2.840.113549.1.12.1.1"),
-    PBEWithSHA1AndRC4_40("1.2.840.113549.1.12.1.2"),
-    PBEWithSHA1AndDESede("1.2.840.113549.1.12.1.3"),
-    PBEWithSHA1AndRC2_128("1.2.840.113549.1.12.1.5"),
-    PBEWithSHA1AndRC2_40("1.2.840.113549.1.12.1.6"),
-    PKCS8ShroudedKeyBag("1.2.840.113549.1.12.10.1.2"),
-    CertBag("1.2.840.113549.1.12.10.1.3"),
-    SecretBag("1.2.840.113549.1.12.10.1.5"),
-
     // digestAlgs 1.2.840.113549.2.*
     MD2("1.2.840.113549.2.2"),
     MD5("1.2.840.113549.2.5"),
@@ -235,12 +132,6 @@ public enum OIDS {
     HmacSHA512$224("1.2.840.113549.2.12", "HmacSHA512/224"),
     HmacSHA512$256("1.2.840.113549.2.13", "HmacSHA512/256"),
 
-    // encryptionAlgs 1.2.840.113549.3.*
-    RC2$CBC$PKCS5Padding("1.2.840.113549.3.2", "RC2/CBC/PKCS5Padding"),
-    ARCFOUR("1.2.840.113549.3.4", "ARCFOUR", "RC4"),
-    DESede$CBC$NoPadding("1.2.840.113549.3.7", "DESede/CBC/NoPadding"),
-    RC5$CBC$PKCS5Padding("1.2.840.113549.3.9", "RC5/CBC/PKCS5Padding"),
-
     // ANSI --
     // X9 1.2.840.10040.4.*
     DSA("1.2.840.10040.4.1"),
@@ -248,10 +139,6 @@ public enum OIDS {
     // X9.62 1.2.840.10045.*
     EC("1.2.840.10045.2.1"),
 
-    //c2pnb163v1("1.2.840.10045.3.0.1", "X9.62 c2pnb163v1"),
-    //c2pnb163v2("1.2.840.10045.3.0.2", "X9.62 c2pnb163v2"),
-    //c2pnb163v3("1.2.840.10045.3.0.3", "X9.62 c2pnb163v3"),
-    //c2pnb176w1("1.2.840.10045.3.0.4", "X9.62 c2pnb176w1"),
     c2tnb191v1("1.2.840.10045.3.0.5", "X9.62 c2tnb191v1"),
     c2tnb191v2("1.2.840.10045.3.0.6", "X9.62 c2tnb191v2"),
     c2tnb191v3("1.2.840.10045.3.0.7", "X9.62 c2tnb191v3"),
@@ -259,10 +146,7 @@ public enum OIDS {
     c2tnb239v1("1.2.840.10045.3.0.11", "X9.62 c2tnb239v1"),
     c2tnb239v2("1.2.840.10045.3.0.12", "X9.62 c2tnb239v2"),
     c2tnb239v3("1.2.840.10045.3.0.13", "X9.62 c2tnb239v3"),
-    //c2pnb272w1("1.2.840.10045.3.0.16", "X9.62 c2pnb272w1"),
-    //c2pnb304w1("1.2.840.10045.3.0.17", "X9.62 c2pnb304w1"),
     c2tnb359v1("1.2.840.10045.3.0.18", "X9.62 c2tnb359v1"),
-    //c2pnb368w1("1.2.840.10045.3.0.19", "X9.62 c2pnb368w1"),
     c2tnb431r1("1.2.840.10045.3.0.20", "X9.62 c2tnb431r1"),
 
     secp192r1("1.2.840.10045.3.1.1",
@@ -286,30 +170,6 @@ public enum OIDS {
         @Override
         boolean isEnabled() { return false; }
     },
-
-    // Teletrust 1.3.36.*
-    brainpoolP160r1("1.3.36.3.3.2.8.1.1.1"),
-    brainpoolP192r1("1.3.36.3.3.2.8.1.1.3"),
-    brainpoolP224r1("1.3.36.3.3.2.8.1.1.5"),
-    brainpoolP256r1("1.3.36.3.3.2.8.1.1.7"),
-    brainpoolP320r1("1.3.36.3.3.2.8.1.1.9"),
-    brainpoolP384r1("1.3.36.3.3.2.8.1.1.11"),
-    brainpoolP512r1("1.3.36.3.3.2.8.1.1.13"),
-
-    // Certicom 1.3.132.*
-    sect163k1("1.3.132.0.1", "sect163k1", "NIST K-163"),
-    sect163r1("1.3.132.0.2"),
-    sect239k1("1.3.132.0.3"),
-    sect113r1("1.3.132.0.4"),
-    sect113r2("1.3.132.0.5"),
-    secp112r1("1.3.132.0.6"),
-    secp112r2("1.3.132.0.7"),
-    secp160r1("1.3.132.0.8"),
-    secp160k1("1.3.132.0.9"),
-    secp256k1("1.3.132.0.10"),
-    sect163r2("1.3.132.0.15", "sect163r2", "NIST B-163"),
-    sect283k1("1.3.132.0.16", "sect283k1", "NIST K-283"),
-    sect283r1("1.3.132.0.17", "sect283r1", "NIST B-283"),
 
     sect131r1("1.3.132.0.22"),
     sect131r2("1.3.132.0.23"),
@@ -363,39 +223,7 @@ public enum OIDS {
         @Override
         boolean isEnabled() { return false; }
     },
-
-    // Thawte 1.3.101.*
-    X25519("1.3.101.110"),
-    X448("1.3.101.111"),
-    Ed25519("1.3.101.112"),
-    Ed448("1.3.101.113"),
-
-    // University College London (UCL) 0.9.2342.19200300.*
-    UCL_UserID("0.9.2342.19200300.100.1.1"),
-    UCL_DomainComponent("0.9.2342.19200300.100.1.25"),
-
-    // Netscape 2.16.840.1.113730.*
-    NETSCAPE_CertType("2.16.840.1.113730.1.1"),
-    NETSCAPE_CertSequence("2.16.840.1.113730.2.5"),
-    NETSCAPE_ExportApproved("2.16.840.1.113730.4.1"),
-
-    // Oracle 2.16.840.1.113894.*
-    ORACLE_TrustedKeyUsage("2.16.840.1.113894.746875.1.1"),
-
-    // Miscellaneous oids below which are legacy, and not well known
-    // Consider removing them in future releases when their usage
-    // have died out
-
-    ITUX509_RSA("2.5.8.1.1", "RSA") { // unused by JDK providers
-        // defined in X.509 for RSA keys
-        @Override                     // with modulus length as its parameter
-        boolean isEnabled() { return false; }
-    },
-
-    SkipIPAddress("1.3.6.1.4.1.42.2.11.2.1"),
-    JAVASOFT_JDKKeyProtector("1.3.6.1.4.1.42.2.17.1.1"),
-    JAVASOFT_JCEKeyProtector("1.3.6.1.4.1.42.2.19.1"),
-    MICROSOFT_ExportApproved("1.3.6.1.4.1.311.10.3.3");
+    ;
 
     private String algName;
     private String oid;

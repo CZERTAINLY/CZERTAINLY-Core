@@ -1,14 +1,13 @@
 package com.czertainly.core.service.cmp.message.protection.impl;
 
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.core.api.cmp.error.CmpConfigurationException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.service.cmp.CertificateKeyService;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.message.CertificateKeyService;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.service.cmp.util.AlgorithmHelper;
-import com.czertainly.core.service.cmp.util.CertUtil;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1Encodable;
 import org.bouncycastle.asn1.ASN1EncodableVector;
@@ -18,6 +17,7 @@ import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
@@ -31,6 +31,8 @@ import java.security.cert.X509Certificate;
 import java.util.Arrays;
 import java.util.List;
 import java.util.stream.Collectors;
+
+import static com.czertainly.core.service.cmp.message.PkiMessageDumper.ifNotNull;
 
 /**
  * <p></p>Implementation of signature-based (see rfc4210, 5.1.3) protection of {@link PKIMessage}.
@@ -117,13 +119,13 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     public List<CMPCertificate> getProtectingExtraCerts() throws CertificateException {
         final List<X509Certificate> certChain = certificationsChain;
         if (certChain.size() <= 1) {
-            return Arrays.asList(CertUtil.toCmpCertificates(certChain));//self-signed CA structure
+            return Arrays.asList(CertificateUtil.toCmpCertificates(certChain));//self-signed CA structure
         }
         // if exist self-signed, remove them
         return certChain.stream()
-                .filter(CertUtil::isIntermediateCertificate)//filter self-signed
+                .filter(CertificateUtil::isIntermediateCertificate)//filter self-signed
                 .map(t -> {
-                    try { return CertUtil.toCmpCertificate(t); }
+                    try { return CertificateUtil.toCmpCertificate(t); }
                     catch (final CertificateException e) {
                         throw new RuntimeException(e);
                     }
@@ -144,7 +146,14 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
      * @return extract subject key identifier from CA cert
      */
     @Override
-    public ASN1OctetString getSenderKID() { return CertUtil.extractSubjectKeyIdentifierFromCert(getCaCertificate()); }
+    public ASN1OctetString getSenderKID() {
+        byte[] caExtensionValue = getCaCertificate().getExtensionValue(Extension.subjectKeyIdentifier.getId());
+        return ifNotNull(
+                caExtensionValue,
+                x -> new org.bouncycastle.asn1.DEROctetString(
+                        ASN1OctetString.getInstance(ASN1OctetString.getInstance(x).getOctets())
+                                .getOctets()));
+    }
 
     private X509Certificate getCaCertificate() { return certificationsChain.get(0); }
 

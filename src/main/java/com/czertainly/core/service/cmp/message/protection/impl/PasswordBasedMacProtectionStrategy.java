@@ -1,17 +1,17 @@
 package com.czertainly.core.service.cmp.message.protection.impl;
 
-import com.czertainly.core.api.cmp.error.CmpConfigurationException;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
-import com.czertainly.core.service.cmp.util.CryptoUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.GeneralName;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
 import org.bouncycastle.operator.DefaultMacAlgorithmIdentifierFinder;
 
@@ -19,7 +19,6 @@ import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
 import java.io.IOException;
 import java.security.MessageDigest;
-import java.security.Provider;
 import java.util.List;
 
 /**
@@ -49,16 +48,17 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
         System.arraycopy(protectionSalt, 0, calculatingBaseKey, sharedSecret.length, protectionSalt.length);
 
         try {
-            Provider bouncyCastleProvider = CryptoUtil.getBouncyCastleProvider();
             AlgorithmIdentifier digestAlgorithm = getDigestAlgorithm();
-            MessageDigest digest = MessageDigest.getInstance(digestAlgorithm.getAlgorithm().getId(),bouncyCastleProvider);
+            MessageDigest digest = MessageDigest.getInstance(digestAlgorithm.getAlgorithm().getId(),
+                    BouncyCastleProvider.PROVIDER_NAME);
             for (int i = 0; i < iterationCount; i++) {
                 calculatingBaseKey = digest.digest(calculatingBaseKey);
                 digest.reset();
             }
 
             AlgorithmIdentifier macAlgorithm = getMacAlgorithm();
-            this.mac = Mac.getInstance(macAlgorithm.getAlgorithm().getId(),bouncyCastleProvider);
+            this.mac = Mac.getInstance(macAlgorithm.getAlgorithm().getId(),
+                    BouncyCastleProvider.PROVIDER_NAME);
             this.mac.init(new SecretKeySpec(calculatingBaseKey, mac.getAlgorithm()));
             this.protectionAlgorithm = new AlgorithmIdentifier(
                     CMPObjectIdentifiers.passwordBasedMac,

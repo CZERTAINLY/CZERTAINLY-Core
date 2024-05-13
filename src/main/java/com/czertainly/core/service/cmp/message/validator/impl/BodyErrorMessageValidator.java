@@ -1,8 +1,8 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.ErrorMsgContent;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
@@ -48,8 +48,10 @@ public class BodyErrorMessageValidator extends BaseValidator implements Validato
     public Void validate(PKIMessage response, ConfigurationContext configuration) throws CmpBaseException {
         ErrorMsgContent content = (ErrorMsgContent) response.getBody().getContent();
         PKIStatusInfo pkiStatusInfo = content.getPKIStatusInfo();
-        checkValueNotNull(pkiStatusInfo, PKIFailureInfo.badDataFormat, "PKIStatusInfo");
-
+        checkValueNotNull(
+                response.getHeader().getTransactionID(),
+                pkiStatusInfo, PKIFailureInfo.badDataFormat,
+                "PKIStatusInfo");
         return null;//validation is ok
     }
 }

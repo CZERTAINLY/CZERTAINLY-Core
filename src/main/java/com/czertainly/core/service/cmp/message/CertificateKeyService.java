@@ -1,4 +1,4 @@
-package com.czertainly.core.service.cmp;
+package com.czertainly.core.service.cmp.message;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;

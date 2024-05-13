@@ -6,13 +6,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.CertificateUtil;
@@ -186,6 +187,10 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
                     "cannot find serial number of current certificate");
         }
         return certId.getSerialNumber().getValue().toString(16);
+    }
+
+    public CmpTransaction.CmpTransactionState getTransactionState() {
+        return CmpTransaction.CmpTransactionState.CERT_REKEYED;
     }
 
 }

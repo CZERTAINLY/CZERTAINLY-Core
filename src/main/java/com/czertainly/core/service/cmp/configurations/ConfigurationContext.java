@@ -1,10 +1,10 @@
-package com.czertainly.core.service.cmp.message;
+package com.czertainly.core.service.cmp.configurations;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpConfigurationException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -27,14 +27,14 @@ public interface ConfigurationContext {
      * It allows to client define specified validation of CRMF request messages
      * @param request of crmf based message
      */
-    void validateRequest(PKIMessage request)
+    void validateOnCrmfRequest(PKIMessage request)
             throws CmpProcessingException;
 
     /**
      * It allows to client define specified validation of response messages
      * @param response of message
      */
-    void validateResponse(PKIMessage response)
+    void validateOnCrmfResponse(PKIMessage response)
             throws CmpProcessingException;
 
     /**

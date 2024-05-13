@@ -1,8 +1,8 @@
 package com.czertainly.core.service.cmp.message.validator;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 
 /**

@@ -5,19 +5,18 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
 import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.service.cmp.message.validator.impl.POPValidator;
-import com.czertainly.core.service.cmp.util.CertUtil;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -27,14 +26,12 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 /**
  * Handle (czertainly) supported CRMF-based message - ir/cr/kur; concrete handle (how to get/update certificate)
@@ -44,7 +41,7 @@ import java.util.UUID;
  * @see CrmfKurMessageHandler
  */
 @Component
-@Transactional
+@Transactional//(propagation = Propagation.REQUIRES_NEW)
 public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
 
     private static final Logger LOG = LoggerFactory.getLogger(CrmfMessageHandler.class.getName());
@@ -130,6 +127,12 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
                     "CRMF message cannot be handled - wrong type, type="+msgBodyType);
         }
 
+        Optional<CmpTransaction> trx = cmpTransactionRepository.findByTransactionId(tid.toString());
+        if(!trx.isEmpty()) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.transactionIdInUse,
+                    "crmf processing failed - given transaction is already used");
+        }
+
         new POPValidator()
                 .validate(request, configuration);
 
@@ -152,7 +155,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         ASN1Integer serialNumber = crmf.toCertReqMsgArray()[0].getCertReq().getCertTemplate().getSerialNumber();
 
         Certificate polledCert = pollFeature.pollCertificate(tid,
-                serialNumber==null?"n/a":serialNumber.getValue().toString(16), requestedCert.getUuid(),
+                serialNumber==null?null:serialNumber.getValue().toString(16), requestedCert.getUuid(),
                 CertificateState.ISSUED);
 
         // -- parse polled certificate (as X509)
@@ -161,10 +164,19 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         CMPCertificate[] caPubs = createCaPubs(tid, polledCert);
 
         // -- store as transaction (tid+uuid of cert)
+        CmpTransaction.CmpTransactionState trxState = switch (request.getBody().getType()) {
+            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> crmfIrCrMessageHandler.getTransactionState();
+            case PKIBody.TYPE_KEY_UPDATE_REQ -> kurMessageHandler.getTransactionState();
+            case PKIBody.TYPE_KEY_RECOVERY_REQ, PKIBody.TYPE_CROSS_CERT_REQ ->
+                    throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+                            "CRMF message cannot be handled - type is not supported, type=" + msgBodyType);
+            default -> null;
+        };
         cmpTransactionRepository.save(createTransactionEntity(
                 tid.toString(),
                 configuration.getProfile(),
-                polledCert.getUuid().toString()));
+                polledCert.getUuid().toString(),
+                trxState));
 
         // -- create response
         try {
@@ -183,11 +195,12 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
     }
 
     private CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
-                                                   String certificateUuid) {
+                                                   String certificateUuid, CmpTransaction.CmpTransactionState trxTranstactionState) {
         CmpTransaction cmpTransaction = new CmpTransaction();
         cmpTransaction.setTransactionId(transactionId);
         cmpTransaction.setCmpProfile(cmpProfile);
         cmpTransaction.setCertificateUuid(UUID.fromString(certificateUuid));
+        cmpTransaction.setState(trxTranstactionState);
         return cmpTransaction;
     }
 
@@ -244,7 +257,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
             List<X509Certificate> caChain = loadCaCertificateChain(tid, leafCertificate);
             List<CMPCertificate> converted = new LinkedList<>();
             for (X509Certificate cr : caChain) {
-                converted.add(CertUtil.toCmpCertificate(cr));
+                converted.add(CertificateUtil.toCmpCertificate(cr));
             }
             CMPCertificate[] caPubs = null;
             if(!converted.isEmpty()) {

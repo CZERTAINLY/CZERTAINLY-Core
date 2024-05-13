@@ -1,8 +1,8 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -86,6 +86,6 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
 class POPSigningKeyPoposkInputValidator implements Validator<PKIMessage, Void> {
     @Override
     public Void validate(PKIMessage subject, ConfigurationContext configuration) throws CmpBaseException {
-        throw new CmpProcessingException(PKIFailureInfo.systemFailure, "not implemented yet");//TODO tocecz, check 3gpp spec
+        throw new CmpProcessingException(PKIFailureInfo.systemFailure, "not implemented");
     }
 }

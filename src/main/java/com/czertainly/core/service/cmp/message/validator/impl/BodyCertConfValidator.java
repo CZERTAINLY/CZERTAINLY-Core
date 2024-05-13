@@ -1,9 +1,10 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 
 /**
@@ -32,11 +33,12 @@ public class BodyCertConfValidator extends BaseValidator implements Validator<PK
     @Override
     public Void validate(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
         assertEqualBodyType(PKIBody.TYPE_CERT_CONFIRM, request);
+        ASN1OctetString tid = request.getHeader().getTransactionID();
         CertConfirmContent content = (CertConfirmContent) request.getBody().getContent();
         CertStatus[] certStatuses = content.toCertStatusArray();
-        checkOneElementInArray(certStatuses, "certStatus");
+        checkOneElementInArray(tid, certStatuses, "certStatus");
         CertStatus certStatus = certStatuses[0];
-        checkValueNotNull(certStatus.getCertHash(), PKIFailureInfo.badDataFormat, "CertHash");
+        checkValueNotNull(tid, certStatus.getCertHash(), PKIFailureInfo.badDataFormat, "CertHash");
         return null;
     }
 

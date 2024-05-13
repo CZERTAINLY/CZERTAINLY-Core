@@ -1,12 +1,12 @@
 package com.czertainly.core.service.cmp.message.handler;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -89,14 +89,15 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
         ASN1OctetString tid = request.getHeader().getTransactionID();
+        String msgBodyAsString = PkiMessageDumper.msgTypeAsString(request.getBody().getType());
         if(PKIBody.TYPE_CERT_CONFIRM!=request.getBody().getType()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "confirmation (certConf) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
+                    "confirmation (certConf) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ msgBodyAsString +"; only type=cerfConf is supported");
         }
 
         Optional<CmpTransaction> trx = cmpTransactionRepository.findByTransactionId(tid.toString());
         if(trx.isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
                     "given transaction not found");
         }
         CertConfirmContent certConfirm = (CertConfirmContent ) request.getBody().getContent();
@@ -107,11 +108,15 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "FP="+incomingFingerprint+" | certificate is not found for given certHash(fingerprint)");
         }
-        String storedFingerprint = trx.get().getCertificate().getFingerprint();
-        if(!storedFingerprint.equals(incomingFingerprint)) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+        Certificate trxCertificate = trx.get().getCertificate();
+        String trxFingerprint = trxCertificate == null ? null : trxCertificate.getFingerprint();
+        if(!incomingFingerprint.equals(trxFingerprint)) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "FP="+incomingFingerprint+" | transactionID is not related with incoming certHash(fingerprint)");
         }
+        CmpTransaction updatedTransaction = trx.get();
+        updatedTransaction.setState(CmpTransaction.CmpTransactionState.CERT_CONFIRMED);
+        cmpTransactionRepository.save(updatedTransaction);
 
         try {
             return new PkiMessageBuilder(configuration)
@@ -121,7 +126,7 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
                     .build();
         } catch (Exception e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "problem build pkiConfirm response message, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()), e);
+                    "problem build pkiConfirm response message, type="+ msgBodyAsString, e);
         }
     }
 }

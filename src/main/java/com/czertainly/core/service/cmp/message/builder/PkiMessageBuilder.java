@@ -1,11 +1,10 @@
 package com.czertainly.core.service.cmp.message.builder;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
-import com.czertainly.core.service.cmp.util.CertUtil;
 import com.czertainly.core.util.CertificateUtil;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -16,7 +15,6 @@ import org.bouncycastle.asn1.crmf.CertReqMsg;
 import org.bouncycastle.asn1.crmf.CertRequest;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,7 +24,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Stream;
 
-import static com.czertainly.core.service.cmp.util.NullUtil.*;
+import static com.czertainly.core.util.NullUtil.*;
 
 /**
  * Builder pattern implementation to create specific types of {@link PKIMessage}.
@@ -105,8 +103,8 @@ public class PkiMessageBuilder {
      * @return builder itself
      */
     public PkiMessageBuilder addHeader(HeaderTemplate template) throws CmpBaseException {
-        final GeneralName recipient = computeDefaultIfNull(config.getRecipient(), template::getRecipient);
-        final GeneralName sender = computeDefaultIfNull(protectionStrategy.getSender(), template::getSender);
+        GeneralName recipient = computeDefaultIfNull(config.getRecipient(), template::getRecipient);
+        GeneralName sender = computeDefaultIfNull(protectionStrategy.getSender(), template::getSender);
 
         PKIHeaderBuilder headerBuilder = new PKIHeaderBuilder(
                 template.getPvno(),                                            // -- pvno         , int
@@ -233,7 +231,7 @@ public class PkiMessageBuilder {
              * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">[1]PKIHeader element</a>
              */
             @Override
-            public ASN1OctetString getSenderNonce() { return new DEROctetString(CertUtil.generateRandomBytes(16)); }
+            public ASN1OctetString getSenderNonce() { return new DEROctetString(CertificateUtil.generateRandomBytes(16)); }
 
             /**
              * <p>The recipient field contains the name of the recipient of the

@@ -4,6 +4,8 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
@@ -11,32 +13,32 @@ import java.util.UUID;
 @Table(name = "cmp_transaction")
 public class CmpTransaction extends UniquelyIdentified {
 
+    @Setter
+    @Getter
     @Column(name="transaction_id")
     private String transactionId;
-    public String getTransactionId() {
-        return transactionId;
-    }
-    public void setTransactionId(String transactionId) {
-        this.transactionId = transactionId;
-    }
 
+    @Setter
+    @Getter
     @Column(name = "certificate_uuid")
     private UUID certificateUuid;
-    public UUID getCertificateUuid() {
-        return certificateUuid;
-    }
-    public void setCertificateUuid(UUID certificateUuid) {
-        this.certificateUuid = certificateUuid;
-    }
 
+    @Setter
+    @Getter
     @Column(name = "cmp_profile_uuid")
     private UUID cmpProfileUuid;
-    public UUID getCmpProfileUuid() {
-        return cmpProfileUuid;
-    }
-    public void setCmpProfileUuid(UUID cmpProfileUuid) {
-        this.cmpProfileUuid = cmpProfileUuid;
-    }
+
+    public enum CmpTransactionState {CERT_ISSUED, CERT_REKEYED, CERT_CONFIRMED, CERT_REVOKED, FAILED;}
+    @Setter
+    @Getter
+    @Column(name = "state")
+    @Enumerated(EnumType.STRING)
+    private CmpTransactionState state;
+
+    @Setter
+    @Getter
+    @Column(name = "custom_reason")
+    private String customReason;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference

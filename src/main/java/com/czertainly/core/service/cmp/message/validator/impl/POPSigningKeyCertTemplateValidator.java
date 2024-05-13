@@ -1,11 +1,10 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.api.cmp.error.ImplFailureInfo;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
-import com.czertainly.core.service.cmp.util.CryptoUtil;
 import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
@@ -13,6 +12,7 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.crmf.*;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import java.io.IOException;
 import java.security.*;
@@ -109,9 +109,9 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
         try {
             return KeyFactory.getInstance(
                     subjectPublicKeyInfo.getAlgorithm().getAlgorithm().toString(),
-                    CryptoUtil.getBouncyCastleProvider()
+                    BouncyCastleProvider.PROVIDER_NAME
             ).generatePublic(new X509EncodedKeySpec(subjectPublicKeyInfo.getEncoded(ASN1Encoding.DER)));
-        } catch (InvalidKeySpecException | NoSuchAlgorithmException | IOException e) {
+        } catch (InvalidKeySpecException | NoSuchAlgorithmException | NoSuchProviderException | IOException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badPOP,
                     ImplFailureInfo.CMPVALPOP501, e);
         }
@@ -153,11 +153,12 @@ public class POPSigningKeyCertTemplateValidator implements Validator<PKIMessage,
              */
             byte[] subjectOfVerification = certRequest.getEncoded(ASN1Encoding.DER);
             Signature signature = Signature.getInstance(
-                    popoSigningKey.getAlgorithmIdentifier().getAlgorithm().getId(), CryptoUtil.getBouncyCastleProvider());
+                    popoSigningKey.getAlgorithmIdentifier().getAlgorithm().getId(),
+                    BouncyCastleProvider.PROVIDER_NAME);
             signature.initVerify(publicKey);
             signature.update(subjectOfVerification);
             return signature;
-        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | IOException e) {
+        } catch (NoSuchAlgorithmException | InvalidKeyException | SignatureException | NoSuchProviderException | IOException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badPOP,
                     ImplFailureInfo.CMPVALPOP502, e);
         }

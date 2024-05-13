@@ -1,10 +1,11 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
-import com.czertainly.core.api.cmp.error.CmpBaseException;
-import com.czertainly.core.api.cmp.error.CmpProcessingException;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
 import org.bouncycastle.asn1.ASN1Integer;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -43,19 +44,20 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
                     "message cannot be null");
         }
 
+        ASN1OctetString tid = message.getHeader().getTransactionID();
         PKIHeader header = message.getHeader();
-        checkValueNotNull(header, PKIFailureInfo.badDataFormat, "header");
+        checkValueNotNull(tid, header, PKIFailureInfo.badDataFormat, "header");
         ASN1Integer pvno = header.getPvno();
-        checkValueNotNull(pvno, PKIFailureInfo.unsupportedVersion, "pvno");
+        checkValueNotNull(tid, pvno, PKIFailureInfo.unsupportedVersion, "pvno");
         long versionNumber = pvno.longValueExact();
         if (versionNumber != PKIHeader.CMP_2000) {
             throw new CmpProcessingException(PKIFailureInfo.unsupportedVersion,
                     "version " + versionNumber + " not supported");
         }
-        checkValueNotNull(header.getSender(), PKIFailureInfo.badDataFormat, "sender");
-        checkValueNotNull(header.getRecipient(), PKIFailureInfo.badDataFormat, "recipient");
-        checkMinimalLength(header.getTransactionID(), 16, "transactionID");
-        checkMinimalLength(header.getSenderNonce(), 16, "senderNonce");
+        checkValueNotNull(tid, header.getSender(), PKIFailureInfo.badDataFormat, "sender");
+        checkValueNotNull(tid, header.getRecipient(), PKIFailureInfo.badDataFormat, "recipient");
+        checkMinimalLength(tid,header.getTransactionID(), 16, "transactionID");
+        checkMinimalLength(tid, header.getSenderNonce(), 16, "senderNonce");
 
         /*
          * The protectionAlg field specifies the algorithm used to protect the
@@ -69,7 +71,7 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
          * @see https://www.rfc-editor.org/rfc/rfc4210#appendix-D.2
          */
         if(message.getProtection() != null) {
-            checkValueNotNull(header.getProtectionAlg(),
+            checkValueNotNull(tid, header.getProtectionAlg(),
                     PKIFailureInfo.badDataFormat, "protectionAlg");
         }
 

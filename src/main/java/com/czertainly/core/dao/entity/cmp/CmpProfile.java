@@ -154,4 +154,10 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         }
     }
 
+    public enum Variant {VDEFAULT, V3GPP,;}
+    @Setter
+    @Getter
+    @Column(name = "variant")
+    @Enumerated(EnumType.STRING)
+    private Variant variant = Variant.VDEFAULT;//default
 }

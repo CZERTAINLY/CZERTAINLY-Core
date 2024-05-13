@@ -1,21 +1,27 @@
 package com.czertainly.core.service.cmp.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.cmp.PkiMessageError;
+import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.core.api.cmp.error.*;
-import com.czertainly.core.service.cmp.CertificateKeyService;
-import com.czertainly.core.service.cmp.message.ConfigurationContext;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.core.dao.entity.cmp.CmpTransaction;
+import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
+import com.czertainly.core.service.cmp.message.CertificateKeyService;
+import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
-import com.czertainly.core.service.cmp.message.PkiMessageError;
 import com.czertainly.core.service.cmp.message.handler.*;
 import com.czertainly.core.service.cmp.message.validator.impl.BodyValidator;
 import com.czertainly.core.service.cmp.message.validator.impl.HeaderValidator;
 import com.czertainly.core.service.cmp.message.validator.impl.ProtectionValidator;
-import com.czertainly.core.service.cmp.profiles.Mobile3gppProfileContext;
+import com.czertainly.core.service.cmp.configurations.variants.CmpConfigurationContext;
+import com.czertainly.core.service.cmp.configurations.variants.Mobile3gppProfileContext;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.dao.entity.Certificate;
@@ -27,6 +33,7 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.CmpService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -36,6 +43,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import static com.czertainly.core.service.cmp.CmpConstants.*;
@@ -46,6 +54,7 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 @Transactional
@@ -90,6 +99,11 @@ public class CmpServiceImpl implements CmpService {
     @Autowired
     public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) { this.revocationMessageHandler = revocationMessageHandler; }
 
+    // -- TRANSACTION
+    private CmpTransactionRepository cmpTransactionRepository;
+    @Autowired
+    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) { this.cmpTransactionRepository = cmpTransactionRepository; }
+
     // -- VALIDATORS
     @Autowired private HeaderValidator headerValidator;
     @Autowired private BodyValidator bodyValidator;
@@ -102,6 +116,15 @@ public class CmpServiceImpl implements CmpService {
         this.attributeEngine = attributeEngine;
     }
 
+    /**
+     * Handling http post's request (which include binary <code>request</code> content of {@link PKIMessage}) related to
+     * specific <code>profileName</code>.
+     *
+     * @param profileName specific customer-based configuration/customization
+     * @param request contains  {@link PKIMessage}
+     * @return response contains {@link PKIMessage}
+     * @throws CmpBaseException if any error has been raised
+     */
     @Override
     public ResponseEntity<Object> handlePost(String profileName, byte[] request) throws CmpBaseException {
         boolean verbose = true;
@@ -117,6 +140,7 @@ public class CmpServiceImpl implements CmpService {
                     PKIFailureInfo.badRequest,
                     ImplFailureInfo.CMPSRV100));
         }
+        ASN1OctetString tid = pkiRequest.getHeader().getTransactionID();
         String requestAsString = PkiMessageDumper.dumpPkiMessage(pkiRequest);
         String logPrefix = PkiMessageDumper.logPrefix(pkiRequest, profileName);
         LOG.info("{} | request processing: {}",
@@ -127,25 +151,32 @@ public class CmpServiceImpl implements CmpService {
                 Base64.getEncoder().encodeToString(request));
 
         // -- (processing) part
-        ConfigurationContext config3gppProfile = new Mobile3gppProfileContext(cmpProfile, pkiRequest,
-                certificateKeyService, issueAttributes, revokeAttributes);
+        ConfigurationContext configuration = switch(cmpProfile.getVariant()) {
+            case V3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
+                    certificateKeyService, issueAttributes, revokeAttributes);
+            case VDEFAULT -> new CmpConfigurationContext(cmpProfile, pkiRequest,
+                    certificateKeyService, issueAttributes, revokeAttributes);
+            default -> throw new CmpConfigurationException(pkiRequest.getHeader().getTransactionID(),
+                    PKIFailureInfo.systemFailure, "profile does not have a profile variant");
+        };
+
         try {
             PKIMessage pkiResponse;
 
-            headerValidator.validate(pkiRequest, config3gppProfile);
-            bodyValidator.validate(pkiRequest, config3gppProfile);
-            protectionValidator.validateIn(pkiRequest, config3gppProfile);
+            headerValidator.validate(pkiRequest, configuration);
+            bodyValidator.validate(pkiRequest, configuration);
+            protectionValidator.validateIn(pkiRequest, configuration);
 
             //see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2, PKI Message Body
             switch (pkiRequest.getBody().getType()) {
                 case PKIBody.TYPE_INIT_REQ:                        // ( 1)       ir, Initial Request; CertReqMessages
                 case PKIBody.TYPE_CERT_REQ:                        // ( 2)       cr, Certification Req; CertReqMessages
                 case PKIBody.TYPE_KEY_UPDATE_REQ:                  // ( 7)      kur, Key Update Request; CertReqMessages
-                    pkiResponse = crmfMessageHandler.handle(pkiRequest, config3gppProfile); break;
+                    pkiResponse = crmfMessageHandler.handle(pkiRequest, configuration); break;
                 case PKIBody.TYPE_REVOCATION_REQ:                  // (11)       rr, Revocation Request; RevReqContent
-                    pkiResponse = revocationMessageHandler.handle(pkiRequest, config3gppProfile); break;
+                    pkiResponse = revocationMessageHandler.handle(pkiRequest, configuration); break;
                 case PKIBody.TYPE_CERT_CONFIRM:                    // (24) certConf, Certificate confirm; CertConfirmContent
-                    pkiResponse = certConfirmMessageHandler.handle(pkiRequest, config3gppProfile); break;
+                    pkiResponse = certConfirmMessageHandler.handle(pkiRequest, configuration); break;
                 case PKIBody.TYPE_CROSS_CERT_REQ:
                 case PKIBody.TYPE_KEY_RECOVERY_REQ:
                 case PKIBody.TYPE_GEN_MSG:
@@ -173,12 +204,13 @@ public class CmpServiceImpl implements CmpService {
                     PkiMessageDumper.logPrefix(pkiResponse, profileName),
                     PkiMessageDumper.dumpPkiMessage(verbose, pkiResponse));
 
-            headerValidator.validate(pkiResponse, config3gppProfile);
-            bodyValidator.validate(pkiResponse, config3gppProfile);
-            protectionValidator.validateOut(pkiResponse, config3gppProfile);
+            headerValidator.validate(pkiResponse, configuration);
+            bodyValidator.validate(pkiResponse, configuration);
+            protectionValidator.validateOut(pkiResponse, configuration);
 
             return buildOk(pkiResponse);
         } catch (CmpBaseException e) {
+            handleTrxError(tid, e);
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
             if(verbose) {
                 LOG.error("{} | processing failed: \n\n response:\n {}", logPrefix,
@@ -189,6 +221,7 @@ public class CmpServiceImpl implements CmpService {
             }
             return buildBadRequest(pkiResponse);
         } catch (IOException e) {
+            handleTrxError(tid, e);
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(
                     pkiRequest.getHeader(),
                     PKIFailureInfo.badDataFormat,
@@ -202,6 +235,7 @@ public class CmpServiceImpl implements CmpService {
             }
             return buildBadRequest(pkiResponse);
         } catch (Exception e) {
+            handleTrxError(tid, e);
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e);
             if(verbose) {
                 LOG.error("{} | handling failed: \n\n response:\n {}", logPrefix,
@@ -211,6 +245,18 @@ public class CmpServiceImpl implements CmpService {
                         requestAsString, PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             }
             return buildBadRequest(pkiResponse);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    protected void handleTrxError(ASN1OctetString tid, Exception e){
+        Optional<CmpTransaction> trx = cmpTransactionRepository.findByTransactionId(tid.toString());
+        if(!trx.isEmpty()) {
+            CmpTransaction updatedTransaction = trx.get();
+            updatedTransaction.setState(CmpTransaction.CmpTransactionState.FAILED);
+            String customReason = e.getMessage();
+            updatedTransaction.setCustomReason(customReason.substring(0, Math.min(254, customReason.length())));
+            cmpTransactionRepository.save(updatedTransaction);
         }
     }
 
@@ -312,7 +358,7 @@ public class CmpServiceImpl implements CmpService {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | RA Profile is not enabled");
         }
-        if (raProfileBased && raProfile.getScepProfile() == null) {
+        if (raProfileBased && raProfile.getCmpProfile() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN="+incomingProfileName+" | RA Profile does not contain associated CMP Profile");
         }
