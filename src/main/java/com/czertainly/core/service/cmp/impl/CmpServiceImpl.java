@@ -11,11 +11,13 @@ import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
 import com.czertainly.core.service.cmp.message.CertificateKeyService;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
+import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.handler.*;
 import com.czertainly.core.service.cmp.message.validator.impl.BodyValidator;
@@ -34,13 +36,10 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.CmpService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
-import org.bouncycastle.asn1.ASN1InputStream;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
-import org.bouncycastle.asn1.util.ASN1Dump;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +51,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import static com.czertainly.core.service.cmp.CmpConstants.*;
 
-import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -105,9 +103,9 @@ public class CmpServiceImpl implements CmpService {
     public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) { this.revocationMessageHandler = revocationMessageHandler; }
 
     // -- TRANSACTION
-    private CmpTransactionRepository cmpTransactionRepository;
+    private CmpTransactionService cmpTransactionService;
     @Autowired
-    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) { this.cmpTransactionRepository = cmpTransactionRepository; }
+    private void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
 
     // -- VALIDATORS
     @Autowired private HeaderValidator headerValidator;
@@ -255,13 +253,14 @@ public class CmpServiceImpl implements CmpService {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     protected void handleTrxError(ASN1OctetString tid, Exception e){
-        Optional<CmpTransaction> trx = cmpTransactionRepository.findByTransactionId(tid.toString());
+        List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
         if(!trx.isEmpty()) {
-            CmpTransaction updatedTransaction = trx.get();
-            updatedTransaction.setState(CmpTransaction.CmpTransactionState.FAILED);
-            String customReason = e.getMessage();
-            updatedTransaction.setCustomReason(customReason.substring(0, Math.min(254, customReason.length())));
-            cmpTransactionRepository.save(updatedTransaction);
+            for (CmpTransaction updatedTransaction : trx) {
+                updatedTransaction.setState(CmpTransactionState.FAILED);
+                String customReason = e.getMessage();
+                updatedTransaction.setCustomReason(customReason.substring(0, Math.min(254, customReason.length())));
+                cmpTransactionService.save(updatedTransaction);
+            }
         }
     }
 

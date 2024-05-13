@@ -4,17 +4,17 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
+import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -32,8 +32,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
 import java.util.Optional;
-import java.util.UUID;
 
 /**
  * <p>5.3.9.  Revocation Request Content</p>
@@ -85,9 +85,9 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     @Autowired
     public void setPollFeature(PollFeature pollFeature) { this.pollFeature = pollFeature; }
 
-    private CmpTransactionRepository cmpTransactionRepository;
+    private CmpTransactionService cmpTransactionService;
     @Autowired
-    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) { this.cmpTransactionRepository = cmpTransactionRepository; }
+    private void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
 
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
@@ -99,33 +99,39 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         ASN1OctetString tid = request.getHeader().getTransactionID();
         RevReqContent revBody = (RevReqContent) request.getBody().getContent();
 
-        Optional<CmpTransaction> trx = cmpTransactionRepository.findByTransactionId(tid.toString());
-        if(!trx.isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.transactionIdInUse,
-                    "revocation processing failed - given transaction is already used");
-        }
-
         RevDetails[] revocations = revBody.toRevDetailsArray();
         int revocationCount = revocations.length;
         RevRepContentBuilder revocationResponseBuilder = new RevRepContentBuilder();
         LOG.debug("TID={} | revocations started (count={})", tid, revocationCount);
         for (var revocation : revocations) {
-            //RevDetails revocation = revBody.toRevDetailsArray()[0];
             CertTemplate certDetails = revocation.getCertDetails();
             CertId certId = new CertId(new GeneralName(certDetails.getIssuer()),
                     certDetails.getSerialNumber());
+
+            String serialNumber = getSerialNumber(revocation);
+            Optional<CmpTransaction> relatedTransaction = cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
+                    tid.toString(), serialNumber);
+            if(relatedTransaction.isPresent()) {
+                throw new CmpProcessingException(tid,
+                        PKIFailureInfo.transactionIdInUse,
+                        "revocation processing failed - given transactionId is already used");
+            }
+
             try {
-                Certificate certificate = getCertificate(revocation, tid);
+                Certificate certificate = getCertificate(serialNumber, tid);
                 revokeCertificate(tid, revocation, certificate, configuration);
                 pollFeature.pollCertificate(tid,
                         certificate.getSerialNumber(), certificate.getUuid().toString(), CertificateState.REVOKED);
-                cmpTransactionRepository.save(createTransactionEntity(
+                cmpTransactionService.save(cmpTransactionService.createTransactionEntity(
                         tid.toString(),
                         configuration.getProfile(),
-                        certificate.getUuid().toString()));
+                        certificate.getUuid().toString(),
+                        CmpTransactionState.CERT_REVOKED));
 
                 revocationResponseBuilder.add(
                         new PKIStatusInfo(PKIStatus.revocationNotification), certId);
+
+
                 LOG.trace("TID={}, SN={} | revocations of certificate is done (remaining={})", tid, getSerialNumber(revocation), --revocationCount);
             } catch (Exception e) {
                 LOG.error("TID={}, SN={} | revocation of certificate failed, reason={}", tid, getSerialNumber(revocation), e.getLocalizedMessage(), e);
@@ -154,23 +160,12 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         }
     }
 
-    private CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
-                                                   String certificateUuid) {
-        CmpTransaction cmpTransaction = new CmpTransaction();
-        cmpTransaction.setTransactionId(transactionId);
-        cmpTransaction.setCmpProfile(cmpProfile);
-        cmpTransaction.setCertificateUuid(UUID.fromString(certificateUuid));
-        cmpTransaction.setState(CmpTransaction.CmpTransactionState.CERT_REVOKED);
-        return cmpTransaction;
-    }
-
-    private Certificate getCertificate(RevDetails revocation, ASN1OctetString tid)
+    private Certificate getCertificate(String serialNumber, ASN1OctetString tid)
             throws CmpProcessingException {
-        String serialNumber = getSerialNumber(revocation);
         Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
         if (certificate.isEmpty()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
-                    "SN="+getSerialNumber(revocation)+" | certificate for revocation could not be found");
+                    "SN="+serialNumber+" | certificate for revocation could not be found");
         }
         return certificate.get();
     }
@@ -180,20 +175,13 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         return serialNumber.getValue().toString(16);
     }
 
-    private CertificateRevocationReason getReason(RevDetails revocation, ASN1OctetString tid)
-            throws CmpProcessingException {
+    private CertificateRevocationReason getReason(RevDetails revocation) {
         Extensions crlEntryDetails = revocation.getCrlEntryDetails();
         Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        Long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
-                .getValue().longValue();
+        int reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
+                .getValue().intValue();
         CertificateRevocationReason reason = CertificateRevocationReason.UNSPECIFIED;
-        if(reasonCode != null) {
-            CertificateRevocationReason.fromReasonCode(reasonCode.intValue());
-        }
-        if(reason == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
-                    "SN="+getSerialNumber(revocation)+" | revocation reason could not be found");
-        }
+        CertificateRevocationReason.fromReasonCode(reasonCode);
         return reason;
     }
 
@@ -205,7 +193,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertTemplate,
                     "SN="+sn+" | Certificate is already revoked");
         }
-        CertificateRevocationReason reason = getReason(revocation, tid);
+        CertificateRevocationReason reason = getReason(revocation);
         try {
             ClientCertificateRevocationDto dto = new ClientCertificateRevocationDto();
             dto.setReason(reason);

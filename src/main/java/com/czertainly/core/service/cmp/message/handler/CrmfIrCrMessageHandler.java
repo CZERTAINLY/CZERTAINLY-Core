@@ -2,13 +2,13 @@ package com.czertainly.core.service.cmp.message.handler;
 
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
@@ -90,8 +90,8 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
         // CrmfMessageHandler get certificate in sync manner (via polling ...)
     }
 
-    public CmpTransaction.CmpTransactionState getTransactionState() {
-        return CmpTransaction.CmpTransactionState.CERT_ISSUED;
+    public CmpTransactionState getTransactionState() {
+        return CmpTransactionState.CERT_ISSUED;
     }
 
 }

@@ -35,7 +35,7 @@ public class PollFeature {
     public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
     /**
-     * Convert asynchronous behaviour (manipulation with certificate, e.g. issuing/revoking) to synchronous
+     * Convert asynchronous behaviour (manipulation with certificate, e.g. issuing/re-keying/revoking) to synchronous
      * (cmp client ask for certificate) using polling certificate until certificate.
      *
      * @param tid processing transaction id, see {@link PKIHeader#getTransactionID()}

@@ -319,4 +319,18 @@ public class PkiMessageBuilder {
         };
         return new PKIBody(bodyType+1, new CertRepMessage(caPubs, response));
     }
+
+    public static PKIBody createIpCpKupBody(PKIBody body, CertResponse[] response,
+                                                 CMPCertificate[] caPubs) throws CmpProcessingException {
+        int bodyType = body.getType();
+        switch(bodyType){
+            case PKIBody.TYPE_INIT_REQ:
+            case PKIBody.TYPE_CERT_REQ:
+            case PKIBody.TYPE_KEY_UPDATE_REQ:
+                break;
+            default:
+                throw new CmpProcessingException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type="+bodyType);
+        }
+        return new PKIBody(bodyType+1, new CertRepMessage(caPubs, response));
+    }
 }

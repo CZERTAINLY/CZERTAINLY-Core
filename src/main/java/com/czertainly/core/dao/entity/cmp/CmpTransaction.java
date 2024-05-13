@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity.cmp;
 
+import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -28,7 +29,6 @@ public class CmpTransaction extends UniquelyIdentified {
     @Column(name = "cmp_profile_uuid")
     private UUID cmpProfileUuid;
 
-    public enum CmpTransactionState {CERT_ISSUED, CERT_REKEYED, CERT_CONFIRMED, CERT_REVOKED, FAILED;}
     @Setter
     @Getter
     @Column(name = "state")
