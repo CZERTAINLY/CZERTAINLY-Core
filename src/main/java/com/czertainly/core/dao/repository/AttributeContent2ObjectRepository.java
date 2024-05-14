@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContent;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentDetail;
@@ -27,7 +28,17 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 JOIN AttributeDefinition ad ON aci.attributeDefinitionUuid = ad.uuid
                 WHERE ad.type IN ?2 AND aco.objectType = ?1
             """)
-    List<SearchFieldObject> findDistinctAttributeSearchFieldsByAttrTypeAndObjType(final Resource resourceType, final List<AttributeType> attributeTypes);
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrType(final Resource resourceType, final List<AttributeType> attributeTypes);
+
+    @Query("""
+            SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
+                ad.name, ad.contentType, ad.type)
+                FROM AttributeContent2Object aco
+                JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
+                JOIN AttributeDefinition ad ON aci.attributeDefinitionUuid = ad.uuid
+                WHERE ad.type IN ?2 AND ad.contentType IN ?3 AND aco.objectType = ?1
+            """)
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(final Resource resourceType, final List<AttributeType> attributeTypes, final List<AttributeContentType> attributeContentTypes);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(

@@ -20,6 +20,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
@@ -115,21 +116,25 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
         // First, check where from to get object value based on Field Source
         if (fieldSource == FilterFieldSource.PROPERTY) {
-
+            SearchableFields field = Enum.valueOf(SearchableFields.class, fieldIdentifier);
             // Get value of property from the object
             Object objectValue;
             try {
-                objectValue = PropertyUtils.getProperty(object, fieldIdentifier);
+                objectValue = PropertyUtils.getProperty(object, field.getCode());
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
             // Determine field type from field identifier using Searchable field enum
             SearchFieldNameEnum propertyEnum;
             try {
-                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
+                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(field);
             } catch (Exception e) {
                 throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
             }
+            if (propertyEnum == null) {
+                throw new RuleException("Unknown property field identifier: " + fieldIdentifier);
+            }
+
             FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
             try {
@@ -221,17 +226,16 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         if (actionType == RuleActionType.SET_FIELD) {
             // Set a property of the object using setter, the property must be set as settable
             if (fieldSource == FilterFieldSource.PROPERTY) {
-                SearchFieldNameEnum propertyEnum;
-                try {
-                    propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
-                } catch (Exception e) {
+                SearchFieldNameEnum propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
+                if (propertyEnum == null) {
                     throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
                 }
                 if (!propertyEnum.isSettable())
                     throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
                 try {
                     PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
-                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new RuleException(e.getMessage());
                 }
             }
@@ -247,14 +251,11 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 if (objectUuid == null)
                     throw new RuleException("Cannot set custom attributes for an object not in database.");
 
-                ObjectMapper objectMapper = new ObjectMapper();
-                List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData , new TypeReference<>() {});
-                attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier, attributeContents);
+                List<BaseAttributeContent> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
+                attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
             }
         }
     }
-
-
 
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;

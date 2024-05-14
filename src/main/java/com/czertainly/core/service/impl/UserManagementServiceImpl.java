@@ -50,6 +50,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Autowired
     private GroupService groupService;
+    
     private AttributeEngine attributeEngine;
 
     @Autowired
@@ -183,7 +184,7 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        return listUsers().stream().map(u -> new NameAndUuidDto(u.getUuid(), u.getUsername())).toList();
     }
 
     @Override
