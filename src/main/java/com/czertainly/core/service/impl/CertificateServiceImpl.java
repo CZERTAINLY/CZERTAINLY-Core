@@ -18,6 +18,7 @@ import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
@@ -417,7 +418,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
@@ -425,7 +426,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
