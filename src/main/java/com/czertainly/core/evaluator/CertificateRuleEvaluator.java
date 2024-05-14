@@ -1,22 +1,22 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.*;
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RuleAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Component("certificates")
 public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
@@ -35,43 +35,51 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
     public void performAction(RuleAction action, Certificate object, Resource resource) throws NotFoundException, AttributeException, CertificateOperationException, RuleException {
         if (action.getActionType() == RuleActionType.SET_FIELD & action.getFieldSource() == FilterFieldSource.PROPERTY) {
             SecuredUUID certificateUuid = object.getSecuredUuid();
-            String propertyUuidStr = action.getActionData().toString();
+
+            SearchableFields searchableField;
+            try {
+                searchableField = Enum.valueOf(SearchableFields.class, action.getFieldIdentifier());
+            } catch (IllegalArgumentException e) {
+                throw new RuleException("Field identifier '" + action.getFieldIdentifier() + "' is not supported.");
+            }
 
             UUID propertyUuid = null;
-            Set<UUID> propertyUuids = null;
-            try {
-                propertyUuid = UUID.fromString(propertyUuidStr);
-            } catch (IllegalArgumentException e) {
-                // TODO: handle illegal argument
-            }
-
-            // try to map it to list of UUIDs
-            if (propertyUuid == null) {
-                if (!action.getFieldIdentifier().equals("group")) {
-                    return;
-                }
-                try {
-                    propertyUuids = new HashSet<>();
-                    List<String> propertyUuidItems = objectMapper.readValue(propertyUuidStr, objectMapper.getTypeFactory().constructCollectionType(List.class, String.class));
-                    for (String propertyUuidItem : propertyUuidItems) {
-                        propertyUuids.add(UUID.fromString(propertyUuidItem));
+            List<UUID> propertyUuids = null;
+            boolean removeValue = action.getActionData() == null;
+            if (!removeValue) {
+                if (action.getActionData() instanceof ArrayList<?>) {
+                    try {
+                        propertyUuids = new ArrayList<>();
+                        for (Object actionDataItem : (ArrayList<?>) action.getActionData()) {
+                            propertyUuids.add(UUID.fromString(actionDataItem.toString()));
+                        }
+                    } catch (IllegalArgumentException ex) {
+                        // TODO: handle illegal argument
+                        propertyUuids = null;
                     }
-                } catch (IllegalArgumentException | JsonProcessingException e) {
-                    // TODO: handle illegal argument
-                    return;
+                } else {
+                    String propertyUuidStr = action.getActionData().toString();
+                    try {
+                        propertyUuid = UUID.fromString(propertyUuidStr);
+                    } catch (IllegalArgumentException e) {
+                        // TODO: handle illegal argument
+                    }
                 }
             }
+            removeValue = removeValue || (propertyUuids != null && propertyUuids.isEmpty());
 
-            switch (action.getFieldIdentifier()) {
-                case "raProfile":
-                    certificateService.switchRaProfile(certificateUuid, SecuredUUID.fromUUID(propertyUuid));
-                    break;
-                case "group":
-                    certificateService.updateCertificateGroups(object.getSecuredUuid(), propertyUuid == null ? propertyUuids : Set.of(propertyUuid));
-                    break;
-                case "owner":
-                    certificateService.updateOwner(certificateUuid, propertyUuid.toString());
-                    break;
+            if (!removeValue && propertyUuid == null && propertyUuids == null) {
+                throw new RuleException(String.format("Wrong action data for set field %s %s of %s %s: %s", action.getFieldSource().getLabel(), action.getFieldIdentifier(), resource.getLabel(), object.getUuid().toString(), action.getActionData().toString()));
+            }
+
+            SecuredUUID newPropertyUuid = removeValue ? null : SecuredUUID.fromUUID(propertyUuid != null ? propertyUuid : propertyUuids.get(0));
+            switch (searchableField) {
+                case RA_PROFILE_NAME ->
+                        certificateService.switchRaProfile(certificateUuid, newPropertyUuid);
+                case GROUP_NAME ->
+                        certificateService.updateCertificateGroups(object.getSecuredUuid(), removeValue ? Set.of() : (propertyUuids == null ? Set.of(newPropertyUuid.getValue()) : new HashSet<>(propertyUuids)));
+                case OWNER ->
+                        certificateService.updateOwner(certificateUuid, newPropertyUuid == null ? null : newPropertyUuid.toString());
             }
         } else {
             super.performAction(action, object, Resource.CERTIFICATE);

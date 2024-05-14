@@ -1,10 +1,11 @@
 package com.czertainly.core.model.request;
 
 import com.czertainly.api.exception.CertificateRequestException;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
+import lombok.Getter;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.Certificate;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
 import java.io.IOException;
@@ -16,6 +17,7 @@ import java.util.Map;
 public class Pkcs10CertificateRequest implements CertificateRequest {
 
     private final byte[] encoded;
+    @Getter
     private final JcaPKCS10CertificationRequest jcaObject;
 
     public Pkcs10CertificateRequest(byte[] request) throws CertificateRequestException {
@@ -30,6 +32,11 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
     @Override
     public byte[] getEncoded() {
         return encoded;
+    }
+
+    @Override
+    public CertificateRequestFormat getFormat() {
+        return CertificateRequestFormat.PKCS10;
     }
 
     @Override
@@ -55,7 +62,5 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
     public AlgorithmIdentifier getSignatureAlgorithm() {
         return jcaObject.getSignatureAlgorithm();
     }
-
-    public JcaPKCS10CertificationRequest getJcaObject() { return jcaObject;}
 
 }

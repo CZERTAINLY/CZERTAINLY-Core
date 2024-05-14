@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -94,21 +95,24 @@ public class AttributeEngine {
 
     //region Search (Filtering) related methods
 
-    public List<SearchFieldDataByGroupDto> getResourceSearchableFields(Resource resource) {
+    public List<SearchFieldDataByGroupDto> getResourceSearchableFields(Resource resource, boolean settable) {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-        final List<SearchFieldObject> metadataSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.META));
-        if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
-        }
 
-        final List<SearchFieldObject> customAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM));
+        final List<SearchFieldObject> customAttrSearchFieldObject = settable ? attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(resource, List.of(AttributeType.CUSTOM), Arrays.stream(AttributeContentType.values()).filter(AttributeContentType::isFilterByData).toList())
+                : attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM));
         if (!customAttrSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
         }
 
-        final List<SearchFieldObject> dataAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.DATA));
-        if (!dataAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
+        if (!settable) {
+            final List<SearchFieldObject> dataAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.DATA));
+            if (!dataAttrSearchFieldObject.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
+            }
+            final List<SearchFieldObject> metadataSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.META));
+            if (!metadataSearchFieldObject.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
+            }
         }
 
         return searchFieldDataByGroupDtos;
@@ -120,7 +124,7 @@ public class AttributeEngine {
             return null;
         }
 
-        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
+        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
         return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }
@@ -317,12 +321,13 @@ public class AttributeEngine {
         // alternative is to load all definitions by connector UUID and operation
         // TODO: what to do with orphaned (old) definitions from connector that were replaced and would be still validated and asked to be filled?
         List<UUID> attributeUuids = attributes.stream().filter(a -> a.getType() == AttributeType.DATA).map(a -> UUID.fromString(a.getUuid())).toList();
-        Map<String, AttributeDefinition> definitionsMapping = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidIn(AttributeType.DATA, connectorUuid, attributeUuids).stream().collect(Collectors.toMap(AttributeDefinition::getName, d -> d));
+        List<String> attributeNames = attributes.stream().filter(a -> a.getType() == AttributeType.DATA).map(BaseAttribute::getName).toList();
+        Map<String, AttributeDefinition> definitionsMapping = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType.DATA, connectorUuid, attributeUuids, attributeNames).stream().collect(Collectors.toMap(AttributeDefinition::getName, d -> d));
 
         // load missing data attributes definitions from DB
         for (RequestAttributeDto requestAttributeDto : requestAttributes) {
             if (definitionsMapping.get(requestAttributeDto.getName()) == null) {
-                AttributeDefinition missingDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, requestAttributeDto.getName()).orElse(null);
+                AttributeDefinition missingDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttributeDto.getUuid()), requestAttributeDto.getName()).orElse(null);
                 if (missingDefinition != null) {
                     // update operation - if attribute is retrieved by callback, we do not know its operation
                     if (!Objects.equals(missingDefinition.getOperation(), operation)) {
@@ -361,7 +366,7 @@ public class AttributeEngine {
         validateAttributeDefinition(dataAttribute, connectorUuid);
 
         // find by connector uuid and name only because attribute uuid could be generated when data attribute was migrated from RequestAttributeDto
-        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, dataAttribute.getName()).orElse(null);
+        AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).orElse(null);
         if (attributeDefinition != null) {
             // update definition when it was migrated from RequestAttributeDto
             if (attributeDefinition.getLabel().isEmpty() && attributeDefinition.getDefinition().getDescription().equals(ATTRIBUTE_DEFINITION_FORCE_UPDATE_LABEL)) {
@@ -524,7 +529,7 @@ public class AttributeEngine {
         List<DataAttribute> dataAttributes = new ArrayList<>();
         String connectorUuidStr = connectorUuid == null ? null : connectorUuid.toString();
         for (RequestAttributeDto requestAttribute : requestAttributes) {
-            AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getName())
+            AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : requestAttribute.getUuid(), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
 
             validateAttributeContent(definition, requestAttribute.getContent());
@@ -602,7 +607,7 @@ public class AttributeEngine {
         ObjectAttributeContentInfo objectAttributeContentInfo = new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid);
         deleteOperationObjectAttributesContent(AttributeType.DATA, operation, objectAttributeContentInfo);
         for (RequestAttributeDto requestAttribute : requestAttributes) {
-            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
+            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
             createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, requestAttribute.getContent());
         }
 

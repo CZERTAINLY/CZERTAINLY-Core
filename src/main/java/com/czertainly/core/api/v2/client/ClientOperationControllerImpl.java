@@ -59,7 +59,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException {
+            ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException {
         return clientOperationService.renewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 
@@ -68,7 +68,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             String raProfileUuid,
             String certificateUuid,
-            ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException {
+            ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException {
         return clientOperationService.rekeyCertificate(
                 SecuredParentUUID.fromString(authorityUuid),
                 SecuredUUID.fromString(raProfileUuid),

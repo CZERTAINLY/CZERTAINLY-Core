@@ -5,7 +5,7 @@ import com.czertainly.api.interfaces.core.web.AuthController;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.auth.ResourceDetailDto;
+import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.core.service.AuthService;
 import com.czertainly.core.service.ResourceService;
@@ -44,8 +44,8 @@ public class AuthControllerImpl implements AuthController {
     }
 
     @Override
-    public List<ResourceDetailDto> getAllResources() throws NotFoundException {
-        return authService.getAllResources();
+    public List<AuthResourceDto> getAuthResources() throws NotFoundException {
+        return authService.getAuthResources();
     }
 
     @Override

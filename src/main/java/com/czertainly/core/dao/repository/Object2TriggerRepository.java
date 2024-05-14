@@ -12,4 +12,6 @@ public interface Object2TriggerRepository extends SecurityFilterRepository<RuleT
 
     List<RuleTrigger2Object> findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource resource, UUID objectUuid);
 
+    long deleteByResourceAndObjectUuid(Resource resource, UUID objectUuid);
+
 }

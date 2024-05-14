@@ -22,7 +22,7 @@ import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.api.model.core.rules.ResourceEvent;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -219,6 +219,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
+            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             discoveryRepository.delete(discovery);
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
@@ -464,7 +465,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.DISCOVERY);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.DISCOVERY, false);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),

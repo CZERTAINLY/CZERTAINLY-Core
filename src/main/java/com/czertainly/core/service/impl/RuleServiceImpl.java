@@ -2,12 +2,16 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.RuleService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -323,6 +327,13 @@ public class RuleServiceImpl implements RuleService {
 
         RuleTrigger trigger = new RuleTrigger();
 
+        trigger.setName(request.getName());
+        trigger.setDescription(request.getDescription());
+        trigger.setResource(request.getResource());
+        trigger.setTriggerResource(request.getTriggerResource() == null ? request.getResource() : request.getTriggerResource());
+        trigger.setTriggerType(request.getTriggerType());
+        trigger.setEventName(request.getEventName());
+        triggerRepository.save(trigger);
 
         List<Rule> rules = new ArrayList<>();
 
@@ -351,14 +362,8 @@ public class RuleServiceImpl implements RuleService {
         }
 
         trigger.setActionGroups(actionGroups);
-        trigger.setName(request.getName());
-        trigger.setDescription(request.getDescription());
-        trigger.setResource(request.getResource());
-        trigger.setTriggerResource(request.getTriggerResource());
-        trigger.setTriggerType(request.getTriggerType());
         trigger.setRules(rules);
         trigger.setActions(actions);
-        triggerRepository.save(trigger);
         return trigger.mapToDetailDto();
     }
 
@@ -389,6 +394,7 @@ public class RuleServiceImpl implements RuleService {
         RuleTrigger trigger = getRuleTriggerEntity(triggerUuid);
 
         actionRepository.deleteAll(trigger.getActions());
+        trigger.getActions().clear();
 
         List<Rule> rules = new ArrayList<>();
 
@@ -419,9 +425,15 @@ public class RuleServiceImpl implements RuleService {
         trigger.setActionGroups(actionGroups);
         trigger.setRules(rules);
         trigger.setActions(actions);
-        trigger.setDescription(request.getDescription());
-        trigger.setTriggerResource(request.getTriggerResource());
         trigger.setTriggerType(request.getTriggerType());
+        trigger.setEventName(request.getEventName());
+        trigger.setDescription(request.getDescription());
+        if (request.getResource() != null) {
+            trigger.setResource(request.getResource());
+        }
+        if (request.getTriggerResource() != null) {
+            trigger.setTriggerResource(request.getTriggerResource());
+        }
 
         triggerRepository.save(trigger);
         return trigger.mapToDetailDto();
@@ -460,7 +472,7 @@ public class RuleServiceImpl implements RuleService {
             if (actionRequestDto.getActionType() == null)
                 throw new ValidationException("Missing action type in an action.");
             // If the Action Type is Ignore, it must be the only action in the list
-            if (actionRequestDto.getActionType() == RuleActionType.IGNORE && !actionRequestDtos.isEmpty())
+            if (actionRequestDto.getActionType() == RuleActionType.IGNORE && actionRequestDtos.size() > 1)
                 throw new ValidationException("Actions contain action with Action Type Ignore, it must be the only action in the list.");
             RuleAction action = new RuleAction();
             if (trigger != null) {
@@ -471,7 +483,18 @@ public class RuleServiceImpl implements RuleService {
             action.setActionType(actionRequestDto.getActionType());
             action.setFieldSource(actionRequestDto.getFieldSource());
             action.setFieldIdentifier(actionRequestDto.getFieldIdentifier());
-            action.setActionData(actionRequestDto.getActionData());
+
+            if (action.getFieldSource() != FilterFieldSource.CUSTOM) {
+                action.setActionData(actionRequestDto.getActionData());
+            } else {
+                try {
+                    AttributeContentType attributeContentType = AttributeContentType.valueOf(actionRequestDto.getFieldIdentifier().substring(actionRequestDto.getFieldIdentifier().indexOf("|") + 1));
+                    List<BaseAttributeContent<?>> contentItems = AttributeDefinitionUtils.createAttributeContentFromString(attributeContentType, actionRequestDto.getActionData() instanceof ArrayList<?> ? (List<String>) actionRequestDto.getActionData() : List.of(actionRequestDto.getActionData().toString()));
+                    action.setActionData(contentItems);
+                } catch (IllegalArgumentException e) {
+                    throw new ValidationException("Unknown content type for custom attribute with field identifier: " + actionRequestDto.getFieldIdentifier());
+                }
+            }
             actionRepository.save(action);
 
             actions.add(action);

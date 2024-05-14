@@ -810,7 +810,7 @@ public class LocationServiceImpl implements LocationService {
                     clientCertificateRenewRequestDto
             );
         } catch (NotFoundException | IOException | java.security.cert.CertificateException |
-                 CertificateOperationException
+                 CertificateOperationException | CertificateRequestException
                  | NoSuchAlgorithmException | InvalidKeyException e) {
             logger.debug("Failed to renew Certificate for Location {}, {}: {}", certificateLocation.getLocation().getName(), certificateLocation.getLocation().getUuid(), e.getMessage());
             throw new LocationException("Failed to renew Certificate for Location " + certificateLocation.getLocation().getName() + ". Reason: " + e.getMessage());
@@ -1123,7 +1123,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.LOCATION);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.LOCATION, false);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
