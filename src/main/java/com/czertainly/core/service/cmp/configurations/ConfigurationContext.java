@@ -21,6 +21,10 @@ public interface ConfigurationContext {
 
     ASN1OctetString getSenderKID();
 
+    /**
+     * scope: protection (mac-based)
+     * @return shared secret for mac-base protection
+     */
     byte[] getSharedSecret();
 
     /**
