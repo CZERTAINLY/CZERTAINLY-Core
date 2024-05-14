@@ -56,9 +56,9 @@ public class AlgorithmUtil {
         } else if(digestAlgorithmOID.equals("1.2.840.10045.4.3.2")) {
             return "SHA256";
         } else if(digestAlgorithmOID.equals("1.2.840.10045.4.3.3")) {
-            return "SHA384withECDSA";
+            return "SHA384";
         } else if (digestAlgorithmOID.equals("1.2.840.10045.4.3.4")) {
-            return "SHA512withECDSA";
+            return "SHA512";
         } else {
             throw new NoSuchAlgorithmException("Unsupported digest algorithm OID: " + digestAlgorithmOID);
         }
