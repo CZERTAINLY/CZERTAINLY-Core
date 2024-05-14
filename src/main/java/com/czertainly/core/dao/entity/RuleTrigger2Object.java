@@ -25,10 +25,4 @@ public class RuleTrigger2Object extends UniquelyIdentified {
 
     @Column(name = "trigger_order")
     private int triggerOrder;
-
-    @JsonBackReference
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "trigger_uuid", nullable = false, insertable = false, updatable = false)
-    private RuleTrigger trigger;
-
 }

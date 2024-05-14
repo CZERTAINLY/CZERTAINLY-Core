@@ -330,7 +330,7 @@ public class RuleServiceImpl implements RuleService {
         trigger.setName(request.getName());
         trigger.setDescription(request.getDescription());
         trigger.setResource(request.getResource());
-        trigger.setTriggerResource(request.getTriggerResource());
+        trigger.setTriggerResource(request.getTriggerResource() == null ? request.getResource() : request.getTriggerResource());
         trigger.setTriggerType(request.getTriggerType());
         trigger.setEventName(request.getEventName());
         triggerRepository.save(trigger);
@@ -425,10 +425,15 @@ public class RuleServiceImpl implements RuleService {
         trigger.setActionGroups(actionGroups);
         trigger.setRules(rules);
         trigger.setActions(actions);
+        trigger.setTriggerType(request.getTriggerType());
         trigger.setEventName(request.getEventName());
         trigger.setDescription(request.getDescription());
-        trigger.setTriggerResource(request.getTriggerResource());
-        trigger.setTriggerType(request.getTriggerType());
+        if (request.getResource() != null) {
+            trigger.setResource(request.getResource());
+        }
+        if (request.getTriggerResource() != null) {
+            trigger.setTriggerResource(request.getTriggerResource());
+        }
 
         triggerRepository.save(trigger);
         return trigger.mapToDetailDto();
