@@ -116,9 +116,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
         // First, check where from to get object value based on Field Source
         if (fieldSource == FilterFieldSource.PROPERTY) {
-            SearchableFields field = Enum.valueOf(SearchableFields.class, fieldIdentifier);
-            // Get value of property from the object
             Object objectValue;
+            SearchableFields field;
+            try {
+                field = Enum.valueOf(SearchableFields.class, fieldIdentifier);
+            } catch (IllegalArgumentException e) {
+                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
+            }
+            // Get value of property from the object
             try {
                 objectValue = PropertyUtils.getProperty(object, field.getCode());
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
@@ -233,7 +238,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 if (!propertyEnum.isSettable())
                     throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
                 try {
-                    PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
+                    PropertyUtils.setProperty(object, propertyEnum.getFieldProperty().getCode(), actionData);
                 } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
                          NoSuchMethodException e) {
                     throw new RuleException(e.getMessage());
