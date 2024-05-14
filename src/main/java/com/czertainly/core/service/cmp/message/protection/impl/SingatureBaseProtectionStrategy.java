@@ -4,7 +4,7 @@ import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
-import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
+import com.czertainly.core.service.cmp.message.CertificateKeyService;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
@@ -58,12 +58,12 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
             new DefaultSignatureAlgorithmIdentifierFinder();
 
     private final List<X509Certificate> certificationsChain;
-    private final CertificateKeyServiceImpl certificateKeyServiceImpl;
+    private final CertificateKeyService certificateKeyService;
     private final CzertainlyPrivateKey privateKey;
 
     public SingatureBaseProtectionStrategy(ConfigurationContext configuration,
                                            AlgorithmIdentifier headerProtectionAlgorithm,
-                                           CertificateKeyServiceImpl certificateKeyServiceImpl)
+                                           CertificateKeyService certificateKeyServiceImpl)
             throws CmpConfigurationException {
         super(configuration, headerProtectionAlgorithm);
         try {
@@ -74,7 +74,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "problem to get singerCertificate");
         }
-        this.certificateKeyServiceImpl = certificateKeyServiceImpl;
+        this.certificateKeyService = certificateKeyServiceImpl;
         this.privateKey = certificateKeyServiceImpl.getPrivateKey(configuration.getProfile().getSigningCertificate());
     }
 
@@ -117,15 +117,17 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
         ASN1EncodableVector v = new ASN1EncodableVector();
         v.addAll(new ASN1Encodable[]{header,body});
-        if(configuration.dumpSinging()) {
+        if (configuration.dumpSinging()) {
             PkiMessageDumper.dumpSingerCertificate(
                     "protection",
                     CertificateUtil.parseCertificate(configuration.getProfile().getSigningCertificate().getCertificateContent().getContent()),
                     null);
         }
         ContentSigner signer = new JcaContentSignerBuilder(
-                AlgorithmUtil.getSignatureAlgorithmName(getProtectionAlg().getAlgorithm().getId(), privateKey.getAlgorithm()))
-                .setProvider(certificateKeyServiceImpl.getProvider(configuration.getProfile().getName()))
+                AlgorithmUtil.getSignatureAlgorithmName(
+                        getProtectionAlg().getAlgorithm().getId(),
+                        privateKey.getAlgorithm()))
+                .setProvider(certificateKeyService.getProvider(configuration.getProfile().getName()))
                 .build(privateKey);
         OutputStream sOut = signer.getOutputStream();
         sOut.write(new org.bouncycastle.asn1.DERSequence(v).getEncoded(ASN1Encoding.DER));

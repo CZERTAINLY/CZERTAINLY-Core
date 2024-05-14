@@ -113,7 +113,7 @@ public class PkiMessageDumper {
      * @param profileName next data for log prefix
      * @return short version of pki message (type, tid, profileName)
      */
-    public static final String logPrefix(PKIMessage msg, String profileName) {
+    public static String logPrefix(PKIMessage msg, String profileName) {
         return String.format("%s TID=%s, PN=%s",
                 PkiMessageDumper.msgTypeAsShortCut(true, msg),
                 msg.getHeader().getTransactionID(),
@@ -126,7 +126,7 @@ public class PkiMessageDumper {
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI Body overview</a>
      */
-    public static final String msgTypeAsShortCut(boolean showIndex, PKIMessage msg) {
+    public static String msgTypeAsShortCut(boolean showIndex, PKIMessage msg) {
         String format = showIndex ? "(%s:%s)" : "(%s)";
         int type = msg.getBody().getType();
         switch(type){
@@ -166,7 +166,7 @@ public class PkiMessageDumper {
      * @param msg message for dump
      * @return return log version (short/long by given <code>verbose</code> flag) of {@link PKIMessage}
      */
-    public static final String dumpPkiMessage(boolean verbose, PKIMessage msg){
+    public static String dumpPkiMessage(boolean verbose, PKIMessage msg){
         if(verbose) return dumpPkiMessage(msg);
         return " [" + msg.getHeader().getSender() + " => " + msg.getHeader().getRecipient() + "]";
     }
