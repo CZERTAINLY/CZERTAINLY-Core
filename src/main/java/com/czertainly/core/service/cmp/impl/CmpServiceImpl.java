@@ -14,8 +14,7 @@ import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
-import com.czertainly.core.dao.repository.cmp.CmpTransactionRepository;
-import com.czertainly.core.service.cmp.message.CertificateKeyService;
+import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
@@ -57,7 +56,6 @@ import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
-import java.util.Optional;
 
 @Service
 @Transactional
@@ -88,9 +86,9 @@ public class CmpServiceImpl implements CmpService {
     public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
 
     // -- CRYPTO
-    private CertificateKeyService certificateKeyService;
+    private CertificateKeyServiceImpl certificateKeyServiceImpl;
     @Autowired
-    private void setCertificateKeyService(CertificateKeyService certificateKeyService) {  this.certificateKeyService = certificateKeyService; }
+    private void setCertificateKeyService(CertificateKeyServiceImpl certificateKeyServiceImpl) {  this.certificateKeyServiceImpl = certificateKeyServiceImpl; }
 
     // -- HANDLER
     private CrmfMessageHandler crmfMessageHandler;
@@ -129,7 +127,7 @@ public class CmpServiceImpl implements CmpService {
      * @throws CmpBaseException if any error has been raised
      */
     @Override
-    public ResponseEntity<Object> handlePost(String profileName, byte[] request) throws CmpBaseException {
+    public ResponseEntity<byte[]> handlePost(String profileName, byte[] request) throws CmpBaseException {
         boolean verbose = true;
 
         init(profileName);
@@ -149,16 +147,18 @@ public class CmpServiceImpl implements CmpService {
         LOG.info("{} | request processing: {}",
                 logPrefix,
                 PkiMessageDumper.dumpPkiMessage(verbose, pkiRequest));
-        if(verbose) LOG.info("{} | request as base64: {}",
-                logPrefix,
-                Base64.getEncoder().encodeToString(request));
+        if (verbose) {
+            LOG.info("{} | request as base64: {}",
+                    logPrefix,
+                    Base64.getEncoder().encodeToString(request));
+        }
 
         // -- (processing) part
         ConfigurationContext configuration = switch(cmpProfile.getVariant()) {
             /*   3gpp*/case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
-                    certificateKeyService, issueAttributes, revokeAttributes);
+                    certificateKeyServiceImpl, issueAttributes, revokeAttributes);
             /*rfc4210*/case V2 -> new CmpConfigurationContext(cmpProfile, pkiRequest,
-                    certificateKeyService, issueAttributes, revokeAttributes);
+                    certificateKeyServiceImpl, issueAttributes, revokeAttributes);
             /*rfc9483*/case V3 -> throw new UnsupportedOperationException("not implemented");
             default -> throw new CmpConfigurationException(pkiRequest.getHeader().getTransactionID(),
                     PKIFailureInfo.systemFailure, "profile does not have a existing/known profile variant");
@@ -265,14 +265,14 @@ public class CmpServiceImpl implements CmpService {
         }
     }
 
-    private ResponseEntity buildBadRequest(PKIMessage pkiMessage) {
+    private ResponseEntity<byte[]> buildBadRequest(PKIMessage pkiMessage) {
         return ResponseEntity
                 .status(HttpStatus.BAD_REQUEST)
                 .header("Content-Type", HTTP_HEADER_CONTENT_TYPE)
                 .body(PkiMessageError.encode(pkiMessage));
     }
 
-    private ResponseEntity buildOk(PKIMessage pkiMessage) throws IOException {
+    private ResponseEntity<byte[]> buildOk(PKIMessage pkiMessage) throws IOException {
         return ResponseEntity
                 .status(HttpStatus.OK)
                 .header("Content-Type", HTTP_HEADER_CONTENT_TYPE)

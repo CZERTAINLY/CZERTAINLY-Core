@@ -32,27 +32,27 @@ import java.util.Date;
  */
 public interface HeaderTemplate {
     /**
-     * @return get CMP version to be used in CMP header.
+     * @return CMP version to be used in CMP header.
      */
     int getPvno();
 
     /**
-     * @return get Sender to be used in CMP header
+     * @return Sender to be used in CMP header
      */
     GeneralName getSender();
 
     /**
-     * @return get SenderNonce to be used in CMP header
+     * @return SenderNonce to be used in CMP header
      */
     ASN1OctetString getSenderNonce();
 
     /**
-     * @return get Recipient to be used in CMP header
+     * @return Recipient to be used in CMP header
      */
     GeneralName getRecipient();
 
     /**
-     * @return get RecipNonce to be used in CMP header
+     * @return RecipNonce to be used in CMP header
      */
     ASN1OctetString getRecipNonce();
 
@@ -62,12 +62,12 @@ public interface HeaderTemplate {
     ASN1GeneralizedTime getMessageTime();
 
     /**
-     * @return get TransactionID to be used in CMP header
+     * @return TransactionID to be used in CMP header
      */
     ASN1OctetString getTransactionID();
 
     /**
-     * @return get GeneralInfo (ImplicitConfirm, ConfirmWaitTime) to be used in CMP header
+     * @return GeneralInfo (ImplicitConfirm, ConfirmWaitTime) to be used in CMP header
      */
     InfoTypeAndValue[] getGeneralInfo();
 }

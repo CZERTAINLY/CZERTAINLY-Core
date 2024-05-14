@@ -28,7 +28,7 @@ public class CmpControllerImpl implements CmpController {
      * @throws CmpBaseException - http get is not allowed
      */
     @Override
-    public ResponseEntity<Object> doGet(String cmpProfileName, byte[] request) throws CmpBaseException {
+    public ResponseEntity<byte[]> doGet(String cmpProfileName, byte[] request) throws CmpBaseException {
         throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
 
@@ -41,7 +41,7 @@ public class CmpControllerImpl implements CmpController {
      * @throws CmpBaseException if any error has been raised
      */
     @Override
-    public ResponseEntity<Object> doPost(String cmpProfileName, byte[] request) throws CmpBaseException {
+    public ResponseEntity<byte[]> doPost(String cmpProfileName, byte[] request) throws CmpBaseException {
         return cmpService.handlePost(cmpProfileName, request);
     }
 }

@@ -22,10 +22,26 @@ public class CmpTransactionService {
         this.cmpTransactionRepository.save(transaction);
     }
 
+    /**
+     * List of transactions for given transactionId
+     *
+     * List is prepare for futuru behaviour of CMP protocol (ir,cr,kur allows to process list of requests)
+     * @param transactionId
+     * @return
+     */
     public List<CmpTransaction> findByTransactionId(String transactionId) {
         return cmpTransactionRepository.findByTransactionId(transactionId);
     }
 
+    /**
+     * Helper to create {@link CmpTransaction} entity
+     * 
+     * @param transactionId
+     * @param cmpProfile
+     * @param certificateUuid
+     * @param state
+     * @return
+     */
     public CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
                                                    String certificateUuid, CmpTransactionState state) {
         CmpTransaction cmpTransaction = new CmpTransaction();

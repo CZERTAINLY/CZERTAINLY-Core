@@ -5,6 +5,6 @@ import org.springframework.http.ResponseEntity;
 
 public interface CmpService {
 
-    ResponseEntity<Object> handlePost(String cmpProfileName, byte[] request) throws CmpBaseException;
+    ResponseEntity<byte[]> handlePost(String cmpProfileName, byte[] request) throws CmpBaseException;
 
 }

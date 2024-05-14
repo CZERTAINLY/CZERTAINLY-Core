@@ -6,7 +6,7 @@ import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
-import com.czertainly.core.service.cmp.message.CertificateKeyService;
+import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.service.cmp.message.protection.impl.PasswordBasedMacProtectionStrategy;
@@ -24,17 +24,17 @@ public class CmpConfigurationContext implements ConfigurationContext {
 
     protected final PKIMessage requestMessage;
     protected final CmpProfile profile;
-    private final CertificateKeyService certificateKeyService;
+    private final CertificateKeyServiceImpl certificateKeyServiceImpl;
     private final List<RequestAttributeDto> issueAttributes;
     private final List<RequestAttributeDto> revokeAttributes;
 
     public CmpConfigurationContext(CmpProfile profile, PKIMessage pkiRequest,
-                                   CertificateKeyService certificateKeyService,
+                                   CertificateKeyServiceImpl certificateKeyServiceImpl,
                                    List<RequestAttributeDto> issueAttributes,
                                    List<RequestAttributeDto> revokeAttributes) {
         this.requestMessage =pkiRequest;
         this.profile = profile;
-        this.certificateKeyService=certificateKeyService;
+        this.certificateKeyServiceImpl = certificateKeyServiceImpl;
         this.issueAttributes = issueAttributes;
         this.revokeAttributes = revokeAttributes;
     }
@@ -76,7 +76,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
         switch (czrtProtectionMethod){
             case SIGNATURE:
                 return new SingatureBaseProtectionStrategy(this,
-                        requestMessage.getHeader().getProtectionAlg(), certificateKeyService);
+                        requestMessage.getHeader().getProtectionAlg(), certificateKeyServiceImpl);
             case SHARED_SECRET:
                 byte[] salt = CertificateUtil.generateRandomBytes(20);//precist z db
                 int iterationCount = 1000;//precist z db
