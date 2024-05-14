@@ -17,9 +17,7 @@ import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDt
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -42,6 +40,7 @@ import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -162,6 +161,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private CertificateApiClient certificateApiClient;
+
+    @Autowired
+    private UserManagementApiClient userManagementApiClient;
 
     private AttributeEngine attributeEngine;
 

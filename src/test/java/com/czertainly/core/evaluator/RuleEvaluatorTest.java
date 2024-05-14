@@ -140,7 +140,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         group.setName("group");
         group = groupRepository.save(group);
 
-        certificate.setGroup(group);
+        certificate.setGroups(Set.of(group));
         certificate = certificateRepository.save(certificate);
 
         condition.setOperator(FilterConditionOperator.EQUALS);
