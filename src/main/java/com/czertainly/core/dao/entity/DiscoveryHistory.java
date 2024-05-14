@@ -8,12 +8,10 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.WhereJoinTable;
 
 import java.io.Serializable;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Entity
 @Table(name = "discovery_history")
@@ -55,6 +53,15 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     @JsonBackReference
     @OneToMany(mappedBy = "discovery", fetch = FetchType.LAZY)
     private Set<DiscoveryCertificate> certificate = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "rule_trigger_2_object",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "trigger_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    )
+    @WhereJoinTable(clause = "resource = 'DISCOVERY'")
+    private List<RuleTrigger> triggers = new ArrayList<>();
 
     @Override
     public String toString() {
@@ -164,6 +171,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
+        dto.setTriggers(triggers.stream().map(RuleTrigger::mapToDto).toList());
         return dto;
     }
 
