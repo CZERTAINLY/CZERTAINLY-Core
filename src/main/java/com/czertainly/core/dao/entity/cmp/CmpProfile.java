@@ -159,5 +159,5 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     @Getter
     @Column(name = "variant")
     @Enumerated(EnumType.STRING)
-    private CmpProfileVariant variant = CmpProfileVariant.VDEFAULT;//default
+    private CmpProfileVariant variant = CmpProfileVariant.V2;//default
 }
