@@ -1,7 +1,6 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
