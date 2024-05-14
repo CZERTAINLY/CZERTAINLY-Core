@@ -23,9 +23,15 @@ public class CmpTransactionService {
     }
 
     /**
-     * List of transactions for given transactionId
+     * List of transactions for given transactionId (even if current version of cmp czertainly
+     * works with one request per transactionId).
      *
-     * List is prepare for futuru behaviour of CMP protocol (ir,cr,kur allows to process list of requests)
+     * <p>List is prepare for future behaviour of CMP protocol (ir,cr,kur allows to process list of requests). It means
+     * the given transactionId can keep relation to many request subjects (certificates).</p>
+     *
+     * <p>There's a next solution to move m:n relationship to another table (with removing certificate
+     * column in {@link CmpTransactionService}) with list of {@link com.czertainly.core.dao.entity.Certificate}</p>
+     *
      * @param transactionId
      * @return
      */
@@ -52,10 +58,22 @@ public class CmpTransactionService {
         return cmpTransaction;
     }
 
+    /**
+     * Find transaction by transactionId and fingerprint from related certificate
+     * @param transactionId unique identifier of transaction
+     * @param fingerprint unique identifier of certificate
+     * @return a concrete transaction (fingerprints must be unique in given table)
+     */
     public Optional<CmpTransaction> findByTransactionIdAndFingerprint(String transactionId, String fingerprint) {
         return cmpTransactionRepository.findByTransactionIdAndFingerprint(transactionId, fingerprint);
     }
 
+    /**
+     * Find transaction by transactionId and serial number from related certificate
+     * @param transactionId unique identifier of transaction
+     * @param serialNumber unique identifier of certificate
+     * @return a concrete transaction (serial numbers must be unique in given table)
+     */
     public Optional<CmpTransaction> findByTransactionIdAndCertificateSerialNumber(String transactionId, String serialNumber) {
         return cmpTransactionRepository.findByTransactionIdAndSerialNumber(transactionId, serialNumber);
     }
