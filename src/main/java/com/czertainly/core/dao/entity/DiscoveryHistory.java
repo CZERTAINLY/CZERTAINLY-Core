@@ -61,7 +61,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
             inverseJoinColumns = @JoinColumn(name = "trigger_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     )
     @WhereJoinTable(clause = "resource = 'DISCOVERY'")
-    private List<RuleTrigger> triggers;
+    private List<RuleTrigger> triggers = new ArrayList<>();
 
     @Override
     public String toString() {
