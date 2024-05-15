@@ -168,7 +168,9 @@ public class ResourceServiceImpl implements ResourceService {
             ResourceDto resourceDto = new ResourceDto();
             resourceDto.setResource(resource);
             resourceDto.setHasObjectAccess(resource.hasObjectAccess());
-            resourceDto.setHasCustomAttributes(resource.supportCustomAttributes());
+            resourceDto.setHasCustomAttributes(resource.hasCustomAttributes());
+            resourceDto.setHasGroups(resource.hasGroups());
+            resourceDto.setHasOwner(resource.hasOwner());
             resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
             resourceDto.setHasRuleEvaluator(resource == Resource.CERTIFICATE);
             resources.add(resourceDto);

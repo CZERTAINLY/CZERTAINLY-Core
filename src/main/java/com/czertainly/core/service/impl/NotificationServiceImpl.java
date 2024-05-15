@@ -14,8 +14,6 @@ import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.NotificationService;
-import com.czertainly.core.service.RoleManagementService;
-import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.RequestValidatorHelper;
 import org.slf4j.Logger;
@@ -26,7 +24,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -75,7 +72,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> groupUuid.equals(u.getGroupUuid())).map(UserDto::getUuid).toList(), target, targetUuids);
+        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> u.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid))).map(UserDto::getUuid).toList(), target, targetUuids);
     }
 
     @Override

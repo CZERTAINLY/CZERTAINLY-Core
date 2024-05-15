@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.util.AuthHelper;
 import org.slf4j.Logger;
@@ -55,25 +56,30 @@ public class NotificationProducer {
     }
 
     public void produceNotificationCertificateStatusChanged(CertificateValidationStatus oldStatus, CertificateValidationStatus newStatus, CertificateDto certificateDto) {
-        if (certificateDto.getOwnerUuid() == null && certificateDto.getGroup() == null) {
+        if (certificateDto.getOwnerUuid() == null && certificateDto.getGroups() == null) {
             return;
         }
 
-        logger.debug("Sending notification of status change. Certificate: {}", certificateDto.getUuid());
+        List<NotificationRecipient> recipients = NotificationRecipient.buildUsersAndGroupsNotificationRecipients(certificateDto.getOwnerUuid() == null ? null : List.of(UUID.fromString(certificateDto.getOwnerUuid())), certificateDto.getGroups() == null ? null : certificateDto.getGroups().stream().map(g -> UUID.fromString(g.getUuid())).toList());
+
+        logger.debug("Sending notification of certificate status change. Certificate: {}", certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_STATUS_CHANGED,
-                Resource.CERTIFICATE,
-                UUID.fromString(certificateDto.getUuid()),
-                NotificationRecipient.buildUserOrGroupNotificationRecipient(certificateDto.getOwnerUuid() != null ? UUID.fromString(certificateDto.getOwnerUuid()) : null, certificateDto.getGroup() != null ? UUID.fromString(certificateDto.getGroup().getUuid()) : null),
+                Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
                 certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
                         : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
     }
 
-    public void produceNotificationCertificateActionPerformed(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, CertificateDto certificateDto, String action, String errorMessage) {
+    public void produceNotificationCertificateActionPerformed(CertificateDto certificateDto, ResourceAction action, String errorMessage) {
+        if (certificateDto.getOwnerUuid() == null && certificateDto.getGroups() == null) {
+            return;
+        }
+
+        List<NotificationRecipient> recipients = NotificationRecipient.buildUsersAndGroupsNotificationRecipients(certificateDto.getOwnerUuid() == null ? null : List.of(UUID.fromString(certificateDto.getOwnerUuid())), certificateDto.getGroups() == null ? null : certificateDto.getGroups().stream().map(g -> UUID.fromString(g.getUuid())).toList());
+
+        logger.debug("Sending notification of certificate action {} performed. Certificate: {}", action.getCode(), certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_ACTION_PERFORMED,
-                resource,
-                resourceUUID,
-                recipients,
-                new NotificationDataCertificateActionPerformed(action, certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
+                Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
+                new NotificationDataCertificateActionPerformed(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
     }
 
     public void produceNotificationScheduledJobCompleted(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String jobName, String jobType, String status) {

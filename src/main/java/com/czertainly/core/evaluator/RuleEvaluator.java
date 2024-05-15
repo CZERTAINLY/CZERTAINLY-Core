@@ -21,8 +21,6 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -125,7 +123,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
             // Get value of property from the object
             try {
-                objectValue = PropertyUtils.getProperty(object, field.getCode());
+                objectValue = getPropertyValue(object, field.getCode(), false);
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
@@ -143,7 +141,16 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
             try {
-                return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+                if (!(objectValue instanceof Collection<?> objectValues)) {
+                    return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+                }
+                for (Object item : objectValues) {
+                    Object o = getPropertyValue(item, field.getCode(), true);
+                    if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
+                        return false;
+                    }
+                }
+                return true;
             } catch (Exception e) {
                 throw new RuleException("Condition is not set properly: " + e.getMessage());
             }
@@ -262,6 +269,28 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
     }
 
+    private Object getPropertyValue(Object object, String fieldIdentifier, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        final int indexOfDot = fieldIdentifier.lastIndexOf(".");
+        boolean isNested = indexOfDot != -1;
+        try {
+            if (alreadyNested) {
+                return PropertyUtils.getProperty(object, fieldIdentifier.substring(indexOfDot + 1));
+            }
+            return PropertyUtils.getProperty(object, fieldIdentifier);
+        } catch (NoSuchMethodException e) {
+            if (!isNested || alreadyNested) {
+                throw e;
+            }
+
+            final String parentPropertyIdentifier = fieldIdentifier.substring(0, indexOfDot);
+            Object tmpValue = PropertyUtils.getProperty(object, parentPropertyIdentifier);
+            if (tmpValue instanceof Collection<?>) {
+                return tmpValue;
+            }
+
+            throw e;
+        }
+    }
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
     private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorActionMap;

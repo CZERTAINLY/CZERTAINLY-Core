@@ -11,15 +11,14 @@ import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.Where;
+import org.hibernate.annotations.WhereJoinTable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
 import java.time.LocalDateTime;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.TimeUnit;
 
 @Entity
@@ -104,29 +103,28 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
-    private Group group;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "group_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    )
+    @WhereJoinTable(clause = "resource = 'CERTIFICATE'")
+    private Set<Group> groups = new HashSet<>();
 
-    @Column(name = "group_uuid")
-    private UUID groupUuid;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    @Where(clause = "resource = 'CERTIFICATE'")
+    private OwnerAssociation owner;
 
     @Column(name = "status_validation_timestamp")
     private LocalDateTime statusValidationTimestamp;
 
-    @OneToMany(
-            mappedBy = "certificate",
-            fetch = FetchType.LAZY
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY
             //orphanRemoval = true
     )
     @JsonBackReference
     private Set<CertificateLocation> locations = new HashSet<>();
-
-    @Column(name = "owner")
-    private String owner;
-
-    @Column(name = "owner_uuid")
-    private UUID ownerUuid;
 
     @Column(name = "key_size")
     private Integer keySize;
@@ -205,10 +203,16 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setState(state);
         dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
-        dto.setOwner(owner);
         dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
-        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
+        }
+//        if (owners != null && !owners.isEmpty()) {
+//            dto.setOwnerUuid(owners.get(0).getOwnerUuid().toString());
+//            dto.setOwner(owners.get(0).getOwnerUsername());
+//        }
 
         /*
          * Result for the compliance check of a certificate is stored in the database in the form of List of Rule IDs.
@@ -228,8 +232,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             }
             dto.setRaProfile(raDto);
         }
-        if (group != null) {
-            dto.setGroup(group.mapToDto());
+        if (groups != null) {
+            dto.setGroups(groups.stream().map(Group::mapToDto).toList());
+//            dto.setGroups(groups.stream().map(g -> g.getGroup().mapToDto()).toList());
         }
 
         //Check and assign private key availability
@@ -248,15 +253,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()) {
-            if (!key.getItems()
-                    .stream()
-                    .filter(
-                            item -> item.getType()
-                                    .equals(KeyType.PRIVATE_KEY)
-                                    && item.getState().equals(KeyState.ACTIVE)
-                    ).toList()
-                    .isEmpty()
-            ) {
+            if (!key.getItems().stream().filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE)).toList().isEmpty()) {
                 dto.setPrivateKeyAvailability(true);
             }
         }
@@ -281,10 +278,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setState(state);
         dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
-        dto.setOwner(owner);
         dto.setTrustedCa(trustedCa);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
-        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
+        }
         dto.setCertificateType(certificateType);
         dto.setIssuerSerialNumber(issuerSerialNumber);
         /**
@@ -305,22 +304,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             }
             dto.setRaProfile(raDto);
         }
-        if (group != null) {
-            dto.setGroup(group.mapToDto());
+        if (groups != null) {
+            dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
 
         //Check and assign private key availability
         dto.setPrivateKeyAvailability(false);
         if (key != null && !key.getItems().isEmpty()) {
-            if (!key.getItems()
-                    .stream()
-                    .filter(
-                            item -> item.getType()
-                                    .equals(KeyType.PRIVATE_KEY)
-                                    && item.getState().equals(KeyState.ACTIVE)
-                    ).toList()
-                    .isEmpty()
-            ) {
+            if (!key.getItems().stream().filter(item -> item.getType().equals(KeyType.PRIVATE_KEY) && item.getState().equals(KeyState.ACTIVE)).toList().isEmpty()) {
                 dto.setPrivateKeyAvailability(true);
             }
         }
@@ -342,8 +333,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid)
-                .append("commonName", commonName).append("serialNumber", serialNumber).toString();
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("uuid", uuid).append("commonName", commonName).append("serialNumber", serialNumber).toString();
     }
 
     public String getCommonName() {
@@ -500,22 +490,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.subjectAlternativeNames = subjectAlternativeNames;
     }
 
-    public String getOwner() {
-        return owner;
-    }
-
-    public void setOwner(String owner) {
-        this.owner = owner;
-    }
-
-    public UUID getOwnerUuid() {
-        return ownerUuid;
-    }
-
-    public void setOwnerUuid(UUID ownerUuid) {
-        this.ownerUuid = ownerUuid;
-    }
-
     public Integer getKeySize() {
         return keySize;
     }
@@ -550,16 +524,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         else this.raProfileUuid = null;
     }
 
-    public Group getGroup() {
-        return group;
-    }
-
-    public void setGroup(Group group) {
-        this.group = group;
-        if (group != null) this.groupUuid = group.getUuid();
-        else this.groupUuid = null;
-    }
-
     public String getCertificateValidationResult() {
         return certificateValidationResult;
     }
@@ -592,12 +556,16 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfileUuid = raProfileUuid;
     }
 
-    public UUID getGroupUuid() {
-        return groupUuid;
+    public OwnerAssociation getOwner() {
+        return owner;
     }
 
-    public void setGroupUuid(UUID groupId) {
-        this.groupUuid = groupId;
+    public Set<Group> getGroups() {
+        return groups;
+    }
+
+    public void setGroups(Set<Group> groups) {
+        this.groups = groups;
     }
 
     public CertificateComplianceStorageDto getComplianceResult() {

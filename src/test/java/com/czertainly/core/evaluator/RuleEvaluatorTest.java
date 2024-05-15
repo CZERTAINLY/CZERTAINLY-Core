@@ -7,6 +7,7 @@ import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -23,20 +24,20 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
@@ -71,12 +72,18 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private CertificateRuleEvaluator certificateRuleEvaluator;
 
+    @Autowired
+    private ResourceObjectAssociationService associationService;
+
     private Certificate certificate;
 
     private RuleCondition condition;
 
     private RuleTrigger trigger;
     private RuleAction action;
+
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
 
     private WireMockServer mockServer;
 
@@ -127,7 +134,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         group.setName("group");
         group = groupRepository.save(group);
 
-        certificate.setGroup(group);
+        certificate.setGroups(new HashSet<>(List.of(group)));
         certificate = certificateRepository.save(certificate);
 
         condition.setOperator(FilterConditionOperator.EQUALS);
@@ -259,16 +266,24 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSetCertificateGroup() {
+    public void testSetCertificateGroup() throws JsonProcessingException {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
         action.setFieldIdentifier(SearchableFields.GROUP_NAME.toString());
         Group group = new Group();
         group.setName("groupName");
-        groupRepository.save(group);
-        action.setActionData(group.getUuid());
+        group = groupRepository.save(group);
+
+        Group group2 = new Group();
+        group2.setName("groupName2");
+        group2 = groupRepository.save(group2);
+        action.setActionData(List.of(group.getUuid().toString(), group2.getUuid().toString()));
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals(group.getName(), certificate.getGroup().getName());
+
+        List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(2, groupUuids.size());
+        Assertions.assertTrue(groupUuids.contains(group.getUuid()));
+        Assertions.assertTrue(groupUuids.contains(group2.getUuid()));
     }
 
     @Test
@@ -287,7 +302,10 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         ));
 
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals("ownerName", certificate.getOwner());
+
+        NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertNotNull(owner);
+        Assertions.assertEquals("ownerName", owner.getName());
     }
 
     @Test

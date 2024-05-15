@@ -289,7 +289,7 @@ public class AttributeEngine {
             }
             if (!resources.isEmpty()) {
                 // check for invalid resources
-                List<String> invalidResources = resources.stream().filter(r -> !r.supportCustomAttributes()).map(Resource::getLabel).toList();
+                List<String> invalidResources = resources.stream().filter(r -> !r.hasCustomAttributes()).map(Resource::getLabel).toList();
                 if (!invalidResources.isEmpty()) {
                     throw new AttributeException("Unsupported Resources for Custom Attribute: " + StringUtils.join(invalidResources, ", "), customAttribute.getUuid(), customAttribute.getName(), customAttribute.getType(), null);
                 }
