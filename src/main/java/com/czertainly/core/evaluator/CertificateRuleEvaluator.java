@@ -47,10 +47,10 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
             List<UUID> propertyUuids = null;
             boolean removeValue = action.getActionData() == null;
             if (!removeValue) {
-                if (action.getActionData() instanceof ArrayList<?>) {
+                if (action.getActionData() instanceof Iterable<?> actionDataItems) {
                     try {
                         propertyUuids = new ArrayList<>();
-                        for (Object actionDataItem : (ArrayList<?>) action.getActionData()) {
+                        for (Object actionDataItem : actionDataItems) {
                             propertyUuids.add(UUID.fromString(actionDataItem.toString()));
                         }
                     } catch (IllegalArgumentException ex) {

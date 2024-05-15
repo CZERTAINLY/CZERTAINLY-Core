@@ -58,7 +58,7 @@ public class DatabaseMigration {
         V202308050825__UpdateAcmeScepRolesPermissions(414709752),
         V202311071500__IssuerAndSubjectDnMigration(-1352440028, true),
         V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899),
-        V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(1518126623);
+        V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276);
 
         private final int checksum;
 

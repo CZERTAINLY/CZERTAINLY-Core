@@ -145,7 +145,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
                 }
                 for (Object item : objectValues) {
-                    Object o = getPropertyValue(item, fieldIdentifier, true);
+                    Object o = getPropertyValue(item, field.getCode(), true);
                     if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
                         return false;
                     }

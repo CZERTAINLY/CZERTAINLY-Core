@@ -37,10 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
@@ -84,9 +81,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     private RuleTrigger trigger;
     private RuleAction action;
-
-    @Autowired
-    private ObjectMapper objectMapper;
 
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
@@ -140,7 +134,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         group.setName("group");
         group = groupRepository.save(group);
 
-        certificate.setGroups(Set.of(group));
+        certificate.setGroups(new HashSet<>(List.of(group)));
         certificate = certificateRepository.save(certificate);
 
         condition.setOperator(FilterConditionOperator.EQUALS);
@@ -283,7 +277,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         Group group2 = new Group();
         group2.setName("groupName2");
         group2 = groupRepository.save(group2);
-        action.setActionData(objectMapper.writeValueAsString(List.of(group.getUuid(), group2.getUuid())));
+        action.setActionData(List.of(group.getUuid().toString(), group2.getUuid().toString()));
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
 
         List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
