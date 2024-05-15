@@ -5,49 +5,24 @@ import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.util.CertificateUtil;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
 import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.BasicConstraints;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.cert.CertIOException;
-import org.bouncycastle.cert.X509v3CertificateBuilder;
-import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
-import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
-import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jce.X509KeyUsage;
-import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMException;
-import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.security.auth.x500.X500Principal;
-import java.math.BigInteger;
 import java.security.*;
-import java.security.cert.Certificate;
 import java.security.cert.CertificateEncodingException;
-import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.security.spec.ECGenParameterSpec;
-import java.time.LocalDate;
-import java.time.ZoneOffset;
-import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 public class MockCaImpl {
 
     private static final Logger LOG = LoggerFactory.getLogger(MockCaImpl.class.getName());
 
-    private static final JcaPEMKeyConverter JCA_KEY_CONVERTER = new JcaPEMKeyConverter();
     private static PrivateKey SIGNING_CERT_PRIV_KEY;
     private static LinkedList<X509Certificate> chainOfIssuerCerts;
 
@@ -117,7 +92,7 @@ public class MockCaImpl {
                     .getCertTemplate();
             SubjectPublicKeyInfo publicKey = requestTemplate.getPublicKey();
             X500Name subject = requestTemplate.getSubject();
-            newIssuedCert = createCertificateV2(subject, publicKey,
+            newIssuedCert = CertTestUtil.createCertificateV3(subject, publicKey,
                     chainOfIssuerCerts.get(0)/*issuingCert*/, requestTemplate.getExtensions());
             // remove ROOT CA certificate
             LinkedList<X509Certificate> withoutRootCa = new LinkedList<>(chainOfIssuerCerts);
@@ -163,169 +138,6 @@ public class MockCaImpl {
         return response;
     }
 
-    private static String getSigningAlgNameFromKeyAlg(final String keyAlgorithm) {
-        if (keyAlgorithm.startsWith("Ed")) {// EdDSA key
-            return keyAlgorithm;
-        }
-        if ("EC".equals(keyAlgorithm)) {// EC key
-            return "SHA512withECDSA";
-        }
-        return "SHA512with" + keyAlgorithm;
-    }
-
-    // -- final
-    private static X509Certificate createCertificateV2(
-            X500Name subject,
-            SubjectPublicKeyInfo publicKey,
-            X509Certificate issuingCert,
-            Extensions extensionsFromTemplate)
-            throws NoSuchAlgorithmException, CertificateException, OperatorCreationException, CertIOException, PEMException {
-        return new CertificationGeneratorStrategy().generateCertificate(
-                subject, publicKey, issuingCert,
-                getPrivateKeyForSigning(), extensionsFromTemplate);
-    }
-
-    private static KeyPair generateKeyPairEC() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, NoSuchProviderException {
-        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("EC", BouncyCastleProvider.PROVIDER_NAME); // Initialize to generate asymmetric keys to be used with one of the Elliptic Curve algorithms
-        ECGenParameterSpec ecSpec = new ECGenParameterSpec("secp384r1"); // using domain parameters specified by safe curve spec of secp384r1
-        keyPairGenerator.initialize(ecSpec, new SecureRandom("_n3coHodn@Kryptickeho!".getBytes()));
-        return keyPairGenerator.generateKeyPair(); // Generate asymmetric keys.
-    }
-
-
-    private static class CertificationGeneratorStrategy {
-        public X509Certificate generateCertificateCA(KeyPair issuerKeyPair, KeyPair subjectKeyPair, X500Name issuer, X500Name subject)
-                throws OperatorCreationException, CertificateException, NoSuchAlgorithmException, CertIOException, PEMException {
-            SubjectPublicKeyInfo pubKeyInfo = SubjectPublicKeyInfo.getInstance(subjectKeyPair.getPublic().getEncoded());
-
-            X509v3CertificateBuilder certificateBuilder = new JcaX509v3CertificateBuilder(
-                    /* issuer       */issuer,
-                    /* serialNumber */new BigInteger(10, new SecureRandom()),
-                    /* start        */new Date(),
-                    /* until        */Date.from(LocalDate.now().plus(365*10, ChronoUnit.DAYS)
-                                      .atStartOfDay().toInstant(ZoneOffset.UTC)),
-                    /* subject      */subject,
-                    /* publicKey    */pubKeyInfo
-            );
-            // Basic Constraints
-            PublicKey pubKey = JCA_KEY_CONVERTER.getPublicKey(pubKeyInfo);
-            final JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
-            //*
-            certificateBuilder.addExtension(
-                    new ASN1ObjectIdentifier("2.5.29.15"),
-                    false,
-                    new X509KeyUsage(
-                            X509KeyUsage.digitalSignature |
-                                    X509KeyUsage.nonRepudiation   |
-                                    X509KeyUsage.keyEncipherment  |
-                                    X509KeyUsage.cRLSign |
-                                    X509KeyUsage.dataEncipherment));
-            //*/
-            certificateBuilder.addExtension(
-                    Extension.subjectKeyIdentifier, false, extUtils.createSubjectKeyIdentifier(pubKey));
-            certificateBuilder.addExtension(
-                    Extension.basicConstraints, true, new BasicConstraints(true));//true is for CA
-            // -------------------------------------
-
-            // -- bouncy castle - certification singer
-            PrivateKey issuerPrivateKey = issuerKeyPair.getPrivate();
-            ContentSigner contentSigner = new JcaContentSignerBuilder(
-                    getSigningAlgNameFromKeyAlg(issuerPrivateKey.getAlgorithm())) // /*"SHA256WithRSA"*/
-                    .build(issuerPrivateKey);
-
-            // -- create x.509 certificate
-            return new JcaX509CertificateConverter()
-                    .setProvider(BouncyCastleProvider.PROVIDER_NAME/*new BouncyCastleProvider()*/)
-                    .getCertificate(certificateBuilder.build(contentSigner));
-        }
-
-        /**
-         * @see 3gpp mobile spec: 6.1.2	Interconnection CA Certificate profile
-         */
-        public X509Certificate generateCertificate(X500Name subject, SubjectPublicKeyInfo publicKey,
-                                                   X509Certificate issuer, PrivateKey issuerPrivateKey,
-                                                   Extensions extensionsFromTemplate)
-                throws CertificateException, OperatorCreationException, CertIOException, PEMException, NoSuchAlgorithmException {
-            PublicKey pubKey = JCA_KEY_CONVERTER.getPublicKey(publicKey);
-            // -- bouncy castle - certification builder
-            X509v3CertificateBuilder certificateBuilder = new JcaX509v3CertificateBuilder(
-                    /* issuer       */issuer.getSubjectX500Principal(),
-                    /* serialNumber */new BigInteger(10, new SecureRandom()),
-                    /* start        */new Date(),
-                    /* until        */Date.from(LocalDate.now().plus(365, ChronoUnit.DAYS)
-                            .atStartOfDay().toInstant(ZoneOffset.UTC)),
-                    /* subject      */new X500Principal(subject.toString()),
-                    /* publicKey    */pubKey
-            );
-            final JcaX509ExtensionUtils extUtils = new JcaX509ExtensionUtils();
-            if (extensionsFromTemplate != null) {
-                Arrays.stream(extensionsFromTemplate.getExtensionOIDs()).forEach(oid -> {
-                    try {
-                        certificateBuilder.addExtension(extensionsFromTemplate.getExtension(oid));
-                    } catch (final CertIOException e) {
-                        LOG.warn("Problem with add oid extension", e);
-                    }
-                });
-            }
-            //*
-            certificateBuilder.addExtension(
-                    new ASN1ObjectIdentifier("2.5.29.15"),
-                    false,
-                    new X509KeyUsage(
-                            X509KeyUsage.digitalSignature |
-                                    X509KeyUsage.nonRepudiation   |
-                                    X509KeyUsage.keyEncipherment  |
-                                    X509KeyUsage.cRLSign |
-                                    X509KeyUsage.dataEncipherment));
-            //*/
-            certificateBuilder.addExtension(
-                    Extension.subjectKeyIdentifier, false, extUtils.createSubjectKeyIdentifier(pubKey));
-            certificateBuilder.addExtension(
-                    Extension.authorityKeyIdentifier, false, extUtils.createAuthorityKeyIdentifier(issuer));
-            certificateBuilder.addExtension(
-                    Extension.basicConstraints, true, new BasicConstraints(false));// <-- BasicConstraints: true for CA, false for EndEntity
-            // -------------------------------------
-
-            // -- bouncy castle - certification singer
-            ContentSigner contentSigner = new JcaContentSignerBuilder(
-                    getSigningAlgNameFromKeyAlg(issuerPrivateKey.getAlgorithm())) // /*"SHA256WithRSA"*/
-                    .build(issuerPrivateKey);
-
-            // -- create x.509 certificate
-            return new JcaX509CertificateConverter()
-                    .setProvider(BouncyCastleProvider.PROVIDER_NAME/*new BouncyCastleProvider()*/)
-                    .getCertificate(certificateBuilder.build(contentSigner));
-        }
-
-        public static Certificate selfSign(KeyPair keyPair, String subjectDN) throws OperatorCreationException, CertificateException, CertIOException {
-            long now = System.currentTimeMillis();
-            Date startDate = new Date(now);
-
-            X500Name dnName = new X500Name(subjectDN);
-            BigInteger certSerialNumber = new BigInteger(Long.toString(now)); // <-- Using the current timestamp as the certificate serial number
-
-            Calendar calendar = Calendar.getInstance();
-            calendar.setTime(startDate);
-            calendar.add(Calendar.YEAR, 1); // <-- 1 Yr validity
-
-            Date endDate = calendar.getTime();
-            String signatureAlgorithm = "SHA256WithRSA"; // <-- Use appropriate signature algorithm based on your keyPair algorithm.
-            ContentSigner contentSigner = new JcaContentSignerBuilder(signatureAlgorithm)
-                    .build(keyPair.getPrivate());
-            JcaX509v3CertificateBuilder certBuilder = new JcaX509v3CertificateBuilder(
-                    dnName, certSerialNumber, startDate, endDate, dnName, keyPair.getPublic());
-
-            // Extensions --------------------------
-            // Basic Constraints
-            BasicConstraints basicConstraints = new BasicConstraints(true); // <-- true for CA, false for EndEntity
-            certBuilder.addExtension(new ASN1ObjectIdentifier("2.5.29.19"), true, basicConstraints); // Basic Constraints is usually marked as critical.
-            // -------------------------------------
-
-            return new JcaX509CertificateConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME).getCertificate(certBuilder.build(contentSigner));
-        }
-    }
-    // -- final
-
     /**
      * <pre>
      *          CertConfirmContent ::= SEQUENCE OF CertStatus
@@ -338,7 +150,8 @@ public class MockCaImpl {
      * </pre>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.18">Certificate Confirmation Content</a>
      */
-    public static PKIMessage handleCertConfirm(PKIMessage message, ConfigurationContext configuration) throws CmpProcessingException {
+    public static PKIMessage handleCertConfirm(PKIMessage message, ConfigurationContext configuration)
+            throws CmpProcessingException {
         try {
             return new PkiMessageBuilder(configuration)
                     .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(message))
@@ -368,7 +181,8 @@ public class MockCaImpl {
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.9">Revocation requeset content</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.10">Revocation response content</a>
      */
-    public static PKIMessage handleRevocationRequest(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
+    public static PKIMessage handleRevocationRequest(PKIMessage message, ConfigurationContext configuration)
+            throws CmpBaseException {
         RevReqContent revBody = (RevReqContent) message.getBody().getContent();
         RevDetails[] revDetails = revBody.toRevDetailsArray();
 
@@ -386,7 +200,8 @@ public class MockCaImpl {
         }
     }
 
-    private static List<CMPCertificate> getExtraCerts(List<X509Certificate> chainOfIssuerCerts) throws CertificateEncodingException {
+    private static List<CMPCertificate> getExtraCerts(List<X509Certificate> chainOfIssuerCerts)
+            throws CertificateEncodingException {
         List<CMPCertificate> extraCerts = null;
         if(!chainOfIssuerCerts.isEmpty()) {
             extraCerts = new ArrayList<>(chainOfIssuerCerts.size());
