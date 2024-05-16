@@ -64,10 +64,14 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
 
     private CmpTransactionService cmpTransactionService;
     @Autowired
-    private void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
+    public void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
 
-    @Autowired private CrmfIrCrMessageHandler crmfIrCrMessageHandler;
-    @Autowired private CrmfKurMessageHandler kurMessageHandler;
+    private CrmfIrCrMessageHandler crmfIrCrMessageHandler;
+    @Autowired
+    public void setCrmfIrCrMessageHandler(CrmfIrCrMessageHandler crmfIrCrMessageHandler) { this.crmfIrCrMessageHandler = crmfIrCrMessageHandler; }
+    private CrmfKurMessageHandler kurMessageHandler;
+    @Autowired
+    public void setKurMessageHandler(CrmfKurMessageHandler crmfKurMessageHandler) { this.kurMessageHandler = crmfKurMessageHandler; }
 
     /**
      *<pre>

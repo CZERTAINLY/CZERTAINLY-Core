@@ -33,8 +33,8 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     private final DefaultMacAlgorithmIdentifierFinder MAC_ALGORITHM_IDENTIFIER_FINDER =
             new DefaultMacAlgorithmIdentifierFinder();
 
-    private Mac mac;
-    private AlgorithmIdentifier protectionAlgorithm;
+    private final Mac mac;
+    private final AlgorithmIdentifier protectionAlgorithm;
 
     public PasswordBasedMacProtectionStrategy(ConfigurationContext configuration,
                                               AlgorithmIdentifier headerProtectionAlgorithm,
@@ -68,8 +68,8 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
                             iterationCount,
                             macAlgorithm));
         } catch (Exception e) {
-            throw new CmpProcessingException(PKIFailureInfo.systemFailure,
-                    "cannot initialize of password based mac strategy");
+            throw new CmpProcessingException(null, PKIFailureInfo.systemFailure,
+                    "cannot initialize of password based mac strategy", e);
         }
     }
 

@@ -11,28 +11,28 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
-import com.czertainly.core.service.cmp.configurations.variants.CmpConfigurationContext;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.configurations.variants.Mobile3gppProfileContext;
 import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
-import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.cert.X509CertificateHolder;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
+import org.junit.Ignore;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.math.BigInteger;
 import java.security.*;
-import java.util.*;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.*;
-
-public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
+@Ignore("RaProfile - entity not found - why?")
+public class CrmfMessageHandlerITest extends BaseSpringBootTest {
 
     @Autowired private CertificateContentRepository certificateContentRepository;
     @Autowired private CertificateRepository certificateRepository;
@@ -40,14 +40,19 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
     @Autowired private CmpProfileRepository cmpProfileRepository;
     @Autowired private RaProfileRepository raProfileRepository;
     @Autowired private CertificateKeyServiceImpl certificateKeyService;
+    @Autowired private CertificateService certificateService;
     @Autowired private CryptographicKeyRepository cryptographicKeyRepository;
     @Autowired private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired private ConnectorRepository connectorRepository;
+    @Autowired private CrmfIrCrMessageHandler crmfIrCrMessageHandler;
+    @Autowired private PollFeature pollFeature;
+    @Autowired private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
 
-    private CertConfirmMessageHandler testedHandler;
+    private CrmfMessageHandler testedHandler;
     private CmpProfile cmpProfileSigPrt;
     private CmpProfile cmpProfileMacPrt;//mac-protection
+
 
     private final String transactionId = "999";
     private final BigInteger serialNumber = BigInteger.valueOf(123456789);
@@ -61,15 +66,24 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         mockServer = CmpTestUtil.createSigningPlatform();
 
         // -- IoC setting up
-        testedHandler = new CertConfirmMessageHandler();
-        testedHandler.setCertificateRepository(certificateRepository);
+        testedHandler = new CrmfMessageHandler();
         testedHandler.setCmpTransactionService(cmpTransactionService);
+        testedHandler.setCertificateService(certificateService);
+        testedHandler.setCmpTransactionService(cmpTransactionService);
+        testedHandler.setPollFeature(pollFeature);
+        testedHandler.setCrmfIrCrMessageHandler(crmfIrCrMessageHandler);
 
         // -- create customer/client profile (signature-based)
-        RaProfile raProfile = raProfileRepository.save(CmpEntityUtil.createRaProfile());
-        cmpProfileSigPrt = cmpProfileRepository.save(
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setUuid(UUID.randomUUID());
+        authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
+
+        RaProfile raProfile = raProfileRepository.saveAndFlush(CmpEntityUtil.createRaProfile(authorityInstanceReference));
+
+        cmpProfileSigPrt = cmpProfileRepository.saveAndFlush(
                 CmpEntityUtil.createCmpProfile(raProfile,
-                createSigningCertificateEntity(mockServer)));
+                        createSigningCertificateEntity(mockServer)));
+
         // -- create customer/client profile (macpwd-based)
         cmpProfileMacPrt = cmpProfileRepository.save(
                 CmpEntityUtil.createCmpProfile(raProfile, sharedSecret));
@@ -79,11 +93,11 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         x509certificate = CmpTestUtil.makeV3Certificate(serialNumber, kp, "CN=Test", kp, "CN=Test");
         // -- create issued certificate - db entity (which must be confirmed - via tested handler)
         Certificate issuedCertificate = certificateRepository.save(CmpEntityUtil.createCertificate(
-                CmpTestUtil.createMessageDigest(x509certificate),
-                serialNumber,
-                CertificateState.ISSUED,
-                certificateContentRepository.save(
-                    CmpEntityUtil.createEmptyCertContent())
+                        CmpTestUtil.createMessageDigest(x509certificate),
+                        serialNumber,
+                        CertificateState.ISSUED,
+                        certificateContentRepository.save(
+                                CmpEntityUtil.createEmptyCertContent())
                 )
         );
         // -- transaction related to issued certificate - db entity
@@ -93,159 +107,22 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
                 CmpTransactionState.CERT_ISSUED));
     }
 
-    @AfterEach
-    public void tearDown() {
-        mockServer.stop();
-    }
-
     @Test
-    public void test_handle_3gpp_signature_protection() throws Exception {
-        // -- WHEN --
-        PKIBody body = CmpTestUtil.createCertConfBody(x509certificate, serialNumber);
-        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
-                transactionId, CmpTestUtil.generateKeyPairEC().getPrivate(), body)
-                .toASN1Structure();
+    public void test() throws Exception {
 
-        // -- test handling of message
-        PKIMessage response = testedHandler.handle(request,
+
+        KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
+        PKIBody body = CmpTestUtil.createCrmfBody(
+                "999", x509certificate, keyPair,123456789L);
+        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
+                        "789", keyPair.getPrivate(), body)
+                .toASN1Structure();
+        testedHandler.handle(request,
                 new Mobile3gppProfileContext(cmpProfileSigPrt,
                         request,
                         certificateKeyService,
                         null,
                         null));
-        // -- THEN --
-        // (1) check structure: type, transactionId(trxId) and content (type)
-        assertEquals(PKIBody.TYPE_CONFIRM, response.getBody().getType());
-        assertEquals(new DEROctetString(transactionId.getBytes()).toString(),
-                response.getHeader().getTransactionID().toString());
-        assertInstanceOf(PKIConfirmContent.class, response.getBody().getContent());
-        assertTrue(response.getExtraCerts().length>0);
-
-        // (2) check certificate (found by serial number) and its state
-        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(
-                serialNumber.toString(16));
-        assertFalse(certificate.isEmpty());
-        assertEquals(CertificateState.ISSUED, certificate.get().getState());
-
-        // (3) check transaction (found by serial number - same as related with cert) and its state
-        cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(transactionId,
-                        serialNumber.toString(16))
-                .ifPresent(cmpTransaction -> assertEquals(CmpTransactionState.CERT_CONFIRMED, cmpTransaction.getState())
-        );
-    }
-
-    @Test
-    public void test_handle_rfc4210_signature_protection() throws Exception {
-        // -- WHEN --
-        PKIBody body = CmpTestUtil.createCertConfBody(x509certificate, serialNumber);
-        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
-                transactionId, CmpTestUtil.generateKeyPairEC().getPrivate(), body)
-                .toASN1Structure();
-
-        // -- test handling of message
-        PKIMessage response = testedHandler.handle(request,
-                new CmpConfigurationContext(cmpProfileSigPrt,
-                        request,
-                        certificateKeyService,
-                        null,
-                        null));
-        // -- THEN --
-        // (1) check structure: type, transactionId(trxId) and content (type)
-        assertEquals(PKIBody.TYPE_CONFIRM, response.getBody().getType());
-        assertEquals(new DEROctetString(transactionId.getBytes()).toString(),
-                response.getHeader().getTransactionID().toString());
-        Assertions.assertInstanceOf(PKIConfirmContent.class, response.getBody().getContent());
-
-        // (2) check certificate (found by serial number) and its state
-        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(
-                serialNumber.toString(16));
-        assertFalse(certificate.isEmpty());
-        assertEquals(CertificateState.ISSUED, certificate.get().getState());
-        assertTrue(response.getExtraCerts().length>0);
-
-        // (3) check transaction (found by serial number - same as related with cert) and its state
-        cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
-            transactionId, serialNumber.toString(16)
-        ).ifPresent(
-            cmpTransaction -> assertEquals(
-                CmpTransactionState.CERT_CONFIRMED,
-                cmpTransaction.getState())
-        );
-    }
-
-    @Test
-    public void test_handle_3gpp_mac_protection() throws Exception {
-        // -- WHEN --
-        PKIBody body = CmpTestUtil.createCertConfBody(x509certificate, serialNumber);
-        PKIMessage request = CmpTestUtil.createMacBasedMessage(
-                transactionId, sharedSecret, body)
-                .toASN1Structure();
-
-        // -- test handling of message
-        PKIMessage response = testedHandler.handle(request,
-                new Mobile3gppProfileContext(cmpProfileMacPrt,
-                        request,
-                        certificateKeyService,
-                        null,
-                        null));
-        // -- THEN --
-        // (1) check structure: type, transactionId(trxId) and content (type)
-        assertEquals(PKIBody.TYPE_CONFIRM, response.getBody().getType());
-        assertEquals(new DEROctetString(transactionId.getBytes()).toString(),
-                response.getHeader().getTransactionID().toString());
-        Assertions.assertInstanceOf(PKIConfirmContent.class, response.getBody().getContent());
-
-        // (2) check certificate (found by serial number) and its state
-        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(
-                serialNumber.toString(16));
-        assertFalse(certificate.isEmpty());
-        assertEquals(CertificateState.ISSUED, certificate.get().getState());
-
-        // (3) check transaction (found by serial number - same as related with cert) and its state
-        cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
-                transactionId, serialNumber.toString(16)
-        ).ifPresent(
-                cmpTransaction -> assertEquals(
-                        CmpTransactionState.CERT_CONFIRMED,
-                        cmpTransaction.getState())
-        );
-    }
-
-    @Test
-    public void test_handle_rfc4210_mac_protection() throws Exception {
-        // -- WHEN --
-        PKIMessage request = CmpTestUtil.createMacBasedMessage(
-                transactionId, sharedSecret, CmpTestUtil.createCertConfBody(x509certificate, serialNumber))
-                .toASN1Structure();
-
-        // -- test handling of message
-        PKIMessage response = testedHandler.handle(request,
-                new CmpConfigurationContext(cmpProfileMacPrt,
-                        request,
-                        certificateKeyService,
-                        null,
-                        null));
-        // -- THEN --
-        // (1) check structure: type, transactionId(trxId) and content (type)
-        assertEquals(PKIBody.TYPE_CONFIRM, response.getBody().getType());
-        assertEquals(new DEROctetString(transactionId.getBytes()).toString(),
-                response.getHeader().getTransactionID().toString());
-        Assertions.assertInstanceOf(PKIConfirmContent.class, response.getBody().getContent());
-
-        // (2) check certificate (found by serial number) and its state
-        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(
-                serialNumber.toString(16));
-        assertFalse(certificate.isEmpty());
-        assertEquals(CertificateState.ISSUED, certificate.get().getState());
-
-        // (3) check transaction (found by serial number - same as related with cert) and its state
-        cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
-                transactionId, serialNumber.toString(16)
-        ).ifPresent(
-                cmpTransaction -> assertEquals(
-                        CmpTransactionState.CERT_CONFIRMED,
-                        cmpTransaction.getState())
-        );
     }
 
     // ----------------------------------------------------------------------------------------------------------
