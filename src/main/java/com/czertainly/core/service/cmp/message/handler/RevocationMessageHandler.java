@@ -73,7 +73,6 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     private static final Logger LOG = LoggerFactory.getLogger(RevocationMessageHandler.class.getName());
 
     private ClientOperationService clientOperationService;
-
     @Autowired
     public void setClientOperationService(ClientOperationService clientOperationService) { this.clientOperationService = clientOperationService; }
 
@@ -87,7 +86,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
 
     private CmpTransactionService cmpTransactionService;
     @Autowired
-    private void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
+    public void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
 
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {

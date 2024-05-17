@@ -1,26 +1,25 @@
-package com.czertainly.core.service.cmp.message.handler;
+package com.czertainly.core.service.cmp;
 
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
-import com.github.tomakehurst.wiremock.WireMockServer;
 import org.bouncycastle.asn1.DEROctetString;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.cmp.CMPException;
 import org.bouncycastle.operator.DigestCalculator;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.util.Arrays;
 
 import java.math.BigInteger;
-import java.security.SecureRandom;
 import java.time.LocalDateTime;
-import java.util.HashSet;
-import java.util.Set;
 import java.util.UUID;
 
 public class CmpEntityUtil {
@@ -86,9 +85,34 @@ public class CmpEntityUtil {
                                                 CertificateContent certificateContent) {
         Certificate certificate = new Certificate();
         certificate.setCertificateContent(certificateContent);
+        if(certificateContent != null) {
+            certificate.setFingerprint(certificateContent.getFingerprint());
+        }
         certificate.setSerialNumber(serialNumber.toString(16));
         certificate.setUuid(UUID.randomUUID());
         certificate.setState(state);
+        certificate.setValidationStatus(CertificateValidationStatus.VALID);
+        return certificate;
+    }
+
+    public static Certificate createCertificate(CertificateState state,
+                                                CertificateContent certificateContent,
+                                                BigInteger serialNumber) {
+        Certificate certificate = createCertificate(serialNumber, state, certificateContent);
+        certificate.setFingerprint(certificateContent.getFingerprint());
+        return certificate;
+    }
+
+    public static Certificate createCertificate(X509CertificateHolder x509certificate,
+                                                CertificateState state,
+                                                CertificateContent certificateContent)
+            throws CMPException, OperatorCreationException {
+        DigestCalculator digester = CmpTestUtil.createMessageDigest(x509certificate);
+        Certificate certificate = createCertificate(
+                x509certificate.getSerialNumber(), state, certificateContent);
+        certificate.setFingerprint(
+                new DEROctetString(
+                        digester.getDigest()).toString().substring(1)/*remove ''#'*/);
         return certificate;
     }
 
@@ -109,6 +133,17 @@ public class CmpEntityUtil {
                                                 CryptographicKey key) {
         Certificate certificate = createCertificate(serialNumber, state, certificateContent);
         certificate.setKey(key);
+        return certificate;
+    }
+
+    public static Certificate createCertificate(BigInteger serialNumber,
+                                                CertificateState state,
+                                                CertificateContent certificateContent,
+                                                UUID issuerCertificateUuid,
+                                                CryptographicKey key) {
+        Certificate certificate = createCertificate(serialNumber, state, certificateContent);
+        certificate.setKey(key);
+        certificate.setIssuerCertificateUuid(issuerCertificateUuid);
         return certificate;
     }
 

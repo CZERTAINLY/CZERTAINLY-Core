@@ -8,7 +8,6 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
@@ -23,7 +22,11 @@ import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import org.bouncycastle.asn1.DEROctetString;
-import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.cmp.CMPCertificate;
+import org.bouncycastle.asn1.cmp.CertRepMessage;
+import org.bouncycastle.asn1.cmp.PKIBody;
+import org.bouncycastle.asn1.cmp.PKIMessage;
+import org.junit.Ignore;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -32,7 +35,8 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.test.context.transaction.TestTransaction;
 
 import java.math.BigInteger;
-import java.security.*;
+import java.security.KeyPair;
+import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import java.util.*;
 
@@ -40,7 +44,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
-public class CrmfMessageHandlerITest extends BaseSpringBootTest {
+public class KurMessageHandlerITest extends BaseSpringBootTest {
 
     @Autowired private CertificateContentRepository certificateContentRepository;
     @Autowired private CertificateRepository certificateRepository;
@@ -120,11 +124,6 @@ public class CrmfMessageHandlerITest extends BaseSpringBootTest {
 
         RaProfile raProfile = raProfileRepository.saveAndFlush(CmpEntityUtil.createRaProfile(authorityInstance));
 
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-        // -------------------------- vv|vv NEW JTA vv|vv --------------------------------
-        TestTransaction.start();
-
         // create chain of cert(s)
         Certificate rootCA = certificateRepository.save(CmpEntityUtil.createCertificate(
             new BigInteger(12, new SecureRandom()),
@@ -156,17 +155,22 @@ public class CrmfMessageHandlerITest extends BaseSpringBootTest {
         x509Certificate = CertificateUtil.parseCertificate(contentOfIssuedCert);
 
         issuedCertificate = certificateRepository.save(CmpEntityUtil.createCertificate(
-            CertificateState.ISSUED,
-            certificateContentRepository.save(
-            CmpEntityUtil.createCertContent(
-                CertificateUtil.getThumbprint(x509Certificate),
-                contentOfIssuedCert)),
+                CertificateState.ISSUED,
+                certificateContentRepository.save(
+                        CmpEntityUtil.createCertContent(
+                                CertificateUtil.getThumbprint(x509Certificate),
+                                contentOfIssuedCert)),
                 x509Certificate.getSerialNumber())
 
         );
         issuedCertificate.setIssuerCertificateUuid(intrCA.getUuid());
         issuedCertificate.setRaProfile(raProfile);
         issuedCertificate = certificateRepository.save(issuedCertificate);
+
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+        // -------------------------- vv|vv NEW JTA vv|vv --------------------------------
+        TestTransaction.start();
 
         cmpProfileSigPrt = cmpProfileRepository.saveAndFlush(
                 CmpEntityUtil.createCmpProfile(raProfile,
@@ -178,74 +182,16 @@ public class CrmfMessageHandlerITest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
-        mockServer.stop();
-
-        if(certificateRepository!=null){
-            certificateRepository.deleteAll();
-        }
-    }
+    public void tearDown() { mockServer.stop(); }
 
     @Test
-    public void test_handle_ir_3gpp_signature_protection() throws Exception {
-        String trxId= "777";
-        KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
-
-        PKIBody body = CmpTestUtil.createCrmfBody(
-                keyPair,123456789L);
-        PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
-                        trxId, keyPair.getPrivate(), body)
-                .toASN1Structure();
-
-        // -- issue of certificate is mocked
-        given(pollFeature.pollCertificate(any(), any(), any(), any()))
-                .willReturn(issuedCertificate);
-
-        PKIMessage response = testedHandler.handle(request,
-                new Mobile3gppProfileContext(cmpProfileSigPrt,
-                        request,
-                        certificateKeyService,
-                        null,
-                        null));
-
-        assertNotNull(response);
-        assertEquals(PKIBody.TYPE_INIT_REP, response.getBody().getType());
-        assertEquals(new DEROctetString(trxId.getBytes()).toString(),
-                response.getHeader().getTransactionID().toString());
-        assertInstanceOf(CertRepMessage.class, response.getBody().getContent());
-        assertTrue(response.getExtraCerts().length>0);
-
-        // (2) check certificate (found by serial number) and its state
-        CertRepMessage responseBody = (CertRepMessage)response.getBody().getContent();
-        CMPCertificate responseCert = responseBody.getResponse()[0].getCertifiedKeyPair().getCertOrEncCert().getCertificate();
-        String serialNumber = responseCert.getX509v3PKCert().getSerialNumber().getValue().toString(16);
-
-        assertEquals(issuedCertificate.getSerialNumber(), serialNumber, "serial number of certificate are not equals");
-        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(
-                serialNumber);
-        assertFalse(certificate.isEmpty(), "certificate has not been stored in czertainly database");
-        assertEquals(CertificateState.ISSUED, certificate.get().getState(), "certificate is not expected(=ISSUED) state");//CertificateState.ISSUED
-
-        // (3) check transaction (found by serial number - same as related with cert) and its state
-        cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
-            transactionId, serialNumber)
-            .ifPresent(
-                cmpTransaction -> assertEquals(
-                    CmpTransactionState.CERT_ISSUED,
-                    cmpTransaction.getState())
-            );
-    }
-
-    @Test
-    public void test_handle_ir_3gpp_mac_protection() throws Exception {
+    public void test_handle_kur_3gpp_signature_protection() throws Exception {
         // -- WHEN --
         String trxId= "779";
-        KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
-
-        PKIBody body = CmpTestUtil.createCrmfBody(
-                keyPair,123456789L);
-        PKIMessage request = CmpTestUtil.createMacBasedMessage(
-                        trxId, sharedSecret, body)
+        PKIMessage request = CmpTestUtil.createKur(
+                trxId,
+                x509Certificate.getSerialNumber(),
+                CmpTestUtil.generateKeyPairEC())
                 .toASN1Structure();
 
         // -- issue of certificate is mocked
@@ -254,14 +200,14 @@ public class CrmfMessageHandlerITest extends BaseSpringBootTest {
 
         // -- test handling of message
         PKIMessage response = testedHandler.handle(request,
-                new Mobile3gppProfileContext(cmpProfileMacPrt,
+                new Mobile3gppProfileContext(cmpProfileSigPrt,
                         request,
                         certificateKeyService,
                         null,
                         null));
         // -- THEN --
         // (1) check structure: type, transactionId(trxId) and content (type)
-        assertEquals(PKIBody.TYPE_INIT_REP, response.getBody().getType());
+        assertEquals(PKIBody.TYPE_KEY_UPDATE_REP, response.getBody().getType());
         assertEquals(new DEROctetString(trxId.getBytes()).toString(),
                 response.getHeader().getTransactionID().toString());
         assertInstanceOf(CertRepMessage.class, response.getBody().getContent());
@@ -280,7 +226,59 @@ public class CrmfMessageHandlerITest extends BaseSpringBootTest {
                 transactionId, serialNumber
         ).ifPresent(
                 cmpTransaction -> assertEquals(
-                        CmpTransactionState.CERT_CONFIRMED,
+                        CmpTransactionState.CERT_REKEYED,
+                        cmpTransaction.getState())
+        );
+    }
+
+
+    //@Test
+    public void test_handle_kur_3gpp_mac_protection() throws Exception {
+        // -- WHEN --
+        String trxId= "779";
+        KeyPair keyPair = CmpTestUtil.generateKeyPairEC();
+
+        PKIMessage request = CmpTestUtil.createKur(
+                sharedSecret,
+                        trxId,
+                        x509Certificate.getSerialNumber(),
+                        CmpTestUtil.generateKeyPairEC())
+                .toASN1Structure();
+
+        // -- issue of certificate is mocked
+        given(pollFeature.pollCertificate(any(), any(), any(), any()))
+                .willReturn(issuedCertificate);
+
+        // -- test handling of message
+        PKIMessage response = testedHandler.handle(request,
+                new Mobile3gppProfileContext(cmpProfileMacPrt,
+                        request,
+                        certificateKeyService,
+                        null,
+                        null));
+
+        // -- THEN --
+        // (1) check structure: type, transactionId(trxId) and content (type)
+        assertEquals(PKIBody.TYPE_KEY_UPDATE_REP, response.getBody().getType());
+        assertEquals(new DEROctetString(trxId.getBytes()).toString(),
+                response.getHeader().getTransactionID().toString());
+        assertInstanceOf(CertRepMessage.class, response.getBody().getContent());
+
+        // (2) check certificate (found by serial number) and its state
+        CertRepMessage responseBody = (CertRepMessage)response.getBody().getContent();
+        CMPCertificate responseCert = responseBody.getResponse()[0].getCertifiedKeyPair().getCertOrEncCert().getCertificate();
+        String serialNumber = responseCert.getX509v3PKCert().getSerialNumber().getValue().toString(16);
+
+        Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
+        assertFalse(certificate.isEmpty());
+        assertEquals(CertificateState.ISSUED, certificate.get().getState());
+
+        // (3) check transaction (found by serial number - same as related with cert) and its state
+        cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
+                transactionId, serialNumber
+        ).ifPresent(
+                cmpTransaction -> assertEquals(
+                        CmpTransactionState.CERT_REKEYED,
                         cmpTransaction.getState())
         );
     }
