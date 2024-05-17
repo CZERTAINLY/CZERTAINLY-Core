@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.cmp;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
+import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -154,4 +155,9 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         }
     }
 
+    @Setter
+    @Getter
+    @Column(name = "variant")
+    @Enumerated(EnumType.STRING)
+    private CmpProfileVariant variant = CmpProfileVariant.V2;//default
 }
