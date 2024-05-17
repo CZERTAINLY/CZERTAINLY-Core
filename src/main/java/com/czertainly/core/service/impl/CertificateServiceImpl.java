@@ -250,20 +250,8 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException {
         Certificate entity = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-//        if (entity.getRaProfileUuid() != null) {
-            raProfileService.evaluateCertificateRaProfilePermissions(uuid, SecuredParentUUID.fromUUID(entity.getRaProfileUuid()));
-//        } else { }
-//        if (entity.getRaProfileUuid() != null) {
-//            raProfileService.getRaProfile(SecuredUUID.fromUUID(entity.getRaProfileUuid()));
-//        } else {
-//            if (!raProfileService.evaluateNullableRaPermissions(SecurityFilter.create())) {
-//                AuthenticationServiceExceptionDto dto = new AuthenticationServiceExceptionDto();
-//                dto.setStatusCode(403);
-//                dto.setCode("ACCESS_DENIED");
-//                dto.setMessage("Access Denied. Certificate does not have any RA Profile association. Required 'Detail' permission for all 'Ra Profiles'");
-//                throw new AuthenticationServiceException(dto);
-//            }
-//        }
+        raProfileService.evaluateCertificateRaProfilePermissions(uuid, SecuredParentUUID.fromUUID(entity.getRaProfileUuid()));
+
         return entity;
     }
 
