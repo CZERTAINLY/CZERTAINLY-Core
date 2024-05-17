@@ -60,7 +60,8 @@ public class DatabaseMigration {
         V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899),
         V202404021000__CreateCmpUserAndPermissions(414709752),
         V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276);
-        
+
+      
         private final int checksum;
 
         private final boolean isAltered;
