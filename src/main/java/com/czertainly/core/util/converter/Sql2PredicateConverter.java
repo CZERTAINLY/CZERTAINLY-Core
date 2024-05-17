@@ -95,7 +95,7 @@ public class Sql2PredicateConverter {
             }
         }
 
-        if (expressionValue == null) {
+        if (expressionValue == null && dto.getValue() != null) {
             expressionValue = dto.getValue().toString();
         }
 
@@ -265,7 +265,7 @@ public class Sql2PredicateConverter {
             }
             return findEnumByCustomValue(valueObject, searchableFields);
         }
-        return valueObject.toString();
+        return valueObject == null ? null : valueObject.toString();
     }
 
     private static Object findEnumByCustomValue(Object valueObject, final SearchableFields searchableFields) {
