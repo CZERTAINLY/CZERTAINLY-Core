@@ -58,6 +58,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.BiFunction;
 
@@ -94,6 +95,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private EventProducer eventProducer;
     private AttributeEngine attributeEngine;
     private CertificateRuleEvaluator certificateRuleEvaluator;
+    private RuleTriggerHistoryRepository triggerHistoryRepository;
+
+    @Autowired
+    public void setTriggerHistoryRepository(RuleTriggerHistoryRepository triggerHistoryRepository) {
+        this.triggerHistoryRepository = triggerHistoryRepository;
+    }
 
     @Autowired
     public void setRuleService(RuleService ruleService) {
@@ -521,13 +528,28 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 }
                 Certificate entry = certificateService.createCertificateEntity(x509Cert);
 
+
+                //
+
                 // First, check the triggers that have action with action type set to ignore
                 boolean ignored = false;
                 for (RuleTrigger trigger : ignoreTriggers) {
-                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
+                    RuleTriggerHistory triggerHistory = new RuleTriggerHistory();
+                    triggerHistory.setTriggerUuid(trigger.getUuid());
+                    triggerHistory.setTriggerAssociationUuid(discoveryUuid);
+                    triggerHistory.setTriggeredAt(LocalDateTime.now());
+                    triggerHistory.setObjectUuid(discoveryCertificate.getUuid());
+                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid(), triggerHistory)) {
                         ignored = true;
+                        triggerHistory.setConditionsMatched(true);
+                        triggerHistory.setActionsPerformed(true);
+                        triggerHistory.setMessage("Discovery Certificate has been ignored.");
                         break;
+                    } else {
+                        triggerHistory.setConditionsMatched(false);
+                        triggerHistory.setActionsPerformed(false);
                     }
+                    triggerHistoryRepository.save(triggerHistory);
                 }
 
                 // If some trigger ignored this certificate, certificate is not saved and continue with next one
@@ -538,10 +560,23 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
                 // Evaluate rest of the triggers in given order
                 for (RuleTrigger trigger : orderedTriggers) {
+                    // Create trigger history entry
+                    RuleTriggerHistory triggerHistory = new RuleTriggerHistory();
+                    triggerHistory.setTriggeredAt(LocalDateTime.now());
+                    triggerHistory.setTriggerUuid(trigger.getUuid());
+                    triggerHistory.setTriggerAssociationUuid(discoveryUuid);
+                    triggerHistory.setObjectUuid(entry.getUuid());
+                    triggerHistoryRepository.save(triggerHistory);
                     // If rules are satisfied, perform defined actions
-                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
-                        certificateRuleEvaluator.performRuleActions(trigger, entry);
+                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid(), triggerHistory)) {
+                        triggerHistory.setConditionsMatched(true);
+                        certificateRuleEvaluator.performRuleActions(trigger, entry, triggerHistory);
+                        triggerHistory.setActionsPerformed(triggerHistory.getTriggerHistoryRecordList().isEmpty());
+                    } else {
+                        triggerHistory.setConditionsMatched(false);
+                        triggerHistory.setActionsPerformed(false);
                     }
+                    triggerHistoryRepository.save(triggerHistory);
                 }
 
                 // Set metadata attributes, create certificate event history entry and validate certificate
@@ -567,10 +602,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     // Check if rules are satisfied for a certificate, rules are considered not satisfied also when an error is encountered
-    private boolean satisfiesRules(Certificate certificate, RuleTrigger trigger, UUID discoveryCertificateUuid) {
+    private boolean satisfiesRules(Certificate certificate, RuleTrigger trigger, UUID discoveryCertificateUuid, RuleTriggerHistory triggerHistory) {
         boolean satisfiesRules;
         try {
-            satisfiesRules = certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate);
+            satisfiesRules = certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate, triggerHistory);
             return satisfiesRules;
         } catch (RuleException e) {
             logger.error("Could not evaluate rules of trigger {} on discovery certificate with UUID {}, reason: {}",

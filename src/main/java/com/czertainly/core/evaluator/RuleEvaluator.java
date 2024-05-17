@@ -18,6 +18,7 @@ import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.RuleTriggerHistoryRecordRepository;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -42,6 +43,12 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
     private AttributeEngine attributeEngine;
+    private RuleTriggerHistoryRecordRepository triggerHistoryRecordRepository;
+
+    @Autowired
+    public void setTriggerHistoryRecordRepository(RuleTriggerHistoryRecordRepository triggerHistoryRecordRepository) {
+        this.triggerHistoryRecordRepository = triggerHistoryRecordRepository;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -49,7 +56,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(List<Rule> rules, T object) throws RuleException {
+    public boolean evaluateRules(List<Rule> rules, T object, RuleTriggerHistory triggerHistory) throws RuleException {
         // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
@@ -94,7 +101,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     @Override
     public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
         for (T object : listOfObjects) {
-            if (!evaluateRules(rules, object)) {
+            if (!evaluateRules(rules, object, null)) {
                 logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
                 return false;
             }
@@ -200,7 +207,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public void performRuleActions(RuleTrigger trigger, T object) {
+    public void performRuleActions(RuleTrigger trigger, T object, RuleTriggerHistory triggerHistory) {
         if (!ResourceToClass.getClassByResource(trigger.getResource()).isInstance(object)) {
             logger.debug("Trigger '{}' cannot be executed due to incompatible resource.", trigger.getName());
             return;
@@ -210,8 +217,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 try {
                     performAction(action, object, trigger.getResource());
                     logger.debug("Action with UUID {} has been performed.", action.getUuid());
+
                 } catch (Exception e) {
-                    logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
+                    logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
+                    RuleTriggerHistoryRecord triggerHistoryRecord = new RuleTriggerHistoryRecord();
+                    triggerHistoryRecord.setTriggerHistory(triggerHistory);
+                    triggerHistoryRecord.setRuleActionUuid(action.getUuid());
+                    triggerHistoryRecord.setMessage("Action has not been performed, reason: " + e.getMessage());
+                    triggerHistoryRecordRepository.save(triggerHistoryRecord);
+                    triggerHistory.getTriggerHistoryRecordList().add(triggerHistoryRecord);
                 }
             }
         }
@@ -222,12 +236,18 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                         performAction(action, object, trigger.getResource());
                         logger.debug("Action with UUID {} has been performed.", action.getUuid());
                     } catch (Exception e) {
-                        logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
+                        logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
+                        RuleTriggerHistoryRecord triggerHistoryRecord = new RuleTriggerHistoryRecord();
+                        triggerHistoryRecord.setTriggerHistory(triggerHistory);
+                        triggerHistoryRecord.setRuleActionUuid(action.getUuid());
+                        triggerHistoryRecord.setMessage("Action has not been performed, reason: " + e.getMessage());
+                        triggerHistoryRecordRepository.save(triggerHistoryRecord);
                     }
                 }
             }
         }
     }
+
 
     public void performAction(RuleAction action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
         RuleActionType actionType = action.getActionType();

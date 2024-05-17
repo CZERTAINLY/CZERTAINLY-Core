@@ -153,7 +153,8 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     public void testExceptions() throws RuleException, ParseException {
         Rule rule = new Rule();
         rule.setResource(Resource.CRYPTOGRAPHIC_KEY);
-        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(List.of(rule), certificate));
+        RuleTriggerHistory triggerHistory = new RuleTriggerHistory();
+        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(List.of(rule), certificate, triggerHistory));
 
         condition.setFieldIdentifier("invalid");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
@@ -278,7 +279,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         group2.setName("groupName2");
         group2 = groupRepository.save(group2);
         action.setActionData(List.of(group.getUuid().toString(), group2.getUuid().toString()));
-        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        certificateRuleEvaluator.performRuleActions(trigger, certificate, new RuleTriggerHistory());
 
         List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(2, groupUuids.size());
@@ -301,7 +302,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
                 WireMock.okJson("{ \"username\": \"ownerName\"}")
         ));
 
-        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        certificateRuleEvaluator.performRuleActions(trigger, certificate, new RuleTriggerHistory());
 
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
@@ -343,7 +344,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         action.setFieldSource(FilterFieldSource.PROPERTY);
         action.setFieldIdentifier(SearchableFields.RA_PROFILE_NAME.toString());
         action.setActionData(raProfile.getUuid());
-        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        certificateRuleEvaluator.performRuleActions(trigger, certificate, new RuleTriggerHistory());
         Assertions.assertEquals(raProfile.getName(), certificate.getRaProfile().getName());
     }
 
@@ -362,7 +363,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         action.setFieldSource(FilterFieldSource.CUSTOM);
         action.setActionData(List.of(linkedHashSet));
         action.setFieldIdentifier("custom|STRING");
-        certificateRuleEvaluator.performRuleActions(trigger, certificate);
+        certificateRuleEvaluator.performRuleActions(trigger, certificate, new RuleTriggerHistory());
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
     }

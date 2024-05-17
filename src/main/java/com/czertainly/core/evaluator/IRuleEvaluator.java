@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.Rule;
 import com.czertainly.core.dao.entity.RuleCondition;
 import com.czertainly.core.dao.entity.RuleTrigger;
+import com.czertainly.core.dao.entity.RuleTriggerHistory;
 
 import java.util.List;
 
@@ -17,7 +18,7 @@ public interface IRuleEvaluator<T> {
      * @param object   Object to evaluate Rules on
      * @return True if all the rules are satisfied, false otherwise
      */
-    public boolean evaluateRules(List<Rule> rules, T object) throws RuleException;
+    public boolean evaluateRules(List<Rule> rules, T object, RuleTriggerHistory triggerHistory) throws RuleException;
     /**
      * Method to evaluate a list of Rules on a list of Objects
      *
@@ -40,7 +41,8 @@ public interface IRuleEvaluator<T> {
      *
      * @param trigger       Trigger
      * @param object        Object to perform Actions in Trigger on
+     * @param triggerHistory Trigger History to fill action results records for
      */
-    public void performRuleActions(RuleTrigger trigger, T object);
+    public void performRuleActions(RuleTrigger trigger, T object, RuleTriggerHistory triggerHistory);
 
 }
