@@ -6,6 +6,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.ToString;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -29,6 +30,22 @@ public class NotificationRecipient {
     public static List<NotificationRecipient> buildUserOrGroupNotificationRecipient(UUID userUuid, UUID groupUuid) {
         return userUuid != null ? List.of(new NotificationRecipient(RecipientTypeEnum.USER, userUuid))
                 : (groupUuid != null ? List.of(new NotificationRecipient(RecipientTypeEnum.GROUP, groupUuid)) : null);
+    }
+
+    public static List<NotificationRecipient> buildUsersAndGroupsNotificationRecipients(List<UUID> userUuids, List<UUID> groupUuids) {
+        List<NotificationRecipient> recipients = new ArrayList<>();
+        if(userUuids != null) {
+            for(UUID userUuid : userUuids) {
+                recipients.add(new NotificationRecipient(RecipientTypeEnum.USER, userUuid));
+            }
+        }
+        if(groupUuids != null) {
+            for(UUID groupUuid : groupUuids) {
+                recipients.add(new NotificationRecipient(RecipientTypeEnum.GROUP, groupUuid));
+            }
+        }
+
+        return recipients;
     }
 
     public static List<NotificationRecipient> buildRoleNotificationRecipient(UUID roleUuid) {

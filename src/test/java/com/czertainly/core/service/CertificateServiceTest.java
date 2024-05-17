@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -63,11 +64,13 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
     @Autowired
     private GroupRepository groupRepository;
+    @Autowired
+    private ResourceObjectAssociationService associationService;
+
     private AttributeEngine attributeEngine;
 
 
     private Certificate certificate;
-    private Certificate adminCertificate;
     private CertificateContent certificateContent;
     private RaProfile raProfile;
     private RaProfile raProfileOld;
@@ -301,24 +304,27 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateCertificateGroup() throws NotFoundException, CertificateOperationException, AttributeException {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(group.getUuid().toString());
+        uuidDto.setGroupUuids(List.of(group.getUuid().toString()));
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
-        Assertions.assertEquals(group, certificate.getGroup());
+        // use association service to load certificate group associations since groups are not lazy loaded to mapped certificate relation due to scope of transaction in test
+        List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(1, groupUuids.size());
+        Assertions.assertEquals(group.getUuid(), groupUuids.get(0));
     }
 
     @Test
     public void testUpdateCertificateGroup_certificateNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid(group.getUuid().toString());
+        uuidDto.setGroupUuids(List.of(group.getUuid().toString()));
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), uuidDto));
     }
 
     @Test
     public void testUpdateCertificateGroup_groupNotFound() {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
-        uuidDto.setGroupUuid("abfbc322-29e1-11ed-a261-0242ac120002");
+        uuidDto.setGroupUuids(List.of(UUID.randomUUID().toString()));
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
     }
 
@@ -326,11 +332,23 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     @Disabled("get user from API")
     public void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"newOwner\"}")
+        ));
+
         CertificateUpdateObjectsDto request = new CertificateUpdateObjectsDto();
-        request.setOwnerUuid("newOwner");
+        request.setOwnerUuid(UUID.randomUUID().toString());
+
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
 
-        Assertions.assertEquals(request.getOwnerUuid(), certificate.getOwner());
+        // use association service to load certificate owner association since owner is not lazy loaded to mapped certificate relation due to scope of transaction in test
+        NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertNotNull(owner);
+        Assertions.assertEquals(request.getOwnerUuid(), owner.getUuid());
+        Assertions.assertEquals("newOwner", owner.getName());
     }
 
     @Test

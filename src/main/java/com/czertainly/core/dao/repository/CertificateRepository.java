@@ -34,8 +34,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
-    List<Certificate> findByGroup(Group group);
-
     List<Certificate> findByKeyUuid(UUID keyUuid);
 
     List<Certificate> findBySourceCertificateUuid(UUID sourceCertificateUuid);

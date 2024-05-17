@@ -7,6 +7,7 @@ import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -17,25 +18,26 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
@@ -70,12 +72,18 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private CertificateRuleEvaluator certificateRuleEvaluator;
 
+    @Autowired
+    private ResourceObjectAssociationService associationService;
+
     private Certificate certificate;
 
     private RuleCondition condition;
 
     private RuleTrigger trigger;
     private RuleAction action;
+
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
 
     private WireMockServer mockServer;
 
@@ -97,7 +105,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
         certificate.setCommonName("Common Name");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier("commonName");
+        condition.setFieldIdentifier(SearchableFields.COMMON_NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
         condition.setValue("Common Name");
@@ -124,22 +132,21 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
         Group group = new Group();
         group.setName("group");
+        group = groupRepository.save(group);
 
-        certificate.setGroup(group);
+        certificate.setGroups(new HashSet<>(List.of(group)));
+        certificate = certificateRepository.save(certificate);
 
         condition.setOperator(FilterConditionOperator.EQUALS);
-        condition.setFieldIdentifier("group.name");
-        condition.setValue("group");
+        condition.setFieldIdentifier(SearchableFields.GROUP_NAME.toString());
+        condition.setValue(group.getName());
         Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
 
-
         certificate.setTrustedCa(true);
-        condition.setFieldIdentifier("trustedCa");
+        condition.setFieldIdentifier(SearchableFields.TRUSTED_CA.toString());
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(true);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
-
-
     }
 
     @Test
@@ -152,7 +159,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
 
-        condition.setFieldIdentifier("commonName");
+        condition.setFieldIdentifier(SearchableFields.COMMON_NAME.toString());
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setOperator(FilterConditionOperator.GREATER);
         Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
@@ -173,14 +180,14 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     public void testEvaluatorDate() throws RuleException, ParseException {
         certificate.setNotBefore(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier("notBefore");
+        condition.setFieldIdentifier(SearchableFields.NOT_BEFORE.toString());
         condition.setValue("2010-12-12");
         condition.setOperator(FilterConditionOperator.GREATER);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateCondition(condition, certificate, Resource.CERTIFICATE));
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
-        condition.setFieldIdentifier("startTime");
+        condition.setFieldIdentifier(SearchableFields.START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
         Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateCondition(condition, discovery, Resource.DISCOVERY));
 
@@ -193,11 +200,11 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         cryptographicKey.setName("Key");
         RuleCondition condition = new RuleCondition();
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier("name");
+        condition.setFieldIdentifier(SearchableFields.NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateCondition(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         cryptographicKey.setLength(256);
-        condition.setFieldIdentifier("length");
+        condition.setFieldIdentifier(SearchableFields.CKI_LENGTH.toString());
         condition.setOperator(FilterConditionOperator.GREATER);
         condition.setValue(255);
         Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateCondition(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
@@ -259,23 +266,31 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSetCertificateGroup() {
+    public void testSetCertificateGroup() throws JsonProcessingException {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
-        action.setFieldIdentifier("group");
+        action.setFieldIdentifier(SearchableFields.GROUP_NAME.toString());
         Group group = new Group();
         group.setName("groupName");
-        groupRepository.save(group);
-        action.setActionData(group.getUuid());
+        group = groupRepository.save(group);
+
+        Group group2 = new Group();
+        group2.setName("groupName2");
+        group2 = groupRepository.save(group2);
+        action.setActionData(List.of(group.getUuid().toString(), group2.getUuid().toString()));
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals(group.getName(), certificate.getGroup().getName());
+
+        List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(2, groupUuids.size());
+        Assertions.assertTrue(groupUuids.contains(group.getUuid()));
+        Assertions.assertTrue(groupUuids.contains(group2.getUuid()));
     }
 
     @Test
     public void testSetCertificateOwner() {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
-        action.setFieldIdentifier("owner");
+        action.setFieldIdentifier(SearchableFields.OWNER.toString());
         action.setActionData(UUID.randomUUID());
 
         mockServer = new WireMockServer(10001);
@@ -287,7 +302,10 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         ));
 
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
-        Assertions.assertEquals("ownerName", certificate.getOwner());
+
+        NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertNotNull(owner);
+        Assertions.assertEquals("ownerName", owner.getName());
     }
 
     @Test
@@ -323,7 +341,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.PROPERTY);
-        action.setFieldIdentifier("raProfile");
+        action.setFieldIdentifier(SearchableFields.RA_PROFILE_NAME.toString());
         action.setActionData(raProfile.getUuid());
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
         Assertions.assertEquals(raProfile.getName(), certificate.getRaProfile().getName());
@@ -343,7 +361,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         action.setActionType(RuleActionType.SET_FIELD);
         action.setFieldSource(FilterFieldSource.CUSTOM);
         action.setActionData(List.of(linkedHashSet));
-        action.setFieldIdentifier("custom");
+        action.setFieldIdentifier("custom|STRING");
         certificateRuleEvaluator.performRuleActions(trigger, certificate);
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());

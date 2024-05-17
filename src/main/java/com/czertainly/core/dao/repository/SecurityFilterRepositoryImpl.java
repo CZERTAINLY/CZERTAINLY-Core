@@ -2,7 +2,6 @@ package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import jakarta.persistence.EntityManager;
@@ -115,8 +114,9 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         final CriteriaQuery<T> cr = cb.createQuery(entity);
         final Root<T> root = cr.from(entity);
 
-        cr.select(root);
-        if(order != null){
+        cr.select(root).distinct(true);
+
+        if (order != null) {
             cr.orderBy(order.apply(root, cb));
         }
 
@@ -129,7 +129,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
         final Root<T> root = cr.from(entity);
-        cr.select(cb.count(root));
+        cr.select(cb.countDistinct(root));
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
