@@ -203,7 +203,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             } catch (Exception e) {
                 logger.error(e.getMessage(), e);
             }
-            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {
+            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null && discoveryCertificateRepository.findByCertificateContent(cert.getCertificateContent()).isEmpty()) {
                 CertificateContent content = certificateContentRepository.findById(cert.getCertificateContent().getId())
                         .orElse(null);
                 if (content != null) {
@@ -219,8 +219,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
-            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             discoveryRepository.delete(discovery);
+            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
@@ -511,59 +511,59 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         for (DiscoveryCertificate discoveryCertificate : discoveredCertificates) {
-                // Get X509 from discovered certificate and create certificate entity, do not save in database yet
-                X509Certificate x509Cert;
-                try {
-                    x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
-                } catch (java.security.cert.CertificateException e) {
-                    logger.error("Unable to create certificate from discovery certificate with UUID {}.", discoveryCertificate.getUuid());
-                    continue;
-                }
-                Certificate entry = certificateService.createCertificateEntity(x509Cert);
-
-                // First, check the triggers that have action with action type set to ignore
-                boolean ignored = false;
-                for (RuleTrigger trigger : ignoreTriggers) {
-                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
-                        ignored = true;
-                        break;
-                    }
-                }
-
-                // If some trigger ignored this certificate, certificate is not saved and continue with next one
-                if (ignored) continue;
-
-                // Save certificate to database
-                certificateService.updateCertificateEntity(entry);
-
-                // Evaluate rest of the triggers in given order
-                for (RuleTrigger trigger : orderedTriggers) {
-                    // If rules are satisfied, perform defined actions
-                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
-                        certificateRuleEvaluator.performRuleActions(trigger, entry);
-                    }
-                }
-
-                // Set metadata attributes, create certificate event history entry and validate certificate
-                try {
-                    attributeEngine.updateMetadataAttributes(discoveryCertificate.getMeta(), new ObjectAttributeContentInfo(discoveryHistory.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid(), discoveryHistory.getName()));
-                } catch (AttributeException e) {
-                    logger.error("Could not update metadata for discovery certificate {}.", discoveryCertificate.getUuid());
-                }
-                Map<String, Object> additionalInfo = new HashMap<>();
-                additionalInfo.put("Discovery Name", discoveryHistory.getName());
-                additionalInfo.put("Discovery UUID", discoveryHistory.getUuid());
-                additionalInfo.put("Discovery Connector Name", discoveryHistory.getConnectorName());
-                additionalInfo.put("Discovery Kind", discoveryHistory.getKind());
-                certificateEventHistoryService.addEventHistory(
-                        entry.getUuid(),
-                        CertificateEvent.DISCOVERY,
-                        CertificateEventStatus.SUCCESS,
-                        "Discovered from Connector: " + discoveryHistory.getConnectorName() + " via discovery: " + discoveryHistory.getName(),
-                        MetaDefinitions.serialize(additionalInfo)
-                );
-                certificateService.validate(entry);
+            // Get X509 from discovered certificate and create certificate entity, do not save in database yet
+            X509Certificate x509Cert;
+            try {
+                x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
+            } catch (java.security.cert.CertificateException e) {
+                logger.error("Unable to create certificate from discovery certificate with UUID {}.", discoveryCertificate.getUuid());
+                continue;
             }
+            Certificate entry = certificateService.createCertificateEntity(x509Cert);
+
+            // First, check the triggers that have action with action type set to ignore
+            boolean ignored = false;
+            for (RuleTrigger trigger : ignoreTriggers) {
+                if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
+                    ignored = true;
+                    break;
+                }
+            }
+
+            // If some trigger ignored this certificate, certificate is not saved and continue with next one
+            if (ignored) continue;
+
+            // Save certificate to database
+            certificateService.updateCertificateEntity(entry);
+
+            // Evaluate rest of the triggers in given order
+            for (RuleTrigger trigger : orderedTriggers) {
+                // If rules are satisfied, perform defined actions
+                if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
+                    certificateRuleEvaluator.performRuleActions(trigger, entry);
+                }
+            }
+
+            // Set metadata attributes, create certificate event history entry and validate certificate
+            try {
+                attributeEngine.updateMetadataAttributes(discoveryCertificate.getMeta(), new ObjectAttributeContentInfo(discoveryHistory.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid(), discoveryHistory.getName()));
+            } catch (AttributeException e) {
+                logger.error("Could not update metadata for discovery certificate {}.", discoveryCertificate.getUuid());
+            }
+            Map<String, Object> additionalInfo = new HashMap<>();
+            additionalInfo.put("Discovery Name", discoveryHistory.getName());
+            additionalInfo.put("Discovery UUID", discoveryHistory.getUuid());
+            additionalInfo.put("Discovery Connector Name", discoveryHistory.getConnectorName());
+            additionalInfo.put("Discovery Kind", discoveryHistory.getKind());
+            certificateEventHistoryService.addEventHistory(
+                    entry.getUuid(),
+                    CertificateEvent.DISCOVERY,
+                    CertificateEventStatus.SUCCESS,
+                    "Discovered from Connector: " + discoveryHistory.getConnectorName() + " via discovery: " + discoveryHistory.getName(),
+                    MetaDefinitions.serialize(additionalInfo)
+            );
+            certificateService.validate(entry);
+        }
     }
 
     // Check if rules are satisfied for a certificate, rules are considered not satisfied also when an error is encountered
