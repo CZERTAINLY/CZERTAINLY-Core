@@ -18,7 +18,7 @@ import com.czertainly.api.model.connector.cryptography.key.KeyPairDataResponseDt
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -38,7 +38,6 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
-import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
@@ -88,6 +87,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     private CryptographicKeyEventHistoryService keyEventHistoryService;
     private PermissionEvaluator permissionEvaluator;
     private CertificateService certificateService;
+    private ResourceObjectAssociationService objectAssociationService;
+
     @Autowired
     private UserManagementApiClient userManagementApiClient;
     // --------------------------------------------------------------------------------
@@ -102,6 +103,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
+    }
+
+    @Autowired
+    public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
+        this.objectAssociationService = objectAssociationService;
     }
 
     @Autowired
@@ -174,7 +180,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CRYPTOGRAPHIC_KEY, filter, request.getFilters());
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("cryptographicKey").get("created")))
+        final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("createdAt")))
                 .stream()
                 .map(CryptographicKeyItem::mapToSummaryDto)
                 .toList();
@@ -312,6 +318,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             );
         }
 
+        // set owner of certificate to logged user
+        objectAssociationService.setOwnerFromProfile(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
+        if(request.getGroupUuids() != null) {
+            objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet()));
+        }
+
         logger.debug("Key creation is successful. UUID is {}", key.getUuid());
         KeyDetailDto keyDetailDto = key.mapToDetailDto();
         keyDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getCustomAttributes()));
@@ -332,8 +344,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         if (request.getName() != null && !request.getName().isEmpty()) key.setName(request.getName());
         if (request.getDescription() != null) key.setDescription(request.getDescription());
-        if (request.getOwnerUuid() != null) updateOwner(key, request.getOwnerUuid());
-        if (request.getGroupUuid() != null) key.setGroupUuid(UUID.fromString(request.getGroupUuid()));
         if (request.getTokenProfileUuid() != null) {
             TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
                             SecuredUUID.fromString(request.getTokenProfileUuid()))
@@ -352,21 +362,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             }
             key.setTokenProfile(tokenProfile);
         }
-        cryptographicKeyRepository.save(key);
+        key = cryptographicKeyRepository.save(key);
 
+        if(request.getGroupUuids() != null) {
+            objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet()));
+        }
+        if (request.getOwnerUuid() != null) {
+            objectAssociationService.setOwner(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), UUID.fromString(request.getOwnerUuid()));
+        }
         attributeEngine.updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getCustomAttributes());
 
         logger.debug("Key details updated. Key: {}", key);
         return getKey(tokenInstanceUuid, uuid.toString());
-    }
-
-    private void updateOwner(CryptographicKey key, String ownerUuid) {
-        // if there is no change, do not update and save request to Auth service
-        if (key.getOwnerUuid() != null && key.getOwnerUuid().toString().equals(ownerUuid)) return;
-        UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid);
-        key.setOwner(userDetail.getUsername());
-        key.setOwnerUuid(UUID.fromString(userDetail.getUuid()));
-        cryptographicKeyRepository.save(key);
     }
 
     @Override
@@ -476,9 +483,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 cryptographicKeyRepository.save(key);
             }
             if (key.getItems().isEmpty()) {
-                attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
-                certificateService.clearKeyAssociations(key.getUuid());
-                cryptographicKeyRepository.delete(key);
+                deleteKeyWithAssociations(key);
             }
         } else {
             deleteKey(List.of(uuid.toString()));
@@ -511,9 +516,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                     cryptographicKeyItemRepository.delete(keyItem);
                 }
-                attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
-                certificateService.clearKeyAssociations(UUID.fromString(uuid));
-                cryptographicKeyRepository.delete(key);
+                deleteKeyWithAssociations(key);
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
             }
@@ -546,9 +549,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 cryptographicKeyItemRepository.delete(keyItem);
                 key.getItems().remove(keyItem);
                 if (key.getItems().isEmpty()) {
-                    attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
-                    certificateService.clearKeyAssociations(key.getUuid());
-                    cryptographicKeyRepository.delete(key);
+                    deleteKeyWithAssociations(key);
                 }
             } catch (NotFoundException e) {
                 logger.warn(e.getMessage());
@@ -826,10 +827,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         key.setDescription(request.getDescription());
         key.setTokenProfile(tokenProfile);
         key.setTokenInstanceReference(tokenInstanceReference);
-        if (request.getGroupUuid() != null) key.setGroupUuid(UUID.fromString(request.getGroupUuid()));
+
         logger.debug("Cryptographic Key: {}", key);
-        cryptographicKeyRepository.save(key);
-        return key;
+        return cryptographicKeyRepository.save(key);
     }
 
     private CryptographicKeyItem createKeyContent(String referenceUuid, String referenceName, KeyData keyData, CryptographicKey cryptographicKey, UUID connectorUuid, boolean isDiscovered, boolean enabled) throws AttributeException {
@@ -953,15 +953,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 enabled
         ));
         key.setItems(children);
-        try {
-            NameAndUuidDto userIdentification = AuthHelper.getUserIdentification();
-            key.setOwner(userIdentification.getName());
-            key.setOwnerUuid(UUID.fromString(userIdentification.getUuid()));
-        } catch (Exception e) {
-            logger.warn("Unable to set owner of new key to logged user: {}", e.getMessage());
-        }
-        cryptographicKeyRepository.save(key);
-        return key;
+        return cryptographicKeyRepository.save(key);
     }
 
     private CryptographicKey createKeyTypeOfSecret(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto) throws ConnectorException, AttributeException {
@@ -986,15 +978,8 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         )
                 )
         );
-        try {
-            NameAndUuidDto userIdentification = AuthHelper.getUserIdentification();
-            key.setOwner(userIdentification.getName());
-            key.setOwnerUuid(UUID.fromString(userIdentification.getUuid()));
-        } catch (Exception e) {
-            logger.warn("Unable to set owner of new key to logged user: {}", e.getMessage());
-        }
-        cryptographicKeyRepository.save(key);
-        return key;
+
+        return cryptographicKeyRepository.save(key);
     }
 
     /**
@@ -1203,13 +1188,20 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 );
     }
 
+    private void deleteKeyWithAssociations(CryptographicKey key) {
+        certificateService.clearKeyAssociations(key.getUuid());
+        attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
+        objectAssociationService.removeObjectAssociations(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
+        cryptographicKeyRepository.delete(key);
+    }
+
     private List<SearchFieldDataByGroupDto> getSearchableFieldsMap() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CRYPTOGRAPHIC_KEY);
+        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CRYPTOGRAPHIC_KEY, false);
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).toList()),

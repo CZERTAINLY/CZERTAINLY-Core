@@ -20,8 +20,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -115,25 +114,43 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
         // First, check where from to get object value based on Field Source
         if (fieldSource == FilterFieldSource.PROPERTY) {
-
-            // Get value of property from the object
             Object objectValue;
+            SearchableFields field;
             try {
-                objectValue = PropertyUtils.getProperty(object, fieldIdentifier);
+                field = Enum.valueOf(SearchableFields.class, fieldIdentifier);
+            } catch (IllegalArgumentException e) {
+                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
+            }
+            // Get value of property from the object
+            try {
+                objectValue = getPropertyValue(object, field.getCode(), false);
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
             // Determine field type from field identifier using Searchable field enum
             SearchFieldNameEnum propertyEnum;
             try {
-                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
+                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(field);
             } catch (Exception e) {
                 throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
             }
+            if (propertyEnum == null) {
+                throw new RuleException("Unknown property field identifier: " + fieldIdentifier);
+            }
+
             FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
             try {
-                return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+                if (!(objectValue instanceof Collection<?> objectValues)) {
+                    return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+                }
+                for (Object item : objectValues) {
+                    Object o = getPropertyValue(item, field.getCode(), true);
+                    if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
+                        return false;
+                    }
+                }
+                return true;
             } catch (Exception e) {
                 throw new RuleException("Condition is not set properly: " + e.getMessage());
             }
@@ -221,17 +238,16 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         if (actionType == RuleActionType.SET_FIELD) {
             // Set a property of the object using setter, the property must be set as settable
             if (fieldSource == FilterFieldSource.PROPERTY) {
-                SearchFieldNameEnum propertyEnum;
-                try {
-                    propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
-                } catch (Exception e) {
+                SearchFieldNameEnum propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
+                if (propertyEnum == null) {
                     throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
                 }
                 if (!propertyEnum.isSettable())
                     throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
                 try {
-                    PropertyUtils.setProperty(object, action.getFieldIdentifier(), actionData);
-                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+                    PropertyUtils.setProperty(object, propertyEnum.getFieldProperty().getCode(), actionData);
+                } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
+                         NoSuchMethodException e) {
                     throw new RuleException(e.getMessage());
                 }
             }
@@ -247,15 +263,34 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 if (objectUuid == null)
                     throw new RuleException("Cannot set custom attributes for an object not in database.");
 
-                ObjectMapper objectMapper = new ObjectMapper();
-                List<BaseAttributeContent> attributeContents = objectMapper.convertValue(actionData , new TypeReference<>() {});
-                attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier, attributeContents);
+                List<BaseAttributeContent> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
+                attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
             }
         }
     }
 
+    private Object getPropertyValue(Object object, String fieldIdentifier, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        final int indexOfDot = fieldIdentifier.lastIndexOf(".");
+        boolean isNested = indexOfDot != -1;
+        try {
+            if (alreadyNested) {
+                return PropertyUtils.getProperty(object, fieldIdentifier.substring(indexOfDot + 1));
+            }
+            return PropertyUtils.getProperty(object, fieldIdentifier);
+        } catch (NoSuchMethodException e) {
+            if (!isNested || alreadyNested) {
+                throw e;
+            }
 
+            final String parentPropertyIdentifier = fieldIdentifier.substring(0, indexOfDot);
+            Object tmpValue = PropertyUtils.getProperty(object, parentPropertyIdentifier);
+            if (tmpValue instanceof Collection<?>) {
+                return tmpValue;
+            }
 
+            throw e;
+        }
+    }
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
     private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorActionMap;

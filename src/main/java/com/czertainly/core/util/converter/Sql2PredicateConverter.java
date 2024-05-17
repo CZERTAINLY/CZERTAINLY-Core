@@ -17,6 +17,7 @@ import com.czertainly.core.model.SearchFieldObject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
+import org.hibernate.query.sqm.tree.domain.SqmPluralValuedSimplePath;
 
 import java.util.*;
 
@@ -88,8 +89,7 @@ public class Sql2PredicateConverter {
         if (expression == null) {
             if (searchableFields.getPathToBeJoin() == null) {
                 expression = prepareExpression(root, searchableFields.getCode());
-            }
-            else {
+            } else {
                 final Join join = prepareJoin(root, searchableFields.getPathToBeJoin());
                 expression = join.get(searchableFields.getCode());
             }
@@ -110,8 +110,10 @@ public class Sql2PredicateConverter {
         if (isBoolean) {
             if (searchableFields == null || searchableFields.getExpectedValue() == null) {
                 switch (filterConditionOperator) {
-                    case EQUALS -> predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
-                    case NOT_EQUALS -> predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                    case EQUALS ->
+                            predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                    case NOT_EQUALS ->
+                            predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                 }
                 return predicate;
             } else {
@@ -156,10 +158,21 @@ public class Sql2PredicateConverter {
 
     private static Predicate retrievePredicateForNull(final CriteriaBuilder criteriaBuilder, final Root root, final SearchableFields searchableFields, final Expression expression) {
         if (searchableFields != null && searchableFields.getCode().contains(".")) {
-            int indexOfDot = searchableFields.getCode().indexOf(".");
+            int indexOfDot = searchableFields.getCode().lastIndexOf(".");
             final String mainPropertyString = searchableFields.getCode().substring(0, indexOfDot);
             final Expression mainExpression = prepareExpression(root, mainPropertyString);
-            return criteriaBuilder.isNull(mainExpression);
+
+//            if(searchableFields == SearchableFields.OWNER || searchableFields == SearchableFields.CK_OWNER) {
+////                return criteriaBuilder.and(criteriaBuilder.isEmpty(mainExpression), criteriaBuilder.equal(mainExpression.get("type"), AssociationType.OWNER));
+////                return criteriaBuilder.and(criteriaBuilder.isEmpty(mainExpression), criteriaBuilder.equal(mainExpression.type(), criteriaBuilder.literal(OwnerAssociation.class)));
+////                return criteriaBuilder.isEmpty(criteriaBuilder.treat(mainExpression, OwnerAssociation.class));
+////                return criteriaBuilder.isNull(criteriaBuilder.treat(mainExpression, OwnerAssociation.class));
+//                return criteriaBuilder.equal(criteriaBuilder.size(mainExpression), criteriaBuilder.literal(0));
+//            }
+
+            return mainExpression instanceof SqmPluralValuedSimplePath<?> ? criteriaBuilder.equal(criteriaBuilder.size(mainExpression), criteriaBuilder.literal(0)) : criteriaBuilder.isNull(mainExpression);
+//            return mainExpression instanceof SqmPluralValuedSimplePath<?> ? criteriaBuilder.isEmpty(mainExpression) : criteriaBuilder.isNull(mainExpression);
+//            return criteriaBuilder.isNull(mainExpression);
         } else {
             return criteriaBuilder.isNull(expression);
         }

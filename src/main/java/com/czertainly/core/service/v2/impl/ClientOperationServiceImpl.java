@@ -288,9 +288,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // notify
         try {
-            logger.debug("Sending notification of certificate issue. Certificate: {}", certificate);
-            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.ISSUE.getCode(), null);
+            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.ISSUE, null);
         } catch (Exception e) {
             logger.error("Sending notification for certificate issue failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }
@@ -454,9 +452,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // notify
         try {
-            logger.debug("Sending notification of certificate renewal. Certificate: {}", certificate);
-            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.RENEW.getCode(), null);
+            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.RENEW, null);
         } catch (Exception e) {
             logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }
@@ -643,9 +639,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // notify
         try {
-            logger.debug("Sending notification of certificate rekey. Certificate: {}", certificate);
-            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.REKEY.getCode(), null);
+            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.REKEY, null);
         } catch (Exception e) {
             logger.error("Sending notification for certificate rekey failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }
@@ -729,9 +723,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // notify
         try {
-            logger.debug("Sending notification of certificate revoke. Certificate: {}", certificate);
-            List<NotificationRecipient> recipients = NotificationRecipient.buildUserOrGroupNotificationRecipient(certificate.getOwnerUuid(), certificate.getGroupUuid());
-            notificationProducer.produceNotificationCertificateActionPerformed(Resource.CERTIFICATE, certificate.getUuid(), recipients, certificate.mapToListDto(), ResourceAction.REVOKE.getCode(), null);
+            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.REVOKE, null);
         } catch (Exception e) {
             logger.error("Sending notification for certificate revoke failed. Certificate: {}. Error: {}", certificate, e.getMessage());
         }

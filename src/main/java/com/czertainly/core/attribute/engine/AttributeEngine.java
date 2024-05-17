@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -31,7 +32,6 @@ import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
-import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
@@ -95,21 +95,24 @@ public class AttributeEngine {
 
     //region Search (Filtering) related methods
 
-    public List<SearchFieldDataByGroupDto> getResourceSearchableFields(Resource resource) {
+    public List<SearchFieldDataByGroupDto> getResourceSearchableFields(Resource resource, boolean settable) {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
-        final List<SearchFieldObject> metadataSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.META));
-        if (!metadataSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
-        }
 
-        final List<SearchFieldObject> customAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM));
+        final List<SearchFieldObject> customAttrSearchFieldObject = settable ? attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(resource, List.of(AttributeType.CUSTOM), Arrays.stream(AttributeContentType.values()).filter(AttributeContentType::isFilterByData).toList())
+                : attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM));
         if (!customAttrSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
         }
 
-        final List<SearchFieldObject> dataAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.DATA));
-        if (!dataAttrSearchFieldObject.isEmpty()) {
-            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
+        if (!settable) {
+            final List<SearchFieldObject> dataAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.DATA));
+            if (!dataAttrSearchFieldObject.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
+            }
+            final List<SearchFieldObject> metadataSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.META));
+            if (!metadataSearchFieldObject.isEmpty()) {
+                searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
+            }
         }
 
         return searchFieldDataByGroupDtos;
@@ -121,7 +124,7 @@ public class AttributeEngine {
             return null;
         }
 
-        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByAttrTypeAndObjType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
+        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
         return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }
@@ -286,7 +289,7 @@ public class AttributeEngine {
             }
             if (!resources.isEmpty()) {
                 // check for invalid resources
-                List<String> invalidResources = resources.stream().filter(r -> !r.supportCustomAttributes()).map(Resource::getLabel).toList();
+                List<String> invalidResources = resources.stream().filter(r -> !r.hasCustomAttributes()).map(Resource::getLabel).toList();
                 if (!invalidResources.isEmpty()) {
                     throw new AttributeException("Unsupported Resources for Custom Attribute: " + StringUtils.join(invalidResources, ", "), customAttribute.getUuid(), customAttribute.getName(), customAttribute.getType(), null);
                 }

@@ -168,7 +168,9 @@ public class ResourceServiceImpl implements ResourceService {
             ResourceDto resourceDto = new ResourceDto();
             resourceDto.setResource(resource);
             resourceDto.setHasObjectAccess(resource.hasObjectAccess());
-            resourceDto.setHasCustomAttributes(resource.supportCustomAttributes());
+            resourceDto.setHasCustomAttributes(resource.hasCustomAttributes());
+            resourceDto.setHasGroups(resource.hasGroups());
+            resourceDto.setHasOwner(resource.hasOwner());
             resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
             resourceDto.setHasRuleEvaluator(resource == Resource.CERTIFICATE);
             resources.add(resourceDto);
@@ -193,6 +195,7 @@ public class ResourceServiceImpl implements ResourceService {
             case SCEP_PROFILE -> scepProfileService.listResourceObjects(SecurityFilter.create());
             case TOKEN_PROFILE -> tokenProfileService.listResourceObjects(SecurityFilter.create());
             case TOKEN -> tokenInstanceService.listResourceObjects(SecurityFilter.create());
+            case USER -> userManagementService.listResourceObjects(SecurityFilter.create());
             default ->
                     throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
         };
@@ -264,9 +267,7 @@ public class ResourceServiceImpl implements ResourceService {
             return List.of();
         }
 
-        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource);
-        if (settable)
-            searchFieldDataByGroupDtos.removeIf(dto -> dto.getFilterFieldSource() != FilterFieldSource.CUSTOM);
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource, settable);
 
         List<SearchFieldNameEnum> enums = SearchFieldNameEnum.getEnumsForResource(resource);
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();

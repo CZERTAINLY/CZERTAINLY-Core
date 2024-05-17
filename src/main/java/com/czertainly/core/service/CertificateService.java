@@ -21,6 +21,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 public interface CertificateService extends ResourceExtensionService  {
@@ -141,18 +142,17 @@ public interface CertificateService extends ResourceExtensionService  {
     /**
      * Method to change Certificate Group for a Certificate
      * @param uuid      UUID of the certificate
-     * @param groupUuid UUID of the certificate group
+     * @param groupUuids set of UUIDs of the certificate groups
      */
-    void updateCertificateGroup(SecuredUUID uuid, SecuredUUID groupUuid) throws NotFoundException;
+    void updateCertificateGroups(SecuredUUID uuid, Set<UUID> groupUuids) throws NotFoundException;
 
 
     /**
      * Method to change Owner for a Certificate
      * @param uuid        UUID of the certificate
      * @param ownerUuid   UUID of the certificate owner
-     * @param ownerName   Name of the certificate owner
      */
-    void updateOwner(SecuredUUID uuid, String ownerUuid, String ownerName) throws NotFoundException;
+    void updateOwner(SecuredUUID uuid, String ownerUuid) throws NotFoundException;
 
 
 

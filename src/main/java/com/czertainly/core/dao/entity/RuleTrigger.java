@@ -2,6 +2,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.rules.RuleTriggerDetailDto;
 import com.czertainly.api.model.core.rules.RuleTriggerDto;
 import com.czertainly.api.model.core.rules.RuleTriggerType;
@@ -10,7 +11,6 @@ import lombok.Getter;
 import lombok.Setter;
 
 import java.util.List;
-import java.util.UUID;
 
 @Entity
 @Getter
@@ -33,7 +33,8 @@ public class RuleTrigger extends UniquelyIdentified {
     private Resource resource;
 
     @Column(name = "event_name")
-    private String eventName;
+    @Enumerated(EnumType.STRING)
+    private ResourceEvent eventName;
 
     @Column(name = "trigger_resource")
     @Enumerated(EnumType.STRING)
