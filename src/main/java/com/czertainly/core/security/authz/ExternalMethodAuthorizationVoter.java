@@ -1,7 +1,13 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.dao.entity.GroupAssociation;
+import com.czertainly.core.dao.repository.GroupAssociationRepository;
+import com.czertainly.core.dao.repository.OwnerAssociationRepository;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
+import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.AnonymousPrincipal;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
@@ -28,6 +34,8 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
 
     protected final Log logger = LogFactory.getLog(this.getClass());
 
+    private static final String NAME_PROP_NAME = "name";
+    private static final String ACTION_PROP_NAME = "action";
     private static final String PARENT_NAME_PROP_NAME = "parentName";
     private static final String PARENT_ACTION_PROP_NAME = "parentAction";
 
@@ -35,9 +43,14 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
 
     private final ObjectMapper om;
 
-    public ExternalMethodAuthorizationVoter(@Autowired OpaClient opaClient, @Autowired ObjectMapper om) {
+    private final GroupAssociationRepository groupAssociationRepository;
+    private final OwnerAssociationRepository ownerAssociationRepository;
+
+    public ExternalMethodAuthorizationVoter(@Autowired OpaClient opaClient, @Autowired ObjectMapper om, @Autowired GroupAssociationRepository groupAssociationRepository, @Autowired OwnerAssociationRepository ownerAssociationRepository) {
         this.opaClient = opaClient;
         this.om = om;
+        this.groupAssociationRepository = groupAssociationRepository;
+        this.ownerAssociationRepository = ownerAssociationRepository;
     }
 
     @Override
@@ -47,7 +60,11 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
 
     @Override
     protected int voteInternal(CzertainlyAuthenticationToken auth, MethodInvocation methodInvocation, List<ExternalAuthorizationConfigAttribute> attributes) {
-        return this.vote(auth.getPrincipal().getRawData(), methodInvocation, attributes);
+        int result = this.vote(auth.getPrincipal().getRawData(), methodInvocation, attributes);
+        if (result == ACCESS_DENIED) {
+            return voteGroupOwnerAssociations(auth.getPrincipal(), methodInvocation, attributes);
+        }
+        return result;
     }
 
     @Override
@@ -58,6 +75,74 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             logger.error("An error occurred during voting. Access will be denied.", e);
             return ACCESS_DENIED;
         }
+    }
+
+    private int voteGroupOwnerAssociations(CzertainlyUserDetails principal, MethodInvocation methodInvocation, List<ExternalAuthorizationConfigAttribute> attributes) {
+        Map<String, String> properties = attributes
+                .stream()
+                .filter(this::shouldBeSendToOpa)
+                .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
+
+        Resource resource;
+        ResourceAction resourceAction;
+        try {
+            resource = Resource.findByCode(properties.get(NAME_PROP_NAME));
+            resourceAction = ResourceAction.findByCode(properties.get(ACTION_PROP_NAME));
+        } catch (ValidationException e) {
+            logger.trace("Unsupported resource or action: " + e.getMessage());
+            return ACCESS_DENIED;
+        }
+
+        // UUIDs of objects the operation is executed on
+        List<SecuredUUID> objectUUIDs = extractUUIDsFromMethodArguments(methodInvocation);
+        boolean hasSecurityFilter = hasSecurityFilterParam(methodInvocation);
+
+        // skip if no object UUIDs provided and it is not listing with security filter - cannot evaluate its group and owner associations
+        // skip if no owner associations and no group associations (or in case groups only LIST and DETAIL action is allowed through group members permissions)
+        if ((objectUUIDs.isEmpty() && !hasSecurityFilter) || (!resource.hasOwner() && (!resource.hasGroups() || (resourceAction != ResourceAction.LIST && resourceAction != ResourceAction.DETAIL)))) {
+            return ACCESS_DENIED;
+        }
+
+        // does not have objects so grant access since later objects will be filtered out by SecurityFilter
+        if (objectUUIDs.isEmpty()) {
+            return ACCESS_GRANTED;
+        }
+
+        // evaluate if objects owners equal to principal
+        if (resource.hasOwner()) {
+            long ownerCount = ownerAssociationRepository.countByOwnerUuidAndResourceAndObjectUuidIn(UUID.fromString(principal.getUserUuid()), resource, objectUUIDs.stream().filter(u -> u.getValue() != null).map(SecuredUUID::getValue).toList());
+            if (ownerCount == objectUUIDs.size()) {
+                return ACCESS_GRANTED;
+            }
+        }
+
+        // evaluate group members permissions on objects assigned groups
+        if (resource.hasGroups() && (resourceAction == ResourceAction.LIST || resourceAction == ResourceAction.DETAIL)) {
+            properties.clear();
+            properties.put(NAME_PROP_NAME, Resource.GROUP.getCode());
+            properties.put(ACTION_PROP_NAME, ResourceAction.MEMBERS.getCode());
+
+            for (SecuredUUID objectUuid : objectUUIDs) {
+                // load groups associations
+                List<String> groupUuids = groupAssociationRepository.findByResourceAndObjectUuid(resource, objectUuid.getValue()).stream().map(g -> g.getGroupUuid().toString()).toList();
+                if (groupUuids.isEmpty()) {
+                    return ACCESS_DENIED;
+                }
+                OpaRequestedResource opaRequest = new OpaRequestedResource(properties);
+                opaRequest.setObjectUUIDs(groupUuids);
+
+                OpaResourceAccessResult result = this.checkAccess(principal.getRawData(), opaRequest);
+                if (!result.isAuthorized()) {
+                    logger.trace(String.format("Access to the method '%s' object has been denied by missing group member permissions.", methodInvocation.getMethod().getName()));
+                    return ACCESS_DENIED;
+                }
+            }
+
+            logger.trace(String.format("Access to the method '%s' object has been granted by group member permissions.", methodInvocation.getMethod().getName()));
+            return ACCESS_GRANTED;
+        }
+
+        return ACCESS_DENIED;
     }
 
     private int vote(String principal, MethodInvocation methodInvocation, List<ExternalAuthorizationConfigAttribute> attributes) {
@@ -89,8 +174,8 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
 
         if (parentResource) {
             Map<String, String> parentProperties = properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-            parentProperties.put("name", properties.get(PARENT_NAME_PROP_NAME));
-            parentProperties.put("action", properties.get(PARENT_ACTION_PROP_NAME));
+            parentProperties.put(NAME_PROP_NAME, properties.get(PARENT_NAME_PROP_NAME));
+            parentProperties.put(ACTION_PROP_NAME, properties.get(PARENT_ACTION_PROP_NAME));
             voteProperties = parentProperties;
         }
         voteProperties.remove(PARENT_NAME_PROP_NAME);
@@ -103,23 +188,23 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
 
         // Parent UUID Getter not used for now, remove later
         if (!parentResource && parentUUIDGetter.isPresent()) {
-                if (objectUUIDs.isEmpty()) {
-                    logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
-                    setDeniedResource(voteProperties.get("name"));
-                    setDeniedResourceAction(voteProperties.get("action"));
-                    return ACCESS_DENIED;
-                } else {
-                    List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
-                            objectUUIDs.stream()
-                                    .map(SecuredUUID::toString).toList());
-                    resource.setParentObjectUUIDs(parentsUUIDs);
-                }
+            if (objectUUIDs.isEmpty()) {
+                logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
+                setDeniedResource(voteProperties.get(NAME_PROP_NAME));
+                setDeniedResourceAction(voteProperties.get(ACTION_PROP_NAME));
+                return ACCESS_DENIED;
+            } else {
+                List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
+                        objectUUIDs.stream()
+                                .map(u -> u.getValue() == null ? "NULL" : u.toString()).toList());
+                resource.setParentObjectUUIDs(parentsUUIDs);
+            }
 
         }
 
         if (!objectUUIDs.isEmpty()) {
             List<String> uuids = objectUUIDs.stream()
-                    .map(SecuredUUID::toString).toList();
+                    .map(u -> u.getValue() == null ? "NULL" : u.toString()).toList();
             resource.setObjectUUIDs(uuids);
         }
 
@@ -135,8 +220,8 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             return ACCESS_GRANTED;
         } else {
             logger.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
-            setDeniedResource(voteProperties.get("name"));
-            setDeniedResourceAction(voteProperties.get("action"));
+            setDeniedResource(voteProperties.get(NAME_PROP_NAME));
+            setDeniedResourceAction(voteProperties.get(ACTION_PROP_NAME));
             return ACCESS_DENIED;
         }
     }
@@ -207,6 +292,11 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                 .forEach(arg -> uuids.addAll(((List<SecuredParentUUID>) arg)));
 
         return uuids;
+    }
+
+    @SuppressWarnings("unchecked")
+    private boolean hasSecurityFilterParam(MethodInvocation methodInvocation) {
+        return Arrays.stream(methodInvocation.getArguments()).anyMatch(arg -> arg instanceof SecurityFilter);
     }
 
     private boolean shouldBeSendToOpa(ExternalAuthorizationConfigAttribute att) {

@@ -13,7 +13,6 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "owner_association")
-@DiscriminatorValue("OWNER")
 public class OwnerAssociation extends ResourceObjectAssociation {
     @Column(name = "owner_uuid")
     private UUID ownerUuid;

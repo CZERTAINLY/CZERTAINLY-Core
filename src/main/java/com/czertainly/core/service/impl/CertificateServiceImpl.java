@@ -42,6 +42,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
@@ -198,7 +199,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
@@ -249,17 +250,20 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException {
         Certificate entity = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        if (entity.getRaProfileUuid() != null) {
-            raProfileService.getRaProfile(SecuredUUID.fromUUID(entity.getRaProfileUuid()));
-        } else {
-            if (!raProfileService.evaluateNullableRaPermissions(SecurityFilter.create())) {
-                AuthenticationServiceExceptionDto dto = new AuthenticationServiceExceptionDto();
-                dto.setStatusCode(403);
-                dto.setCode("ACCESS_DENIED");
-                dto.setMessage("Access Denied. Certificate does not have any RA Profile association. Required 'Detail' permission for all 'Ra Profiles'");
-                throw new AuthenticationServiceException(dto);
-            }
-        }
+//        if (entity.getRaProfileUuid() != null) {
+            raProfileService.evaluateCertificateRaProfilePermissions(uuid, SecuredParentUUID.fromUUID(entity.getRaProfileUuid()));
+//        } else { }
+//        if (entity.getRaProfileUuid() != null) {
+//            raProfileService.getRaProfile(SecuredUUID.fromUUID(entity.getRaProfileUuid()));
+//        } else {
+//            if (!raProfileService.evaluateNullableRaPermissions(SecurityFilter.create())) {
+//                AuthenticationServiceExceptionDto dto = new AuthenticationServiceExceptionDto();
+//                dto.setStatusCode(403);
+//                dto.setCode("ACCESS_DENIED");
+//                dto.setMessage("Access Denied. Certificate does not have any RA Profile association. Required 'Detail' permission for all 'Ra Profiles'");
+//                throw new AuthenticationServiceException(dto);
+//            }
+//        }
         return entity;
     }
 
