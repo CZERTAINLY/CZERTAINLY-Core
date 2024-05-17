@@ -11,6 +11,8 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
+import com.czertainly.core.service.cmp.CmpEntityUtil;
+import com.czertainly.core.service.cmp.CmpTestUtil;
 import com.czertainly.core.service.cmp.configurations.variants.CmpConfigurationContext;
 import com.czertainly.core.service.cmp.configurations.variants.Mobile3gppProfileContext;
 import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
