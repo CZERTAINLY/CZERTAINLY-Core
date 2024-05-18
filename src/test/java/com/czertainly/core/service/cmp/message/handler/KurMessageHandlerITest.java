@@ -231,7 +231,6 @@ public class KurMessageHandlerITest extends BaseSpringBootTest {
         );
     }
 
-
     //@Test
     public void test_handle_kur_3gpp_mac_protection() throws Exception {
         // -- WHEN --
