@@ -25,6 +25,7 @@ import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIConfirmContent;
+import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.junit.jupiter.api.Assertions;
@@ -157,6 +158,7 @@ public class CertConfirmMessageHandlerTest {
         // -- THEN
         CmpProcessingException response = assertThrows(
                 CmpProcessingException.class, () -> tested.handle(request, configuration));
+        assertEquals(PKIFailureInfo.badCertId, response.getFailureInfo());
         assertEquals(response.getImplFailureInfo(), ImplFailureInfo.CMPHANCERTCONF001);
     }
 
@@ -180,6 +182,7 @@ public class CertConfirmMessageHandlerTest {
         // -- THEN
         CmpProcessingException response = assertThrows(
                 CmpProcessingException.class, () -> tested.handle(request, configuration));
+        assertEquals(PKIFailureInfo.badRequest, response.getFailureInfo());
         assertEquals(response.getImplFailureInfo(), ImplFailureInfo.CMPHANCERTCONF002);
     }
 
