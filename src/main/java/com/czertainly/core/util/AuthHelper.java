@@ -84,7 +84,7 @@ public class AuthHelper {
         }
     }
 
-    public static NameAndUuidDto getUserIdentification() {
+    public static NameAndUuidDto getUserIdentification() throws ValidationException {
         try {
             CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             return new NameAndUuidDto(userDetails.getUserUuid(), userDetails.getUsername());
@@ -120,7 +120,8 @@ public class AuthHelper {
         OpaObjectAccessResult result = opaClient.checkObjectAccess(OpaPolicy.OBJECTS.policyName, resourceProps, czertainlyAuthenticationToken.getPrincipal().getRawData(), new OpaRequestDetails(null));
 
         SecurityResourceFilter resourceFilter = SecurityResourceFilter.create();
-        resourceFilter.setResource(resource.getCode());
+        resourceFilter.setResource(resource);
+        resourceFilter.setResourceAction(resourceAction);
         resourceFilter.addAllowedObjects(result.getAllowedObjects());
         resourceFilter.addDeniedObjects(result.getForbiddenObjects());
         resourceFilter.setAreOnlySpecificObjectsAllowed(!result.isActionAllowedForGroupOfObjects());

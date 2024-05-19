@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventHistoryDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.util.converter.KeyRequestTypeConverter;
@@ -58,7 +59,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     public KeyDetailDto getKey(String tokenInstanceUuid, String uuid) throws NotFoundException {
         return cryptographicKeyService.getKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
-                uuid
+                SecuredUUID.fromString(uuid)
         );
     }
 
@@ -70,7 +71,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     ) throws NotFoundException {
         return cryptographicKeyService.getKeyItem(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
-                uuid,
+                SecuredUUID.fromString(uuid),
                 keyItemUuid
         );
     }
@@ -89,7 +90,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     public KeyDetailDto editKey(String tokenInstanceUuid, String uuid, EditKeyRequestDto request) throws ConnectorException, AttributeException {
         return cryptographicKeyService.editKey(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
-                UUID.fromString(uuid),
+                SecuredUUID.fromString(uuid),
                 request
         );
     }
