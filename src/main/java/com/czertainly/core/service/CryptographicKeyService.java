@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
@@ -52,7 +53,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @throws NotFoundException  when the token profile or key is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, String uuid) throws NotFoundException;
+    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Get the detail of the key item
@@ -62,7 +63,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return Key Item detail
      * @throws NotFoundException when the key or token instance is not found
      */
-    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws  NotFoundException;
+    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, String keyItemUuid) throws  NotFoundException;
 
     /**
      * @param request           DTO containing the information for creating a new key
@@ -89,7 +90,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      */
     KeyDetailDto editKey(
             SecuredParentUUID tokenInstanceUuid,
-            UUID uuid,
+            SecuredUUID uuid,
             EditKeyRequestDto request
     ) throws NotFoundException, AttributeException;
 
