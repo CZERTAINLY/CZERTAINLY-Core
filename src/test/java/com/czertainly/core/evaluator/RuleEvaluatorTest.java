@@ -27,19 +27,26 @@ import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class RuleEvaluatorTest extends BaseSpringBootTest {
+
+    @DynamicPropertySource
+    static void authServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+    }
+
     @Autowired
     private RuleEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
 
@@ -81,9 +88,6 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
     private RuleTrigger trigger;
     private RuleAction action;
-
-    @Autowired
-    private OwnerAssociationRepository ownerAssociationRepository;
 
     private WireMockServer mockServer;
 
