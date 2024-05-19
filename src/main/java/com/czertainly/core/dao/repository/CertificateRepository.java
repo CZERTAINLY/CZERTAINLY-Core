@@ -3,10 +3,10 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,6 +20,7 @@ import java.util.UUID;
 @Repository
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
+    @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
 
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
