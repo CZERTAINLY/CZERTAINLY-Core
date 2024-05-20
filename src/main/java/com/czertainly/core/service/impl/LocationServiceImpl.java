@@ -788,8 +788,7 @@ public class LocationServiceImpl implements LocationService {
             }
             clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
         } catch (NotFoundException | java.security.cert.CertificateException | CertificateOperationException |
-                 InvalidKeyException | IOException |
-                 NoSuchAlgorithmException e) {
+                 InvalidKeyException | IOException | NoSuchAlgorithmException | CertificateRequestException e) {
             logger.debug("Failed to issue Certificate for Location {}, {}: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());
         }

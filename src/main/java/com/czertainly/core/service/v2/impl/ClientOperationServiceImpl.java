@@ -44,7 +44,6 @@ import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import jakarta.transaction.Transactional;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -199,13 +198,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException {
+    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException, CertificateRequestException {
+        // create certificate request from CSR and parse the data
+        CertificateRequest certificateRequest = CertificateRequestUtils.createCertificateRequest(
+                request.getRequest(), request.getFormat());
+
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
         certificateRequestDto.setCsrAttributes(request.getCsrAttributes());
         certificateRequestDto.setSignatureAttributes(request.getSignatureAttributes());
-        certificateRequestDto.setRequest(request.getRequest());
-        certificateRequestDto.setFormat(request.getFormat());
+        certificateRequestDto.setRequest(Base64.getEncoder().encodeToString(certificateRequest.getEncoded()));
+        certificateRequestDto.setFormat(certificateRequest.getFormat());
         certificateRequestDto.setTokenProfileUuid(request.getTokenProfileUuid());
         certificateRequestDto.setKeyUuid(request.getKeyUuid());
         certificateRequestDto.setIssueAttributes(request.getAttributes());
@@ -361,8 +364,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateRequest certificateRequest;
         if (request.getRequest() != null) {
             // create certificate request from CSR and parse the data
-            byte[] decodedCsr = Base64.getDecoder().decode(request.getRequest());
-            certificateRequest = CertificateRequestUtils.createCertificateRequest(decodedCsr, request.getFormat());
+            certificateRequest = CertificateRequestUtils.createCertificateRequest(request.getRequest(), request.getFormat());
             validatePublicKeyForCsrAndCertificate(oldCertificate.getCertificateContent().getContent(), certificateRequest, true);
         } else {
             // Check if the request is for using the existing CSR
@@ -505,8 +507,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         if (request.getRequest() != null) {
             // create certificate request from CSR and parse the data
-            byte[] decodedCsr = Base64.getDecoder().decode(request.getRequest());
-            CertificateRequest certificateRequest = CertificateRequestUtils.createCertificateRequest(decodedCsr, request.getFormat());
+            CertificateRequest certificateRequest = CertificateRequestUtils.createCertificateRequest(request.getRequest(), request.getFormat());
 
             String certificateContent = oldCertificate.getCertificateContent().getContent();
             validatePublicKeyForCsrAndCertificate(certificateContent, certificateRequest, false);
@@ -783,25 +784,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     /**
-     * Function to parse the CSR from string to BC JCA objects
-     *
-     * @param pkcs10 Base64 encoded csr string
-     * @return Jca object
-     * @throws IOException failed to create CSR object
-     */
-    private JcaPKCS10CertificationRequest parseCsrToJcaObject(String pkcs10) throws IOException {
-        JcaPKCS10CertificationRequest csr;
-        try {
-            csr = CertificateRequestUtils.csrStringToJcaObject(pkcs10);
-        } catch (IOException e) {
-            logger.debug("Failed to parse CSR, will decode and try again...");
-            String decodedPkcs10 = new String(Base64.getDecoder().decode(pkcs10));
-            csr = CertificateRequestUtils.csrStringToJcaObject(decodedPkcs10);
-        }
-        return csr;
-    }
-
-    /**
      * Check and get the CSR from the existing certificate
      *
      * @param certificate Old certificate
@@ -975,6 +957,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
             // validate and update definitions of certificate request attributes with attribute engine
             attributeEngine.validateUpdateDataAttributes(null, null, definitions, csrAttributes);
+            // TODO: return CertificateRequest object instead of Base64 encoded CSR
             csr = generateBase64EncodedCsr(
                     keyUUid,
                     tokenProfileUuid,
@@ -987,8 +970,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             if (csrFormat == CertificateRequestFormat.CRMF) {
                 return csr;
             }
-            requestB64 = Base64.getEncoder().encodeToString(parseCsrToJcaObject(csr).getEncoded());
-        } catch (IOException e) {
+            // TODO: replace with CertificateRequest object eventually
+            requestB64 = Base64.getEncoder().encodeToString(
+                    (CertificateRequestUtils.createCertificateRequest(csr, CertificateRequestFormat.PKCS10)).getEncoded());
+        } catch (CertificateRequestException e) {
             logger.debug("Failed to parse CSR", e);
             throw new CertificateException(e);
         }
