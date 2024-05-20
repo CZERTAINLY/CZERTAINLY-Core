@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.core.rules.RuleTriggerHistoryRecordDto;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,4 +24,12 @@ public class RuleTriggerHistoryRecord extends UniquelyIdentified {
 
     @Column(name = "message")
     private String message;
+
+    public RuleTriggerHistoryRecordDto mapToDto() {
+        RuleTriggerHistoryRecordDto triggerHistoryRecordDto = new RuleTriggerHistoryRecordDto();
+        triggerHistoryRecordDto.setMessage(message);
+        if (ruleActionUuid != null) triggerHistoryRecordDto.setRuleActionUuid(String.valueOf(ruleActionUuid));
+        if (ruleConditionUuid != null) triggerHistoryRecordDto.setRuleConditionUuid(String.valueOf(ruleConditionUuid));
+        return triggerHistoryRecordDto;
+    }
 }

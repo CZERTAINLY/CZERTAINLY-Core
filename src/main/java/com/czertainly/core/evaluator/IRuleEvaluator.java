@@ -7,7 +7,9 @@ import com.czertainly.core.dao.entity.RuleCondition;
 import com.czertainly.core.dao.entity.RuleTrigger;
 import com.czertainly.core.dao.entity.RuleTriggerHistory;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public interface IRuleEvaluator<T> {
 
@@ -39,8 +41,8 @@ public interface IRuleEvaluator<T> {
     /**
      * Method to perform Actions and Action Groups in a Trigger on an Object
      *
-     * @param trigger       Trigger
-     * @param object        Object to perform Actions in Trigger on
+     * @param trigger        Trigger
+     * @param object         Object to perform Actions in Trigger on
      * @param triggerHistory Trigger History to fill action results records for
      */
     public void performRuleActions(RuleTrigger trigger, T object, RuleTriggerHistory triggerHistory);

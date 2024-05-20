@@ -4,8 +4,12 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.rules.*;
 import com.czertainly.core.dao.entity.RuleTrigger;
+import com.czertainly.core.dao.entity.RuleTriggerHistory;
+import com.czertainly.core.dao.entity.RuleTriggerHistoryRecord;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
 public interface RuleService {
 
@@ -34,4 +38,7 @@ public interface RuleService {
     RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateRuleTriggerRequestDto request) throws NotFoundException;
     void deleteTrigger(String triggerUuid) throws NotFoundException;
 
+    List<RuleTriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid);
+    RuleTriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationUuid, UUID objectUuid, UUID referenceObjectUuid);
+    RuleTriggerHistoryRecord createRuleTriggerHistoryRecord(RuleTriggerHistory triggerHistory, UUID actionUuid, UUID conditionUuid, String message);
 }
