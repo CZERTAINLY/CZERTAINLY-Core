@@ -42,7 +42,7 @@ public interface ClientOperationService {
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             ClientCertificateSignRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
+    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void approvalCreatedAction(final UUID certificateUuid) throws NotFoundException;
 
