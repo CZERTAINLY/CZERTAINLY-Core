@@ -454,7 +454,7 @@ public class ScepServiceImpl implements ScepService {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
-        } catch (IOException | CertificateRequestException e) {
+        } catch (IOException e) {
             throw new ScepException("Unable to issue certificate. Error parsing CSR.", e, FailInfo.BAD_REQUEST);
         } catch (InvalidKeyException e) {
             throw new ScepException("Unable to issue certificate. Invalid key", e, FailInfo.BAD_REQUEST);

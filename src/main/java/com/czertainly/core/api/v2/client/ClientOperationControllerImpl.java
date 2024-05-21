@@ -50,7 +50,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
             String raProfileUuid,
-            ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException {
+            ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException {
         return clientOperationService.issueCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
