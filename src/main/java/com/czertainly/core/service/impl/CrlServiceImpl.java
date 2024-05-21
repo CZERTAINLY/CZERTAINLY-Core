@@ -168,6 +168,11 @@ public class CrlServiceImpl implements CrlService {
         return crlEntryRepository.findById(crlEntryId).orElse(null);
     }
 
+    @Override
+    public List<Crl> findCrlsForCaCertificate(UUID caCertificateUuid) {
+        return crlRepository.findByCaCertificateUuid(caCertificateUuid);
+    }
+
     private void updateDeltaCrl(Crl crl, X509CRL deltaCrl) throws IOException {
         ASN1Primitive encodedCrlNumber = JcaX509ExtensionUtils.parseExtensionValue(deltaCrl.getExtensionValue(Extension.cRLNumber.getId()));
         // If delta CRL number has been set, check if delta CRL number is greater than one in DB entity, if it is, process delta CRL entries
