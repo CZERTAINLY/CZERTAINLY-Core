@@ -971,28 +971,32 @@ public class CertificateServiceImpl implements CertificateService {
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
         // process 1/24 of eligible certificates for status update
-        final List<Certificate> certificates = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, PageRequest.of(0, maxCertsToValidate));
+        final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, PageRequest.of(0, maxCertsToValidate));
 
         int certificatesUpdated = 0;
-        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificates.size(), totalCertificates);
-        for (final Certificate certificate : certificates) {
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);
+        for (final UUID certificateUuid : certificateUuids) {
+            Certificate certificate = null;
             TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
             try {
+                certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 validate(certificate);
                 if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == ComplianceStatus.NOT_CHECKED) {
                     complianceService.checkComplianceOfCertificate(certificate);
                 }
 
                 transactionManager.commit(status);
+                ++certificatesUpdated;
+            } catch (NotFoundException e) {
+                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Error: {}", e.getMessage(), e);
+                transactionManager.rollback(status);
             } catch (Exception e) {
                 logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
                 transactionManager.rollback(status);
-                continue;
             }
 
-            ++certificatesUpdated;
         }
-        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificates.size());
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificateUuids.size());
         return certificatesUpdated;
     }
 
