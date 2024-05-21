@@ -262,21 +262,26 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public void createDiscovery(DiscoveryHistory modal) {
-        logger.info("Starting creating discovery {}", modal.getName());
+        logger.info("Starting discovery: name={}, uuid={}", modal.getName(), modal.getUuid());
         try {
             DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
             dtoRequest.setName(modal.getName());
             dtoRequest.setKind(modal.getKind());
 
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(modal.getConnectorUuid().toString()));
+            Connector connector = connectorService.getConnectorEntity(
+                    SecuredUUID.fromString(modal.getConnectorUuid().toString()));
 
             // TODO: necessary to load full credentials this way?
             // Load complete credential data
-            var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid());
+            var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
+                    AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid());
             credentialService.loadFullCredentialData(dataAttributes);
             dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
 
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
+
+            logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
+                    modal.getName(), modal.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
             modal.setDiscoveryConnectorReference(response.getUuid());
             discoveryRepository.save(modal);
@@ -294,17 +299,24 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (modal.getDiscoveryConnectorReference() == null) {
                     return;
                 }
-                logger.debug("Waiting {}ms.", SLEEP_TIME);
+                logger.debug("Waiting {}ms for discovery to be completed: name={}, uuid={}",
+                        SLEEP_TIME, modal.getName(), modal.getUuid());
                 Thread.sleep(SLEEP_TIME);
 
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+
+                logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
+                        modal.getName(), modal.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
                 if ((modal.getStartTime().getTime() - new Date().getTime()) / 1000 > MAXIMUM_WAIT_TIME
                         && !isReachedMaxTime && oldCertificateCount == response.getTotalCertificatesDiscovered()) {
                     isReachedMaxTime = true;
                     modal.setStatus(DiscoveryStatus.WARNING);
                     modal.setMessage(
-                            "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
+                            "Discovery " + modal.getName() + " exceeded maximum time of "
+                                    + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number " +
+                                    "of certificates discovered. Please abort the discovery if the provider " +
+                                    "is stuck in state " + DiscoveryStatus.IN_PROGRESS.getLabel());
                     discoveryRepository.save(modal);
                 }
 
@@ -321,7 +333,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
 
                 if (response.getCertificateData().isEmpty()) {
-                    modal.setMessage(String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
+                    modal.setMessage(String.format("Retrieved only %d certificates but provider discovered %d " +
+                            "certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
                     break;
                 }
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
@@ -340,7 +353,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             updateDiscovery(modal, response);
             updateCertificates(certificatesDiscovered, modal);
 
-            eventProducer.produceDiscoveryFinishedEventMessage(modal.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), ResourceEvent.DISCOVERY_FINISHED);
+            eventProducer.produceDiscoveryFinishedEventMessage(
+                    modal.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), ResourceEvent.DISCOVERY_FINISHED);
 
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
