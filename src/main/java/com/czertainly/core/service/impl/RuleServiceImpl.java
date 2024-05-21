@@ -441,13 +441,15 @@ public class RuleServiceImpl implements RuleService {
         trigger.setRules(rules);
         trigger.setActions(actions);
         trigger.setTriggerType(request.getTriggerType());
-        trigger.setEventName(request.getEventName());
         trigger.setDescription(request.getDescription());
         if (request.getResource() != null) {
             trigger.setResource(request.getResource());
         }
         if (request.getTriggerResource() != null) {
             trigger.setTriggerResource(request.getTriggerResource());
+        }
+        if (request.getEventName() != null) {
+            trigger.setEventName(request.getEventName());
         }
 
         triggerRepository.save(trigger);

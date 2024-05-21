@@ -204,7 +204,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             } catch (Exception e) {
                 logger.error(e.getMessage(), e);
             }
-            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {
+            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null && discoveryCertificateRepository.findByCertificateContent(cert.getCertificateContent()).isEmpty()) {
                 CertificateContent content = certificateContentRepository.findById(cert.getCertificateContent().getId())
                         .orElse(null);
                 if (content != null) {
@@ -220,8 +220,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
-            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             discoveryRepository.delete(discovery);
+            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);

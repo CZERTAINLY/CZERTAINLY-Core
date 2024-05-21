@@ -163,4 +163,9 @@ public class GroupServiceImpl implements GroupService {
     private Group getGroupEntity(SecuredUUID uuid) throws NotFoundException {
         return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Group.class, uuid));
     }
+
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS)
+    public void groupMembersDummyMethod() {
+        // Method is used just to sync MEMBERS resource action for GROUP resource with Auth service
+    }
 }

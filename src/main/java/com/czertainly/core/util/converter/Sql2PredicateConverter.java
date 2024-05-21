@@ -95,7 +95,7 @@ public class Sql2PredicateConverter {
             }
         }
 
-        if (expressionValue == null) {
+        if (expressionValue == null && dto.getValue() != null) {
             expressionValue = dto.getValue().toString();
         }
 
@@ -162,17 +162,7 @@ public class Sql2PredicateConverter {
             final String mainPropertyString = searchableFields.getCode().substring(0, indexOfDot);
             final Expression mainExpression = prepareExpression(root, mainPropertyString);
 
-//            if(searchableFields == SearchableFields.OWNER || searchableFields == SearchableFields.CK_OWNER) {
-////                return criteriaBuilder.and(criteriaBuilder.isEmpty(mainExpression), criteriaBuilder.equal(mainExpression.get("type"), AssociationType.OWNER));
-////                return criteriaBuilder.and(criteriaBuilder.isEmpty(mainExpression), criteriaBuilder.equal(mainExpression.type(), criteriaBuilder.literal(OwnerAssociation.class)));
-////                return criteriaBuilder.isEmpty(criteriaBuilder.treat(mainExpression, OwnerAssociation.class));
-////                return criteriaBuilder.isNull(criteriaBuilder.treat(mainExpression, OwnerAssociation.class));
-//                return criteriaBuilder.equal(criteriaBuilder.size(mainExpression), criteriaBuilder.literal(0));
-//            }
-
             return mainExpression instanceof SqmPluralValuedSimplePath<?> ? criteriaBuilder.equal(criteriaBuilder.size(mainExpression), criteriaBuilder.literal(0)) : criteriaBuilder.isNull(mainExpression);
-//            return mainExpression instanceof SqmPluralValuedSimplePath<?> ? criteriaBuilder.isEmpty(mainExpression) : criteriaBuilder.isNull(mainExpression);
-//            return criteriaBuilder.isNull(mainExpression);
         } else {
             return criteriaBuilder.isNull(expression);
         }
@@ -237,16 +227,16 @@ public class Sql2PredicateConverter {
         return dto.getCondition();
     }
 
-    private static Expression<?> prepareExpression(final Root root, final String code) {
-        final StringTokenizer stz = new StringTokenizer(code, ".");
-        Path path = root.get(stz.nextToken());
+    public static Expression<?> prepareExpression(final From from, final String attributeName) {
+        final StringTokenizer stz = new StringTokenizer(attributeName, ".");
+        Path path = from.get(stz.nextToken());
         while (stz.hasMoreTokens()) {
             path = path.get(stz.nextToken());
         }
         return path;
     }
 
-    private static Join prepareJoin(final Root root, final String joinPath) {
+    public static Join prepareJoin(final Root root, final String joinPath) {
         final StringTokenizer stz = new StringTokenizer(joinPath, ".");
         Join join = root.join(stz.nextToken(), JoinType.LEFT);
         while (stz.hasMoreTokens()) {
@@ -265,7 +255,7 @@ public class Sql2PredicateConverter {
             }
             return findEnumByCustomValue(valueObject, searchableFields);
         }
-        return valueObject.toString();
+        return valueObject == null ? null : valueObject.toString();
     }
 
     private static Object findEnumByCustomValue(Object valueObject, final SearchableFields searchableFields) {

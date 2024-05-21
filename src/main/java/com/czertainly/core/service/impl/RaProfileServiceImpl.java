@@ -8,7 +8,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.authority.CaCertificatesRequestDto;
 import com.czertainly.api.model.connector.authority.CaCertificatesResponseDto;
@@ -400,9 +399,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
-    public boolean evaluateNullableRaPermissions(SecurityFilter filter) {
-        return !filter.getResourceFilter().areOnlySpecificObjectsAllowed();
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
+    public void evaluateCertificateRaProfilePermissions(SecuredUUID certificateUuid, SecuredParentUUID raProfileUuid) {
     }
 
     @Override
