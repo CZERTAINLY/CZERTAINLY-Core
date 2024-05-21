@@ -21,12 +21,16 @@ public class CrmfCertificateRequest implements CertificateRequest {
     @Getter
     private final JcaCertificateRequestMessage certificateRequestMessage;
 
-    public CrmfCertificateRequest(byte[] request) {
+    public CrmfCertificateRequest(byte[] request) throws CertificateRequestException {
         this.encoded = request;
-        CertReqMessages certReqMessages = CertReqMessages.getInstance(request);
-        // we take only the first request
-        // TODO: support multiple requests
-        this.certificateRequestMessage = new JcaCertificateRequestMessage(certReqMessages.toCertReqMsgArray()[0]);
+        try {
+            CertReqMessages certReqMessages = CertReqMessages.getInstance(request);
+            // we take only the first request
+            // TODO: support multiple requests
+            this.certificateRequestMessage = new JcaCertificateRequestMessage(certReqMessages.toCertReqMsgArray()[0]);
+        } catch (Exception e) {
+            throw new CertificateRequestException("Cannot process CRMF request", e);
+        }
     }
 
     @Override
