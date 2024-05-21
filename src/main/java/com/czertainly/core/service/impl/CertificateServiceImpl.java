@@ -166,6 +166,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     private UserManagementApiClient userManagementApiClient;
 
+
     private AttributeEngine attributeEngine;
 
     private ExtendedAttributeService extendedAttributeService;
@@ -176,6 +177,13 @@ public class CertificateServiceImpl implements CertificateService {
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
      */
     private Map<String, ICertificateValidator> certificateValidatorMap;
+
+    private CrlService crlService;
+
+    @Autowired
+    public void setCrlService(CrlService crlService) {
+        this.crlService = crlService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -307,6 +315,9 @@ public class CertificateServiceImpl implements CertificateService {
         } catch (ConnectorException e) {
             logger.error("Failed to remove Certificate {} from Locations.", uuid);
         }
+
+        // If there is some CRL for this certificate, set its CA certificate UUID to null
+        for (Crl crl : crlService.findCrlsForCaCertificate(uuid.getValue())) crl.setCaCertificateUuid(null);
 
         CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null) : null;
         certificateRepository.delete(certificate);
