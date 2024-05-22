@@ -89,7 +89,8 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUuid(acmeProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttribute.class)));
         dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttribute.class)));
-        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
+        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
         return dto;
     }
@@ -102,7 +103,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setScepAvailable(true);
         dto.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
+                + ScepServiceImpl.SCEP_URL_PREFIX + "/raProfile/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));
