@@ -23,6 +23,9 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
 
+    @EntityGraph(attributePaths = {"certificateContent", "groups", "owner"})
+    Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
+
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
 
     Certificate findByCertificateContent(CertificateContent certificateContent);
@@ -60,14 +63,13 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT COUNT(*) FROM Certificate c WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses")
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses);
 
-    @Query("SELECT c, cc.content FROM Certificate c " +
-            "JOIN CertificateContent cc ON cc.id = c.certificateContentId " +
+    @Query("SELECT c.uuid FROM Certificate c " +
             "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
             "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
             "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
-    List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
-                                                    @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
-                                                    Pageable pageable);
+    List<UUID> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
+                                             @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
+                                             Pageable pageable);
 
     List<Certificate> findByComplianceResultContaining(String ruleUuid);
 
