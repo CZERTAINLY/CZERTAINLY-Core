@@ -20,6 +20,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.service.RuleService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
@@ -42,6 +43,11 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
     private AttributeEngine attributeEngine;
+    private RuleService ruleService;
+    @Autowired
+    public void setRuleService(RuleService ruleService) {
+        this.ruleService = ruleService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -49,7 +55,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(List<Rule> rules, T object) throws RuleException {
+    public boolean evaluateRules(List<Rule> rules, T object, RuleTriggerHistory triggerHistory)  {
         // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
@@ -62,9 +68,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             ruleEvaluated = true;
             if (rule.getConditions() != null) {
                 for (RuleCondition condition : rule.getConditions()) {
-                    if (!evaluateCondition(condition, object, rule.getResource())) {
-                        logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                    try {
+                        if (!evaluateCondition(condition, object, rule.getResource())) {
+                            logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
+                                    rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                            return false;
+                        }
+                    } catch (RuleException e) {
+                        RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
+                        triggerHistory.getRecords().add(triggerHistoryRecord);
                         return false;
                     }
                 }
@@ -73,9 +85,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             if (rule.getConditionGroups() != null) {
                 for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
                     for (RuleCondition condition : conditionGroup.getConditions()) {
-                        if (!evaluateCondition(condition, object, rule.getResource())) {
-                            logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                    rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                        try {
+                            if (!evaluateCondition(condition, object, rule.getResource())) {
+                                logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
+                                        rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                                return false;
+                            }
+                        } catch (RuleException e) {
+                            RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
+                            triggerHistory.getRecords().add(triggerHistoryRecord);
                             return false;
                         }
                     }
@@ -94,7 +112,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     @Override
     public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
         for (T object : listOfObjects) {
-            if (!evaluateRules(rules, object)) {
+            if (!evaluateRules(rules, object, null)) {
                 logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
                 return false;
             }
@@ -200,7 +218,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public void performRuleActions(RuleTrigger trigger, T object) {
+    public void performRuleActions(RuleTrigger trigger, T object, RuleTriggerHistory triggerHistory) {
         if (!ResourceToClass.getClassByResource(trigger.getResource()).isInstance(object)) {
             logger.debug("Trigger '{}' cannot be executed due to incompatible resource.", trigger.getName());
             return;
@@ -210,8 +228,11 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 try {
                     performAction(action, object, trigger.getResource());
                     logger.debug("Action with UUID {} has been performed.", action.getUuid());
+
                 } catch (Exception e) {
-                    logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
+                    logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
+                    RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
+                    triggerHistory.getRecords().add(triggerHistoryRecord);
                 }
             }
         }
@@ -222,12 +243,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                         performAction(action, object, trigger.getResource());
                         logger.debug("Action with UUID {} has been performed.", action.getUuid());
                     } catch (Exception e) {
-                        logger.debug("Action with UUID {} has not been performed, reason: {}", action.getUuid(), e.getMessage());
+                        logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
+                        RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
+                        triggerHistory.getRecords().add(triggerHistoryRecord);
                     }
                 }
             }
         }
     }
+
 
     public void performAction(RuleAction action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
         RuleActionType actionType = action.getActionType();

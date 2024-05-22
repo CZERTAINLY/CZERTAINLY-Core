@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Service
@@ -34,6 +35,20 @@ public class RuleServiceImpl implements RuleService {
     private RuleActionRepository actionRepository;
 
     private RuleTriggerRepository triggerRepository;
+
+    private RuleTriggerHistoryRepository triggerHistoryRepository;
+
+    private RuleTriggerHistoryRecordRepository triggerHistoryRecordRepository;
+
+    @Autowired
+    public void setTriggerHistoryRecordRepository(RuleTriggerHistoryRecordRepository triggerHistoryRecordRepository) {
+        this.triggerHistoryRecordRepository = triggerHistoryRecordRepository;
+    }
+
+    @Autowired
+    public void setTriggerHistoryRepository(RuleTriggerHistoryRepository triggerHistoryRepository) {
+        this.triggerHistoryRepository = triggerHistoryRepository;
+    }
 
 
     @Autowired
@@ -444,6 +459,35 @@ public class RuleServiceImpl implements RuleService {
     @Override
     public void deleteTrigger(String triggerUuid) throws NotFoundException {
         triggerRepository.delete(getRuleTriggerEntity(triggerUuid));
+    }
+
+    @Override
+    public List<RuleTriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid) {
+        List<RuleTriggerHistory> triggerHistories = triggerHistoryRepository.findAllByTriggerUuidAndTriggerAssociationUuid(UUID.fromString(triggerUuid), UUID.fromString(triggerObjectUuid));
+        return triggerHistories.stream().map(RuleTriggerHistory::mapToDto).toList();
+    }
+
+    @Override
+    public RuleTriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationUuid, UUID objectUuid, UUID referenceObjectUuid) {
+        RuleTriggerHistory triggerHistory = new RuleTriggerHistory();
+        triggerHistory.setTriggeredAt(triggeredAt);
+        triggerHistory.setReferenceObjectUuid(referenceObjectUuid);
+        triggerHistory.setTriggerUuid(triggerUuid);
+        triggerHistory.setTriggerAssociationUuid(triggerAssociationUuid);
+        triggerHistory.setObjectUuid(objectUuid);
+        triggerHistoryRepository.save(triggerHistory);
+        return triggerHistory;
+    }
+
+    @Override
+    public RuleTriggerHistoryRecord createRuleTriggerHistoryRecord(RuleTriggerHistory triggerHistory, UUID actionUuid, UUID conditionUuid, String message) {
+        RuleTriggerHistoryRecord triggerHistoryRecord = new RuleTriggerHistoryRecord();
+        triggerHistoryRecord.setTriggerHistory(triggerHistory);
+        triggerHistoryRecord.setRuleActionUuid(actionUuid);
+        triggerHistoryRecord.setRuleConditionUuid(conditionUuid);
+        triggerHistoryRecord.setMessage(message);
+        triggerHistoryRecordRepository.save(triggerHistoryRecord);
+        return triggerHistoryRecord;
     }
 
 
