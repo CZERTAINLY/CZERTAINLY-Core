@@ -19,8 +19,16 @@ public class RuleTriggerHistoryRecord extends UniquelyIdentified {
     @Column(name = "rule_condition_uuid")
     private UUID ruleConditionUuid;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rule_condition_uuid", insertable = false, updatable = false)
+    private RuleCondition condition;
+
     @Column(name = "rule_action_uuid")
     private UUID ruleActionUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "rule_action_uuid", insertable = false, updatable = false)
+    private RuleAction action;
 
     @Column(name = "message")
     private String message;
@@ -28,8 +36,8 @@ public class RuleTriggerHistoryRecord extends UniquelyIdentified {
     public RuleTriggerHistoryRecordDto mapToDto() {
         RuleTriggerHistoryRecordDto triggerHistoryRecordDto = new RuleTriggerHistoryRecordDto();
         triggerHistoryRecordDto.setMessage(message);
-        if (ruleActionUuid != null) triggerHistoryRecordDto.setRuleActionUuid(String.valueOf(ruleActionUuid));
-        if (ruleConditionUuid != null) triggerHistoryRecordDto.setRuleConditionUuid(String.valueOf(ruleConditionUuid));
+        if (ruleActionUuid != null) triggerHistoryRecordDto.setAction(action.mapToDto());
+        if (ruleConditionUuid != null) triggerHistoryRecordDto.setCondition(condition.mapToDto());
         return triggerHistoryRecordDto;
     }
 }

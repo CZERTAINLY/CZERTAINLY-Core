@@ -18,8 +18,6 @@ import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.RuleTriggerHistoryRecordRepository;
-import com.czertainly.core.dao.repository.RuleTriggerHistoryRepository;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.service.RuleService;
@@ -78,7 +76,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                         }
                     } catch (RuleException e) {
                         RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
-                        triggerHistory.getTriggerHistoryRecordList().add(triggerHistoryRecord);
+                        triggerHistory.getRecords().add(triggerHistoryRecord);
                         return false;
                     }
                 }
@@ -95,7 +93,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                             }
                         } catch (RuleException e) {
                             RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
-                            triggerHistory.getTriggerHistoryRecordList().add(triggerHistoryRecord);
+                            triggerHistory.getRecords().add(triggerHistoryRecord);
                             return false;
                         }
                     }
@@ -234,7 +232,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 } catch (Exception e) {
                     logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
                     RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
-                    triggerHistory.getTriggerHistoryRecordList().add(triggerHistoryRecord);
+                    triggerHistory.getRecords().add(triggerHistoryRecord);
                 }
             }
         }
@@ -247,7 +245,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     } catch (Exception e) {
                         logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
                         RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
-                        triggerHistory.getTriggerHistoryRecordList().add(triggerHistoryRecord);
+                        triggerHistory.getRecords().add(triggerHistoryRecord);
                     }
                 }
             }

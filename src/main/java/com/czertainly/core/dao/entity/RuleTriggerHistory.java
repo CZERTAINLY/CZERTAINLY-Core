@@ -40,7 +40,7 @@ public class RuleTriggerHistory extends UniquelyIdentified {
     private String message;
 
     @OneToMany(mappedBy = "triggerHistory", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
-    private List<RuleTriggerHistoryRecord> triggerHistoryRecordList = new ArrayList<>();
+    private List<RuleTriggerHistoryRecord> records = new ArrayList<>();
 
     public RuleTriggerHistoryDto mapToDto() {
         RuleTriggerHistoryDto triggerHistoryDto = new RuleTriggerHistoryDto();
@@ -51,7 +51,7 @@ public class RuleTriggerHistory extends UniquelyIdentified {
         if (referenceObjectUuid != null) triggerHistoryDto.setReferenceObjectUuid(String.valueOf(referenceObjectUuid));
         triggerHistoryDto.setTriggeredAt(triggeredAt);
         triggerHistoryDto.setMessage(message);
-        triggerHistoryDto.setTriggerHistoryRecordList(triggerHistoryRecordList.stream().map(RuleTriggerHistoryRecord::mapToDto).toList());
+        triggerHistoryDto.setRecords(records.stream().map(RuleTriggerHistoryRecord::mapToDto).toList());
         return triggerHistoryDto;
     }
 
