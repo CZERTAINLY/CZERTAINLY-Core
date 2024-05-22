@@ -127,4 +127,9 @@ public class RuleControllerImpl implements RuleController {
     public void deleteTrigger(String triggerUuid) throws NotFoundException {
         ruleService.deleteTrigger(triggerUuid);
     }
+
+    @Override
+    public List<RuleTriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid) {
+        return ruleService.getTriggerHistory(triggerUuid, triggerObjectUuid);
+    }
 }

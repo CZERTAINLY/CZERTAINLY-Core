@@ -58,6 +58,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.function.BiFunction;
 
@@ -256,6 +257,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         createDiscovery(modal);
 
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        eventProducer.produceDiscoveryFinishedEventMessage(modal.getUuid(), loggedUserUuid, ResourceEvent.DISCOVERY_FINISHED);
         notificationProducer.produceNotificationText(Resource.DISCOVERY, modal.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", modal.getName(), modal.getStatus()), modal.getMessage());
     }
 
@@ -352,10 +354,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             updateDiscovery(modal, response);
             updateCertificates(certificatesDiscovered, modal);
-
-            eventProducer.produceDiscoveryFinishedEventMessage(
-                    modal.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), ResourceEvent.DISCOVERY_FINISHED);
-
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             modal.setStatus(DiscoveryStatus.FAILED);
@@ -415,6 +413,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     object2TriggerRepository.save(ruleTrigger2Object);
                 }
             }
+            modal = discoveryRepository.findWithTriggersByUuid(modal.getUuid());
         }
 
         return modal;
@@ -502,9 +501,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public void evaluateDiscoveryTriggers(UUID discoveryUuid) {
-
         // Get newly discovered certificates
-        DiscoveryHistory discoveryHistory = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
+        DiscoveryHistory discoveryHistory = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
         List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
@@ -535,12 +533,19 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
             Certificate entry = certificateService.createCertificateEntity(x509Cert);
 
+
             // First, check the triggers that have action with action type set to ignore
             boolean ignored = false;
             for (RuleTrigger trigger : ignoreTriggers) {
-                if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
+                RuleTriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
+                if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     ignored = true;
+                    triggerHistory.setConditionsMatched(true);
+                    triggerHistory.setActionsPerformed(true);
                     break;
+                } else {
+                    triggerHistory.setConditionsMatched(false);
+                    triggerHistory.setActionsPerformed(false);
                 }
             }
 
@@ -552,9 +557,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             // Evaluate rest of the triggers in given order
             for (RuleTrigger trigger : orderedTriggers) {
+                // Create trigger history entry
+                RuleTriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), null);
                 // If rules are satisfied, perform defined actions
-                if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
-                    certificateRuleEvaluator.performRuleActions(trigger, entry);
+                if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
+                    triggerHistory.setConditionsMatched(true);
+                    certificateRuleEvaluator.performRuleActions(trigger, entry, triggerHistory);
+                    triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
+                } else {
+                    triggerHistory.setConditionsMatched(false);
+                    triggerHistory.setActionsPerformed(false);
                 }
             }
 
@@ -577,19 +589,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     MetaDefinitions.serialize(additionalInfo)
             );
             certificateService.validate(entry);
-        }
-    }
-
-    // Check if rules are satisfied for a certificate, rules are considered not satisfied also when an error is encountered
-    private boolean satisfiesRules(Certificate certificate, RuleTrigger trigger, UUID discoveryCertificateUuid) {
-        boolean satisfiesRules;
-        try {
-            satisfiesRules = certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate);
-            return satisfiesRules;
-        } catch (RuleException e) {
-            logger.error("Could not evaluate rules of trigger {} on discovery certificate with UUID {}, reason: {}",
-                    trigger.getName(), discoveryCertificateUuid, e.getMessage());
-            return false;
         }
     }
 }
