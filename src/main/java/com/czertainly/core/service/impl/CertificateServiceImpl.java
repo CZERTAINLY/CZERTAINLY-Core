@@ -721,7 +721,7 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
         Certificate certificate = getCertificateEntity(uuid);
         if (certificate.getCertificateContent() != null) {
-                validate(certificate);
+            validate(certificate);
         }
 
         String validationResult = certificate.getCertificateValidationResult();
