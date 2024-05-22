@@ -383,7 +383,8 @@ public class CertificateUtil {
 
         String basicConstraints = CertificateUtil.getBasicConstraint(certificate.getBasicConstraints());
         modal.setBasicConstraints(basicConstraints);
-        if (basicConstraints.equals("Subject Type=CA")) modal.setTrustedCa(false);
+        // Set trusted certificate mark either for CA or for self-signed certificate
+        if (basicConstraints.equals("Subject Type=CA") || Objects.equals(modal.getSubjectDnNormalized(), modal.getIssuerDnNormalized())) modal.setTrustedCa(false);
     }
 
 

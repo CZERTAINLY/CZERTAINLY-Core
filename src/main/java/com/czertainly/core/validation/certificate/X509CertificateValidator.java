@@ -117,12 +117,15 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, Boolean isTrustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) {
         if (issuerCertificate == null) {
-            // should be trust anchor (Root CA certificate)
+            // should be trust anchor (Root CA certificate or self-signed certificate)
             if (isCompleteChain) {
+                String certificateType = "self-signed";
+                // Check if certificate is CA, for CA certificate is this value always > -1
+                if (certificate.getBasicConstraints() > -1)  certificateType = "root CA";
                 if (Boolean.TRUE.equals(isTrustedCa)) {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is trusted root CA certificate.");
+                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is trusted " + certificateType + " certificate.");
                 } else {
-                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete. Certificate is root CA certificate but not marked as trusted.");
+                    return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Certificate chain is complete. Certificate is " + certificateType + " certificate but not marked as trusted.");
                 }
             } else {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.INVALID, "Incomplete certificate chain. Issuer certificate is not available in the inventory or in the AIA extension.");
