@@ -257,6 +257,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         createDiscovery(modal);
 
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        eventProducer.produceDiscoveryFinishedEventMessage(modal.getUuid(), loggedUserUuid, ResourceEvent.DISCOVERY_FINISHED);
         notificationProducer.produceNotificationText(Resource.DISCOVERY, modal.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", modal.getName(), modal.getStatus()), modal.getMessage());
     }
 
@@ -340,9 +341,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             updateDiscovery(modal, response);
             updateCertificates(certificatesDiscovered, modal);
-
-            eventProducer.produceDiscoveryFinishedEventMessage(modal.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), ResourceEvent.DISCOVERY_FINISHED);
-
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             modal.setStatus(DiscoveryStatus.FAILED);
@@ -402,6 +400,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     object2TriggerRepository.save(ruleTrigger2Object);
                 }
             }
+            modal = discoveryRepository.findWithTriggersByUuid(modal.getUuid());
         }
 
         return modal;
@@ -489,9 +488,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public void evaluateDiscoveryTriggers(UUID discoveryUuid) {
-
         // Get newly discovered certificates
-        DiscoveryHistory discoveryHistory = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
+        DiscoveryHistory discoveryHistory = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
         List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
@@ -552,7 +550,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     triggerHistory.setConditionsMatched(true);
                     certificateRuleEvaluator.performRuleActions(trigger, entry, triggerHistory);
-                    triggerHistory.setActionsPerformed(triggerHistory.getTriggerHistoryRecordList().isEmpty());
+                    triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
                 } else {
                     triggerHistory.setConditionsMatched(false);
                     triggerHistory.setActionsPerformed(false);
