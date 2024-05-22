@@ -558,7 +558,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             // Evaluate rest of the triggers in given order
             for (RuleTrigger trigger : orderedTriggers) {
                 // Create trigger history entry
-                RuleTriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), null);
+                RuleTriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
                 // If rules are satisfied, perform defined actions
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     triggerHistory.setConditionsMatched(true);

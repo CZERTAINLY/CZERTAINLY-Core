@@ -70,8 +70,10 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 for (RuleCondition condition : rule.getConditions()) {
                     try {
                         if (!evaluateCondition(condition, object, rule.getResource())) {
-                            logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                    rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                            String message = String.format("Condition '%s %s %s' is false.", condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString());
+                            logger.debug("Rule {} is not satisfied, " + message, rule.getName());
+                            RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition not satisfied, reason: " + message);
+                            triggerHistory.getRecords().add(triggerHistoryRecord);
                             return false;
                         }
                     } catch (RuleException e) {
@@ -87,8 +89,10 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     for (RuleCondition condition : conditionGroup.getConditions()) {
                         try {
                             if (!evaluateCondition(condition, object, rule.getResource())) {
-                                logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                        rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
+                                String message = String.format("Condition '%s %s %s' is false.", condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString());
+                                logger.debug("Rule {} is not satisfied, " + message, rule.getName());
+                                RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition not satisfied, reason: " + message);
+                                triggerHistory.getRecords().add(triggerHistoryRecord);
                                 return false;
                             }
                         } catch (RuleException e) {
