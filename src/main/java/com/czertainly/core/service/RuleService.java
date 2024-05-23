@@ -15,14 +15,14 @@ import java.util.UUID;
 public interface RuleService {
 
     List<ConditionDto> listConditions(Resource resource);
-    ConditionDto createCondition(ConditionRequestDto request) throws AlreadyExistException;
     ConditionDto getCondition(String conditionUuid) throws NotFoundException;
+    ConditionDto createCondition(ConditionRequestDto request) throws AlreadyExistException;
     ConditionDto updateCondition(String conditionUuid, UpdateConditionRequestDto request) throws NotFoundException;
     void deleteCondition(String conditionUuid) throws NotFoundException;
 
     List<RuleDto> listRules(Resource resource);
-    RuleDetailDto createRule(RuleRequestDto request) throws AlreadyExistException, NotFoundException;
     RuleDetailDto getRule(String ruleUuid) throws NotFoundException;
+    RuleDetailDto createRule(RuleRequestDto request) throws AlreadyExistException, NotFoundException;
     RuleDetailDto updateRule(String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException;
     void deleteRule(String ruleUuid) throws NotFoundException;
 }

@@ -75,6 +75,7 @@ public class RuleServiceImpl implements RuleService {
         Condition condition = new Condition();
         condition.setName(request.getName());
         condition.setDescription(request.getDescription());
+        condition.setType(request.getType());
         condition.setResource(request.getResource());
         condition.setItems(createConditionItems(request.getItems(), condition));
         conditionRepository.save(condition);
@@ -89,8 +90,9 @@ public class RuleServiceImpl implements RuleService {
         }
 
         Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-        condition.setDescription(request.getDescription());
         conditionItemRepository.deleteAll(condition.getItems());
+
+        condition.setDescription(request.getDescription());
         condition.setItems(createConditionItems(request.getItems(), condition));
         conditionRepository.save(condition);
 
@@ -136,6 +138,11 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
+    public RuleDetailDto getRule(String ruleUuid) throws NotFoundException {
+        return ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid)).mapToDetailDto();
+    }
+
+    @Override
     public RuleDetailDto createRule(RuleRequestDto request) throws AlreadyExistException, NotFoundException {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
@@ -163,7 +170,6 @@ public class RuleServiceImpl implements RuleService {
             conditions.add(condition);
         }
 
-
         rule.setName(request.getName());
         rule.setDescription(request.getDescription());
         rule.setResource(request.getResource());
@@ -171,11 +177,6 @@ public class RuleServiceImpl implements RuleService {
 
         ruleRepository.save(rule);
         return rule.mapToDetailDto();
-    }
-
-    @Override
-    public RuleDetailDto getRule(String ruleUuid) throws NotFoundException {
-        return ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid)).mapToDetailDto();
     }
 
     @Override

@@ -11,6 +11,8 @@ import java.util.UUID;
 @Repository
 public interface ActionRepository extends SecurityFilterRepository<Action, UUID> {
 
+    boolean existsByName(String name);
+
     List<Action> findAllByResource(Resource resource);
 
 }
