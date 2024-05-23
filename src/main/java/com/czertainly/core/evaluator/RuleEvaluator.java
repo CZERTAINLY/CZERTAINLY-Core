@@ -10,14 +10,14 @@ import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.RuleActionType;
+import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.service.RuleService;
@@ -55,7 +55,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(List<Rule> rules, T object, RuleTriggerHistory triggerHistory)  {
+    public boolean evaluateRules(List<Rule> rules, T object, TriggerHistory triggerHistory)  {
         // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
@@ -67,14 +67,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
             ruleEvaluated = true;
             if (rule.getConditions() != null) {
-                for (RuleCondition condition : rule.getConditions()) {
+                for (ConditionItem condition : rule.getConditions()) {
                     if (!getConditionEvaluationResult(condition, object,  triggerHistory, rule)) return false;
                 }
             }
 
-            if (rule.getConditionGroups() != null) {
-                for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
-                    for (RuleCondition condition : conditionGroup.getConditions()) {
+            if (rule.getConditions() != null) {
+                for (Condition conditionGroup : rule.getConditions()) {
+                    for (ConditionItem condition : conditionGroup.getItems()) {
                         if (!getConditionEvaluationResult(condition, object,  triggerHistory, rule)) return false;
                         }
                     }
@@ -102,7 +102,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public Boolean evaluateCondition(RuleCondition condition, T object, Resource resource) throws RuleException {
+    public Boolean evaluateCondition(ConditionItem condition, T object, Resource resource) throws RuleException {
 
         FilterFieldSource fieldSource = condition.getFieldSource();
         String fieldIdentifier = condition.getFieldIdentifier();
@@ -198,33 +198,33 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public void performRuleActions(RuleTrigger trigger, T object, RuleTriggerHistory triggerHistory) {
+    public void performRuleActions(Trigger trigger, T object, TriggerHistory triggerHistory) {
         if (!ResourceToClass.getClassByResource(trigger.getResource()).isInstance(object)) {
             logger.debug("Trigger '{}' cannot be executed due to incompatible resource.", trigger.getName());
             return;
         }
         if (trigger.getActions() != null) {
-            for (RuleAction action : trigger.getActions()) {
+            for (ExecutionItem action : trigger.getActions()) {
                 try {
                     performAction(action, object, trigger.getResource());
                     logger.debug("Action with UUID {} has been performed.", action.getUuid());
 
                 } catch (Exception e) {
                     logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
-                    RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
+                    TriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
                     triggerHistory.getRecords().add(triggerHistoryRecord);
                 }
             }
         }
-        if (trigger.getActionGroups() != null) {
-            for (RuleActionGroup actionGroup : trigger.getActionGroups()) {
-                for (RuleAction action : actionGroup.getActions()) {
+        if (trigger.getActions() != null) {
+            for (Action actionGroup : trigger.getActions()) {
+                for (ExecutionItem action : actionGroup.getActions()) {
                     try {
                         performAction(action, object, trigger.getResource());
                         logger.debug("Action with UUID {} has been performed.", action.getUuid());
                     } catch (Exception e) {
                         logger.debug("Action with UUID " + action.getUuid() + " has not been performed, reason: " + e.getMessage());
-                        RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
+                        TriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, action.getUuid(), null, "Action has not been performed, reason: " + e.getMessage());
                         triggerHistory.getRecords().add(triggerHistoryRecord);
                     }
                 }
@@ -233,13 +233,13 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
 
-    public void performAction(RuleAction action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
-        RuleActionType actionType = action.getActionType();
+    public void performAction(ExecutionItem action, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
+        ExecutionType actionType = action.getActionType();
         String fieldIdentifier = action.getFieldIdentifier();
-        Object actionData = action.getActionData();
+        Object actionData = action.getData();
         FilterFieldSource fieldSource = action.getFieldSource();
 
-        if (actionType == RuleActionType.SET_FIELD) {
+        if (actionType == ExecutionType.SET_FIELD) {
             // Set a property of the object using setter, the property must be set as settable
             if (fieldSource == FilterFieldSource.PROPERTY) {
                 SearchFieldNameEnum propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
@@ -296,17 +296,17 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
     }
 
-    private boolean getConditionEvaluationResult(RuleCondition condition, T object, RuleTriggerHistory triggerHistory, Rule rule) {
+    private boolean getConditionEvaluationResult(ConditionItem condition, T object, TriggerHistory triggerHistory, Rule rule) {
         try {
             if (!evaluateCondition(condition, object, rule.getResource())) {
                 String message = String.format("Condition '%s %s %s' is false.", condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString());
                 logger.debug("Rule {} is not satisfied, " + message, rule.getName());
-                RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition not satisfied, reason: " + message);
+                TriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition not satisfied, reason: " + message);
                 triggerHistory.getRecords().add(triggerHistoryRecord);
                 return false;
             }
         } catch (RuleException e) {
-            RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
+            TriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
             triggerHistory.getRecords().add(triggerHistoryRecord);
             return false;
         }

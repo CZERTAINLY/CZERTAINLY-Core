@@ -23,7 +23,7 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.rules.RuleActionType;
+import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -32,7 +32,11 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.workflows.Trigger;
+import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
+import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -91,7 +95,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     private NotificationProducer notificationProducer;
     private RuleService ruleService;
-    private Object2TriggerRepository object2TriggerRepository;
+    private TriggerAssociationRepository object2TriggerRepository;
     private EventProducer eventProducer;
     private AttributeEngine attributeEngine;
     private CertificateRuleEvaluator certificateRuleEvaluator;
@@ -102,7 +106,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Autowired
-    public void setObject2TriggerRepository(Object2TriggerRepository object2TriggerRepository) {
+    public void setObject2TriggerRepository(TriggerAssociationRepository object2TriggerRepository) {
         this.object2TriggerRepository = object2TriggerRepository;
     }
 
@@ -398,19 +402,19 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             if (request.getTriggers() != null) {
                 int triggerOrder = 0;
                 for (UUID triggerUuid : request.getTriggers()) {
-                    RuleTrigger2Object ruleTrigger2Object = new RuleTrigger2Object();
-                    ruleTrigger2Object.setResource(Resource.DISCOVERY);
-                    ruleTrigger2Object.setObjectUuid(modal.getUuid());
-                    ruleTrigger2Object.setTriggerUuid(triggerUuid);
-                    RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
+                    TriggerAssociation triggerAssociation = new TriggerAssociation();
+                    triggerAssociation.setResource(Resource.DISCOVERY);
+                    triggerAssociation.setObjectUuid(modal.getUuid());
+                    triggerAssociation.setTriggerUuid(triggerUuid);
+                    Trigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
                     // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
-                    if (trigger.getActions().stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE)) {
-                        ruleTrigger2Object.setTriggerOrder(-1);
+                    if (trigger.getActions().stream().anyMatch(action -> action.getActionType() == ExecutionType.IGNORE)) {
+                        triggerAssociation.setTriggerOrder(-1);
                     } else {
-                        ruleTrigger2Object.setTriggerOrder(triggerOrder);
+                        triggerAssociation.setTriggerOrder(triggerOrder);
                         triggerOrder += 1;
                     }
-                    object2TriggerRepository.save(ruleTrigger2Object);
+                    object2TriggerRepository.save(triggerAssociation);
                 }
             }
             modal = discoveryRepository.findWithTriggersByUuid(modal.getUuid());
@@ -505,13 +509,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         DiscoveryHistory discoveryHistory = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
-        List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
-        List<RuleTrigger> orderedTriggers = new ArrayList<>();
-        List<RuleTrigger> ignoreTriggers = new ArrayList<>();
-        for (RuleTrigger2Object ruleTrigger2Object : ruleTrigger2Objects) {
+        List<TriggerAssociation> triggerAssociations = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
+        List<Trigger> orderedTriggers = new ArrayList<>();
+        List<Trigger> ignoreTriggers = new ArrayList<>();
+        for (TriggerAssociation triggerAssociation : triggerAssociations) {
             try {
-                RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(ruleTrigger2Object.getTriggerUuid()));
-                if (ruleTrigger2Object.getTriggerOrder() == -1) {
+                Trigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
+                if (triggerAssociation.getTriggerOrder() == -1) {
                     ignoreTriggers.add(trigger);
                 } else {
                     orderedTriggers.add(trigger);
@@ -536,8 +540,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             // First, check the triggers that have action with action type set to ignore
             boolean ignored = false;
-            for (RuleTrigger trigger : ignoreTriggers) {
-                RuleTriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
+            for (Trigger trigger : ignoreTriggers) {
+                TriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     ignored = true;
                     triggerHistory.setConditionsMatched(true);
@@ -556,9 +560,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             certificateService.updateCertificateEntity(entry);
 
             // Evaluate rest of the triggers in given order
-            for (RuleTrigger trigger : orderedTriggers) {
+            for (Trigger trigger : orderedTriggers) {
                 // Create trigger history entry
-                RuleTriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
+                TriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
                 // If rules are satisfied, perform defined actions
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     triggerHistory.setConditionsMatched(true);

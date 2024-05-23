@@ -5,11 +5,11 @@ import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.RuleActionType;
+import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.RuleAction;
+import com.czertainly.core.dao.entity.workflows.ExecutionItem;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -32,8 +32,8 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
     }
 
     @Override
-    public void performAction(RuleAction action, Certificate object, Resource resource) throws NotFoundException, AttributeException, CertificateOperationException, RuleException {
-        if (action.getActionType() == RuleActionType.SET_FIELD & action.getFieldSource() == FilterFieldSource.PROPERTY) {
+    public void performAction(ExecutionItem action, Certificate object, Resource resource) throws NotFoundException, AttributeException, CertificateOperationException, RuleException {
+        if (action.getActionType() == ExecutionType.SET_FIELD & action.getFieldSource() == FilterFieldSource.PROPERTY) {
             SecuredUUID certificateUuid = object.getSecuredUuid();
 
             SearchableFields searchableField;
@@ -45,9 +45,9 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
 
             UUID propertyUuid = null;
             List<UUID> propertyUuids = null;
-            boolean removeValue = action.getActionData() == null;
+            boolean removeValue = action.getData() == null;
             if (!removeValue) {
-                if (action.getActionData() instanceof Iterable<?> actionDataItems) {
+                if (action.getData() instanceof Iterable<?> actionDataItems) {
                     try {
                         propertyUuids = new ArrayList<>();
                         for (Object actionDataItem : actionDataItems) {
@@ -58,7 +58,7 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
                         propertyUuids = null;
                     }
                 } else {
-                    String propertyUuidStr = action.getActionData().toString();
+                    String propertyUuidStr = action.getData().toString();
                     try {
                         propertyUuid = UUID.fromString(propertyUuidStr);
                     } catch (IllegalArgumentException e) {
@@ -69,7 +69,7 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
             removeValue = removeValue || (propertyUuids != null && propertyUuids.isEmpty());
 
             if (!removeValue && propertyUuid == null && propertyUuids == null) {
-                throw new RuleException(String.format("Wrong action data for set field %s %s of %s %s: %s", action.getFieldSource().getLabel(), action.getFieldIdentifier(), resource.getLabel(), object.getUuid().toString(), action.getActionData().toString()));
+                throw new RuleException(String.format("Wrong action data for set field %s %s of %s %s: %s", action.getFieldSource().getLabel(), action.getFieldIdentifier(), resource.getLabel(), object.getUuid().toString(), action.getData().toString()));
             }
 
             SecuredUUID newPropertyUuid = removeValue ? null : SecuredUUID.fromUUID(propertyUuid != null ? propertyUuid : propertyUuids.get(0));

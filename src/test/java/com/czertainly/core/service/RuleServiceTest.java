@@ -3,7 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.*;
+import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -18,21 +18,21 @@ public class RuleServiceTest extends BaseSpringBootTest {
 
     @Autowired
     RuleService ruleService;
-    RuleConditionRequestDto conditionRequestDto;
-    RuleActionRequestDto actionRequestDto;
+    ConditionItemRequestDto conditionRequestDto;
+    ExecutionItemRequestDto actionRequestDto;
 
 
     @BeforeEach
     public void setUp() {
 
-        conditionRequestDto = new RuleConditionRequestDto();
+        conditionRequestDto = new ConditionItemRequestDto();
         conditionRequestDto.setFieldSource(FilterFieldSource.PROPERTY);
         conditionRequestDto.setFieldIdentifier("identifier");
         conditionRequestDto.setOperator(FilterConditionOperator.EQUALS);
         conditionRequestDto.setValue(123);
 
-        actionRequestDto = new RuleActionRequestDto();
-        actionRequestDto.setActionType(RuleActionType.SET_FIELD);
+        actionRequestDto = new ExecutionItemRequestDto();
+        actionRequestDto.setActionType(ExecutionType.SET_FIELD);
 
 
     }
@@ -67,42 +67,42 @@ public class RuleServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testConditionGroup() throws NotFoundException {
-        RuleConditionGroupRequestDto conditionGroupRequestDto = new RuleConditionGroupRequestDto();
+        ConditionRequestDto conditionGroupRequestDto = new ConditionRequestDto();
         conditionGroupRequestDto.setName("name");
         conditionGroupRequestDto.setResource(Resource.CERTIFICATE);
-        Assertions.assertThrows(ValidationException.class, () -> ruleService.createConditionGroup(conditionGroupRequestDto));
+        Assertions.assertThrows(ValidationException.class, () -> ruleService.createCondition(conditionGroupRequestDto));
 
-        conditionGroupRequestDto.setConditions(List.of(conditionRequestDto));
-        RuleConditionGroupDto conditionGroupDetailDto = ruleService.createConditionGroup(conditionGroupRequestDto);
+        conditionGroupRequestDto.setItems(List.of(conditionRequestDto));
+        ConditionDto conditionGroupDetailDto = ruleService.createCondition(conditionGroupRequestDto);
         Assertions.assertNotNull(conditionGroupDetailDto);
 
-        UpdateRuleConditionGroupRequestDto updateConditionGroupRequestDto = new UpdateRuleConditionGroupRequestDto();
+        UpdateConditionRequestDto updateConditionGroupRequestDto = new UpdateConditionRequestDto();
         updateConditionGroupRequestDto.setDescription("description");
-        updateConditionGroupRequestDto.setConditions(conditionGroupRequestDto.getConditions());
-        Assertions.assertEquals("description", ruleService.updateConditionGroup(conditionGroupDetailDto.getUuid(), updateConditionGroupRequestDto).getDescription());
+        updateConditionGroupRequestDto.setItems(conditionGroupRequestDto.getItems());
+        Assertions.assertEquals("description", ruleService.updateCondition(conditionGroupDetailDto.getUuid(), updateConditionGroupRequestDto).getDescription());
 
-        Assertions.assertNotNull(ruleService.getConditionGroup(conditionGroupDetailDto.getUuid()));
+        Assertions.assertNotNull(ruleService.getCondition(conditionGroupDetailDto.getUuid()));
 
-        Assertions.assertNotEquals(0, ruleService.listConditionGroups(null).size());
-        ruleService.deleteConditionGroup(conditionGroupDetailDto.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> ruleService.getConditionGroup(conditionGroupDetailDto.getUuid()));
+        Assertions.assertNotEquals(0, ruleService.listConditions(null).size());
+        ruleService.deleteCondition(conditionGroupDetailDto.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> ruleService.getCondition(conditionGroupDetailDto.getUuid()));
     }
 
     @Test
     public void testRuleTrigger() throws NotFoundException {
-        RuleTriggerRequestDto triggerRequestDto = new RuleTriggerRequestDto();
+        TriggerRequestDto triggerRequestDto = new TriggerRequestDto();
         triggerRequestDto.setName("name");
         triggerRequestDto.setResource(Resource.CERTIFICATE);
-        triggerRequestDto.setTriggerType(RuleTriggerType.EVENT);
+        triggerRequestDto.setType(TriggerType.EVENT);
         Assertions.assertThrows(ValidationException.class, () -> ruleService.createTrigger(triggerRequestDto));
 
         triggerRequestDto.setActions(List.of(actionRequestDto));
-        RuleTriggerDetailDto triggerDetailDto = ruleService.createTrigger(triggerRequestDto);
+        TriggerDetailDto triggerDetailDto = ruleService.createTrigger(triggerRequestDto);
         Assertions.assertNotNull(triggerDetailDto);
 
-        UpdateRuleTriggerRequestDto updateTriggerRequestDto = new UpdateRuleTriggerRequestDto();
+        UpdateTriggerRequestDto updateTriggerRequestDto = new UpdateTriggerRequestDto();
         updateTriggerRequestDto.setDescription("description");
-        updateTriggerRequestDto.setTriggerType(RuleTriggerType.EVENT);
+        updateTriggerRequestDto.setType(TriggerType.EVENT);
         updateTriggerRequestDto.setActions(triggerRequestDto.getActions());
         Assertions.assertEquals("description", ruleService.updateTrigger(triggerDetailDto.getUuid(), updateTriggerRequestDto).getDescription());
 
@@ -119,24 +119,24 @@ public class RuleServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testActionGroup() throws NotFoundException {
-        RuleActionGroupRequestDto actionGroupRequestDto = new RuleActionGroupRequestDto();
+        ExecutionRequestDto actionGroupRequestDto = new ExecutionRequestDto();
         actionGroupRequestDto.setName("name");
         actionGroupRequestDto.setResource(Resource.CERTIFICATE);
-        Assertions.assertThrows(ValidationException.class, () -> ruleService.createActionGroup(actionGroupRequestDto));
-        actionGroupRequestDto.setActions(List.of(actionRequestDto));
-        RuleActionGroupDto actionGroupDetailDto = ruleService.createActionGroup(actionGroupRequestDto);
+        Assertions.assertThrows(ValidationException.class, () -> ruleService.createExecution(actionGroupRequestDto));
+        actionGroupRequestDto.setItems(List.of(actionRequestDto));
+        ActionDto actionGroupDetailDto = ruleService.createExecution(actionGroupRequestDto);
         Assertions.assertNotNull(actionGroupDetailDto);
 
-        UpdateRuleActionGroupRequestDto updateActionGroupRequestDto = new UpdateRuleActionGroupRequestDto();
+        UpdateExecutionRequestDto updateActionGroupRequestDto = new UpdateExecutionRequestDto();
         updateActionGroupRequestDto.setDescription("description");
-        updateActionGroupRequestDto.setActions(actionGroupRequestDto.getActions());
-        Assertions.assertEquals("description", ruleService.updateActionGroup(actionGroupDetailDto.getUuid(), updateActionGroupRequestDto).getDescription());
+        updateActionGroupRequestDto.setItems(actionGroupRequestDto.getItems());
+        Assertions.assertEquals("description", ruleService.updateExecution(actionGroupDetailDto.getUuid(), updateActionGroupRequestDto).getDescription());
 
-        Assertions.assertNotNull(ruleService.getActionGroup(actionGroupDetailDto.getUuid()));
+        Assertions.assertNotNull(ruleService.getExecution(actionGroupDetailDto.getUuid()));
 
-        Assertions.assertNotEquals(0, ruleService.listActionGroups(null).size());
-        ruleService.deleteActionGroup(actionGroupDetailDto.getUuid());
-        Assertions.assertThrows(NotFoundException.class, () -> ruleService.getActionGroup(actionGroupDetailDto.getUuid()));
+        Assertions.assertNotEquals(0, ruleService.listExecutions(null).size());
+        ruleService.deleteExecution(actionGroupDetailDto.getUuid());
+        Assertions.assertThrows(NotFoundException.class, () -> ruleService.getExecution(actionGroupDetailDto.getUuid()));
     }
 
 
