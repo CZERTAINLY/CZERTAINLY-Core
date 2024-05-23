@@ -48,11 +48,11 @@ public class EventListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(EventMessage eventMessage) throws NotFoundException, CertificateException, NoSuchAlgorithmException, RuleException, AttributeException {
-        authHelper.authenticateAsUser(eventMessage.getUserUuid());
         switch (eventMessage.getResource()) {
             case CERTIFICATE -> certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
             case DISCOVERY ->
             {
+                authHelper.authenticateAsUser(eventMessage.getUserUuid());
                 if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID());
             }
             default -> logger.warn("Event handling is supported only for certificates for now");
