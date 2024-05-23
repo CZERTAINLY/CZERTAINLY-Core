@@ -68,38 +68,18 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             ruleEvaluated = true;
             if (rule.getConditions() != null) {
                 for (RuleCondition condition : rule.getConditions()) {
-                    try {
-                        if (!evaluateCondition(condition, object, rule.getResource())) {
-                            logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                    rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
-                            return false;
-                        }
-                    } catch (RuleException e) {
-                        RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
-                        triggerHistory.getRecords().add(triggerHistoryRecord);
-                        return false;
-                    }
+                    if (!getConditionEvaluationResult(condition, object,  triggerHistory, rule)) return false;
                 }
             }
 
             if (rule.getConditionGroups() != null) {
                 for (RuleConditionGroup conditionGroup : rule.getConditionGroups()) {
                     for (RuleCondition condition : conditionGroup.getConditions()) {
-                        try {
-                            if (!evaluateCondition(condition, object, rule.getResource())) {
-                                logger.debug("Rule {} is not satisfied, condition '{} {} {}' from source {} has been evaluated as false for the object.",
-                                        rule.getName(), condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString(), condition.getFieldSource().getCode());
-                                return false;
-                            }
-                        } catch (RuleException e) {
-                            RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
-                            triggerHistory.getRecords().add(triggerHistoryRecord);
-                            return false;
+                        if (!getConditionEvaluationResult(condition, object,  triggerHistory, rule)) return false;
                         }
                     }
                 }
             }
-        }
 
         if (ruleEvaluated) {
             logger.debug("All rules in the list have been satisfied for the object.");
@@ -314,6 +294,23 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
             throw e;
         }
+    }
+
+    private boolean getConditionEvaluationResult(RuleCondition condition, T object, RuleTriggerHistory triggerHistory, Rule rule) {
+        try {
+            if (!evaluateCondition(condition, object, rule.getResource())) {
+                String message = String.format("Condition '%s %s %s' is false.", condition.getFieldIdentifier(), condition.getOperator().getCode(), condition.getValue().toString());
+                logger.debug("Rule {} is not satisfied, " + message, rule.getName());
+                RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition not satisfied, reason: " + message);
+                triggerHistory.getRecords().add(triggerHistoryRecord);
+                return false;
+            }
+        } catch (RuleException e) {
+            RuleTriggerHistoryRecord triggerHistoryRecord = ruleService.createRuleTriggerHistoryRecord(triggerHistory, null, condition.getUuid(), "Condition has not been evaluated, reason: " + e.getMessage());
+            triggerHistory.getRecords().add(triggerHistoryRecord);
+            return false;
+        }
+        return true;
     }
 
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> commonOperatorFunctionMap;
