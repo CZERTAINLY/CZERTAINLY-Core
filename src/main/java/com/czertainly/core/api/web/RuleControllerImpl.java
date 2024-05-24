@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RuleController;
 import com.czertainly.api.model.core.auth.Resource;
@@ -34,7 +35,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public ConditionDto createCondition(ConditionRequestDto request) {
+    public ConditionDto createCondition(ConditionRequestDto request) throws AlreadyExistException {
         return ruleService.createCondition(request);
     }
 
@@ -55,22 +56,22 @@ public class RuleControllerImpl implements RuleController {
 
     @Override
     public List<RuleDto> listRules(Resource resource) {
-        ruleService.listRules(resource);
+        return ruleService.listRules(resource);
     }
 
     @Override
-    public RuleDetailDto createRule(RuleRequestDto request) {
-        ruleService.createRule(request);
+    public RuleDetailDto createRule(RuleRequestDto request) throws NotFoundException, AlreadyExistException {
+        return ruleService.createRule(request);
     }
 
     @Override
     public RuleDetailDto getRule(String ruleUuid) throws NotFoundException {
-        ruleService.getRule(ruleUuid);
+        return ruleService.getRule(ruleUuid);
     }
 
     @Override
     public RuleDetailDto updateRule(String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException {
-        ruleService.updateRule(ruleUuid, request);
+        return ruleService.updateRule(ruleUuid, request);
     }
 
     @Override

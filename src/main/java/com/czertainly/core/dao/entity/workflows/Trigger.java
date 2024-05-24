@@ -32,8 +32,8 @@ public class Trigger extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
-    @Column(name = "ignore_object", nullable = false)
-    private boolean ignoreObject;
+    @Column(name = "ignore_trigger", nullable = false)
+    private boolean ignoreTrigger;
 
     @Column(name = "event")
     @Enumerated(EnumType.STRING)
@@ -64,7 +64,7 @@ public class Trigger extends UniquelyIdentified {
         triggerDto.setDescription(description);
         triggerDto.setType(type);
         triggerDto.setResource(resource);
-        triggerDto.setIgnoreObject(ignoreObject);
+        triggerDto.setIgnoreTrigger(ignoreTrigger);
         triggerDto.setEvent(event);
         triggerDto.setEventResource(eventResource);
         return triggerDto;
@@ -77,7 +77,7 @@ public class Trigger extends UniquelyIdentified {
         triggerDetailDto.setDescription(description);
         triggerDetailDto.setType(type);
         triggerDetailDto.setResource(resource);
-        triggerDetailDto.setIgnoreObject(ignoreObject);
+        triggerDetailDto.setIgnoreTrigger(ignoreTrigger);
         triggerDetailDto.setEvent(event);
         triggerDetailDto.setEventResource(eventResource);
 

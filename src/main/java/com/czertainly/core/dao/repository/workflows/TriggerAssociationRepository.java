@@ -13,6 +13,7 @@ public interface TriggerAssociationRepository extends SecurityFilterRepository<T
 
     List<TriggerAssociation> findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource resource, UUID objectUuid);
 
+    long deleteByTriggerUuid(UUID triggerUuid);
     long deleteByResourceAndObjectUuid(Resource resource, UUID objectUuid);
 
 }

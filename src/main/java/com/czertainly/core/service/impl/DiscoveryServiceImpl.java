@@ -23,7 +23,6 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -94,20 +93,21 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private NotificationProducer notificationProducer;
-    private RuleService ruleService;
-    private TriggerAssociationRepository object2TriggerRepository;
     private EventProducer eventProducer;
     private AttributeEngine attributeEngine;
+
+    private TriggerService triggerService;
+    private TriggerAssociationRepository triggerAssociationRepository;
     private CertificateRuleEvaluator certificateRuleEvaluator;
 
     @Autowired
-    public void setRuleService(RuleService ruleService) {
-        this.ruleService = ruleService;
+    public void setTriggerService(TriggerService triggerService) {
+        this.triggerService = triggerService;
     }
 
     @Autowired
-    public void setObject2TriggerRepository(TriggerAssociationRepository object2TriggerRepository) {
-        this.object2TriggerRepository = object2TriggerRepository;
+    public void setTriggerAssociationRepository(TriggerAssociationRepository triggerAssociationRepository) {
+        this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
     @Autowired
@@ -225,7 +225,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
             discoveryRepository.delete(discovery);
-            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
+            triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
@@ -400,21 +400,20 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, modal.getUuid(), request.getCustomAttributes());
             attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid(), request.getAttributes());
             if (request.getTriggers() != null) {
-                int triggerOrder = 0;
+                int triggerOrder = -1;
                 for (UUID triggerUuid : request.getTriggers()) {
                     TriggerAssociation triggerAssociation = new TriggerAssociation();
                     triggerAssociation.setResource(Resource.DISCOVERY);
                     triggerAssociation.setObjectUuid(modal.getUuid());
                     triggerAssociation.setTriggerUuid(triggerUuid);
-                    Trigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
-                    // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
-                    if (trigger.getActions().stream().anyMatch(action -> action.getActionType() == ExecutionType.IGNORE)) {
+                    Trigger trigger = triggerService.getRuleTriggerEntity(String.valueOf(triggerUuid));
+                    // If it is an ignore trigger, the order is always -1, otherwise increment the order
+                    if (trigger.isIgnoreTrigger()) {
                         triggerAssociation.setTriggerOrder(-1);
                     } else {
-                        triggerAssociation.setTriggerOrder(triggerOrder);
-                        triggerOrder += 1;
+                        triggerAssociation.setTriggerOrder(++triggerOrder);
                     }
-                    object2TriggerRepository.save(triggerAssociation);
+                    triggerAssociationRepository.save(triggerAssociation);
                 }
             }
             modal = discoveryRepository.findWithTriggersByUuid(modal.getUuid());
@@ -504,17 +503,17 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public void evaluateDiscoveryTriggers(UUID discoveryUuid) {
+    public void evaluateDiscoveryTriggers(UUID discoveryUuid) throws RuleException {
         // Get newly discovered certificates
         DiscoveryHistory discoveryHistory = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
-        List<TriggerAssociation> triggerAssociations = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
         List<Trigger> orderedTriggers = new ArrayList<>();
         List<Trigger> ignoreTriggers = new ArrayList<>();
         for (TriggerAssociation triggerAssociation : triggerAssociations) {
             try {
-                Trigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
+                Trigger trigger = triggerService.getRuleTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
                 if (triggerAssociation.getTriggerOrder() == -1) {
                     ignoreTriggers.add(trigger);
                 } else {
@@ -537,11 +536,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
             Certificate entry = certificateService.createCertificateEntity(x509Cert);
 
-
             // First, check the triggers that have action with action type set to ignore
             boolean ignored = false;
             for (Trigger trigger : ignoreTriggers) {
-                TriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
+                TriggerHistory triggerHistory = triggerService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     ignored = true;
                     triggerHistory.setConditionsMatched(true);
@@ -562,11 +560,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             // Evaluate rest of the triggers in given order
             for (Trigger trigger : orderedTriggers) {
                 // Create trigger history entry
-                TriggerHistory triggerHistory = ruleService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
+                TriggerHistory triggerHistory = triggerService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
                 // If rules are satisfied, perform defined actions
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     triggerHistory.setConditionsMatched(true);
-                    certificateRuleEvaluator.performRuleActions(trigger, entry, triggerHistory);
+                    certificateRuleEvaluator.performActions(trigger, entry, triggerHistory);
                     triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
                 } else {
                     triggerHistory.setConditionsMatched(false);

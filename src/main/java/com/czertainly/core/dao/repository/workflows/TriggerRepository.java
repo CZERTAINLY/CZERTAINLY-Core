@@ -11,8 +11,12 @@ import java.util.UUID;
 @Repository
 public interface TriggerRepository extends SecurityFilterRepository<Trigger, UUID> {
 
-    List<Trigger> findAllByEventResource(Resource eventResource);
+    boolean existsByName(String name);
 
     List<Trigger> findAllByResource(Resource resource);
+
+    List<Trigger> findAllByEventResource(Resource eventResource);
+
+    List<Trigger> findAllByResourceAndEventResource(Resource resource, Resource eventResource);
 
 }

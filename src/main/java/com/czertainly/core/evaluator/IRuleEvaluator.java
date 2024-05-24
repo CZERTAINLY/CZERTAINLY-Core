@@ -28,13 +28,13 @@ public interface IRuleEvaluator<T> {
      */
     public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException;
     /**
-     * Method to evaluate a Condition on an Object
+     * Method to evaluate a Condition item on an Object
      *
-     * @param condition    Condition to be evaluated
-     * @param object   Object to evaluate condition on
-     * @return True if the condition is satisfied, false otherwise
+     * @param conditionItem    Condition item to be evaluated
+     * @param object   Object to evaluate conditionItem on
+     * @return True if the condition item is satisfied, false otherwise
      */
-    public Boolean evaluateCondition(ConditionItem condition, T object, Resource resource) throws RuleException;
+    public Boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource) throws RuleException;
 
     /**
      * Method to perform Actions and Action Groups in a Trigger on an Object
@@ -43,6 +43,6 @@ public interface IRuleEvaluator<T> {
      * @param object         Object to perform Actions in Trigger on
      * @param triggerHistory Trigger History to fill action results records for
      */
-    public void performRuleActions(Trigger trigger, T object, TriggerHistory triggerHistory);
+    public void performActions(Trigger trigger, T object, TriggerHistory triggerHistory) throws RuleException;
 
 }

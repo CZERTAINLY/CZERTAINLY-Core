@@ -57,7 +57,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "rule_trigger_2_object",
+            name = "trigger_association",
             joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
             inverseJoinColumns = @JoinColumn(name = "trigger_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     )

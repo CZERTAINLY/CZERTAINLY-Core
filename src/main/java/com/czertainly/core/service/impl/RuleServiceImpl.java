@@ -77,8 +77,8 @@ public class RuleServiceImpl implements RuleService {
         condition.setDescription(request.getDescription());
         condition.setType(request.getType());
         condition.setResource(request.getResource());
-        condition.setItems(createConditionItems(request.getItems(), condition));
         conditionRepository.save(condition);
+        condition.setItems(createConditionItems(request.getItems(), condition));
 
         return condition.mapToDto();
     }
@@ -165,7 +165,7 @@ public class RuleServiceImpl implements RuleService {
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
             if (condition.getResource() != request.getResource()) {
-                throw new ValidationException("Condition with UUID " + conditionUuid + " resource does not match rule resource.");
+                throw new ValidationException("Resource of condition with UUID " + conditionUuid + " does not match rule resource.");
             }
             conditions.add(condition);
         }
@@ -191,12 +191,10 @@ public class RuleServiceImpl implements RuleService {
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
             if (condition.getResource() != rule.getResource()) {
-                throw new ValidationException("Condition with UUID " + conditionUuid + " resource does not match rule resource.");
+                throw new ValidationException("Resource of condition with UUID " + conditionUuid + " does not match rule resource.");
             }
             conditions.add(condition);
         }
-
-        conditionRepository.deleteAll(rule.getConditions());
 
         rule.setDescription(request.getDescription());
         rule.setConditions(conditions);

@@ -77,8 +77,8 @@ public class ActionServiceImpl implements ActionService {
         execution.setDescription(request.getDescription());
         execution.setType(request.getType());
         execution.setResource(request.getResource());
-        execution.setItems(createExecutionItems(request.getItems(), execution));
         executionRepository.save(execution);
+        execution.setItems(createExecutionItems(request.getItems(), execution));
 
         return execution.mapToDto();
     }
@@ -113,6 +113,7 @@ public class ActionServiceImpl implements ActionService {
             }
 
             ExecutionItem executionItem = new ExecutionItem();
+            executionItem.setExecution(execution);
             executionItem.setFieldSource(executionItemRequestDto.getFieldSource());
             executionItem.setFieldIdentifier(executionItemRequestDto.getFieldIdentifier());
             if (executionItem.getFieldSource() != FilterFieldSource.CUSTOM) {
@@ -171,7 +172,7 @@ public class ActionServiceImpl implements ActionService {
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
             if (execution.getResource() != request.getResource()) {
-                throw new ValidationException("Execution with UUID " + executionUuid + " resource does not match rule resource.");
+                throw new ValidationException("Resource of execution with UUID " + executionUuid + " does not match rule resource.");
             }
             executions.add(execution);
         }
@@ -197,12 +198,10 @@ public class ActionServiceImpl implements ActionService {
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
             if (execution.getResource() != action.getResource()) {
-                throw new ValidationException("Execution with UUID " + executionUuid + " resource does not match rule resource.");
+                throw new ValidationException("Resource of execution with UUID " + executionUuid + " does not match rule resource.");
             }
             executions.add(execution);
         }
-
-        executionRepository.deleteAll(action.getExecutions());
 
         action.setDescription(request.getDescription());
         action.setExecutions(executions);

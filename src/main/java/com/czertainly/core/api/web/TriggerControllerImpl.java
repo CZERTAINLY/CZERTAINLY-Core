@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.TriggerController;
 import com.czertainly.api.model.core.auth.Resource;
@@ -34,7 +35,7 @@ public class TriggerControllerImpl implements TriggerController {
     }
 
     @Override
-    public TriggerDetailDto createTrigger(TriggerRequestDto request) {
+    public TriggerDetailDto createTrigger(TriggerRequestDto request) throws NotFoundException, AlreadyExistException {
         return triggerService.createTrigger(request);
     }
 

@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.ActionController;
 import com.czertainly.api.model.core.auth.Resource;
@@ -34,7 +35,7 @@ public class ActionControllerImpl implements ActionController {
     }
 
     @Override
-    public ExecutionDto createExecution(ExecutionRequestDto request) {
+    public ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException {
         return actionService.createExecution(request);
     }
 
@@ -55,11 +56,11 @@ public class ActionControllerImpl implements ActionController {
 
     @Override
     public List<ActionDto> listActions(Resource resource) {
-        actionService.listActions(resource);
+        return actionService.listActions(resource);
     }
 
     @Override
-    public ActionDetailDto createAction(ActionRequestDto request) {
+    public ActionDetailDto createAction(ActionRequestDto request) throws NotFoundException, AlreadyExistException {
         return actionService.createAction(request);
     }
 
