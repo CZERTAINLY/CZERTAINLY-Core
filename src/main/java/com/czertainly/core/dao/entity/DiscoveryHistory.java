@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -56,12 +57,12 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
-            name = "rule_trigger_2_object",
+            name = "trigger_association",
             joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
             inverseJoinColumns = @JoinColumn(name = "trigger_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     )
     @WhereJoinTable(clause = "resource = 'DISCOVERY'")
-    private List<RuleTrigger> triggers = new ArrayList<>();
+    private List<Trigger> triggers = new ArrayList<>();
 
     @Override
     public String toString() {
@@ -171,7 +172,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
-        dto.setTriggers(triggers.stream().map(RuleTrigger::mapToDto).toList());
+        dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
         return dto;
     }
 
