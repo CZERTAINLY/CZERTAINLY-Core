@@ -88,7 +88,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public Trigger getRuleTriggerEntity(String triggerUuid) throws NotFoundException {
+    public Trigger getTriggerEntity(String triggerUuid) throws NotFoundException {
         return triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
     }
 
@@ -137,8 +137,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws
-            NotFoundException {
+    public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
         if (request.getResource() == null) {
             throw new ValidationException("Property resource cannot be empty.");
         }
@@ -180,8 +179,7 @@ public class TriggerServiceImpl implements TriggerService {
         triggerRepository.delete(trigger);
     }
 
-    private void setTriggerRulesAndActions(Trigger
-                                                   trigger, List<String> rulesUuids, List<String> actionsUuids) throws NotFoundException {
+    private void setTriggerRulesAndActions(Trigger trigger, List<String> rulesUuids, List<String> actionsUuids) throws NotFoundException {
         List<Rule> rules = new ArrayList<>();
         for (String ruleUuid : rulesUuids) {
             Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
@@ -215,8 +213,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public TriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID
-            triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid) {
+    public TriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid) {
         TriggerHistory triggerHistory = new TriggerHistory();
         triggerHistory.setTriggerUuid(triggerUuid);
         triggerHistory.setTriggerAssociationObjectUuid(triggerAssociationObjectUuid);
@@ -231,8 +228,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public TriggerHistoryRecord createRuleTriggerHistoryRecord(TriggerHistory triggerHistory, UUID
-            conditionUuid, UUID executionUuid, String message) {
+    public TriggerHistoryRecord createTriggerHistoryRecord(TriggerHistory triggerHistory, UUID conditionUuid, UUID executionUuid, String message) {
         TriggerHistoryRecord triggerHistoryRecord = new TriggerHistoryRecord();
 
         triggerHistoryRecord.setTriggerHistory(triggerHistory);

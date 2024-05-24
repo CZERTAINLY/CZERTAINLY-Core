@@ -406,7 +406,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     triggerAssociation.setResource(Resource.DISCOVERY);
                     triggerAssociation.setObjectUuid(modal.getUuid());
                     triggerAssociation.setTriggerUuid(triggerUuid);
-                    Trigger trigger = triggerService.getRuleTriggerEntity(String.valueOf(triggerUuid));
+                    Trigger trigger = triggerService.getTriggerEntity(triggerUuid.toString());
                     // If it is an ignore trigger, the order is always -1, otherwise increment the order
                     if (trigger.isIgnoreTrigger()) {
                         triggerAssociation.setTriggerOrder(-1);
@@ -415,8 +415,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     }
                     triggerAssociationRepository.save(triggerAssociation);
                 }
+                modal = discoveryRepository.findWithTriggersByUuid(modal.getUuid());
             }
-            modal = discoveryRepository.findWithTriggersByUuid(modal.getUuid());
         }
 
         return modal;
@@ -513,7 +513,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         List<Trigger> ignoreTriggers = new ArrayList<>();
         for (TriggerAssociation triggerAssociation : triggerAssociations) {
             try {
-                Trigger trigger = triggerService.getRuleTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
+                Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
                 if (triggerAssociation.getTriggerOrder() == -1) {
                     ignoreTriggers.add(trigger);
                 } else {

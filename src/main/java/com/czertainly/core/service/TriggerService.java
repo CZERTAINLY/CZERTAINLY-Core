@@ -16,12 +16,12 @@ public interface TriggerService {
 
     List<TriggerDto> listTriggers(Resource resource, Resource eventResource);
     TriggerDetailDto getTrigger(String triggerUuid) throws NotFoundException;
-    Trigger getRuleTriggerEntity(String triggerUuid) throws NotFoundException;
+    Trigger getTriggerEntity(String triggerUuid) throws NotFoundException;
     TriggerDetailDto createTrigger(TriggerRequestDto request) throws AlreadyExistException, NotFoundException;
     TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException;
     void deleteTrigger(String triggerUuid) throws NotFoundException;
 
     List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid);
     TriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid);
-    TriggerHistoryRecord createRuleTriggerHistoryRecord(TriggerHistory triggerHistory, UUID conditionUuid, UUID executionUuid, String message);
+    TriggerHistoryRecord createTriggerHistoryRecord(TriggerHistory triggerHistory, UUID conditionUuid, UUID executionUuid, String message);
 }
