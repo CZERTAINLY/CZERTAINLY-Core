@@ -10,6 +10,8 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.dao.repository.workflows.*;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ActionService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -46,17 +48,20 @@ public class ActionServiceImpl implements ActionService {
     //region Executions
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ExecutionDto> listExecutions(Resource resource) {
         if (resource == null) return executionRepository.findAll().stream().map(Execution::mapToDto).toList();
         return executionRepository.findAllByResource(resource).stream().map(Execution::mapToDto).toList();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DETAIL)
     public ExecutionDto getExecution(String executionUuid) throws NotFoundException {
         return executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid)).mapToDto();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.CREATE)
     public ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException {
         if (request.getItems().isEmpty()) {
             throw new ValidationException("Cannot create an execution without any execution items.");
@@ -84,6 +89,7 @@ public class ActionServiceImpl implements ActionService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.UPDATE)
     public ExecutionDto updateExecution(String executionUuid, UpdateExecutionRequestDto request) throws NotFoundException {
         if (request.getItems().isEmpty()) {
             throw new ValidationException("Cannot create an execution without any execution items.");
@@ -100,6 +106,7 @@ public class ActionServiceImpl implements ActionService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DELETE)
     public void deleteExecution(String executionUuid) throws NotFoundException {
         Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
         executionRepository.delete(execution);
@@ -139,17 +146,20 @@ public class ActionServiceImpl implements ActionService {
     //region Actions
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ActionDto> listActions(Resource resource) {
         if (resource == null) return actionRepository.findAll().stream().map(Action::mapToDto).toList();
         return actionRepository.findAllByResource(resource).stream().map(Action::mapToDto).toList();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DETAIL)
     public ActionDetailDto getAction(String actionUuid) throws NotFoundException {
         return actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid)).mapToDetailDto();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.CREATE)
     public ActionDetailDto createAction(ActionRequestDto request) throws AlreadyExistException, NotFoundException {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
@@ -187,6 +197,7 @@ public class ActionServiceImpl implements ActionService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.UPDATE)
     public ActionDetailDto updateAction(String actionUuid, UpdateActionRequestDto request) throws NotFoundException {
         if (request.getExecutionsUuids().isEmpty()) {
             throw new ValidationException("Action has to contain at least one execution.");
@@ -211,6 +222,7 @@ public class ActionServiceImpl implements ActionService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DELETE)
     public void deleteAction(String actionUuid) throws NotFoundException {
         Action action = actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
         actionRepository.delete(action);

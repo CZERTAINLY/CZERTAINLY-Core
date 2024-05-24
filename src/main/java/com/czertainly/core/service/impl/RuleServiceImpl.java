@@ -11,6 +11,8 @@ import com.czertainly.core.dao.entity.workflows.Rule;
 import com.czertainly.core.dao.repository.workflows.ConditionItemRepository;
 import com.czertainly.core.dao.repository.workflows.ConditionRepository;
 import com.czertainly.core.dao.repository.workflows.RuleRepository;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.RuleService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,17 +48,20 @@ public class RuleServiceImpl implements RuleService {
     //region Conditions
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.LIST)
     public List<ConditionDto> listConditions(Resource resource) {
         if (resource == null) return conditionRepository.findAll().stream().map(Condition::mapToDto).toList();
         return conditionRepository.findAllByResource(resource).stream().map(Condition::mapToDto).toList();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.DETAIL)
     public ConditionDto getCondition(String conditionUuid) throws NotFoundException {
         return conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid)).mapToDto();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.CREATE)
     public ConditionDto createCondition(ConditionRequestDto request) throws AlreadyExistException {
         if (request.getItems().isEmpty()) {
             throw new ValidationException("Cannot create a condition without any condition items.");
@@ -84,6 +89,7 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.UPDATE)
     public ConditionDto updateCondition(String conditionUuid, UpdateConditionRequestDto request) throws NotFoundException {
         if (request.getItems().isEmpty()) {
             throw new ValidationException("Cannot update a condition without any condition items.");
@@ -100,6 +106,7 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.DELETE)
     public void deleteCondition(String conditionUuid) throws NotFoundException {
         Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
         conditionRepository.delete(condition);
@@ -132,17 +139,20 @@ public class RuleServiceImpl implements RuleService {
     //region Rules
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.LIST)
     public List<RuleDto> listRules(Resource resource) {
         if (resource == null) return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
         return ruleRepository.findAllByResource(resource).stream().map(Rule::mapToDto).toList();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.DETAIL)
     public RuleDetailDto getRule(String ruleUuid) throws NotFoundException {
         return ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid)).mapToDetailDto();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.CREATE)
     public RuleDetailDto createRule(RuleRequestDto request) throws AlreadyExistException, NotFoundException {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
@@ -180,6 +190,7 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.UPDATE)
     public RuleDetailDto updateRule(String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException {
         if (request.getConditionsUuids().isEmpty()) {
             throw new ValidationException("Rule has to contain at least one condition.");
@@ -204,6 +215,7 @@ public class RuleServiceImpl implements RuleService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.DELETE)
     public void deleteRule(String ruleUuid) throws NotFoundException {
         Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
         ruleRepository.delete(rule);

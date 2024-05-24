@@ -7,6 +7,8 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.dao.repository.workflows.*;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.TriggerService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,6 +69,7 @@ public class TriggerServiceImpl implements TriggerService {
     //region Triggers
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.LIST)
     public List<TriggerDto> listTriggers(Resource resource, Resource eventResource) {
         List<Trigger> triggers;
         if (resource != null && eventResource != null) {
@@ -83,16 +86,19 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
     public TriggerDetailDto getTrigger(String triggerUuid) throws NotFoundException {
         return triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid)).mapToDetailDto();
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
     public Trigger getTriggerEntity(String triggerUuid) throws NotFoundException {
         return triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.CREATE)
     public TriggerDetailDto createTrigger(TriggerRequestDto request) throws AlreadyExistException, NotFoundException {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
@@ -137,6 +143,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.UPDATE)
     public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
         if (request.getResource() == null) {
             throw new ValidationException("Property resource cannot be empty.");
@@ -172,6 +179,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DELETE)
     public void deleteTrigger(String triggerUuid) throws NotFoundException {
         Trigger trigger = triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
 
@@ -207,6 +215,7 @@ public class TriggerServiceImpl implements TriggerService {
     //region Trigger History
 
     @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
     public List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid) {
         List<TriggerHistory> triggerHistories = triggerHistoryRepository.findAllByTriggerUuidAndTriggerAssociationObjectUuid(UUID.fromString(triggerUuid), UUID.fromString(triggerObjectUuid));
         return triggerHistories.stream().map(TriggerHistory::mapToDto).toList();
