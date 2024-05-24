@@ -7,16 +7,27 @@ import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
+import lombok.Data;
+import lombok.EqualsAndHashCode;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.data.annotation.CreatedBy;
+import org.springframework.data.annotation.CreatedDate;
+import org.springframework.data.annotation.LastModifiedBy;
+import org.springframework.data.annotation.LastModifiedDate;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
+import java.time.ZonedDateTime;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.UUID;
 
+@EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "certificate_event_history")
-public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
+public class CertificateEventHistory extends UniquelyIdentified implements Serializable, DtoMapper<CertificateEventHistoryDto> {
 
     @Enumerated(EnumType.STRING)
     @Column(name = "event")
@@ -38,6 +49,19 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
 
     @Column(name = "certificate_uuid", nullable = false)
     private UUID certificateUuid;
+
+    @Column(name = "i_author")
+    @CreatedBy
+    @LastModifiedBy
+    private String author;
+
+    @Column(name = "i_cre", nullable = false, updatable = false)
+    @CreatedDate
+    private Date created;
+
+    @Column(name = "i_upd", nullable = false)
+    @LastModifiedDate
+    private Date updated;
 
     @Override
     public String toString() {
@@ -120,5 +144,29 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
 
     public void setCertificateUuid(String certificateUuid) {
         this.certificateUuid = UUID.fromString(certificateUuid);
+    }
+
+    public String getAuthor() {
+        return author;
+    }
+
+    public void setAuthor(String author) {
+        this.author = author;
+    }
+
+    public Date getCreated() {
+        return created;
+    }
+
+    public void setCreated(Date created) {
+        this.created = created;
+    }
+
+    public Date getUpdated() {
+        return updated;
+    }
+
+    public void setUpdated(Date updated) {
+        this.updated = updated;
     }
 }
