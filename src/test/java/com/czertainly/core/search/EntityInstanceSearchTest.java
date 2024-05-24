@@ -21,8 +21,12 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.EntityInstanceReference;
+import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.EntityInstanceService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -31,10 +35,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
