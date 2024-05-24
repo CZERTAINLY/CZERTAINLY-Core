@@ -29,6 +29,7 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -170,10 +171,10 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
 
         if (filter.getCreatedFrom() != null) {
-            predicate.and(QAuditLog.auditLog.created.after(filter.getCreatedFrom().atStartOfDay()));
+            predicate.and(QAuditLog.auditLog.created.after(OffsetDateTime.from(filter.getCreatedFrom().atStartOfDay())));
         }
         if (filter.getCreatedTo() != null) {
-            predicate.and(QAuditLog.auditLog.created.before(filter.getCreatedTo().atTime(LocalTime.MAX)));
+            predicate.and(QAuditLog.auditLog.created.before(OffsetDateTime.from(filter.getCreatedTo().atTime(LocalTime.MAX))));
         } else {
             predicate.and(QAuditLog.auditLog.created.isNotNull());
         }

@@ -32,7 +32,9 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -76,7 +78,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         entityInstanceReference = new EntityInstanceReference();
         entityInstanceReference.setConnector(connector);
         entityInstanceReference.setConnectorName("testConnector1");
-        entityInstanceReference.setCreated(LocalDateTime.now());
+        entityInstanceReference.setCreated(OffsetDateTime.now());
         entityInstanceReference.setKind("test-kind1");
         entityInstanceReference.setName("entity-ref-1");
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
@@ -96,7 +98,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         entityInstanceReference = new EntityInstanceReference();
         entityInstanceReference.setConnector(connector);
         entityInstanceReference.setConnectorName("testConnector2");
-        entityInstanceReference.setCreated(LocalDateTime.now());
+        entityInstanceReference.setCreated(OffsetDateTime.now());
         entityInstanceReference.setKind("test-kind2");
         entityInstanceReference.setName("entity-ref-2");
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
@@ -113,7 +115,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         entityInstanceReference = new EntityInstanceReference();
         entityInstanceReference.setConnector(connector);
         entityInstanceReference.setConnectorName("testConnector3");
-        entityInstanceReference.setCreated(LocalDateTime.now());
+        entityInstanceReference.setCreated(OffsetDateTime.now());
         entityInstanceReference.setKind("test3-kind");
         entityInstanceReference.setName("entity3-ref");
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
