@@ -127,9 +127,13 @@ public class ActionServiceImpl implements ActionService {
                 executionItem.setData(executionItemRequestDto.getData());
             } else {
                 try {
-                    AttributeContentType attributeContentType = AttributeContentType.valueOf(executionItemRequestDto.getFieldIdentifier().substring(executionItemRequestDto.getFieldIdentifier().indexOf("|") + 1));
-                    List<BaseAttributeContent<?>> contentItems = AttributeDefinitionUtils.createAttributeContentFromString(attributeContentType, executionItemRequestDto.getData() instanceof ArrayList<?> ? (List<String>) executionItemRequestDto.getData() : List.of(executionItemRequestDto.getData().toString()));
-                    executionItem.setData(contentItems);
+                    if(executionItemRequestDto.getData() == null) {
+                        executionItem.setData(new ArrayList<BaseAttributeContent<?>>());
+                    } else {
+                        AttributeContentType attributeContentType = AttributeContentType.valueOf(executionItemRequestDto.getFieldIdentifier().substring(executionItemRequestDto.getFieldIdentifier().indexOf("|") + 1));
+                        List<BaseAttributeContent<?>> contentItems = AttributeDefinitionUtils.createAttributeContentFromString(attributeContentType, executionItemRequestDto.getData() instanceof ArrayList<?> ? (List<String>) executionItemRequestDto.getData() : List.of(executionItemRequestDto.getData().toString()));
+                        executionItem.setData(contentItems);
+                    }
                 } catch (IllegalArgumentException e) {
                     throw new ValidationException("Unknown content type for custom attribute with field identifier: " + executionItemRequestDto.getFieldIdentifier());
                 }

@@ -6,7 +6,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -19,6 +19,10 @@ public class TriggerHistory extends UniquelyIdentified {
 
     @Column(name = "trigger_uuid", nullable = false)
     private UUID triggerUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trigger_uuid", nullable = false, insertable = false, updatable = false)
+    private Trigger trigger;
 
     @Column(name = "trigger_association_object_uuid")
     private UUID triggerAssociationObjectUuid;
@@ -36,7 +40,7 @@ public class TriggerHistory extends UniquelyIdentified {
     private boolean actionsPerformed;
 
     @Column(name = "triggered_at", nullable = false)
-    private LocalDateTime triggeredAt;
+    private OffsetDateTime triggeredAt;
 
     @Column(name = "message")
     private String message;

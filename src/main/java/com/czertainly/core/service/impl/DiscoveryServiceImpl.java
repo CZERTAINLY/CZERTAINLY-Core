@@ -62,6 +62,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.function.BiFunction;
 
@@ -539,7 +540,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             // First, check the triggers that have action with action type set to ignore
             boolean ignored = false;
             for (Trigger trigger : ignoreTriggers) {
-                TriggerHistory triggerHistory = triggerService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
+                TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     ignored = true;
                     triggerHistory.setConditionsMatched(true);
@@ -560,7 +561,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             // Evaluate rest of the triggers in given order
             for (Trigger trigger : orderedTriggers) {
                 // Create trigger history entry
-                TriggerHistory triggerHistory = triggerService.createTriggerHistory(LocalDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
+                TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, entry.getUuid(), discoveryCertificate.getUuid());
                 // If rules are satisfied, perform defined actions
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
                     triggerHistory.setConditionsMatched(true);
