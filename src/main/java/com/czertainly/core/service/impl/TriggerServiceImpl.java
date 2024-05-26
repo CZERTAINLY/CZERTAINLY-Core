@@ -16,9 +16,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.time.OffsetDateTime;
+import java.util.*;
 
 @Service
 @Transactional
@@ -222,7 +221,73 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public TriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid) {
+    public TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException {
+        List<TriggerHistory> triggerHistories = triggerHistoryRepository.findByTriggerAssociationObjectUuidOrderByTriggerUuidAscTriggeredAtAsc(UUID.fromString(associationObjectUuid));
+
+        if (triggerHistories.isEmpty()) {
+            throw new NotFoundException("Trigger association object", associationObjectUuid);
+        }
+
+        Map<UUID, TriggerHistoryObjectSummaryDto> objectsMapping = new HashMap<>();
+
+        TriggerHistorySummaryDto resultDto = new TriggerHistorySummaryDto();
+
+        // set initial summary data
+        Trigger trigger = triggerHistories.get(0).getTrigger();
+        resultDto.setAssociationResource(trigger.getEventResource() != null ? trigger.getEventResource() : trigger.getResource());
+        resultDto.setAssociationObjectUuid(associationObjectUuid);
+        resultDto.setObjectsResource(trigger.getResource());
+
+        int objectsMatched = 0;
+        int objectsIgnored = 0;
+        for (TriggerHistory history : triggerHistories) {
+            if (!history.getTriggerUuid().equals(trigger.getUuid())) {
+                trigger = history.getTrigger();
+            }
+
+
+            UUID objectUuid = history.getObjectUuid() != null ? history.getObjectUuid() : history.getReferenceObjectUuid();
+            TriggerHistoryObjectSummaryDto objectSummaryDto = objectsMapping.get(objectUuid);
+            if (objectSummaryDto == null) {
+                objectSummaryDto = new TriggerHistoryObjectSummaryDto();
+                objectSummaryDto.setObjectUuid(history.getObjectUuid());
+                objectSummaryDto.setReferenceObjectUuid(history.getReferenceObjectUuid());
+                objectsMapping.put(objectUuid, objectSummaryDto);
+            }
+
+            // update match and ignore flags
+            if (history.isConditionsMatched()) {
+                if (!objectSummaryDto.isMatched()) {
+                    objectSummaryDto.setMatched(true);
+                    ++objectsMatched;
+                }
+                if (trigger.isIgnoreTrigger() && !objectSummaryDto.isIgnored()) {
+                    objectSummaryDto.setIgnored(true);
+                    ++objectsIgnored;
+                }
+            }
+
+            // add trigger info with records
+            TriggerHistoryObjectTriggerSummaryDto objectTriggerSummaryDto = new TriggerHistoryObjectTriggerSummaryDto();
+            objectTriggerSummaryDto.setTriggerUuid(trigger.getUuid());
+            objectTriggerSummaryDto.setTriggerName(trigger.getName());
+            objectTriggerSummaryDto.setTriggeredAt(history.getTriggeredAt());
+            objectTriggerSummaryDto.setMessage(history.getMessage());
+            objectTriggerSummaryDto.setRecords(history.getRecords().stream().map(TriggerHistoryRecord::mapToDto).toList());
+            objectSummaryDto.getTriggers().add(objectTriggerSummaryDto);
+        }
+
+        // update numbers of objects and add them to result
+        resultDto.setObjectsEvaluated(objectsMapping.size());
+        resultDto.setObjectsMatched(objectsMatched);
+        resultDto.setObjectsIgnored(objectsIgnored);
+        resultDto.setObjects(objectsMapping.values().stream().toList());
+
+        return resultDto;
+    }
+
+    @Override
+    public TriggerHistory createTriggerHistory(OffsetDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid) {
         TriggerHistory triggerHistory = new TriggerHistory();
         triggerHistory.setTriggerUuid(triggerUuid);
         triggerHistory.setTriggerAssociationObjectUuid(triggerAssociationObjectUuid);

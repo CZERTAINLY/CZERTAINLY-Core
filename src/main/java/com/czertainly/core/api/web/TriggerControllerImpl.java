@@ -55,7 +55,12 @@ public class TriggerControllerImpl implements TriggerController {
     }
 
     @Override
-    public List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid) {
-        return triggerService.getTriggerHistory(triggerUuid, triggerObjectUuid);
+    public List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String associationObjectUuid) {
+        return triggerService.getTriggerHistory(triggerUuid, associationObjectUuid);
+    }
+
+    @Override
+    public TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException {
+        return triggerService.getTriggerHistorySummary(associationObjectUuid);
     }
 }

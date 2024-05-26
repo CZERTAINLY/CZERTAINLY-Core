@@ -214,7 +214,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                             logger.debug("Action with UUID {} has been performed.", action.getUuid());
                         } catch (Exception e) {
                             logger.debug("Action with UUID {} has not been performed. Reason: {}", action.getUuid(), e.getMessage());
-                            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, null, execution.getUuid(), "Action has not been performed, reason: " + e.getMessage());
+                            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, null, execution.getUuid(), e.getMessage());
                             triggerHistory.getRecords().add(triggerHistoryRecord);
                         }
                     }
@@ -287,14 +287,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     private boolean getConditionEvaluationResult(ConditionItem conditionItem, T object, TriggerHistory triggerHistory, Rule rule) {
         try {
             if (!evaluateConditionItem(conditionItem, object, rule.getResource())) {
-                String message = String.format("Condition '%s %s %s' is false.", conditionItem.getFieldIdentifier(), conditionItem.getOperator().getCode(), conditionItem.getValue().toString());
+                String message = String.format("Condition item '%s %s %s %s' is false.", conditionItem.getFieldSource().getLabel(), conditionItem.getFieldIdentifier(), conditionItem.getOperator().getLabel(), conditionItem.getValue() != null ? conditionItem.getValue().toString() : "");
                 logger.debug("Rule {} is not satisfied. Reason: {}", rule.getName(), message);
-                TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, conditionItem.getCondition().getUuid(), null, "Condition not satisfied, reason: " + message);
+                TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, conditionItem.getCondition().getUuid(), null, message);
                 triggerHistory.getRecords().add(triggerHistoryRecord);
                 return false;
             }
         } catch (RuleException e) {
-            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, conditionItem.getCondition().getUuid(), null, "Condition has not been evaluated, reason: " + e.getMessage());
+            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, conditionItem.getCondition().getUuid(), null, e.getMessage());
             triggerHistory.getRecords().add(triggerHistoryRecord);
             return false;
         }

@@ -9,6 +9,7 @@ import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.entity.workflows.TriggerHistoryRecord;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -22,6 +23,8 @@ public interface TriggerService {
     void deleteTrigger(String triggerUuid) throws NotFoundException;
 
     List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid);
-    TriggerHistory createTriggerHistory(LocalDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid);
+    TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException;
+
+    TriggerHistory createTriggerHistory(OffsetDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid);
     TriggerHistoryRecord createTriggerHistoryRecord(TriggerHistory triggerHistory, UUID conditionUuid, UUID executionUuid, String message);
 }

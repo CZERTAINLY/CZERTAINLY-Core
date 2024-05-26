@@ -38,7 +38,7 @@ public class TriggerHistoryRecord extends UniquelyIdentified {
     public TriggerHistoryRecordDto mapToDto() {
         TriggerHistoryRecordDto triggerHistoryRecordDto = new TriggerHistoryRecordDto();
         triggerHistoryRecordDto.setMessage(message);
-        if (executionUuid != null) triggerHistoryRecordDto.setAction(execution.mapToDto());
+        if (executionUuid != null) triggerHistoryRecordDto.setExecution(execution.mapToDto());
         if (conditionUuid != null) triggerHistoryRecordDto.setCondition(condition.mapToDto());
         return triggerHistoryRecordDto;
     }
