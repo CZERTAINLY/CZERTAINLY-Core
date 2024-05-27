@@ -214,9 +214,15 @@ public class TriggerServiceImpl implements TriggerService {
     //region Trigger History
 
     @Override
+    public void deleteTriggerAssociation(Resource resource, UUID associationObjectUuid) {
+        triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, associationObjectUuid);
+        triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
-    public List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid) {
-        List<TriggerHistory> triggerHistories = triggerHistoryRepository.findAllByTriggerUuidAndTriggerAssociationObjectUuid(UUID.fromString(triggerUuid), UUID.fromString(triggerObjectUuid));
+    public List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String associationObjectUuid) {
+        List<TriggerHistory> triggerHistories = triggerHistoryRepository.findAllByTriggerUuidAndTriggerAssociationObjectUuid(UUID.fromString(triggerUuid), UUID.fromString(associationObjectUuid));
         return triggerHistories.stream().map(TriggerHistory::mapToDto).toList();
     }
 
