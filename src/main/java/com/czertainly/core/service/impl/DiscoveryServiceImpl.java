@@ -222,11 +222,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 }
             }
         }
+
+        attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
+        discoveryRepository.delete(discovery);
+
+        triggerService.deleteTriggerAssociation(Resource.DISCOVERY, discovery.getUuid());
+
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
-            attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
-            discoveryRepository.delete(discovery);
-            triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
