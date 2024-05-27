@@ -18,5 +18,5 @@ public interface TriggerHistoryRepository extends SecurityFilterRepository<Trigg
     @EntityGraph(attributePaths = {"records"})
     List<TriggerHistory> findByTriggerAssociationObjectUuidOrderByTriggerUuidAscTriggeredAtAsc(UUID triggerAssociationObjectUuid);
 
-    List<TriggerHistory> deleteByTriggerAssociationObjectUuid(UUID triggerAssociationObjectUuid);
+    long deleteByTriggerAssociationObjectUuid(UUID triggerAssociationObjectUuid);
 }

@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -118,6 +119,8 @@ public class RuleServiceTest extends BaseSpringBootTest {
         triggerRequestDto.setName("name");
         triggerRequestDto.setResource(Resource.CERTIFICATE);
         triggerRequestDto.setType(TriggerType.EVENT);
+        triggerRequestDto.setEvent(ResourceEvent.DISCOVERY_FINISHED);
+        triggerRequestDto.setEventResource(Resource.DISCOVERY);
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequestDto));
 
         ActionRequestDto actionRequestDto = new ActionRequestDto();
@@ -133,6 +136,8 @@ public class RuleServiceTest extends BaseSpringBootTest {
         UpdateTriggerRequestDto updateTriggerRequestDto = new UpdateTriggerRequestDto();
         updateTriggerRequestDto.setDescription("description");
         updateTriggerRequestDto.setType(TriggerType.EVENT);
+        updateTriggerRequestDto.setEvent(ResourceEvent.DISCOVERY_FINISHED);
+        updateTriggerRequestDto.setEventResource(Resource.DISCOVERY);
         updateTriggerRequestDto.setResource(Resource.CERTIFICATE);
         updateTriggerRequestDto.setActionsUuids(triggerRequestDto.getActionsUuids());
         Assertions.assertEquals("description", triggerService.updateTrigger(triggerDetailDto.getUuid(), updateTriggerRequestDto).getDescription());
