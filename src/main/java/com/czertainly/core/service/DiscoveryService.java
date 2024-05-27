@@ -6,6 +6,8 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
+import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -34,11 +36,9 @@ public interface DiscoveryService extends ResourceExtensionService {
      */
     DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
 
-    DiscoveryHistory createDiscoveryModal(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException;
-
-
-    void createDiscovery(DiscoveryHistory modal) throws AlreadyExistException, ConnectorException;
-    void createDiscoveryAsync(DiscoveryHistory modal) throws AlreadyExistException, ConnectorException;
+    DiscoveryHistoryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException;
+    DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid);
+    void runDiscoveryAsync(UUID discoveryUuid);
 
     void deleteDiscovery(SecuredUUID uuid) throws NotFoundException;
 
