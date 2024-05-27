@@ -11,17 +11,20 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.TriggerService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service
 @Transactional
 public class TriggerServiceImpl implements TriggerService {
+
+    private static final Logger logger = LoggerFactory.getLogger(TriggerServiceImpl.class);
 
     private RuleRepository ruleRepository;
 
@@ -111,6 +114,12 @@ public class TriggerServiceImpl implements TriggerService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
+        if (request.getType() == TriggerType.EVENT) {
+            if (request.getEventResource() == null || request.getEvent() == null) {
+                throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
+            }
+        }
+
         if (!request.isIgnoreTrigger()) {
             if (request.getActionsUuids().isEmpty()) {
                 throw new ValidationException("Trigger that is not ignore trigger must contain at least one action.");
@@ -150,6 +159,12 @@ public class TriggerServiceImpl implements TriggerService {
 
         if (request.getType() == null) {
             throw new ValidationException("Property trigger type cannot be empty.");
+        }
+
+        if (request.getType() == TriggerType.EVENT) {
+            if (request.getEventResource() == null || request.getEvent() == null) {
+                throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
+            }
         }
 
         if (!request.isIgnoreTrigger()) {
@@ -215,8 +230,10 @@ public class TriggerServiceImpl implements TriggerService {
 
     @Override
     public void deleteTriggerAssociation(Resource resource, UUID associationObjectUuid) {
-        triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, associationObjectUuid);
-        triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);
+        long deletedAssociations = triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, associationObjectUuid);
+        logger.debug("Deleted {} trigger associations for {} with UUID {}.", deletedAssociations, resource.getLabel(), associationObjectUuid);
+        long deletedHistoryRecords = triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);
+        logger.debug("Deleted {} trigger history items for {} with UUID {}.", deletedHistoryRecords, resource.getLabel(), associationObjectUuid);
     }
 
     @Override
