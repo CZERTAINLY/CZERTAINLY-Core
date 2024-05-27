@@ -8,9 +8,15 @@ import org.bouncycastle.asn1.x509.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.naming.NamingEnumeration;
+import javax.naming.NamingException;
+import javax.naming.directory.DirContext;
+import javax.naming.directory.InitialDirContext;
+import javax.naming.directory.SearchResult;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.cert.CRLException;
@@ -18,6 +24,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509CRL;
 import java.util.ArrayList;
+import java.util.Base64;
 import java.util.List;
 
 public class CrlUtil {
@@ -65,12 +72,19 @@ public class CrlUtil {
         return crlUrls;
     }
 
-    public static X509CRL getX509Crl(String crlUrl) throws IOException, CertificateException {
+    public static X509CRL getX509Crl(String crlUrl) throws Exception {
+        CertificateFactory cf = CertificateFactory.getInstance("X509");
+
+        // Handle ldap protocol
+        if (crlUrl.startsWith("ldap")) {
+            byte[] crl = CertificateUtil.getContentFromLdap(crlUrl);
+            if (crl == null) throw new Exception("Crl not available in LDAP.");
+            return (X509CRL) cf.generateCRL(new ByteArrayInputStream(crl));
+        }
         X509CRL X509Crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
-        CertificateFactory cf = CertificateFactory.getInstance("X509");
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             X509Crl = (X509CRL) cf.generateCRL(inStream);
