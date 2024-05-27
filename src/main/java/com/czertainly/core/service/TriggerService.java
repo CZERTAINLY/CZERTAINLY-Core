@@ -22,7 +22,9 @@ public interface TriggerService {
     TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException;
     void deleteTrigger(String triggerUuid) throws NotFoundException;
 
-    List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String triggerObjectUuid);
+    void deleteTriggerAssociation(Resource resource, UUID associationObjectUuid);
+
+    List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String associationObjectUuid);
     TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException;
 
     TriggerHistory createTriggerHistory(OffsetDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid);
