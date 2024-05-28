@@ -570,7 +570,7 @@ public class CertificateUtil {
             case "base" -> searchControls.setSearchScope(SearchControls.OBJECT_SCOPE);
             case "one" -> searchControls.setSearchScope(SearchControls.ONELEVEL_SCOPE);
             case "sub" -> searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-            default -> throw new IllegalArgumentException("Invalid search scope.");
+            default -> throw new IllegalArgumentException("Invalid search scope in LDAP url.");
         }
         DirContext ctx;
         try {
@@ -585,7 +585,7 @@ public class CertificateUtil {
                 return null;
             }
         } catch (NamingException e) {
-            throw new Exception("Cannot retrieve content from LDAP, reason: " + e.getMessage());
+            throw new Exception("Cannot retrieve content from LDAP, reason: " + e.getCause());
         }
 
     }
