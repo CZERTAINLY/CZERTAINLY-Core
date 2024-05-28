@@ -555,6 +555,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             // First, check the triggers that have action with action type set to ignore
             boolean ignored = false;
+            List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
             for (Trigger trigger : ignoreTriggers) {
                 TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
                 if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
@@ -566,6 +567,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     triggerHistory.setConditionsMatched(false);
                     triggerHistory.setActionsPerformed(false);
                 }
+                ignoreTriggerHistories.add(triggerHistory);
             }
 
             // If some trigger ignored this certificate, certificate is not saved and continue with next one
@@ -573,6 +575,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             // Save certificate to database
             certificateService.updateCertificateEntity(entry);
+
+            // update objectUuid of not ignored certs
+            for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
+                ignoreTriggerHistory.setObjectUuid(entry.getUuid());
+            }
 
             // Evaluate rest of the triggers in given order
             for (Trigger trigger : orderedTriggers) {
