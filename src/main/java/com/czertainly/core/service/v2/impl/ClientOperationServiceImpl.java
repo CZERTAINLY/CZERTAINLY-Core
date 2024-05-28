@@ -179,7 +179,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         if (createCustomAttributes) {
             attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
         }
-        if (request.getRequest() == null && (request.getKeyUuid() == null || request.getTokenProfileUuid() == null)) {
+        if ((request.getRequest() == null || request.getRequest().isEmpty()) && (request.getKeyUuid() == null || request.getTokenProfileUuid() == null)) {
             throw new ValidationException("Cannot submit certificate request without specifying key or uploaded request content");
         }
 
@@ -199,16 +199,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException, CertificateRequestException {
-        // create certificate request from CSR and parse the data
-        CertificateRequest certificateRequest = CertificateRequestUtils.createCertificateRequest(
-                request.getRequest(), request.getFormat());
-
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
         certificateRequestDto.setCsrAttributes(request.getCsrAttributes());
         certificateRequestDto.setSignatureAttributes(request.getSignatureAttributes());
-        certificateRequestDto.setRequest(Base64.getEncoder().encodeToString(certificateRequest.getEncoded()));
-        certificateRequestDto.setFormat(certificateRequest.getFormat());
+        certificateRequestDto.setRequest(request.getRequest());
+        certificateRequestDto.setFormat(request.getFormat());
         certificateRequestDto.setTokenProfileUuid(request.getTokenProfileUuid());
         certificateRequestDto.setKeyUuid(request.getKeyUuid());
         certificateRequestDto.setIssueAttributes(request.getAttributes());
@@ -940,16 +936,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
-    private String generateBase64EncodedCsr(String uploadedCsr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, CertificateException, AttributeException {
+    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
         String requestB64;
         String csr;
-        List<DataAttribute> merged = List.of();
-
-        if (uploadedCsr != null && !uploadedCsr.isEmpty()) {
-            csr = uploadedCsr;
+        if (uploadedRequest != null && !uploadedRequest.isEmpty()) {
+            csr = uploadedRequest;
         } else {
             // TODO: support for the CRMF should be handled also in case it should be generated
-            if (csrFormat == CertificateRequestFormat.CRMF) {
+            if (requestFormat == CertificateRequestFormat.CRMF) {
                 throw new CertificateException("CRMF format is not supported for CSR generation");
             }
             // get definitions
@@ -967,7 +961,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
         try {
             // TODO: CRMF request should be checked and encoded, not just blindly returned
-            if (csrFormat == CertificateRequestFormat.CRMF) {
+            if (requestFormat == CertificateRequestFormat.CRMF) {
                 return csr;
             }
             // TODO: replace with CertificateRequest object eventually
