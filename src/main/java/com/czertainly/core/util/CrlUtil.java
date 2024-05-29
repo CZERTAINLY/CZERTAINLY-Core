@@ -8,15 +8,9 @@ import org.bouncycastle.asn1.x509.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.directory.DirContext;
-import javax.naming.directory.InitialDirContext;
-import javax.naming.directory.SearchResult;
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.cert.CRLException;
@@ -24,7 +18,6 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509CRL;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.List;
 
 public class CrlUtil {
@@ -77,7 +70,7 @@ public class CrlUtil {
 
         // Handle ldap protocol
         if (crlUrl.startsWith("ldap")) {
-            byte[] crl = CertificateUtil.getContentFromLdap(crlUrl);
+            byte[] crl = LdapUtils.downloadFromLdap(crlUrl);
             if (crl == null) throw new Exception("Crl not available in LDAP.");
             return (X509CRL) cf.generateCRL(new ByteArrayInputStream(crl));
         }
