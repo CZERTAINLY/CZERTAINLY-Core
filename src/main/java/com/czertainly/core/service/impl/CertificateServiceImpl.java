@@ -1437,12 +1437,12 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private String downloadChain(String chainUrl) {
-
         try {
             CertificateFactory fac = CertificateFactory.getInstance("X509");
             X509Certificate cert;
             // Handle ldap protocol
-            if (chainUrl.startsWith("ldap")) {
+
+            if (chainUrl.startsWith("ldap://")||chainUrl.startsWith("ldaps://")) {
                 byte[] certificate = CertificateUtil.getContentFromLdap(chainUrl);
                 if (certificate == null) return "";
                 cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
