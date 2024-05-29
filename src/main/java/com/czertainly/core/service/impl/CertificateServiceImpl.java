@@ -1442,11 +1442,11 @@ public class CertificateServiceImpl implements CertificateService {
             X509Certificate cert;
             // Handle ldap protocol
 
-            if (chainUrl.startsWith("ldap://")||chainUrl.startsWith("ldaps://")) {
+            if (chainUrl.startsWith("ldap://") || chainUrl.startsWith("ldaps://")) {
                 byte[] certificate = CertificateUtil.getContentFromLdap(chainUrl);
                 if (certificate == null) return "";
                 cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
-             } else {
+            } else {
                 URL url = new URL(chainUrl);
                 URLConnection urlConnection = url.openConnection();
                 urlConnection.setConnectTimeout(1000);
