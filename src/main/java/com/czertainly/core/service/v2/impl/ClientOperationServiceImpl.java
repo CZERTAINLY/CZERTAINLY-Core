@@ -5,7 +5,6 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
@@ -272,6 +271,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     certificate.getRaProfile().getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
 
+            if (issueCaResponse.getCertificateData() == null || issueCaResponse.getCertificateData().isEmpty()) {
+                throw new CertificateOperationException("Response from authority did not contain certificate data");
+            }
+
             logger.info("Certificate {} was issued by authority", certificateUuid);
 
             certificateService.issueRequestedCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
@@ -430,6 +433,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
+
+            if (renewCaResponse.getCertificateData() == null || renewCaResponse.getCertificateData().isEmpty()) {
+                throw new CertificateOperationException("Response from authority did not contain certificate data");
+            }
 
             logger.info("Certificate {} was renewed by authority", certificateUuid);
 
@@ -592,6 +599,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                     raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
                     caRequest);
+
+            if (renewCaResponse.getCertificateData() == null || renewCaResponse.getCertificateData().isEmpty()) {
+                throw new CertificateOperationException("Response from authority did not contain certificate data");
+            }
 
             logger.info("Certificate {} was rekeyed by authority", certificateUuid);
 

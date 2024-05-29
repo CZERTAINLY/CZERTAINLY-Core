@@ -11,12 +11,12 @@ import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.util.AuthHelper;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
