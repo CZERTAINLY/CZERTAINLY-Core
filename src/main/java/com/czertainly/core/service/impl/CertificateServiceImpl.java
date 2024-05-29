@@ -6,7 +6,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
-import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -45,7 +44,6 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
@@ -1440,29 +1438,39 @@ public class CertificateServiceImpl implements CertificateService {
 
     private String downloadChain(String chainUrl) {
         try {
-            URL url = new URL(chainUrl);
-            URLConnection urlConnection = url.openConnection();
-            urlConnection.setConnectTimeout(1000);
-            urlConnection.setReadTimeout(1000);
-            String fileName = chainUrl.split("/")[chainUrl.split("/").length - 1];
-            try (InputStream in = url.openStream(); ReadableByteChannel rbc = Channels.newChannel(in); FileOutputStream fos = new FileOutputStream(fileName)) {
-                fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
-            } catch (Exception e) {
-                logger.error(e.getMessage());
-                return "";
-            }
             CertificateFactory fac = CertificateFactory.getInstance("X509");
-            FileInputStream is = new FileInputStream(fileName);
-            X509Certificate cert = (X509Certificate) fac.generateCertificate(is);
+            X509Certificate cert;
+            // Handle ldap protocol
+
+            if (chainUrl.startsWith("ldap://") || chainUrl.startsWith("ldaps://")) {
+                byte[] certificate = CertificateUtil.getContentFromLdap(chainUrl);
+                if (certificate == null) return "";
+                cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
+            } else {
+                URL url = new URL(chainUrl);
+                URLConnection urlConnection = url.openConnection();
+                urlConnection.setConnectTimeout(1000);
+                urlConnection.setReadTimeout(1000);
+                String fileName = chainUrl.split("/")[chainUrl.split("/").length - 1];
+                try (InputStream in = url.openStream(); ReadableByteChannel rbc = Channels.newChannel(in); FileOutputStream fos = new FileOutputStream(fileName)) {
+                    fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+                } catch (Exception e) {
+                    logger.error(e.getMessage());
+                    return "";
+                }
+                FileInputStream is = new FileInputStream(fileName);
+                cert = (X509Certificate) fac.generateCertificate(is);
+                is.close();
+                Path path = Paths.get(fileName);
+                Files.deleteIfExists(path);
+            }
             final StringWriter writer = new StringWriter();
             final JcaPEMWriter pemWriter = new JcaPEMWriter(writer);
             pemWriter.writeObject(cert);
             pemWriter.flush();
             pemWriter.close();
             writer.close();
-            is.close();
-            Path path = Paths.get(fileName);
-            Files.deleteIfExists(path);
+
             return writer.toString();
         } catch (Exception e) {
             logger.error(e.getMessage());
