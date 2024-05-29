@@ -555,9 +555,6 @@ public class CertificateUtil {
     }
 
     public static byte[] getContentFromLdap(String ldapUrl) throws Exception {
-        Hashtable<String, String> environment = new Hashtable<String, String>();
-        environment.put(Context.SECURITY_PRINCIPAL, "CN=Klara Ficova,CN=Users,DC=winlab,DC=3key,DC=company");
-        environment.put(Context.SECURITY_CREDENTIALS, "PTei06tpfjGvqAX");
         SearchControls searchControls = new SearchControls();
         // Split LDAP url of format ldap://baseDn?attribute?scope?filter;format, format is ignored if included, because
         // return value is bytes always
@@ -578,7 +575,7 @@ public class CertificateUtil {
         }
         DirContext ctx;
         try {
-            ctx = new InitialDirContext(environment);
+            ctx = new InitialDirContext();
 
             NamingEnumeration<SearchResult> results = ctx.search(baseDn, filter, searchControls);
             if (results.hasMore()) {
