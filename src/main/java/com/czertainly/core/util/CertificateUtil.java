@@ -44,6 +44,7 @@ import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import javax.naming.Context;
 import javax.naming.NamingEnumeration;
 import javax.naming.NamingException;
 import javax.naming.directory.*;
@@ -554,6 +555,9 @@ public class CertificateUtil {
     }
 
     public static byte[] getContentFromLdap(String ldapUrl) throws Exception {
+        Hashtable<String, String> environment = new Hashtable<String, String>();
+        environment.put(Context.SECURITY_PRINCIPAL, "CN=Klara Ficova,CN=Users,DC=winlab,DC=3key,DC=company");
+        environment.put(Context.SECURITY_CREDENTIALS, "PTei06tpfjGvqAX");
         SearchControls searchControls = new SearchControls();
         // Split LDAP url of format ldap://baseDn?attribute?scope?filter;format, format is ignored if included, because
         // return value is bytes always
@@ -574,7 +578,7 @@ public class CertificateUtil {
         }
         DirContext ctx;
         try {
-            ctx = new InitialDirContext();
+            ctx = new InitialDirContext(environment);
 
             NamingEnumeration<SearchResult> results = ctx.search(baseDn, filter, searchControls);
             if (results.hasMore()) {
@@ -585,7 +589,7 @@ public class CertificateUtil {
                 return null;
             }
         } catch (NamingException e) {
-            throw new Exception("Cannot retrieve content from LDAP, reason: " + e.getCause());
+            throw new Exception("Cannot retrieve content from LDAP, reason: " + e);
         }
 
     }
