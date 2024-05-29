@@ -16,6 +16,8 @@ import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.jcajce.JcaX509ExtensionUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,6 +27,8 @@ import java.util.*;
 
 @Service
 public class CrlServiceImpl implements CrlService {
+
+    private static final Logger logger = LoggerFactory.getLogger(CrlServiceImpl.class);
 
     private CertificateRepository certificateRepository;
 
@@ -59,6 +63,7 @@ public class CrlServiceImpl implements CrlService {
                 X509Crl = CrlUtil.getX509Crl(crlUrl);
             } catch (Exception e) {
                 // Failed to read content from URL, continue to next URL
+                logger.error("Failed to read CRL content from URL: {}, {}", crlUrl, e.getMessage());
                 continue;
             }
 
