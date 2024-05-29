@@ -1444,7 +1444,7 @@ public class CertificateServiceImpl implements CertificateService {
             // Handle ldap protocol
 
             if (chainUrl.startsWith("ldap://") || chainUrl.startsWith("ldaps://")) {
-                byte[] certificate = CertificateUtil.getContentFromLdap(chainUrl);
+                byte[] certificate = LdapUtils.downloadFromLdap(chainUrl);
                 if (certificate == null) return "";
                 cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
             } else {

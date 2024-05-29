@@ -44,10 +44,6 @@ import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.naming.Context;
-import javax.naming.NamingEnumeration;
-import javax.naming.NamingException;
-import javax.naming.directory.*;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
@@ -552,43 +548,6 @@ public class CertificateUtil {
         keyPair = keyPairGenerator.generateKeyPair();
 
         return keyPair;
-    }
-
-    public static byte[] getContentFromLdap(String ldapUrl) throws Exception {
-        SearchControls searchControls = new SearchControls();
-        // Split LDAP url of format ldap://baseDn?attribute?scope?filter;format, format is ignored if included, because
-        // return value is bytes always
-        String[] splitUrl = ldapUrl.split("[?;]");
-        String baseDn = splitUrl[0];
-        if (splitUrl.length < 2) throw new Exception("Missing attribute in LDAP url.");
-        String attribute = splitUrl[1];
-        String scope = "base";
-        if (splitUrl.length >= 3) scope = splitUrl[2];
-        String filter = null;
-        if (splitUrl.length >= 4) filter = splitUrl[3];
-
-        switch (scope.toLowerCase()) {
-            case "base" -> searchControls.setSearchScope(SearchControls.OBJECT_SCOPE);
-            case "one" -> searchControls.setSearchScope(SearchControls.ONELEVEL_SCOPE);
-            case "sub" -> searchControls.setSearchScope(SearchControls.SUBTREE_SCOPE);
-            default -> throw new IllegalArgumentException("Invalid search scope in LDAP url.");
-        }
-        DirContext ctx;
-        try {
-            ctx = new InitialDirContext();
-
-            NamingEnumeration<SearchResult> results = ctx.search(baseDn, filter, searchControls);
-            if (results.hasMore()) {
-                SearchResult result = results.next();
-                Attributes attributes = result.getAttributes();
-                return (byte[]) attributes.get(attribute).get();
-            } else {
-                return null;
-            }
-        } catch (NamingException e) {
-            throw new Exception("Cannot retrieve content from LDAP, reason: " + e);
-        }
-
     }
 
 }
