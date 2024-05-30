@@ -53,7 +53,7 @@ public class EventListener {
             case DISCOVERY ->
             {
                 authHelper.authenticateAsUser(eventMessage.getUserUuid());
-                if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID());
+                if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID(), eventMessage.getUserUuid());
             }
             default -> logger.warn("Event handling is supported only for certificates for now");
         }

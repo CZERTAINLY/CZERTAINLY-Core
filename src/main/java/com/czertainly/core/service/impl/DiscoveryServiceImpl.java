@@ -434,7 +434,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             logger.error(e.getMessage());
         }
 
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+        if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
+            notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+        }
 
         return discovery.mapToDto();
     }
@@ -520,10 +522,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public void evaluateDiscoveryTriggers(UUID discoveryUuid) throws RuleException {
+    public void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) throws RuleException {
         // Get newly discovered certificates
-        DiscoveryHistory discoveryHistory = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
+        DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
+        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
         List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
         List<Trigger> orderedTriggers = new ArrayList<>();
@@ -545,14 +547,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         for (DiscoveryCertificate discoveryCertificate : discoveredCertificates) {
             try {
-                processDiscoveredCertificate(discoveryHistory, discoveryCertificate, ignoreTriggers, orderedTriggers);
+                processDiscoveredCertificate(discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
             } catch (Exception e) {
                 logger.warn("Couldn't process discovered certificate {}. Error: {}", discoveryCertificate, e.getMessage());
             }
         }
 
-        discoveryHistory.setStatus(DiscoveryStatus.COMPLETED);
-        discoveryRepository.save(discoveryHistory);
+        discovery.setStatus(DiscoveryStatus.COMPLETED);
+        discoveryRepository.save(discovery);
+
+        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(userUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
