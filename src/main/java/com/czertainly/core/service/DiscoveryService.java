@@ -6,10 +6,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
-import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -53,6 +50,6 @@ public interface DiscoveryService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void evaluateDiscoveryTriggers(UUID discoveryUuid) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
+    void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
 
 }
