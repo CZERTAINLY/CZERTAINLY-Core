@@ -26,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
@@ -36,6 +37,7 @@ import java.util.*;
 import java.util.function.BiFunction;
 
 @Component
+@Transactional
 public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
     private static final Logger logger = LoggerFactory.getLogger(RuleEvaluator.class);

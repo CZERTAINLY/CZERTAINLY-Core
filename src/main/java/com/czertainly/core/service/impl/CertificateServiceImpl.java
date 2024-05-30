@@ -262,6 +262,13 @@ public class CertificateServiceImpl implements CertificateService {
         return entity;
     }
 
+    private Certificate getCertificateEntityWithAssociations(SecuredUUID uuid) throws NotFoundException {
+        Certificate entity = certificateRepository.findWithAssociationsByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
+        raProfileService.evaluateCertificateRaProfilePermissions(uuid, SecuredParentUUID.fromUUID(entity.getRaProfileUuid()));
+
+        return entity;
+    }
+
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     // This method does not need security as it is not exposed by the controllers. This method also does not use uuid
@@ -301,7 +308,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (certificate.getUserUuid() != null) {
             errors.add(ValidationError.create("Certificate is used by some user."));
-            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.DELETE, CertificateEventStatus.FAILED, "Certificate is used by an User", "");
+            eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.DELETE.getCode(), CertificateEventStatus.FAILED.toString(), "Certificate is used by an User", null);
         }
 
         if (!errors.isEmpty()) {
@@ -1535,8 +1542,9 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, currentRaProfileName + " -> " + newRaProfileName, "");
     }
 
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void updateCertificateGroups(SecuredUUID uuid, Set<UUID> groupUuids) throws NotFoundException {
-        Certificate certificate = getCertificateEntity(uuid);
+        Certificate certificate = getCertificateEntityWithAssociations(uuid);
 
         if (groupUuids == null) {
             groupUuids = new HashSet<>();
@@ -1558,8 +1566,9 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, currentGroupNames + " -> " + newGroupNames, "");
     }
 
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void updateOwner(SecuredUUID uuid, String ownerUuid) throws NotFoundException {
-        Certificate certificate = getCertificateEntity(uuid);
+        Certificate certificate = getCertificateEntityWithAssociations(uuid);
 
         // if there is no change, do not update and save request to Auth service
         if ((ownerUuid == null && certificate.getOwner() == null) || (ownerUuid != null && certificate.getOwner() != null) && certificate.getOwner().getUuid().equals(ownerUuid)) {
