@@ -13,10 +13,12 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
 @Component("certificates")
+@Transactional
 public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
 
     private CertificateService certificateService;
