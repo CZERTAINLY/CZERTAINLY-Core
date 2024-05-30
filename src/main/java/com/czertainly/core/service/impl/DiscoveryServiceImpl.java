@@ -617,6 +617,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
         }
 
+        // reload entity with associations
+        UUID entryUuid = entry.getUuid();
+        entry = certificateRepository.findWithAssociationsByUuid(entry.getUuid()).orElseThrow(() -> new RuleException(String.format("Certificate entry %s for discovered certificate %s not found", entryUuid, discoveryCertificate.getUuid())));
+
         // Set metadata attributes, create certificate event history entry and validate certificate
         try {
             attributeEngine.updateMetadataAttributes(discoveryCertificate.getMeta(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
