@@ -53,7 +53,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
-    @Where(clause = "resource = 'CRYPTOGRAPHIC_KEY'")
     private OwnerAssociation owner;
 
     @JsonBackReference
