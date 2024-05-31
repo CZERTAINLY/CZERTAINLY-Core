@@ -216,7 +216,7 @@ public class CertificateServiceImpl implements CertificateService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
 
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
-        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
+        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile", "key"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final CertificateResponseDto responseDto = new CertificateResponseDto();
@@ -232,7 +232,7 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
-        Certificate certificate = getCertificateEntity(uuid);
+        Certificate certificate = getCertificateEntityWithAssociations(uuid);
         CertificateDetailDto dto = certificate.mapToDto();
         if (certificate.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(certificate.getComplianceResult()));
@@ -1048,7 +1048,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         setupSecurityFilter(filter);
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile"), null);
 
         Map<String, Long> groupStat = new HashMap<>();
         Map<String, Long> raProfileStat = new HashMap<>();
@@ -1319,7 +1319,7 @@ public class CertificateServiceImpl implements CertificateService {
     public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
         setupSecurityFilter(filter);
 
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
         return certificates.stream().filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled)).map(Certificate::mapToListDto).toList();
     }
 

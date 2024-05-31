@@ -157,7 +157,7 @@ public class LocationServiceImpl implements LocationService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.LOCATION, filter, request.getFilters());
 
         final BiFunction<Root<Location>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
-        final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+        final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, List.of("certificates", "certificates.certificate"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(Location::mapToDto).toList();
         final Long maxItems = locationRepository.countUsingSecurityFilter(filter, additionalWhereClause);

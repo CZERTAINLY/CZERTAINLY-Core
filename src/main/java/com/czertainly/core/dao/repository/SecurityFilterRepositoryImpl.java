@@ -59,18 +59,40 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter) {
-        return this.findUsingSecurityFilter(filter, null);
+        return this.findUsingSecurityFilter(filter, List.of(), null);
     }
 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled) {
-        return findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("enabled"), enabled));
+        return findUsingSecurityFilter(filter, List.of(), (root, cb) -> cb.equal(root.get("enabled"), enabled));
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
-        final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, null);
+    public List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+        final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();
+    }
+
+    @Override
+    public List<T> findUsingSecurityFilter(final SecurityFilter filter, List<String> fetchAssociations, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+        final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, order);
+        if (p != null) {
+            return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
+        } else {
+            return entityManager.createQuery(cr).getResultList();
+        }
+    }
+
+    @Override
+    public Long countUsingSecurityFilter(SecurityFilter filter) {
+        return countUsingSecurityFilter(filter, null);
+    }
+
+    @Override
+    public Long countUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
+        List<Long> crlist = entityManager.createQuery(cr).getResultList();
+        return crlist.get(0);
     }
 
     @Override
@@ -91,35 +113,15 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return entityManager.createQuery(criteriaQuery).getResultList();
     }
 
-    @Override
-    public List<T> findUsingSecurityFilter(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
-        final CriteriaQuery<T> cr = createCriteriaBuilder(filter, additionalWhereClause, order);
-        if (p != null) {
-            return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
-        } else {
-            return entityManager.createQuery(cr).getResultList();
-        }
-    }
-
-    @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter) {
-        return countUsingSecurityFilter(filter, null);
-    }
-
-    @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
-        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
-        List<Long> crlist = entityManager.createQuery(cr).getResultList();
-        return crlist.get(0);
-    }
-
-    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final CriteriaQuery<T> cr = cb.createQuery(entity);
         final Root<T> root = cr.from(entity);
 
         cr.select(root).distinct(true);
+
+        fetchAssociations(root, fetchAssociations);
 
         if (order != null) {
             cr.orderBy(order.apply(root, cb));
@@ -137,6 +139,25 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         cr.select(cb.countDistinct(root));
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
+    }
+
+    private void fetchAssociations(Root<T> root, List<String> fetchAssociations) {
+        Map<String, FetchParent> fetchedAssociationsMap = new HashMap<>();
+        for (String fetchAssociation : fetchAssociations) {
+            FetchParent fetch = root;
+            String associationFullName = null;
+            final StringTokenizer stz = new StringTokenizer(fetchAssociation, ".");
+            while (stz.hasMoreTokens()) {
+                String associationName = stz.nextToken();
+                associationFullName = associationFullName == null ? associationName : associationFullName + "." + associationName;
+                if (fetchedAssociationsMap.get(associationFullName) == null) {
+                    fetch = fetch.fetch(associationName, JoinType.LEFT);
+                    fetchedAssociationsMap.put(associationFullName, fetch);
+                } else {
+                    fetch = fetchedAssociationsMap.get(associationFullName);
+                }
+            }
+        }
     }
 
     private List<Predicate> getPredicates(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb) {

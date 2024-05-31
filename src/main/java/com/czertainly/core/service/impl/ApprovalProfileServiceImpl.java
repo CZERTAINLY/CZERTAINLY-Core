@@ -57,7 +57,7 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     public ApprovalProfileResponseDto listApprovalProfiles(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ApprovalProfile> approvalProfileList = approvalProfileRepository.findUsingSecurityFilter(filter, null, pageable, null);
+        final List<ApprovalProfile> approvalProfileList = approvalProfileRepository.findUsingSecurityFilter(filter, List.of("approvalProfileVersions", "approvalProfileRelations"), null, pageable, null);
 
         final Long maxItems = approvalProfileRepository.countUsingSecurityFilter(filter, null);
         final ApprovalProfileResponseDto responseDto = new ApprovalProfileResponseDto();

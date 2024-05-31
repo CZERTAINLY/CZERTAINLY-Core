@@ -454,7 +454,7 @@ public class RaProfileServiceImpl implements RaProfileService {
             return cb.and(resourcePredicate, resourceUuidPredicate);
         };
 
-        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(securityFilter, additionalWhereClause);
+        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(securityFilter, List.of("approvalProfile"), additionalWhereClause);
         return approvalProfileRelations.stream().map(apr -> apr.getApprovalProfile().getTheLatestApprovalProfileVersion().mapToDto()).toList();
     }
 
@@ -499,7 +499,7 @@ public class RaProfileServiceImpl implements RaProfileService {
             return cb.and(resourcePredicate, resourceUuidPredicate, approvalProfileUuidPredicate);
         };
 
-        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+        final List<ApprovalProfileRelation> approvalProfileRelations = approvalProfileRelationRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of("approvalProfile"), additionalWhereClause);
 
         if (approvalProfileRelations == null || approvalProfileRelations.isEmpty()) {
             throw new NotFoundException("There is no such approval profile (" + approvalProfileUuid.getValue() + ") associated with Ra profile (" + raProfileUuid + ")");
