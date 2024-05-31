@@ -67,8 +67,8 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Fetching custom attributes");
 
         List<AttributeDefinition> customAttributes = attributeContentType == null
-                ? attributeDefinitionRepository.findUsingSecurityFilter(filter, (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM))
-                : attributeDefinitionRepository.findUsingSecurityFilter(filter, (root, cb) -> cb.and(cb.equal(root.get("type"), AttributeType.CUSTOM), cb.equal(root.get("contentType"), attributeContentType)));
+                ? attributeDefinitionRepository.findUsingSecurityFilter(filter, List.of("relations"), (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM))
+                : attributeDefinitionRepository.findUsingSecurityFilter(filter, List.of("relations"), (root, cb) -> cb.and(cb.equal(root.get("type"), AttributeType.CUSTOM), cb.equal(root.get("contentType"), attributeContentType)));
 
         return customAttributes.stream().map(AttributeDefinition::mapToCustomAttributeDefinitionDto).toList();
     }
@@ -160,13 +160,18 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update custom attribute with uuid: {}, request: {}", uuid.toString(), request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        CustomAttribute attribute = (CustomAttribute) definition.getDefinition();
+        CustomAttribute attribute = new CustomAttribute();
+        attribute.setUuid(definition.getUuid().toString());
+        attribute.setName(definition.getName());
+        attribute.setContentType(definition.getContentType());
+
         attribute.setDescription(request.getDescription());
         attribute.setContent(request.getContent());
-        attribute.getProperties().setList(request.isList());
+        attribute.setProperties(new CustomAttributeProperties());
         attribute.getProperties().setGroup(request.getGroup());
         attribute.getProperties().setLabel(request.getLabel());
         attribute.getProperties().setVisible(request.isVisible());
+        attribute.getProperties().setList(request.isList());
         attribute.getProperties().setMultiSelect(request.isMultiSelect());
         attribute.getProperties().setReadOnly(request.isReadOnly());
         attribute.getProperties().setRequired(request.isRequired());
@@ -180,11 +185,17 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update global metadata with uuid: {}, request: {}", uuid.toString(), request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndTypeAndGlobalTrue(uuid, AttributeType.META).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        MetadataAttribute attribute = (MetadataAttribute) definition.getDefinition();
+        MetadataAttribute attribute = new MetadataAttribute();
+        attribute.setUuid(definition.getAttributeUuid().toString());
+        attribute.setName(definition.getName());
+        attribute.setContentType(definition.getContentType());
+
         attribute.setDescription(request.getDescription());
+        attribute.setProperties(new MetadataAttributeProperties());
         attribute.getProperties().setGroup(request.getGroup());
         attribute.getProperties().setLabel(request.getLabel());
         attribute.getProperties().setVisible(request.isVisible());
+        attribute.getProperties().setGlobal(true);
 
         return attributeEngine.updateMetadataAttributeDefinition(attribute, null).mapToGlobalMetadataDefinitionDetailDto();
     }
@@ -305,7 +316,7 @@ public class AttributeServiceImpl implements AttributeService {
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         List<AttributeDefinition> customAttributes = attributeDefinitionRepository.findUsingSecurityFilter(
-                filter,
+                filter, List.of(),
                 (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM));
 
         return customAttributes.stream().map(AttributeDefinition::mapToAccessControlObjects).collect(Collectors.toList());
