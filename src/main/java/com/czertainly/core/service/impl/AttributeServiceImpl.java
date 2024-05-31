@@ -160,13 +160,18 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update custom attribute with uuid: {}, request: {}", uuid.toString(), request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        CustomAttribute attribute = (CustomAttribute) definition.getDefinition();
+        CustomAttribute attribute = new CustomAttribute();
+        attribute.setUuid(definition.getUuid().toString());
+        attribute.setName(definition.getName());
+        attribute.setContentType(definition.getContentType());
+
         attribute.setDescription(request.getDescription());
         attribute.setContent(request.getContent());
-        attribute.getProperties().setList(request.isList());
+        attribute.setProperties(new CustomAttributeProperties());
         attribute.getProperties().setGroup(request.getGroup());
         attribute.getProperties().setLabel(request.getLabel());
         attribute.getProperties().setVisible(request.isVisible());
+        attribute.getProperties().setList(request.isList());
         attribute.getProperties().setMultiSelect(request.isMultiSelect());
         attribute.getProperties().setReadOnly(request.isReadOnly());
         attribute.getProperties().setRequired(request.isRequired());
@@ -180,11 +185,17 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update global metadata with uuid: {}, request: {}", uuid.toString(), request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndTypeAndGlobalTrue(uuid, AttributeType.META).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        MetadataAttribute attribute = (MetadataAttribute) definition.getDefinition();
+        MetadataAttribute attribute = new MetadataAttribute();
+        attribute.setUuid(definition.getAttributeUuid().toString());
+        attribute.setName(definition.getName());
+        attribute.setContentType(definition.getContentType());
+
         attribute.setDescription(request.getDescription());
+        attribute.setProperties(new MetadataAttributeProperties());
         attribute.getProperties().setGroup(request.getGroup());
         attribute.getProperties().setLabel(request.getLabel());
         attribute.getProperties().setVisible(request.isVisible());
+        attribute.getProperties().setGlobal(true);
 
         return attributeEngine.updateMetadataAttributeDefinition(attribute, null).mapToGlobalMetadataDefinitionDetailDto();
     }
