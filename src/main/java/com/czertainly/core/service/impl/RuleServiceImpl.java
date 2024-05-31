@@ -8,6 +8,7 @@ import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.workflows.Condition;
 import com.czertainly.core.dao.entity.workflows.ConditionItem;
 import com.czertainly.core.dao.entity.workflows.Rule;
+import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.repository.workflows.ConditionItemRepository;
 import com.czertainly.core.dao.repository.workflows.ConditionRepository;
 import com.czertainly.core.dao.repository.workflows.RuleRepository;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -108,7 +110,13 @@ public class RuleServiceImpl implements RuleService {
     @Override
     @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.DELETE)
     public void deleteCondition(String conditionUuid) throws NotFoundException {
-        Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
+        Condition condition = conditionRepository.findWithRulesByUuid(UUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
+
+        // check if not associated to rules
+        if (!condition.getRules().isEmpty()) {
+            throw new ValidationException(String.format("Cannot delete condition %s. It is associated to following rules: %s.", condition.getName(), String.join(", ", condition.getRules().stream().map(Rule::getName).toList())));
+        }
+
         conditionRepository.delete(condition);
     }
 
@@ -217,7 +225,13 @@ public class RuleServiceImpl implements RuleService {
     @Override
     @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.DELETE)
     public void deleteRule(String ruleUuid) throws NotFoundException {
-        Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
+        Rule rule = ruleRepository.findWithTriggersByUuid(UUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
+
+        // check if not associated to triggers
+        if (!rule.getTriggers().isEmpty()) {
+            throw new ValidationException(String.format("Cannot delete rule %s. It is associated to following triggers: %s.", rule.getName(), String.join(", ", rule.getTriggers().stream().map(Trigger::getName).toList())));
+        }
+
         ruleRepository.delete(rule);
     }
 

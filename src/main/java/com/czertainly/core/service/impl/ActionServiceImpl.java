@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -108,7 +109,13 @@ public class ActionServiceImpl implements ActionService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DELETE)
     public void deleteExecution(String executionUuid) throws NotFoundException {
-        Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+        Execution execution = executionRepository.findWithActionsByUuid(UUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+
+        // check if not associated to actions
+        if (!execution.getActions().isEmpty()) {
+            throw new ValidationException(String.format("Cannot delete execution %s. It is associated to following actions: %s.", execution.getName(), String.join(", ", execution.getActions().stream().map(Action::getName).toList())));
+        }
+
         executionRepository.delete(execution);
     }
 
@@ -228,7 +235,13 @@ public class ActionServiceImpl implements ActionService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DELETE)
     public void deleteAction(String actionUuid) throws NotFoundException {
-        Action action = actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+        Action action = actionRepository.findWithTriggersByUuid(UUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+
+        // check if not associated to triggers
+        if (!action.getTriggers().isEmpty()) {
+            throw new ValidationException(String.format("Cannot delete action %s. It is associated to following triggers: %s.", action.getName(), String.join(", ", action.getTriggers().stream().map(Trigger::getName).toList())));
+        }
+
         actionRepository.delete(action);
     }
 
