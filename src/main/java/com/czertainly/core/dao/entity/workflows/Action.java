@@ -5,11 +5,14 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.workflows.ActionDetailDto;
 import com.czertainly.api.model.core.workflows.ActionDto;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -33,6 +36,10 @@ public class Action extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "action_uuid"),
             inverseJoinColumns = @JoinColumn(name = "execution_uuid"))
     private List<Execution> executions;
+
+    @JsonBackReference
+    @ManyToMany(mappedBy = "actions", fetch = FetchType.LAZY)
+    private Set<Trigger> triggers = new HashSet<>();
 
     public ActionDto mapToDto() {
         ActionDto actionDto = new ActionDto();

@@ -1558,9 +1558,6 @@ public class CertificateServiceImpl implements CertificateService {
 
         String currentGroupNames = certificate.getGroups().isEmpty() ? UNDEFINED_CERTIFICATE_OBJECT_NAME : String.join(", ", certificate.getGroups().stream().map(Group::getName).toList());
         Set<Group> newGroups = objectAssociationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), groupUuids);
-//        certificate.setGroups(newGroups);
-
-//        certificate = certificateRepository.findWithJoinFetchByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
         String newGroupNames = newGroups.isEmpty() ? UNDEFINED_CERTIFICATE_OBJECT_NAME : String.join(", ", newGroups.stream().map(Group::getName).toList());
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_GROUP, CertificateEventStatus.SUCCESS, currentGroupNames + " -> " + newGroupNames, "");
@@ -1580,7 +1577,6 @@ public class CertificateServiceImpl implements CertificateService {
 
         String newOwnerName = UNDEFINED_CERTIFICATE_OBJECT_NAME;
         NameAndUuidDto newOwner = objectAssociationService.setOwner(Resource.CERTIFICATE, uuid.getValue(), newOwnerUuid);
-//        certificate.setOwner(newOwner);
         if (newOwner != null) {
             newOwnerName = newOwner.getName();
         }

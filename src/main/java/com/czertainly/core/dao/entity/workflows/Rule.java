@@ -5,11 +5,14 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.workflows.RuleDetailDto;
 import com.czertainly.api.model.core.workflows.RuleDto;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -32,6 +35,10 @@ public class Rule extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "rule_uuid"),
             inverseJoinColumns = @JoinColumn(name = "condition_uuid"))
     private List<Condition> conditions;
+
+    @JsonBackReference
+    @ManyToMany(mappedBy = "rules", fetch = FetchType.LAZY)
+    private Set<Trigger> triggers = new HashSet<>();
 
     public RuleDto mapToDto() {
         RuleDto ruleDto = new RuleDto();

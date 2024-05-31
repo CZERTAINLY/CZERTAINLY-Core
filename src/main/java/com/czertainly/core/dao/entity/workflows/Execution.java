@@ -5,11 +5,14 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.workflows.ExecutionDto;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 @Entity
 @Getter
@@ -33,6 +36,10 @@ public class Execution extends UniquelyIdentified {
 
     @OneToMany(mappedBy = "execution", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     private List<ExecutionItem> items;
+
+    @JsonBackReference
+    @ManyToMany(mappedBy = "executions", fetch = FetchType.LAZY)
+    private Set<Action> actions = new HashSet<>();
 
     public ExecutionDto mapToDto() {
         ExecutionDto executionDto = new ExecutionDto();
