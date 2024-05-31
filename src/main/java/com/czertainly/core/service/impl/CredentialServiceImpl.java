@@ -76,7 +76,7 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) throws NotFoundException {
         List<Credential> credentials = credentialRepository.findUsingSecurityFilter(
-                filter,
+                filter, List.of(),
                 (root, cb) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
 
         if (credentials == null || credentials.isEmpty()) {

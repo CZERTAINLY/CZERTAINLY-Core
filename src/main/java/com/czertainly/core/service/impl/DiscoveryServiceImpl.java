@@ -141,7 +141,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.DISCOVERY, filter, request.getFilters());
 
         final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
-        final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+        final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto).toList();
         final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
@@ -616,10 +616,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 triggerHistory.setActionsPerformed(false);
             }
         }
-
-        // reload entity with associations
-        UUID entryUuid = entry.getUuid();
-        entry = certificateRepository.findWithAssociationsByUuid(entry.getUuid()).orElseThrow(() -> new RuleException(String.format("Certificate entry %s for discovered certificate %s not found", entryUuid, discoveryCertificate.getUuid())));
 
         // Set metadata attributes, create certificate event history entry and validate certificate
         try {
