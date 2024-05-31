@@ -22,6 +22,7 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -215,6 +216,13 @@ public class CertificateServiceImpl implements CertificateService {
         // filter certificates based on attribute filters
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
 
+        // Filter certificates which were returned as result of attribute filtering, since they do not have any entry in AttributeContent2Object
+        // They should be included in response only if there is no filter in request which compares an existing value of attribute
+        if (objectUUIDs != null) {
+            final List<UUID> objectUUIDsNoAttributes = filterCertificatesWithoutAttributes(request);
+            objectUUIDs.addAll(objectUUIDsNoAttributes);
+        }
+
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
@@ -226,6 +234,16 @@ public class CertificateServiceImpl implements CertificateService {
         responseDto.setTotalItems(maxItems);
         responseDto.setTotalPages((int) Math.ceil((double) maxItems / request.getItemsPerPage()));
         return responseDto;
+    }
+
+    private List<UUID> filterCertificatesWithoutAttributes(SearchRequestDto request) {
+        for (SearchFilterRequestDto filter : request.getFilters()) {
+            if (filter.getFieldSource() != FilterFieldSource.PROPERTY && !List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS).contains(filter.getCondition()))
+                return new ArrayList<>();
+        }
+        List<UUID> certificateUuids = new ArrayList<>(certificateRepository.findAll().stream().map(Certificate::getUuid).toList());
+        certificateUuids.removeAll(attributeEngine.findAllObjectUuids(Resource.CERTIFICATE));
+        return certificateUuids;
     }
 
     @Override

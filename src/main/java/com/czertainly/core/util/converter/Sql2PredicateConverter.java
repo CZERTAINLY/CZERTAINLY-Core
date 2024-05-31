@@ -349,12 +349,18 @@ public class Sql2PredicateConverter {
                     jsonValueQuery.select(expressionFunctionToGetJsonValue);
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
 
+                    // For correct behaviour of search, for operators specified in switchOperatorForComplement instead first get uuids for which opposite holds
                     final Predicate predicateOfTheExpression =
-                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
+                            buildPredicateByCondition(criteriaBuilder, switchOperatorForComplement(dto.getCondition()), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), false, dto, searchField);
 
                     subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));
-                    rootPredicates.add(criteriaBuilder.in(root.get("objectUuid")).value(subquery));
+                    // If operator was switched, return complement of query result
+                    if (dto.getCondition() == switchOperatorForComplement(dto.getCondition())) {
+                        rootPredicates.add(criteriaBuilder.in(root.get("objectUuid")).value(subquery));
+                    } else {
+                        rootPredicates.add(criteriaBuilder.not(criteriaBuilder.in(root.get("objectUuid")).value(subquery)));
+                    }
                 }
             }
         }
@@ -374,6 +380,23 @@ public class Sql2PredicateConverter {
     public static Query getAllValuesOfProperty(String property, Resource resource, EntityManager entityManager) {
         Class resourceClass = ResourceToClass.getClassByResource(resource);
         return entityManager.createQuery("SELECT DISTINCT " + property + " FROM " + resourceClass.getName());
+    }
+
+    private static FilterConditionOperator switchOperatorForComplement(FilterConditionOperator operator) {
+        switch (operator) {
+            case NOT_EQUALS -> {
+                return FilterConditionOperator.EQUALS;
+            }
+            case NOT_CONTAINS -> {
+                return FilterConditionOperator.CONTAINS;
+            }
+            case EMPTY -> {
+                return FilterConditionOperator.NOT_EMPTY;
+            }
+            default -> {
+                return operator;
+            }
+        }
     }
 
 
