@@ -349,10 +349,14 @@ public class Sql2PredicateConverter {
                     jsonValueQuery.select(expressionFunctionToGetJsonValue);
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
 
-                    final Predicate predicateOfTheExpression =
-                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
+                    final List<Predicate> expressionPredicates = new ArrayList<>();
+                    final List<Object> expressionValues = readAndCheckIncomingValues(dto);
+                    for (final Object expressionValue : expressionValues) {
+                        final Predicate expressionPredicate = buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, null, expressionValue, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
+                        expressionPredicates.add(expressionPredicate);
+                    }
+                    subPredicates.add(expressionPredicates.size() > 1 ? criteriaBuilder.or(expressionPredicates.toArray(new Predicate[]{})) : expressionPredicates.get(0));
 
-                    subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));
                     rootPredicates.add(criteriaBuilder.in(root.get("objectUuid")).value(subquery));
                 }
