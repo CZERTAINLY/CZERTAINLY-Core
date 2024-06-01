@@ -543,7 +543,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
         }
 
-
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         for (DiscoveryCertificate discoveryCertificate : discoveredCertificates) {
             try {

@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.PlatformEnum;
+import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.enums.SearchFieldNameEnum;
@@ -10,7 +11,6 @@ import com.czertainly.core.model.SearchFieldObject;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 public class SearchHelper {
 
@@ -28,26 +28,30 @@ public class SearchHelper {
         fieldDataDto.setConditions(fieldNameEnum.getFieldTypeEnum().getContitions());
         fieldDataDto.setType(fieldNameEnum.getFieldTypeEnum().getFieldType());
         fieldDataDto.setValue(values);
-        if(fieldNameEnum.getFieldProperty().getEnumClass() != null) {
+        if (fieldNameEnum.getFieldProperty().getEnumClass() != null) {
             fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(fieldNameEnum.getFieldProperty().getEnumClass()));
         }
 
         return fieldDataDto;
     }
 
-    public static SearchFieldDataDto prepareSearchForJSON(final String fieldName, final AttributeContentType attributeContentType, final boolean hasDupliciteInList) {
-        final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(attributeContentType);
+    public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo, final boolean hasDupliciteInList) {
+        final SearchFieldTypeEnum searchFieldTypeEnum = retrieveSearchFieldTypeEnumByContentType(attributeSearchInfo.getAttributeContentType(), attributeSearchInfo.isList());
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
-        fieldDataDto.setFieldIdentifier(fieldName + "|" + attributeContentType.name());
-        fieldDataDto.setFieldLabel(hasDupliciteInList ? String.format(SEARCH_LABEL_TEMPLATE, fieldName, attributeContentType.getCode()) : fieldName);
-        fieldDataDto.setMultiValue(searchFieldTypeEnum.isMultiValue());
+        fieldDataDto.setFieldIdentifier(attributeSearchInfo.getAttributeName() + "|" + attributeSearchInfo.getAttributeContentType().name());
+        fieldDataDto.setFieldLabel(hasDupliciteInList ? String.format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(), attributeSearchInfo.getAttributeContentType().getCode()) : attributeSearchInfo.getLabel());
+        fieldDataDto.setMultiValue(attributeSearchInfo.isMultiSelect());
         fieldDataDto.setConditions(searchFieldTypeEnum.getContitions());
         fieldDataDto.setType(searchFieldTypeEnum.getFieldType());
-        fieldDataDto.setValue(null);
+        fieldDataDto.setValue(attributeSearchInfo.getContentItems());
         return fieldDataDto;
     }
 
-    private static SearchFieldTypeEnum retrieveSearchFieldTypeEnumByContentType(AttributeContentType attributeContentType) {
+    private static SearchFieldTypeEnum retrieveSearchFieldTypeEnumByContentType(AttributeContentType attributeContentType, boolean isList) {
+        if (isList) {
+            return SearchFieldTypeEnum.LIST;
+        }
+
         SearchFieldTypeEnum searchFieldTypeEnum = null;
         switch (attributeContentType) {
             case TEXT, STRING -> searchFieldTypeEnum = SearchFieldTypeEnum.STRING;
@@ -61,8 +65,7 @@ public class SearchHelper {
 
     public static List<SearchFieldDataDto> prepareSearchForJSON(final List<SearchFieldObject> searchFieldObjectList) {
         final List<String> duplicatesOfNames = filterDuplicity(searchFieldObjectList);
-        final List<SearchFieldDataDto> searchFieldDataDtoList = searchFieldObjectList.stream().map(attribute -> prepareSearchForJSON(attribute.getAttributeName(), attribute.getAttributeContentType(), duplicatesOfNames.contains(attribute.getAttributeName()))).collect(Collectors.toList());
-        searchFieldDataDtoList.sort(new SearchFieldDataComparator());
+        final List<SearchFieldDataDto> searchFieldDataDtoList = searchFieldObjectList.stream().map(attribute -> prepareSearchForJSON(attribute, duplicatesOfNames.contains(attribute.getAttributeName()))).sorted(new SearchFieldDataComparator()).toList();
         return searchFieldDataDtoList;
     }
 
