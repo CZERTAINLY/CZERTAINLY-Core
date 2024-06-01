@@ -44,6 +44,7 @@ public class SearchHelper {
         fieldDataDto.setConditions(searchFieldTypeEnum.getContitions());
         fieldDataDto.setType(searchFieldTypeEnum.getFieldType());
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
+        fieldDataDto.setAttributeContentType(attributeSearchInfo.getAttributeContentType());
         return fieldDataDto;
     }
 
