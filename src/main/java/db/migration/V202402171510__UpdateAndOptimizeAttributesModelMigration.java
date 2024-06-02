@@ -36,11 +36,18 @@ public class V202402171510__UpdateAndOptimizeAttributesModelMigration extends Ba
 
     @Override
     public void migrate(Context context) throws Exception {
+        updateNullAttributeUuids(context);
         prepareDBStructure(context);
         Map<UUID, List<UUID>> mappedContentToItems = deduplicateContentItems(context);
         assignAttributeContentItemsToResourceObjects(context, mappedContentToItems);
         cleanDbStructure(context);
         moveDataAttributes(context);
+    }
+
+    private void updateNullAttributeUuids(Context context) throws SQLException {
+        try (final Statement statement = context.getConnection().createStatement()) {
+            statement.execute("UPDATE attribute_definition SET attribute_uuid = uuid WHERE attribute_uuid IS NULL");
+        }
     }
 
     private void prepareDBStructure(Context context) throws SQLException {
