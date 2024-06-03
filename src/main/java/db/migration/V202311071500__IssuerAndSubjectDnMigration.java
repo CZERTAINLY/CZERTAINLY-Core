@@ -1,7 +1,7 @@
 package db.migration;
 
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.CertificateRequestUtils;
 import com.czertainly.core.util.CzertainlyX500NameStyle;
 import com.czertainly.core.util.DatabaseMigration;
 import org.bouncycastle.asn1.x500.X500Name;
@@ -65,12 +65,12 @@ public class V202311071500__IssuerAndSubjectDnMigration extends BaseJavaMigratio
                     JcaPKCS10CertificationRequest jcaObject;
                     String content = rows.getString("content");
                     try {
-                        jcaObject = CsrUtil.csrStringToJcaObject(content);
+                        jcaObject = CertificateRequestUtils.csrStringToJcaObject(content);
                     }
                     catch (IOException e) {
                         // BASE64 decode to also migrate certificate request content that was erroneously serialized as BASE64 encoded PEM
                         content = new String(Base64.getDecoder().decode(content));
-                        jcaObject = CsrUtil.csrStringToJcaObject(content);
+                        jcaObject = CertificateRequestUtils.csrStringToJcaObject(content);
                     }
 
                     byte[] subjectDnPrincipalEncoded = jcaObject.getSubject().getEncoded();

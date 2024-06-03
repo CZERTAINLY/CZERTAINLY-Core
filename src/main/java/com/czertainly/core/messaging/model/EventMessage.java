@@ -23,4 +23,7 @@ public class EventMessage {
     private String eventMessage;
 
     private String eventDetail;
+
+    private UUID userUuid;
+
 }

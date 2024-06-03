@@ -3,10 +3,10 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,7 +20,11 @@ import java.util.UUID;
 @Repository
 public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
 
+    @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
+
+    @EntityGraph(attributePaths = {"certificateContent", "groups", "owner"})
+    Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
 
@@ -31,8 +35,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     boolean existsByFingerprint(String fingerprint);
 
     List<Certificate> findByRaProfile(RaProfile raProfile);
-
-    List<Certificate> findByGroup(Group group);
 
     List<Certificate> findByKeyUuid(UUID keyUuid);
 
@@ -61,14 +63,13 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT COUNT(*) FROM Certificate c WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses")
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses);
 
-    @Query("SELECT c, cc.content FROM Certificate c " +
-            "JOIN CertificateContent cc ON cc.id = c.certificateContentId " +
+    @Query("SELECT c.uuid FROM Certificate c " +
             "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
             "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
             "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
-    List<Certificate> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
-                                                    @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
-                                                    Pageable pageable);
+    List<UUID> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
+                                             @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
+                                             Pageable pageable);
 
     List<Certificate> findByComplianceResultContaining(String ruleUuid);
 

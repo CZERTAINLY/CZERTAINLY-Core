@@ -2,22 +2,17 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.WhereJoinTable;
 
 import java.io.Serializable;
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Entity
 @Table(name = "discovery_history")
@@ -56,12 +51,18 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "connector_name")
     private String connectorName;
 
-    @Column(name = "attributes")
-    private String attributes;
-
     @JsonBackReference
     @OneToMany(mappedBy = "discovery", fetch = FetchType.LAZY)
     private Set<DiscoveryCertificate> certificate = new HashSet<>();
+
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "trigger_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "trigger_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    )
+    @WhereJoinTable(clause = "resource = 'DISCOVERY'")
+    private List<Trigger> triggers = new ArrayList<>();
 
     @Override
     public String toString() {
@@ -126,18 +127,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         this.connectorUuid = connectorUuid;
     }
 
-    public void setConnectorUuid(String connectorUuid) {
-        this.connectorUuid = UUID.fromString(connectorUuid);
-    }
-
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
-    }
-
     public String getKind() {
         return kind;
     }
@@ -180,11 +169,10 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
         dto.setStatus(status);
         dto.setConnectorUuid(connectorUuid.toString());
-        List<DataAttribute> a = AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(a));
         dto.setKind(kind);
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
+        dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
         return dto;
     }
 

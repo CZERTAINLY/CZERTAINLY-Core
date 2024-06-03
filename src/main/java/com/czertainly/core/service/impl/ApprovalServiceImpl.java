@@ -4,6 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approval.*;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -91,7 +92,7 @@ public class ApprovalServiceImpl implements ApprovalService {
             final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
             final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
             final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).toList());
-            final Predicate groupUuidPredicate = joinApprovalRecipient.get("approvalStep").get("groupUuid").in(userProfileDto.getUser().getGroupUuid() != null ? List.of(UUID.fromString(userProfileDto.getUser().getGroupUuid())) : List.of());
+            final Predicate groupUuidPredicate = joinApprovalRecipient.get("approvalStep").get("groupUuid").in(userProfileDto.getUser().getGroups().stream().map(NameAndUuidDto::getUuid).toList());
             return cb.and(statusPredicate, cb.or(userUuidPredicate, roleUuidPredicate, groupUuidPredicate));
         };
         return listOfApprovals(securityFilter, additionalWhereClause, paginationRequestDto);
@@ -223,7 +224,7 @@ public class ApprovalServiceImpl implements ApprovalService {
                 = approvalRecipientRepository.findByResponsiblePersonAndStatusAndApproval(
                 UUID.fromString(userProfileDto.getUser().getUuid()),
                 userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).toList(),
-                userProfileDto.getUser().getGroupUuid() != null ? List.of(UUID.fromString(userProfileDto.getUser().getGroupUuid())) : List.of(),
+                userProfileDto.getUser().getGroups().stream().map(g -> UUID.fromString(g.getUuid())).toList(),
                 ApprovalStatusEnum.PENDING,
                 approvalUuid);
 
@@ -357,7 +358,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     private ApprovalResponseDto listOfApprovals(final SecurityFilter securityFilter, final BiFunction<Root<Approval>, CriteriaBuilder, Predicate> additionalWhereClause, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<Approval> approvalList = approvalRepository.findUsingSecurityFilter(securityFilter, additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("createdAt")));
+        final List<Approval> approvalList = approvalRepository.findUsingSecurityFilter(securityFilter, List.of("approvalProfileVersion"), additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("createdAt")));
         final Long maxItems = approvalRepository.countUsingSecurityFilter(securityFilter, additionalWhereClause);
         final ApprovalResponseDto responseDto = new ApprovalResponseDto();
         responseDto.setApprovals(approvalList.stream()

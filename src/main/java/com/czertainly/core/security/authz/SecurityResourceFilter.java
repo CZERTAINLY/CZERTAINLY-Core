@@ -1,5 +1,8 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -7,17 +10,19 @@ import java.util.stream.Collectors;
 
 public class SecurityResourceFilter {
 
-    private String resource;
+    private Resource resource;
+
+    private ResourceAction resourceAction;
 
     /**
      * List of object uuids user can access
      */
-    private List<UUID> allowedObjects;
+    private final List<UUID> allowedObjects;
 
     /**
      * List of object uuids user can not access
      */
-    private List<UUID> forbiddenObjects;
+    private final List<UUID> forbiddenObjects;
 
     /**
      * Specifies whether the user has access to all objects or only those explicitly allowed.
@@ -40,12 +45,20 @@ public class SecurityResourceFilter {
         return new SecurityResourceFilter();
     }
 
-    public String getResource() {
+    public Resource getResource() {
         return resource;
     }
 
-    public void setResource(String resource) {
+    public void setResource(Resource resource) {
         this.resource = resource;
+    }
+
+    public ResourceAction getResourceAction() {
+        return resourceAction;
+    }
+
+    public void setResourceAction(ResourceAction resourceAction) {
+        this.resourceAction = resourceAction;
     }
 
     public List<UUID> getAllowedObjects() {
@@ -57,11 +70,11 @@ public class SecurityResourceFilter {
     }
 
     public void addAllowedObjects(List<String> objectUUIDs) {
-        this.allowedObjects.addAll(objectUUIDs.stream().map(UUID::fromString).collect(Collectors.toList()));
+        this.allowedObjects.addAll(objectUUIDs.stream().map(UUID::fromString).toList());
     }
 
     public void addDeniedObjects(List<String> objectUUIDs) {
-        this.forbiddenObjects.addAll(objectUUIDs.stream().map(UUID::fromString).collect(Collectors.toList()));
+        this.forbiddenObjects.addAll(objectUUIDs.stream().map(UUID::fromString).toList());
     }
 
     public boolean areOnlySpecificObjectsAllowed() {

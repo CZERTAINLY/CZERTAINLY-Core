@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
@@ -8,8 +9,14 @@ import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocati
 import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
@@ -67,9 +74,16 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     private X509Certificate x509Cert;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
 
     @BeforeEach
-    public void setUp() throws GeneralSecurityException, IOException {
+    public void setUp() throws GeneralSecurityException, IOException, NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -86,6 +100,21 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         authorityInstanceReference.setConnectorUuid(connector.getUuid());
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
+        // prepare attribute
+        DataAttribute attribute = new DataAttribute();
+        attribute.setUuid("6e9146a6-da8a-403f-99cb-d5d64d93ce1d");
+        attribute.setName("endEntityProfile");
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("End entity");
+        attribute.setDescription("description");
+        attribute.setContentType(AttributeContentType.OBJECT);
+        attribute.setType(AttributeType.DATA);
+        properties.setRequired(true);
+        properties.setReadOnly(false);
+        properties.setVisible(true);
+        attribute.setProperties(properties);
+        attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(attribute));
+
         raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
@@ -96,12 +125,8 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         contentMap.setReference("1");
         contentMap.setData(new NameAndIdDto(1, "profile"));
 
-
-        raProfile.setAttributes(AttributeDefinitionUtils.serialize(
-                AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("endEntityProfile", List.of(contentMap)))
-        ));
-
         raProfile = raProfileRepository.save(raProfile);
+        var result = attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(contentMap)));
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -179,6 +204,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
                 .willReturn(WireMock.ok()));
 
+        ClientAddEndEntityRequestDto request = new ClientAddEndEntityRequestDto();
         clientOperationService.addEndEntity(RA_PROFILE_NAME, new ClientAddEndEntityRequestDto());
     }
 

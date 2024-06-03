@@ -65,12 +65,19 @@ public class CrlUtil {
         return crlUrls;
     }
 
-    public static X509CRL getX509Crl(String crlUrl) throws IOException, CertificateException {
+    public static X509CRL getX509Crl(String crlUrl) throws Exception {
+        CertificateFactory cf = CertificateFactory.getInstance("X509");
+
+        // Handle ldap protocol
+        if (crlUrl.startsWith("ldap")) {
+            byte[] crl = LdapUtils.downloadFromLdap(crlUrl);
+            if (crl == null) throw new Exception("Crl not available in LDAP.");
+            return (X509CRL) cf.generateCRL(new ByteArrayInputStream(crl));
+        }
         X509CRL X509Crl;
         URL url = new URL(crlUrl);
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
-        CertificateFactory cf = CertificateFactory.getInstance("X509");
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             X509Crl = (X509CRL) cf.generateCRL(inStream);

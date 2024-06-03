@@ -14,8 +14,6 @@ import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.NotificationService;
-import com.czertainly.core.service.RoleManagementService;
-import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.RequestValidatorHelper;
 import org.slf4j.Logger;
@@ -25,12 +23,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.Date;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.*;
 
 @Service
 public class NotificationServiceImpl implements NotificationService {
@@ -79,7 +72,7 @@ public class NotificationServiceImpl implements NotificationService {
 
     @Override
     public NotificationDto createNotificationForGroup(String message, String detail, String groupUuid, Resource target, String targetUuids) throws ValidationException {
-        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> groupUuid.equals(u.getGroupUuid())).map(UserDto::getUuid).toList(), target, targetUuids);
+        return createNotificationForUsers(message, detail, userManagementApiClient.getUsers().getData().stream().filter(u -> u.getGroups().stream().anyMatch(g -> g.getUuid().equals(groupUuid))).map(UserDto::getUuid).toList(), target, targetUuids);
     }
 
     @Override
@@ -123,7 +116,7 @@ public class NotificationServiceImpl implements NotificationService {
     }
 
     @Override
-    public NotificationDto markNotificationAsRead(String uuid) throws NotFoundException {
+    public void markNotificationAsRead(String uuid) throws NotFoundException {
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
         Notification notification = notificationRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(Notification.class, uuid));
         for (NotificationRecipient recipient : notification.getNotificationRecipients()) {
@@ -135,6 +128,27 @@ public class NotificationServiceImpl implements NotificationService {
                 break;
             }
         }
-        return notification.mapToDto();
+    }
+
+    @Override
+    public void bulkDeleteNotifications(List<String> uuids) {
+        for (String uuid : uuids) {
+            try {
+                deleteNotification(uuid);
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
+    }
+
+    @Override
+    public void bulkMarkNotificationAsRead(List<String> uuids) {
+        for (String uuid : uuids) {
+            try {
+                markNotificationAsRead(uuid);
+            } catch (NotFoundException e) {
+                logger.warn(e.getMessage());
+            }
+        }
     }
 }

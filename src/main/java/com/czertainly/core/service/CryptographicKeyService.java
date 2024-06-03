@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
@@ -17,6 +14,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.security.authz.SecuredParentUUID;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
@@ -55,7 +53,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @throws NotFoundException  when the token profile or key is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, String uuid) throws NotFoundException;
+    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Get the detail of the key item
@@ -65,7 +63,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return Key Item detail
      * @throws NotFoundException when the key or token instance is not found
      */
-    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws  NotFoundException;
+    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, String keyItemUuid) throws  NotFoundException;
 
     /**
      * @param request           DTO containing the information for creating a new key
@@ -80,7 +78,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
             UUID tokenInstanceUuid,
             SecuredParentUUID tokenProfileUuid,
             KeyRequestType type,
-            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException;
+            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
 
     /**
      * Function to update the key details
@@ -92,9 +90,9 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      */
     KeyDetailDto editKey(
             SecuredParentUUID tokenInstanceUuid,
-            UUID uuid,
+            SecuredUUID uuid,
             EditKeyRequestDto request
-    ) throws NotFoundException;
+    ) throws NotFoundException, AttributeException;
 
     /**
      * Function to disable a key
@@ -237,7 +235,7 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @param tokenInstanceUuid UUID of the token instance to sync the keys
      * @throws ConnectorException
      */
-    void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException;
+    void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException;
 
     /**
      * Function to mark the key as compromised

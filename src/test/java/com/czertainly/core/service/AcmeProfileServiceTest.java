@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -74,7 +71,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddAcmeProfile() throws ConnectorException, AlreadyExistException {
+    public void testAddAcmeProfile() throws ConnectorException, AlreadyExistException, AttributeException {
 
         AcmeProfileRequestDto request = new AcmeProfileRequestDto();
         request.setName("Test");
@@ -104,7 +101,7 @@ public class AcmeProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditAcmeProfile() throws ConnectorException {
+    public void testEditAcmeProfile() throws ConnectorException, AttributeException {
 
         acmeProfile.setEnabled(false);
         acmeProfileRepository.save(acmeProfile);

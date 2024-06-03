@@ -1,13 +1,11 @@
 package com.czertainly.core.dao.entity.acme;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
-import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -23,22 +21,22 @@ import java.util.UUID;
 @Table(name = "acme_profile")
 public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<AcmeProfileDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
-    @Column(name="name")
+    @Column(name = "name")
     private String name;
 
-    @Column(name="description")
+    @Column(name = "description")
     private String description;
 
-    @Column(name="is_enabled")
+    @Column(name = "is_enabled")
     private Boolean isEnabled;
 
-    @Column(name="terms_of_service_url")
+    @Column(name = "terms_of_service_url")
     private String termsOfServiceUrl;
 
-    @Column(name="dns_resolver_ip")
+    @Column(name = "dns_resolver_ip")
     private String dnsResolverIp;
 
-    @Column(name="dns_resolver_port")
+    @Column(name = "dns_resolver_port")
     private String dnsResolverPort;
 
     @OneToOne(fetch = FetchType.LAZY)
@@ -49,37 +47,31 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
 
-    @Column(name = "issue_certificate_attributes")
-    private String issueCertificateAttributes;
-
-    @Column(name = "revoke_certificate_attributes")
-    private String revokeCertificateAttributes;
-
     @Column(name = "website_url")
     private String website;
 
-    @Column(name="validity")
+    @Column(name = "validity")
     private Integer validity;
 
-    @Column(name="retry_interval")
+    @Column(name = "retry_interval")
     private Integer retryInterval;
 
-    @Column(name= "disable_new_orders")
+    @Column(name = "disable_new_orders")
     private Boolean disableNewOrders;
 
     @Column(name = "terms_of_service_change_url")
     private String termsOfServiceChangeUrl;
 
-    @Column(name= "require_contact")
+    @Column(name = "require_contact")
     private Boolean requireContact;
 
-    @Column(name= "require_terms_of_service")
+    @Column(name = "require_terms_of_service")
     private Boolean requireTermsOfService;
 
     @Override
     public AcmeProfileDto mapToDto() {
         AcmeProfileDto acmeProfileDto = new AcmeProfileDto();
-        if(raProfile != null) {
+        if (raProfile != null) {
             acmeProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }
         acmeProfileDto.setDescription(description);
@@ -96,26 +88,24 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setRequireTermsOfService(requireTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
-        if(raProfile != null){
-            acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + ExtendedAcmeHelperService.ACME_URI_HEADER + "/" + name + "/directory");
-            }
-        acmeProfileDto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(revokeCertificateAttributes, DataAttribute.class)));
-        acmeProfileDto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(issueCertificateAttributes, DataAttribute.class)));
+        if (raProfile != null) {
+            acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
+        }
         return acmeProfileDto;
     }
 
     public AcmeProfileListDto mapToDtoSimple() {
         AcmeProfileListDto acmeProfileDto = new AcmeProfileListDto();
-        if(raProfile != null) {
+        if (raProfile != null) {
             acmeProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }
         acmeProfileDto.setDescription(description);
         acmeProfileDto.setEnabled(isEnabled);
         acmeProfileDto.setName(name);
         acmeProfileDto.setUuid(uuid.toString());
-        if(raProfile != null) {
+        if (raProfile != null) {
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ExtendedAcmeHelperService.ACME_URI_HEADER + "/" + name + "/directory");
+                    + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
         }
         return acmeProfileDto;
     }
@@ -130,8 +120,6 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
                 .append("dnsResolverIp", dnsResolverIp)
                 .append("dnsResolverPort", dnsResolverPort)
                 .append("termsOfServiceChangeUrl", termsOfServiceChangeUrl)
-                .append("issueCertificateAttributes", issueCertificateAttributes)
-                .append("revokeCertificateAttributes", revokeCertificateAttributes)
                 .toString();
     }
 
@@ -194,24 +182,8 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
-    }
-
-    public String getIssueCertificateAttributes() {
-        return issueCertificateAttributes;
-    }
-
-    public void setIssueCertificateAttributes(String issueCertificateAttributes) {
-        this.issueCertificateAttributes = issueCertificateAttributes;
-    }
-
-    public String getRevokeCertificateAttributes() {
-        return revokeCertificateAttributes;
-    }
-
-    public void setRevokeCertificateAttributes(String revokeCertificateAttributes) {
-        this.revokeCertificateAttributes = revokeCertificateAttributes;
     }
 
     public String getWebsite() {

@@ -12,11 +12,11 @@ import java.util.UUID;
 @Table(name = "attribute_relation")
 public class AttributeRelation extends UniquelyIdentified {
 
-    @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "attribute_definition_uuid", insertable = false, updatable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "attribute_definition_uuid", nullable = false, insertable = false, updatable = false)
     private AttributeDefinition attributeDefinition;
 
-    @Column(name = "attribute_definition_uuid")
+    @Column(name = "attribute_definition_uuid", nullable = false)
     private UUID attributeDefinitionUuid;
 
     @Enumerated(EnumType.STRING)

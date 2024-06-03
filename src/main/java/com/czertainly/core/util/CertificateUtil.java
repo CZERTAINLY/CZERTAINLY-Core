@@ -1,5 +1,6 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
@@ -13,6 +14,9 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.model.request.CrmfCertificateRequest;
+import com.czertainly.core.model.request.Pkcs10CertificateRequest;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
@@ -24,12 +28,18 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.X509v3CertificateBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMParser;
+import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
+import org.bouncycastle.operator.OperatorCreationException;
+import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,16 +47,15 @@ import org.slf4j.LoggerFactory;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.StringReader;
+import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
-import java.security.InvalidKeyException;
-import java.security.KeyStore;
-import java.security.MessageDigest;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
 import java.util.*;
+import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
@@ -54,9 +63,7 @@ public class CertificateUtil {
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
-    @SuppressWarnings("serial")
     private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
-    @SuppressWarnings("serial")
 
     public static final String KEY_USAGE_KEY_CERT_SIGN = "keyCertSign";
     private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", KEY_USAGE_KEY_CERT_SIGN, "cRLSign", "encipherOnly", "decipherOnly");
@@ -106,6 +113,14 @@ public class CertificateUtil {
 
     public static X509Certificate getX509Certificate(String certInBase64) throws CertificateException {
         return getX509Certificate(Base64.getDecoder().decode(certInBase64));
+    }
+
+    public static X509Certificate getX509CertificateFromBase64Url(String certInBase64) throws CertificateException {
+        return getX509Certificate(Base64.getUrlDecoder().decode(certInBase64));
+    }
+
+    public static String getBase64FromX509Certificate(X509Certificate certificate) throws CertificateException {
+        return Base64.getEncoder().encodeToString(certificate.getEncoded());
     }
 
     public static List<String> keyUsageExtractor(boolean[] keyUsage) {
@@ -172,17 +187,23 @@ public class CertificateUtil {
     }
 
     @SuppressWarnings("unchecked")
-    private static Map<String, Object> getSAN(JcaPKCS10CertificationRequest csr) {
+    public static Map<String, Object> getSAN(CertificateRequest certificateRequest) {
         Map<String, Object> sans = buildEmptySans();
 
         GeneralNames gns = null;
-        Attribute[] certAttributes = csr.getAttributes();
-        for (Attribute attribute : certAttributes) {
-            if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
-                Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
-                gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
-                break;
+
+        if (certificateRequest instanceof Pkcs10CertificateRequest) {
+            Attribute[] certAttributes = ((Pkcs10CertificateRequest) certificateRequest).getJcaObject().getAttributes();
+            for (Attribute attribute : certAttributes) {
+                if (attribute.getAttrType().equals(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest)) {
+                    Extensions extensions = Extensions.getInstance(attribute.getAttrValues().getObjectAt(0));
+                    gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
+                    break;
+                }
             }
+        } else if (certificateRequest instanceof CrmfCertificateRequest) {
+            Extensions extensions = Extensions.getInstance(((CrmfCertificateRequest) certificateRequest).getCertificateRequestMessage().getCertTemplate().getExtensions());
+            gns = GeneralNames.fromExtensions(extensions, Extension.subjectAlternativeName);
         }
 
         if (gns == null) {
@@ -358,30 +379,35 @@ public class CertificateUtil {
 
         String basicConstraints = CertificateUtil.getBasicConstraint(certificate.getBasicConstraints());
         modal.setBasicConstraints(basicConstraints);
-        if (basicConstraints.equals("Subject Type=CA")) modal.setTrustedCa(false);
+        // Set trusted certificate mark either for CA or for self-signed certificate
+        if (basicConstraints.equals("Subject Type=CA") || Objects.equals(modal.getSubjectDnNormalized(), modal.getIssuerDnNormalized()))
+            modal.setTrustedCa(false);
     }
 
 
-    public static void prepareCsrObject(Certificate modal, JcaPKCS10CertificationRequest certificate) throws NoSuchAlgorithmException, InvalidKeyException {
-        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubject()));
-        if (certificate.getPublicKey() == null) {
+    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateRequest.getSubject()));
+        if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
-                            "Invalid Certificate. Public Key is missing"
+                            "Invalid public key in certificate request"
                     )
             );
         }
         try {
-            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificate.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+            modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
-            logger.error("Failed to calculate the thumbprint of the certificate");
+            logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
 
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()));
+        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
-        modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificate.getSignatureAlgorithm()).replace("WITH", "with"));
-        modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
-        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(getSAN(certificate)));
+        if (certificateRequest.getSignatureAlgorithm() == null)
+            modal.setSignatureAlgorithm(null);
+        else
+            modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
+        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(certificateRequest.getSubjectAlternativeNames()));
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
@@ -462,6 +488,66 @@ public class CertificateUtil {
             }
         }
         return privateKeyAvailable;
+    }
+
+    public static String generateRandomX509CertificateBase64(KeyPair keyPair) throws CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+        return Base64.getEncoder().encodeToString(generateRandomX509Certificate(keyPair).getEncoded());
+    }
+
+    public static X509Certificate generateRandomX509Certificate(KeyPair keyPair) throws NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+        SecureRandom random = new SecureRandom();
+
+        X500Name owner = new X500Name("CN=generatedCertificate,O=random");
+
+        // Current time minus 1 year, just in case software clock goes back due to time synchronization
+        Date notBefore = new Date(System.currentTimeMillis() - 86400000L * 365);
+        // Random date between the generated time and 1 year from now
+        Date notAfter = between(new Date(System.currentTimeMillis() - 86400000L * 365),
+                new Date(System.currentTimeMillis() + 86400000L * 365));
+
+        if (keyPair == null) {
+            keyPair = generateRandomKeyPair();
+        }
+
+        X509v3CertificateBuilder builder = new JcaX509v3CertificateBuilder(
+                owner, new BigInteger(64, random), notBefore, notAfter, owner, keyPair.getPublic());
+
+        PrivateKey privateKey = keyPair.getPrivate();
+        ContentSigner signer = new JcaContentSignerBuilder("SHA512WithRSAEncryption").build(privateKey);
+        X509CertificateHolder certHolder = builder.build(signer);
+        X509Certificate cert = new JcaX509CertificateConverter()
+                .setProvider(new BouncyCastleProvider())
+                .getCertificate(certHolder);
+
+        //check so that cert is valid
+        cert.verify(keyPair.getPublic());
+
+        return cert;
+    }
+
+    public static Date between(Date startInclusive, Date endExclusive) {
+        long startMillis = startInclusive.getTime();
+        long endMillis = endExclusive.getTime();
+        long randomMillisSinceEpoch = ThreadLocalRandom
+                .current()
+                .nextLong(startMillis, endMillis);
+
+        return new Date(randomMillisSinceEpoch);
+    }
+
+    public static KeyPair generateRandomKeyPair() throws NoSuchAlgorithmException {
+        SecureRandom random = new SecureRandom();
+
+        KeyPair keyPair;
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+
+        List<Integer> keySizeList = Arrays.asList(1024, 2048, 4096);
+        int randomKeySize = keySizeList.get(random.nextInt(keySizeList.size()));
+
+        keyPairGenerator.initialize(randomKeySize);
+        keyPair = keyPairGenerator.generateKeyPair();
+
+        return keyPair;
     }
 
 }

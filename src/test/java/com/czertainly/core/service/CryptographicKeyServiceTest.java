@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
@@ -14,6 +11,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -129,7 +127,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     public void testGetKeyByUuid() throws NotFoundException {
         KeyDetailDto dto = cryptographicKeyService.getKey(
                 tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid().toString()
+                SecuredUUID.fromUUID(key.getUuid())
         );
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(key.getUuid().toString(), dto.getUuid());
@@ -142,12 +140,12 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
                         tokenInstanceReference.getSecuredParentUuid(),
-                        "abfbc322-29e1-11ed-a261-0242ac120002")
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
 
     @Test
-    public void testAddKey() throws ConnectorException, AlreadyExistException {
+    public void testAddKey() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -241,7 +239,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
                         tokenInstanceReference.getSecuredParentUuid(),
-                        "abfbc322-29e1-11ed-a261-0242ac120002"
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
                 )
         );
     }
@@ -304,7 +302,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
                         tokenInstanceReference.getSecuredParentUuid(),
-                        "abfbc322-29e1-11ed-a261-0242ac120002"
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
                 )
         );
     }
@@ -364,14 +362,14 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testUpdateKey() throws NotFoundException {
+    public void testUpdateKey() throws NotFoundException, AttributeException {
         EditKeyRequestDto request = new EditKeyRequestDto();
         request.setName("updatedName");
         request.setDescription("updatedDescription");
 
         KeyDetailDto dto = cryptographicKeyService.editKey(
                 tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid(),
+                key.getSecuredUuid(),
                 request
         );
         Assertions.assertEquals(request.getName(), key.getName());
@@ -379,7 +377,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSync_allNewObject() throws ConnectorException {
+    public void testSync_allNewObject() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +
@@ -452,7 +450,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSync_existingObject() throws ConnectorException {
+    public void testSync_existingObject() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +

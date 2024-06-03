@@ -1,22 +1,36 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceDto;
+import com.czertainly.api.model.core.other.ResourceEvent;
+import com.czertainly.api.model.core.other.ResourceEventDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -25,6 +39,7 @@ public class ResourceServiceImpl implements ResourceService {
 
     private LocationService locationService;
     private AcmeProfileService acmeProfileService;
+    private AttributeService attributeService;
     private AuthorityInstanceService authorityInstanceService;
     private ComplianceProfileService complianceProfileService;
     private ConnectorService connectorService;
@@ -40,7 +55,16 @@ public class ResourceServiceImpl implements ResourceService {
     private UserManagementService userManagementService;
     private RoleManagementService roleManagementService;
     private CertificateService certificateService;
-    private AttributeService attributeService;
+    private AttributeEngine attributeEngine;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setAcmeProfileService(AcmeProfileService acmeProfileService) {
@@ -50,6 +74,11 @@ public class ResourceServiceImpl implements ResourceService {
     @Autowired
     public void setAuthorityInstanceService(AuthorityInstanceService authorityInstanceService) {
         this.authorityInstanceService = authorityInstanceService;
+    }
+
+    @Autowired
+    public void setAttributeService(AttributeService attributeService) {
+        this.attributeService = attributeService;
     }
 
     @Autowired
@@ -127,9 +156,27 @@ public class ResourceServiceImpl implements ResourceService {
         this.certificateService = certificateService;
     }
 
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
+    @Override
+    public List<ResourceDto> listResources() {
+        List<ResourceDto> resources = new ArrayList<>();
+
+        for (Resource resource : Resource.values()) {
+            if (resource == Resource.NONE) {
+                continue;
+            }
+
+            ResourceDto resourceDto = new ResourceDto();
+            resourceDto.setResource(resource);
+            resourceDto.setHasObjectAccess(resource.hasObjectAccess());
+            resourceDto.setHasCustomAttributes(resource.hasCustomAttributes());
+            resourceDto.setHasGroups(resource.hasGroups());
+            resourceDto.setHasOwner(resource.hasOwner());
+            resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
+            resourceDto.setHasRuleEvaluator(resource == Resource.CERTIFICATE);
+            resources.add(resourceDto);
+        }
+
+        return resources;
     }
 
     @Override
@@ -137,6 +184,7 @@ public class ResourceServiceImpl implements ResourceService {
         return switch (resourceName) {
             case ACME_PROFILE -> acmeProfileService.listResourceObjects(SecurityFilter.create());
             case AUTHORITY -> authorityInstanceService.listResourceObjects(SecurityFilter.create());
+            case ATTRIBUTE -> attributeService.listResourceObjects(SecurityFilter.create());
             case COMPLIANCE_PROFILE -> complianceProfileService.listResourceObjects(SecurityFilter.create());
             case CONNECTOR -> connectorService.listResourceObjects(SecurityFilter.create());
             case CREDENTIAL -> credentialService.listResourceObjects(SecurityFilter.create());
@@ -147,17 +195,21 @@ public class ResourceServiceImpl implements ResourceService {
             case SCEP_PROFILE -> scepProfileService.listResourceObjects(SecurityFilter.create());
             case TOKEN_PROFILE -> tokenProfileService.listResourceObjects(SecurityFilter.create());
             case TOKEN -> tokenInstanceService.listResourceObjects(SecurityFilter.create());
+            case USER -> userManagementService.listResourceObjects(SecurityFilter.create());
             default ->
                     throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
         };
     }
 
     @Override
-    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resourceName, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> request) throws NotFoundException {
-        logger.info("Updating the attribute {} for resource {} ith value {}", attributeUuid, resourceName, attributeUuid);
-        switch (resourceName) {
+    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource objectType, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
+        logger.info("Updating the attribute {} for resource {} ith value {}", attributeUuid, objectType, attributeUuid);
+        switch (objectType) {
             case ACME_PROFILE:
                 acmeProfileService.evaluatePermissionChain(objectUuid);
+                break;
+            case SCEP_PROFILE:
+                scepProfileService.evaluatePermissionChain(objectUuid);
                 break;
             case AUTHORITY:
                 authorityInstanceService.evaluatePermissionChain(objectUuid);
@@ -205,27 +257,51 @@ public class ResourceServiceImpl implements ResourceService {
                 certificateService.evaluatePermissionChain(objectUuid);
                 break;
             default:
-                throw new NotFoundException("Cannot update custom attribute for requested resource: " + resourceName.getCode());
+                throw new NotFoundException("Cannot update custom attribute for requested resource: " + objectType.getCode());
         }
-        if (attributeService.getResourceAttributes(resourceName)
-                .stream()
-                .filter(
-                        e -> e.getUuid()
-                                .equals(attributeUuid.toString())
-                ).collect(Collectors.toList()).isEmpty()) {
-            throw new NotFoundException(
-                    "Given Attribute is not available for the resource or is not enabled"
-            );
-        }
-        attributeService.updateAttributeContent(
-                objectUuid.getValue(),
-                attributeUuid,
-                request,
-                resourceName
-        );
-        return attributeService.getCustomAttributesWithValues(
-                objectUuid.getValue(),
-                resourceName
-        );
+
+        attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
+        return attributeEngine.getObjectCustomAttributesContent(objectType, objectUuid.getValue());
     }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
+        if (resource != Resource.CERTIFICATE) {
+            return List.of();
+        }
+
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource, settable);
+
+        List<SearchFieldNameEnum> enums = SearchFieldNameEnum.getEnumsForResource(resource);
+        List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
+        for (SearchFieldNameEnum fieldEnum : enums) {
+            // If getting only settable fields, skip not settable fields
+            if (settable && !fieldEnum.isSettable()) continue;
+            // Filter field has a single value, don't need to provide list
+            if (fieldEnum.getFieldTypeEnum() != SearchFieldTypeEnum.LIST)
+                fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum));
+            else {
+                // Filter field has values of an Enum
+                if (fieldEnum.getFieldProperty().getEnumClass() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getFieldProperty().getEnumClass().getEnumConstants()));
+                    // Filter field has values of all objects of another entity
+                else if (fieldEnum.getFieldResource() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
+                    // Filter field has values of all possible values of a property
+                else {
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, Sql2PredicateConverter.getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource, entityManager).getResultList()));
+                }
+            }
+        }
+
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
+
+        return searchFieldDataByGroupDtos;
+    }
+
+    @Override
+    public List<ResourceEventDto> listResourceEvents(Resource resource) {
+        return ResourceEvent.listEventsByResource(resource).stream().map(e -> new ResourceEventDto(e, e.getProducedResource())).toList();
+    }
+
 }

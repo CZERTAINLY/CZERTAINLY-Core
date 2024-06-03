@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.CertificateController;
 import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.certificate.*;
@@ -81,7 +78,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException {
+    public void updateCertificateObjects(String uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException {
         certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
     }
 
@@ -92,7 +89,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
-            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException {
+            throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException {
         CertificateDetailDto dto = certificateService.upload(request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -150,7 +147,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, NoSuchProviderException {
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException {
         return clientOperationService.submitCertificateRequest(request);
     }
 

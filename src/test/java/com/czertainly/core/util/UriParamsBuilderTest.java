@@ -13,7 +13,7 @@ import org.springframework.web.util.UriComponentsBuilder;
 
 import java.io.UnsupportedEncodingException;
 import java.lang.reflect.Field;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -27,7 +27,7 @@ public class UriParamsBuilderTest {
     public void testBuildUri() throws UnsupportedEncodingException {
         AuditLogDto dto = new AuditLogDto();
         dto.setAuthor("author");
-        dto.setCreated(LocalDateTime.now());
+        dto.setCreated(OffsetDateTime.now());
         dto.setOperation(OperationType.REQUEST);
 
         UriComponentsBuilder builder = createUriBuilder("https://localhost:8443/logs", dto);

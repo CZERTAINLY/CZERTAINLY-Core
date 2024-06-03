@@ -1,9 +1,6 @@
 package com.czertainly.core.api.web;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.SchedulerException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.DiscoveryController;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -13,7 +10,6 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -31,6 +27,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.net.URI;
 import java.util.List;
+import java.util.UUID;
 
 @RestController
 public class DiscoveryControllerImpl implements DiscoveryController {
@@ -69,39 +66,23 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request)
-            throws NotFoundException, ConnectorException, AlreadyExistException {
-		final DiscoveryHistory modal = discoveryService.createDiscoveryModal(request,true);
-		discoveryService.createDiscoveryAsync(modal);
-		URI location = ServletUriComponentsBuilder
-				.fromCurrentRequest()
-				.path("/{uuid}")
-				.buildAndExpand(modal.getUuid())
-				.toUri();
-		UuidDto dto = new UuidDto();
-		dto.setUuid(modal.getUuid().toString());
-		return ResponseEntity.created(location).body(dto);
-	}
-
-    @Override
-    public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
-        discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
+    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request) throws ConnectorException, AlreadyExistException, AttributeException {
+        final DiscoveryHistoryDetailDto modal = discoveryService.createDiscovery(request, true);
+        discoveryService.runDiscoveryAsync(UUID.fromString(modal.getUuid()));
+        URI location = ServletUriComponentsBuilder
+                .fromCurrentRequest()
+                .path("/{uuid}")
+                .buildAndExpand(modal.getUuid())
+                .toUri();
+        UuidDto dto = new UuidDto();
+        dto.setUuid(modal.getUuid());
+        return ResponseEntity.created(location).body(dto);
     }
 
     @Override
-    public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
-        discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
-    }
-
-    @Override
-    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
-        return discoveryService.getSearchableFieldInformationByGroup();
-    }
-
-    @Override
-    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws ConnectorException, AlreadyExistException, SchedulerException {
+    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException {
         final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
-        discoveryService.createDiscoveryModal(discoveryDto, false);
+        discoveryService.createDiscovery(discoveryDto, false);
 
         String jobName;
         if (scheduleDiscoveryDto.getJobName() == null) {
@@ -122,6 +103,21 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         UuidDto dto = new UuidDto();
         dto.setUuid(scheduledJob.getUuid().toString());
         return ResponseEntity.created(location).body(dto);
+    }
+
+    @Override
+    public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
+        discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
+    }
+
+    @Override
+    public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
+        discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
+    }
+
+    @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return discoveryService.getSearchableFieldInformationByGroup();
     }
 
     // SETTERs

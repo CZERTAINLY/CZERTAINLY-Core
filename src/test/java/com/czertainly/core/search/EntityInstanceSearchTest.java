@@ -1,18 +1,32 @@
 package com.czertainly.core.search;
 
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchableFields;
-import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.EntityInstanceReference;
+import com.czertainly.core.dao.entity.Location;
+import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.EntityInstanceService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -21,9 +35,10 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class EntityInstanceSearchTest extends BaseSpringBootTest {
 
@@ -32,17 +47,15 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
-    private AttributeDefinitionRepository attributeDefinitionRepository;
-    @Autowired
-    private AttributeContentRepository attributeContentRepository;
-    @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
-    @Autowired
     private LocationRepository locationRepository;
-
     @Autowired
     private EntityInstanceService entityInstanceService;
+    private AttributeEngine attributeEngine;
 
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     private EntityInstanceReference entityInstanceReference;
 
@@ -52,7 +65,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     private boolean isLoadedData = false;
 
     @BeforeEach
-    public void loadData() {
+    public void loadData() throws AttributeException, NotFoundException {
 
         if (isLoadedData) {
             return;
@@ -67,7 +80,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         entityInstanceReference = new EntityInstanceReference();
         entityInstanceReference.setConnector(connector);
         entityInstanceReference.setConnectorName("testConnector1");
-        entityInstanceReference.setCreated(LocalDateTime.now());
+        entityInstanceReference.setCreated(OffsetDateTime.now());
         entityInstanceReference.setKind("test-kind1");
         entityInstanceReference.setName("entity-ref-1");
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
@@ -87,7 +100,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         entityInstanceReference = new EntityInstanceReference();
         entityInstanceReference.setConnector(connector);
         entityInstanceReference.setConnectorName("testConnector2");
-        entityInstanceReference.setCreated(LocalDateTime.now());
+        entityInstanceReference.setCreated(OffsetDateTime.now());
         entityInstanceReference.setKind("test-kind2");
         entityInstanceReference.setName("entity-ref-2");
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
@@ -104,7 +117,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         entityInstanceReference = new EntityInstanceReference();
         entityInstanceReference.setConnector(connector);
         entityInstanceReference.setConnectorName("testConnector3");
-        entityInstanceReference.setCreated(LocalDateTime.now());
+        entityInstanceReference.setCreated(OffsetDateTime.now());
         entityInstanceReference.setKind("test3-kind");
         entityInstanceReference.setName("entity3-ref");
         entityInstanceReference = entityInstanceReferenceRepository.save(entityInstanceReference);
@@ -131,7 +144,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testEntityByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.NAME.name(), SearchCondition.EQUALS, "entity-ref-2"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.NAME.name(), FilterConditionOperator.EQUALS, "entity-ref-2"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getEntities().size());
     }
@@ -139,7 +152,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testEntityByConnectorName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.CONTAINS, "Connector"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), FilterConditionOperator.CONTAINS, "Connector"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(3, responseDto.getEntities().size());
     }
@@ -147,7 +160,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testEntityByKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.KIND.name(), SearchCondition.CONTAINS, "test-kind"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.KIND.name(), FilterConditionOperator.CONTAINS, "test-kind"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getEntities().size());
     }
@@ -155,7 +168,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.META, "attributeMeta1|TEXT", SearchCondition.CONTAINS, "-meta-"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.META, "attributeMeta1|TEXT", FilterConditionOperator.CONTAINS, "-meta-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getEntities().size());
     }
@@ -163,7 +176,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.CUSTOM, "attributeCustom1|TEXT", SearchCondition.CONTAINS, "-custom-"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.CUSTOM, "attributeCustom1|TEXT", FilterConditionOperator.CONTAINS, "-custom-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getEntities().size());
     }
@@ -174,54 +187,34 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
         return entityInstanceService.listEntityInstances(SecurityFilter.create(), searchRequestDto);
     }
 
-    private void loadMetaData() {
-        AttributeDefinition attributeDefinition = new AttributeDefinition();
-        attributeDefinition.setContentType(AttributeContentType.TEXT);
-        attributeDefinition.setCreated(LocalDateTime.now());
-        attributeDefinition.setAttributeName("attributeMeta1");
-        attributeDefinition.setType(AttributeType.META);
-        attributeDefinition.setConnector(connector);
-        attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
+    private void loadMetaData() throws AttributeException {
+        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        metadataAttribute.setUuid(UUID.randomUUID().toString());
+        metadataAttribute.setName("attributeMeta1");
+        metadataAttribute.setType(AttributeType.META);
+        metadataAttribute.setContentType(AttributeContentType.TEXT);
+        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
+        metadataAttribute.setContent(List.of(new TextAttributeContent("reference-test-1", "data-meta-test-1")));
 
-        final AttributeContentItem attributeContentItem = new AttributeContentItem();
-        attributeContentItem.setJson(new BaseAttributeContent("reference-test-1", "data-meta-test-1"));
-        AttributeContent attributeContent = new AttributeContent();
-        attributeContent.setAttributeContentItems(List.of(attributeContentItem));
-        attributeContent.setAttributeDefinition(attributeDefinition);
-        attributeContentItem.setAttributeContent(attributeContent);
-        attributeContent = attributeContentRepository.save(attributeContent);
-
-        final AttributeContent2Object ac2o = new AttributeContent2Object();
-        ac2o.setAttributeContent(attributeContent);
-        ac2o.setConnector(connector);
-        ac2o.setObjectUuid(entityInstanceReference.getUuid());
-        ac2o.setObjectType(Resource.ENTITY);
-        attributeContent2ObjectRepository.save(ac2o);
+        attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.ENTITY, entityInstanceReference.getUuid()));
     }
 
-    private void loadCustomAttributesData() {
-        AttributeDefinition attributeDefinition = new AttributeDefinition();
-        attributeDefinition.setContentType(AttributeContentType.TEXT);
-        attributeDefinition.setCreated(LocalDateTime.now());
-        attributeDefinition.setAttributeName("attributeCustom1");
-        attributeDefinition.setType(AttributeType.CUSTOM);
-        attributeDefinition.setConnector(connector);
-        attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
+    private void loadCustomAttributesData() throws AttributeException, NotFoundException {
+        CustomAttribute customAttribute = new CustomAttribute();
+        customAttribute.setUuid(UUID.randomUUID().toString());
+        customAttribute.setName("attributeCustom1");
+        customAttribute.setType(AttributeType.CUSTOM);
+        customAttribute.setContentType(AttributeContentType.TEXT);
+        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        final AttributeContentItem attributeContentItem = new AttributeContentItem();
-        attributeContentItem.setJson(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
-        AttributeContent attributeContent = new AttributeContent();
-        attributeContent.setAttributeContentItems(List.of(attributeContentItem));
-        attributeContent.setAttributeDefinition(attributeDefinition);
-        attributeContentItem.setAttributeContent(attributeContent);
-        attributeContent = attributeContentRepository.save(attributeContent);
+        List<BaseAttributeContent> contentItems = List.of(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
+        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+        requestAttributeDto.setUuid(customAttribute.getUuid());
+        requestAttributeDto.setName(customAttribute.getName());
+        requestAttributeDto.setContent(contentItems);
 
-        final AttributeContent2Object ac2o = new AttributeContent2Object();
-        ac2o.setAttributeContent(attributeContent);
-        ac2o.setConnector(connector);
-        ac2o.setObjectUuid(entityInstanceReference.getUuid());
-        ac2o.setObjectType(Resource.ENTITY);
-        attributeContent2ObjectRepository.save(ac2o);
+        attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.ENTITY));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(), List.of(requestAttributeDto));
     }
 
 

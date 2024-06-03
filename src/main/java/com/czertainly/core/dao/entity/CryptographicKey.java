@@ -1,17 +1,20 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.*;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.hibernate.annotations.Where;
+import org.hibernate.annotations.WhereJoinTable;
 
 import java.io.Serializable;
-import java.util.*;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Entity
@@ -38,21 +41,20 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Column(name = "token_instance_uuid")
     private UUID tokenInstanceReferenceUuid;
 
-    @Column(name = "attributes")
-    private String attributes;
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(
+            name = "group_association",
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    )
+    @WhereJoinTable(clause = "resource = 'CRYPTOGRAPHIC_KEY'")
+    private Set<Group> groups = new HashSet<>();
 
-    @Column(name = "owner")
-    private String owner;
-
-    @Column(name = "owner_uuid")
-    private UUID ownerUuid;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
-    private Group group;
-
-    @Column(name = "group_uuid")
-    private UUID groupUuid;
+    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    @Where(clause = "resource = 'CRYPTOGRAPHIC_KEY'")
+    private OwnerAssociation owner;
 
     @JsonBackReference
     @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -120,45 +122,16 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         this.tokenInstanceReferenceUuid = tokenInstanceReferenceUuid;
     }
 
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
-    }
-
-    public String getOwner() {
+    public OwnerAssociation getOwner() {
         return owner;
     }
 
-    public void setOwner(String owner) {
-        this.owner = owner;
+    public Set<Group> getGroups() {
+        return groups;
     }
 
-    public UUID getOwnerUuid() {
-        return ownerUuid;
-    }
-
-    public void setOwnerUuid(UUID ownerUuid) {
-        this.ownerUuid = ownerUuid;
-    }
-
-    public Group getGroup() {
-        return group;
-    }
-
-    public void setGroup(Group group) {
-        this.group = group;
-        if (group != null) this.groupUuid = group.getUuid();
-    }
-
-    public UUID getGroupUuid() {
-        return groupUuid;
-    }
-
-    public void setGroupUuid(UUID groupUuid) {
-        this.groupUuid = groupUuid;
+    public void setGroups(Set<Group> groups) {
+        this.groups = groups;
     }
 
     // Get the list of items for the key
@@ -198,11 +171,15 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         }
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
-        if(group != null ) dto.setGroup(group.mapToDto());
-        dto.setOwner(owner);
-        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
+        if (groups != null) {
+            dto.setGroups(groups.stream().map(Group::mapToDto).toList());
+        }
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
+        }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() -1 ) + certificates.size());
+        dto.setAssociations((items.size() - 1) + certificates.size());
         return dto;
     }
 
@@ -219,16 +196,14 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         dto.setTokenInstanceName(tokenInstanceReference.getName());
         dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
         dto.setItems(getKeyItems());
-        dto.setOwner(owner);
-        if (ownerUuid != null) dto.setOwnerUuid(ownerUuid.toString());
-
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(
-                AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class)
-        ));
-        if (group != null) {
-            dto.setGroup(group.mapToDto());
+        if (groups != null) {
+            dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
-        if(certificates != null && !certificates.isEmpty()) {
+        if (owner != null) {
+            dto.setOwnerUuid(owner.getOwnerUuid().toString());
+            dto.setOwner(owner.getOwnerUsername());
+        }
+        if (certificates != null && !certificates.isEmpty()) {
             dto.setAssociations(certificates.stream().map(e -> {
                 KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
                 keyAssociationDto.setName(e.getCommonName());

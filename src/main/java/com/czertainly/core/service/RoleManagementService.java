@@ -1,5 +1,7 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.core.auth.*;
 
@@ -10,9 +12,9 @@ public interface RoleManagementService extends ResourceExtensionService {
 
     RoleDetailDto getRole(String roleUuid);
 
-    RoleDetailDto createRole(RoleRequestDto request);
+    RoleDetailDto createRole(RoleRequestDto request) throws NotFoundException, AttributeException;
 
-    RoleDetailDto updateRole(String roleUuid, RoleRequestDto request);
+    RoleDetailDto updateRole(String roleUuid, RoleRequestDto request) throws NotFoundException, AttributeException;
 
     void deleteRole(String roleUuid);
 

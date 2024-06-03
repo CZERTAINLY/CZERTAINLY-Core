@@ -1,10 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -22,6 +19,8 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
 import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -37,7 +36,7 @@ import com.czertainly.core.service.CryptographicOperationService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.CertificateRequestUtils;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
@@ -72,6 +71,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyEventHistoryService eventHistoryService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
     private PermissionEvaluator permissionEvaluator;
+    private AttributeEngine attributeEngine;
+
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
@@ -79,6 +80,11 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     // Setters
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
@@ -403,7 +409,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     @Override
-    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException {
         // Check if the UUID of the Key is empty
         if (keyUuid == null) {
             throw new ValidationException(
@@ -462,6 +468,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         verifyKeyActive(privateKeyItem);
         verifyKeyActive(publicKeyItem);
 
+        // validate and update definitions of signature attributes with attribute engine
+        List<BaseAttribute> definitions = listSignatureAttributes(privateKeyItem.getKeyAlgorithm());
+        attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, definitions, signatureAttributes);
 
         // Generate the CSR
         return generateCsr(
@@ -492,11 +501,11 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return key;
     }
 
-    public String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    private String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 principal,
-                CsrUtil.publicKeyObjectFromString(key, publicKeyItem.getKeyAlgorithm().getCode())
+                CertificateRequestUtils.publicKeyObjectFromString(key, publicKeyItem.getKeyAlgorithm().getCode())
         );
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
@@ -515,10 +524,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         PKCS10CertificationRequest csr = p10Builder.build(signer);
 
         // Convert the data from byte array to string
-        return CsrUtil.byteArrayCsrToString(csr.getEncoded());
+        return CertificateRequestUtils.byteArrayCsrToString(csr.getEncoded());
     }
 
-    public List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
+    private List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
         // we need to list based on the key algorithm
         switch (keyAlgorithm) {
             case RSA -> {
@@ -539,7 +548,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
 
-    public List<BaseAttribute> listEncryptionAttributes(KeyAlgorithm keyAlgorithm) {
+    private List<BaseAttribute> listEncryptionAttributes(KeyAlgorithm keyAlgorithm) {
         switch (keyAlgorithm) {
             case RSA -> {
                 return RsaEncryptionAttributes.getRsaEncryptionAttributes();
@@ -552,7 +561,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
     }
 
-    public boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
+    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
         if (attributes == null) {
             return false;
         }

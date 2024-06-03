@@ -1,6 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.model.core.auth.ResourceDetailDto;
+import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.model.auth.SyncRequestDto;
 import com.czertainly.core.model.auth.SyncResponseDto;
@@ -50,13 +50,13 @@ public class ResourceApiClient extends CzertainlyBaseAuthenticationClient {
                 request);
     }
 
-    public List<ResourceDetailDto> getAllResources() {
+    public List<AuthResourceDto> getAuthResources() {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
 
         return processRequest(r -> r
                         .uri(RESOURCE_CONTEXT)
                         .retrieve()
-                        .toEntityList(ResourceDetailDto.class)
+                        .toEntityList(AuthResourceDto.class)
                         .block().getBody(),
                 request);
     }

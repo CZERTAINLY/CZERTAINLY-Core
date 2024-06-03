@@ -55,7 +55,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     public ScheduledJobsResponseDto listScheduledJobs(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ScheduledJob> scheduledJobList = scheduledJobsRepository.findUsingSecurityFilter(filter, null, pageable, null);
+        final List<ScheduledJob> scheduledJobList = scheduledJobsRepository.findUsingSecurityFilter(filter, List.of(), null, pageable, null);
 
         final Long maxItems = scheduledJobsRepository.countUsingSecurityFilter(filter, null);
         final ScheduledJobsResponseDto responseDto = new ScheduledJobsResponseDto();
@@ -109,7 +109,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
-        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("jobExecution")));
+        final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("jobExecution")));
 
         final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();

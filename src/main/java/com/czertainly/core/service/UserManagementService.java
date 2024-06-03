@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
@@ -17,9 +18,9 @@ public interface UserManagementService extends ResourceExtensionService  {
 
     UserDetailDto getUser(String userUuid) throws NotFoundException;
 
-    UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException;
+    UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException, AttributeException;
 
-    UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException;
+    UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException;
 
     UserDetailDto updateUserInternal(String userUuid, UpdateUserRequestDto request, String certificateUuid, String certificateFingerPrint) throws NotFoundException, CertificateException;
 

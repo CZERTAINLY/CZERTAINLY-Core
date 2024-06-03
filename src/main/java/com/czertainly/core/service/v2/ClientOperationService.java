@@ -30,7 +30,7 @@ public interface ClientOperationService {
 
     CertificateDetailDto submitCertificateRequest(
             ClientCertificateRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException;
+    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException;
 
     ClientCertificateDataResponseDto issueRequestedCertificate(
             SecuredParentUUID authorityUuid,
@@ -42,7 +42,7 @@ public interface ClientOperationService {
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             ClientCertificateSignRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
+    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void approvalCreatedAction(final UUID certificateUuid) throws NotFoundException;
 
@@ -58,7 +58,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRenewRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
+    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void renewCertificateAction(
             final UUID certificateUuid,
@@ -71,7 +71,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRekeyRequestDto request
-    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException;
+    ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void rekeyCertificateAction(
             final UUID certificateUuid,
@@ -84,7 +84,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request
-    ) throws NotFoundException;
+    ) throws ConnectorException, AttributeException;
 
     void revokeCertificateAction(
             final UUID certificateUuid,

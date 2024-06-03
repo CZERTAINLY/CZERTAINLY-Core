@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.connector.ConnectDto;
@@ -140,7 +141,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSimpleCreateConnector() throws ConnectorException, AlreadyExistException {
+    void testSimpleCreateConnector() throws ConnectorException, AlreadyExistException, AttributeException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -170,7 +171,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateConnector() throws ConnectorException {
+    void testUpdateConnector() throws ConnectorException, AttributeException {
         String kindName = "testKind";
 
         FunctionGroup caFunctionGroup = new FunctionGroup();

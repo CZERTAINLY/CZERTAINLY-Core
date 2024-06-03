@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -67,8 +68,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Autowired
     private CertificateService certificateService;
 
+    private AttributeEngine attributeEngine;
+
     @Autowired
-    private AttributeService attributeService;
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
@@ -85,7 +90,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         logger.debug("Compliance Profile: {}", complianceProfile);
         ComplianceProfileDto dto = complianceProfile.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.COMPLIANCE_PROFILE));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.COMPLIANCE_PROFILE, uuid.getValue()));
         return dto;
     }
 
@@ -99,22 +104,23 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CREATE)
-    public ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
+    public ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, AttributeException {
         logger.info("Creating new Compliance Profile: {}", request);
         if (checkComplianceProfileEntityByName(request.getName())) {
             logger.error("Compliance Profile with same name already exists");
             throw new AlreadyExistException(ComplianceProfile.class, request.getName());
         }
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
+        attributeEngine.validateCustomAttributesContent(Resource.COMPLIANCE_PROFILE, request.getCustomAttributes());
+
         ComplianceProfile complianceProfile = addComplianceEntity(request);
-        attributeService.createAttributeContent(complianceProfile.getUuid(), request.getCustomAttributes(), Resource.COMPLIANCE_PROFILE);
+
         logger.debug("Compliance Entity: {}", complianceProfile);
         if (request.getRules() != null && !request.getRules().isEmpty()) {
             logger.info("Rules are not empty in the request. Adding them to the profile");
             addRulesForConnector(request.getRules(), complianceProfile);
         }
         ComplianceProfileDto dto = complianceProfile.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid(), request.getCustomAttributes()));
         return dto;
     }
 
@@ -203,7 +209,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         logger.info("Request to list RA Profiles for the profile with UUID: {}", uuid);
         ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
         logger.debug("Associated RA Profiles: {}", complianceProfile.getRaProfiles());
-        List<String> raProfileUuids = raProfileService.listRaProfiles(SecurityFilter.create(), Optional.empty()).stream().map(RaProfileDto::getUuid).collect(Collectors.toList());
+        List<String> raProfileUuids = raProfileService.listRaProfiles(SecurityFilter.create(), Optional.empty()).stream().map(RaProfileDto::getUuid).toList();
         return complianceProfile.getRaProfiles().stream().filter(e -> raProfileUuids.contains(e.getUuid().toString())).map(RaProfile::mapToDtoSimplified).collect(Collectors.toList());
     }
 
@@ -430,7 +436,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         Set<String> errors = new HashSet<>();
         //Check if the connector is being used in any of the compliance profile groups
         for (ComplianceProfile complianceProfile : complianceProfileRepository.findAll()) {
-            if (complianceProfile.getGroups().stream().map(ComplianceGroup::getConnector).collect(Collectors.toList()).contains(connector)) {
+            if (complianceProfile.getGroups().stream().map(ComplianceGroup::getConnector).toList().contains(connector)) {
                 errors.add(complianceProfile.getName());
             }
         }
@@ -447,7 +453,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void nullifyComplianceProviderAssociation(Connector connector) {
         //Delete all the group association for a connector
         for (ComplianceProfile complianceProfile : complianceProfileRepository.findAll()) {
-            if (complianceProfile.getGroups().stream().map(ComplianceGroup::getConnector).collect(Collectors.toList()).contains(connector)) {
+            if (complianceProfile.getGroups().stream().map(ComplianceGroup::getConnector).toList().contains(connector)) {
                 complianceProfile.getGroups().removeAll(complianceProfile.getGroups().stream().filter(r -> r.getConnector().getUuid().equals(connector.getUuid())).collect(Collectors.toSet()));
             }
         }
@@ -637,7 +643,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 throw new ValidationException(error);
             }
         }
-        attributeService.deleteAttributeContent(complianceProfile.getUuid(), Resource.COMPLIANCE_PROFILE);
+        attributeEngine.deleteAllObjectAttributeContent(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid());
         complianceProfileRepository.delete(complianceProfile);
     }
 

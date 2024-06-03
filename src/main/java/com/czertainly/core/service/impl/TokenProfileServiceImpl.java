@@ -6,15 +6,17 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
@@ -24,10 +26,8 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenProfileService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,24 +49,23 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     // --------------------------------------------------------------------------------
     // Services & API Clients
     // --------------------------------------------------------------------------------
-    private AttributeService attributeService;
     private PermissionEvaluator permissionEvaluator;
     private TokenInstanceApiClient tokenInstanceApiClient;
+    private AttributeEngine attributeEngine;
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
     private TokenProfileRepository tokenProfileRepository;
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
 
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setTokenProfileRepository(TokenProfileRepository tokenProfileRepository) {
         this.tokenProfileRepository = tokenProfileRepository;
-    }
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
     }
 
     @Autowired
@@ -89,7 +88,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     //-------------------------------------------------------------------------------------
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled, SecurityFilter filter) {
         logger.info("Listing token profiles");
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
@@ -113,7 +112,8 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         logger.info("Getting token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         TokenProfileDetailDto dto = tokenProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenProfile.getUuid(), Resource.TOKEN_PROFILE));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
+        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(tokenProfile.getTokenInstanceReference().getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid()));
         logger.debug("Token profile detail: {}", dto);
         return dto;
     }
@@ -121,7 +121,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException {
+    public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         logger.info("Creating token profile with name: {}", request.getName());
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Token Profile name must not be empty"));
@@ -131,45 +131,41 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         if (optionalProfile.isPresent()) {
             throw new AlreadyExistException(TokenProfile.class, request.getName());
         }
-        logger.debug("Validating the custom attributes for the new token profile");
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.TOKEN_PROFILE);
-        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid)
-                .orElseThrow(() -> new NotFoundException(TokenInstanceReferenceRepository.class, tokenInstanceUuid));
-        logger.debug("Token Instance Reference found: {}", tokenInstanceReference);
-        List<DataAttribute> attributes = mergeAndValidateAttributes(tokenInstanceReference, request.getAttributes());
-        TokenProfile tokenProfile = createTokenProfile(request, attributes, tokenInstanceReference);
-        logger.debug("Token profile created: {}", tokenProfile);
+
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid).orElseThrow(() -> new NotFoundException(TokenInstanceReferenceRepository.class, tokenInstanceUuid));
+
+        logger.debug("Validating the custom and data attributes for the new token profile");
+        attributeEngine.validateCustomAttributesContent(Resource.TOKEN_PROFILE, request.getCustomAttributes());
+        mergeAndValidateAttributes(tokenInstanceReference, request.getAttributes());
+
+        TokenProfile tokenProfile = createTokenProfile(request, tokenInstanceReference);
         tokenProfileRepository.save(tokenProfile);
 
-        attributeService.createAttributeContent(tokenProfile.getUuid(), request.getCustomAttributes(), Resource.TOKEN_PROFILE);
-
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfile.mapToDetailDto();
-        tokenProfileDetailDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenProfile.getUuid(), Resource.TOKEN_PROFILE));
-        logger.debug("Token profile detail: {}", tokenProfileDetailDto);
+        tokenProfileDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getCustomAttributes()));
+        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(tokenInstanceReference.getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getAttributes()));
+
         return tokenProfileDetailDto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException {
+    public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException {
         logger.info("Editing token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
+        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid).orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
 
-        TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid)
-                .orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));
-        logger.debug("Token Instance Reference found: {}", tokenInstanceReference);
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.TOKEN_PROFILE);
-        List<DataAttribute> attributes = mergeAndValidateAttributes(tokenInstanceReference, request.getAttributes());
-        logger.debug("Attributes for the token profile: {}", attributes);
-        tokenProfile = updateTokenProfile(tokenProfile, tokenInstanceReference, request, attributes);
+        attributeEngine.validateCustomAttributesContent(Resource.TOKEN_PROFILE, request.getCustomAttributes());
+        mergeAndValidateAttributes(tokenInstanceReference, request.getAttributes());
+
+        updateTokenProfile(tokenProfile, tokenInstanceReference, request);
         tokenProfileRepository.save(tokenProfile);
 
-        attributeService.updateAttributeContent(tokenProfile.getUuid(), request.getCustomAttributes(), Resource.TOKEN_PROFILE);
-
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfile.mapToDetailDto();
-        tokenProfileDetailDto.setCustomAttributes(attributeService.getCustomAttributesWithValues(tokenProfile.getUuid(), Resource.TOKEN_PROFILE));
-        logger.debug("Token profile detail: {}", tokenProfileDetailDto);
+        tokenProfileDetailDto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getCustomAttributes()));
+        tokenProfileDetailDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(tokenInstanceReference.getConnectorUuid(), null, Resource.TOKEN_PROFILE, tokenProfile.getUuid(), request.getAttributes()));
+
         return tokenProfileDetailDto;
     }
 
@@ -297,39 +293,28 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     }
 
-    private List<DataAttribute> mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException {
-        logger.info("Merging and validating attributes for token instance: {}. Request Attributes: {}", tokenInstanceRef, attributes);
-        List<BaseAttribute> definitions = tokenInstanceApiClient.listTokenProfileAttributes(
-                tokenInstanceRef.getConnector().mapToDto(),
-                tokenInstanceRef.getTokenInstanceUuid());
-        logger.debug("Definitions from the connector: {}", definitions);
-        List<String> existingAttributesFromConnector = definitions.stream().map(BaseAttribute::getName).collect(Collectors.toList());
-        logger.debug("Existing attributes from connector: {}", existingAttributesFromConnector);
-        for (RequestAttributeDto requestAttributeDto : attributes) {
-            if (!existingAttributesFromConnector.contains(requestAttributeDto.getName())) {
-                DataAttribute referencedAttribute = attributeService.getReferenceAttribute(tokenInstanceRef.getConnectorUuid(), requestAttributeDto.getName());
-                if (referencedAttribute != null) {
-                    definitions.add(referencedAttribute);
-                }
-            }
+    private void mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+        logger.debug("Merging and validating attributes for token instance: {}. Request Attributes: {}", tokenInstanceRef, attributes);
+        if (tokenInstanceRef.getConnector() == null) {
+            throw new ValidationException(ValidationError.create("Connector of the Entity is not available / deleted"));
         }
 
-        List<DataAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, attributes);
-        logger.debug("Merged attributes: {}", merged);
+        ConnectorDto connectorDto = tokenInstanceRef.getConnector().mapToDto();
 
-        tokenInstanceApiClient.validateTokenProfileAttributes(
-                tokenInstanceRef.getConnector().mapToDto(),
-                tokenInstanceRef.getTokenInstanceUuid(),
-                attributes);
+        // validate first by connector
+        tokenInstanceApiClient.validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
 
-        return merged;
+        // list definitions
+        List<BaseAttribute> definitions = tokenInstanceApiClient.listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
+
+        // validate and update definitions with attribute engine
+        attributeEngine.validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);
     }
 
-    private TokenProfile createTokenProfile(AddTokenProfileRequestDto request, List<DataAttribute> attributes, TokenInstanceReference tokenInstanceReference) {
+    private TokenProfile createTokenProfile(AddTokenProfileRequestDto request, TokenInstanceReference tokenInstanceReference) {
         TokenProfile entity = new TokenProfile();
         entity.setName(request.getName());
         entity.setDescription(request.getDescription());
-        entity.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         entity.setEnabled(request.isEnabled());
         entity.setTokenInstanceName(tokenInstanceReference.getName());
         entity.setTokenInstanceReference(tokenInstanceReference);
@@ -338,14 +323,12 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         return entity;
     }
 
-    private TokenProfile updateTokenProfile(TokenProfile entity, TokenInstanceReference tokenInstanceReference, EditTokenProfileRequestDto request, List<DataAttribute> attributes) {
+    private void updateTokenProfile(TokenProfile entity, TokenInstanceReference tokenInstanceReference, EditTokenProfileRequestDto request) {
         if (request.getDescription() != null) entity.setDescription(request.getDescription());
-        entity.setAttributes(AttributeDefinitionUtils.serialize(attributes));
         entity.setTokenInstanceReference(tokenInstanceReference);
-        if (request.getEnabled() != null) entity.setEnabled(request.getEnabled() != null && request.getEnabled());
+        if (request.getEnabled() != null) entity.setEnabled(request.getEnabled());
         entity.setTokenInstanceName(tokenInstanceReference.getName());
         if(request.getUsage() != null) entity.setUsage(request.getUsage());
-        return entity;
     }
 
     private void deleteProfileInternal(SecuredUUID uuid, boolean throwWhenAssociated) throws NotFoundException {
@@ -353,7 +336,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         if (throwWhenAssociated && tokenProfile.getTokenInstanceReference() == null) {
             throw new ValidationException(ValidationError.create("Token Profile has associated Token Instance. Use other API"));
         }
-        attributeService.deleteAttributeContent(tokenProfile.getUuid(), Resource.TOKEN_PROFILE);
+        attributeEngine.deleteAllObjectAttributeContent(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
         tokenProfileRepository.delete(tokenProfile);
     }
 

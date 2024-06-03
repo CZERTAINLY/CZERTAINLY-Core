@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -47,9 +44,6 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateRepository certificateRepository;
-
-    @Autowired
-    private CryptographicKeyService cryptographicKeyService;
     @Autowired
     private CryptographicKeyRepository cryptographicKeyRepository;
     @Autowired
@@ -189,7 +183,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddScepProfile() throws ConnectorException, AlreadyExistException {
+    public void testAddScepProfile() throws ConnectorException, AlreadyExistException, AttributeException {
 
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("Test");
@@ -218,7 +212,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditScepProfile() throws ConnectorException {
+    public void testEditScepProfile() throws ConnectorException, AttributeException {
         scepProfile.setEnabled(false);
         scepProfileRepository.save(scepProfile);
 

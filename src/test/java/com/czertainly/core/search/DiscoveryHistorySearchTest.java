@@ -1,18 +1,28 @@
 package com.czertainly.core.search;
 
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchGroup;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchableFields;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -27,9 +37,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
 
@@ -41,15 +51,14 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     private FunctionGroupRepository functionGroupRepository;
     @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-
-    @Autowired
-    private AttributeDefinitionRepository attributeDefinitionRepository;
-    @Autowired
-    private AttributeContentRepository attributeContentRepository;
-    @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
     @Autowired
     private DiscoveryService discoveryService;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     private static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss");
 
@@ -132,63 +141,39 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
             loadMetaData();
             loadCustomAttributesData();
             isLoadedData = true;
-        } catch (ParseException e) {
+        } catch (ParseException | NotFoundException | AttributeException e) {
             isLoadedData = false;
         }
     }
 
-    private void loadMetaData() {
+    private void loadMetaData() throws AttributeException {
+        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        metadataAttribute.setUuid(UUID.randomUUID().toString());
+        metadataAttribute.setName("attributeMeta1");
+        metadataAttribute.setType(AttributeType.META);
+        metadataAttribute.setContentType(AttributeContentType.TEXT);
+        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
+        metadataAttribute.setContent(List.of(new TextAttributeContent("reference-test-1", "data-meta-test-1")));
 
-        AttributeDefinition attributeDefinition = new AttributeDefinition();
-        attributeDefinition.setContentType(AttributeContentType.TEXT);
-        attributeDefinition.setCreated(LocalDateTime.now());
-        attributeDefinition.setAttributeName("attributeMeta1");
-        attributeDefinition.setType(AttributeType.META);
-        attributeDefinition.setConnector(connector);
-        attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
-
-        final AttributeContentItem attributeContentItem = new AttributeContentItem();
-        attributeContentItem.setJson(new BaseAttributeContent("reference-test-1", "data-meta-test-1"));
-        AttributeContent attributeContent = new AttributeContent();
-        attributeContent.setAttributeContentItems(List.of(attributeContentItem));
-        attributeContent.setAttributeDefinition(attributeDefinition);
-        attributeContentItem.setAttributeContent(attributeContent);
-        attributeContent = attributeContentRepository.save(attributeContent);
-
-        final AttributeContent2Object ac2o = new AttributeContent2Object();
-        ac2o.setAttributeContent(attributeContent);
-        ac2o.setConnector(connector);
-        ac2o.setObjectUuid(discoveryHistory.getUuid());
-        ac2o.setObjectType(Resource.DISCOVERY);
-        attributeContent2ObjectRepository.save(ac2o);
-
+        attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid()));
     }
 
-    private void loadCustomAttributesData() {
+    private void loadCustomAttributesData() throws AttributeException, NotFoundException {
+        CustomAttribute customAttribute = new CustomAttribute();
+        customAttribute.setUuid(UUID.randomUUID().toString());
+        customAttribute.setName("attributeCustom1");
+        customAttribute.setType(AttributeType.CUSTOM);
+        customAttribute.setContentType(AttributeContentType.TEXT);
+        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        AttributeDefinition attributeDefinition = new AttributeDefinition();
-        attributeDefinition.setContentType(AttributeContentType.TEXT);
-        attributeDefinition.setCreated(LocalDateTime.now());
-        attributeDefinition.setAttributeName("attributeCustom1");
-        attributeDefinition.setType(AttributeType.CUSTOM);
-        attributeDefinition.setConnector(connector);
-        attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
+        List<BaseAttributeContent> contentItems = List.of(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
+        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+        requestAttributeDto.setUuid(customAttribute.getUuid());
+        requestAttributeDto.setName(customAttribute.getName());
+        requestAttributeDto.setContent(contentItems);
 
-        final AttributeContentItem attributeContentItem = new AttributeContentItem();
-        attributeContentItem.setJson(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
-        AttributeContent attributeContent = new AttributeContent();
-        attributeContent.setAttributeContentItems(List.of(attributeContentItem));
-        attributeContent.setAttributeDefinition(attributeDefinition);
-        attributeContentItem.setAttributeContent(attributeContent);
-        attributeContent = attributeContentRepository.save(attributeContent);
-
-        final AttributeContent2Object ac2o = new AttributeContent2Object();
-        ac2o.setAttributeContent(attributeContent);
-        ac2o.setConnector(connector);
-        ac2o.setObjectUuid(discoveryHistory.getUuid());
-        ac2o.setObjectType(Resource.DISCOVERY);
-        attributeContent2ObjectRepository.save(ac2o);
-
+        attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.DISCOVERY));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(), List.of(requestAttributeDto));
     }
 
 
@@ -207,14 +192,16 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
 
     @Test
     public void testInsertedAttributes() {
-        final List<AttributeContent2Object> attributeContent2ObjectList = attributeContent2ObjectRepository.findByObjectUuidAndObjectType(discoveryHistory.getUuid(), Resource.DISCOVERY);
-        Assertions.assertEquals(2, attributeContent2ObjectList.size());
+        var customAttrs = attributeEngine.getObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid());
+        var metaAttrs = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(Resource.DISCOVERY, discoveryHistory.getUuid()));
+        Assertions.assertEquals(1, customAttrs.size());
+        Assertions.assertEquals(1, metaAttrs.size());
     }
 
     @Test
     public void testFilterDataByNameContains() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.NAME.name(), SearchCondition.CONTAINS, "test_discovery"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.NAME.name(), FilterConditionOperator.CONTAINS, "test_discovery"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(4, responseDto.getDiscoveries().size());
     }
@@ -222,7 +209,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByNameEquals() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.NAME.name(), SearchCondition.EQUALS, "test_discovery2"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.NAME.name(), FilterConditionOperator.EQUALS, "test_discovery2"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -230,7 +217,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByStartTime() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.START_TIME.name(), SearchCondition.GREATER, "2020-05-06T10:10:10.000Z"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.START_TIME.name(), FilterConditionOperator.GREATER, "2020-05-06T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -238,7 +225,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByEndTime() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.END_TIME.name(), SearchCondition.LESSER, "2020-02-02T10:10:10.000Z"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.END_TIME.name(), FilterConditionOperator.LESSER, "2020-02-02T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -246,7 +233,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByStatus() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.DISCOVERY_STATUS.name(), SearchCondition.NOT_EQUALS, DiscoveryStatus.COMPLETED.getCode()));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.DISCOVERY_STATUS.name(), FilterConditionOperator.NOT_EQUALS, DiscoveryStatus.COMPLETED.getCode()));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -254,7 +241,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByTotalCertificateDiscovered() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.TOTAL_CERT_DISCOVERED.name(), SearchCondition.GREATER, 10));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.TOTAL_CERT_DISCOVERED.name(), FilterConditionOperator.GREATER, 10));
         final SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(filters);
         final DiscoveryResponseDto responseDto = discoveryService.listDiscoveries(SecurityFilter.create(), searchRequestDto);
@@ -264,7 +251,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.KIND.name(), SearchCondition.NOT_CONTAINS, "TEST3"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.KIND.name(), FilterConditionOperator.NOT_CONTAINS, "TEST3"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getDiscoveries().size());
     }
@@ -272,7 +259,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByConnectorName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), FilterConditionOperator.EQUALS, "connector1"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(3, responseDto.getDiscoveries().size());
     }
@@ -280,8 +267,8 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByConnectorNameAndStatus() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.DISCOVERY_STATUS.name(), SearchCondition.EQUALS, DiscoveryStatus.COMPLETED.getCode()));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), FilterConditionOperator.EQUALS, "connector1"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.DISCOVERY_STATUS.name(), FilterConditionOperator.EQUALS, DiscoveryStatus.COMPLETED.getCode()));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -289,9 +276,9 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByConnectorNameAndKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), SearchCondition.EQUALS, "connector1"));
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.KIND.name(), SearchCondition.STARTS_WITH, "kindTEST"));
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.PROPERTY, SearchableFields.START_TIME.name(), SearchCondition.LESSER, "2020-02-01T10:10:10.000Z"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.CONNECTOR_NAME.name(), FilterConditionOperator.EQUALS, "connector1"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.KIND.name(), FilterConditionOperator.STARTS_WITH, "kindTEST"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.START_TIME.name(), FilterConditionOperator.LESSER, "2020-02-01T10:10:10.000Z"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -299,7 +286,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.META, "attributeMeta1|TEXT", SearchCondition.CONTAINS, "-meta-"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.META, "attributeMeta1|TEXT", FilterConditionOperator.CONTAINS, "-meta-"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }
@@ -307,7 +294,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     @Test
     public void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(SearchGroup.CUSTOM, "attributeCustom1|TEXT", SearchCondition.CONTAINS, "-custom-"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.CUSTOM, "attributeCustom1|TEXT", FilterConditionOperator.CONTAINS, "-custom-"));
         final DiscoveryResponseDto responseDto = retrieveTheDiscoveriesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getDiscoveries().size());
     }

@@ -5,15 +5,19 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
-import com.czertainly.api.model.core.search.SearchCondition;
-import com.czertainly.api.model.core.search.SearchGroup;
-import com.czertainly.api.model.core.search.SearchableFieldType;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
+import org.hibernate.query.sqm.tree.domain.SqmPluralValuedSimplePath;
 
 import java.util.*;
 
@@ -30,7 +34,7 @@ public class Sql2PredicateConverter {
         final List<Predicate> predicates = new ArrayList<>();
         boolean hasFilteredAttributes = false;
         for (final SearchFilterRequestDto dto : dtos) {
-            if (dto.getSearchGroup() == SearchGroup.PROPERTY) {
+            if (dto.getFieldSource() == FilterFieldSource.PROPERTY) {
                 predicates.add(mapSearchFilter2Predicate(dto, criteriaBuilder, root));
             } else {
                 hasFilteredAttributes = true;
@@ -69,30 +73,29 @@ public class Sql2PredicateConverter {
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
 
         final SearchableFields searchableFields = SearchableFields.valueOf(dto.getFieldIdentifier());
-        final SearchCondition searchCondition = checkOrReplaceSearchCondition(dto, searchableFields);
+        final FilterConditionOperator filterConditionOperator = checkOrReplaceSearchCondition(dto, searchableFields);
         final SearchFieldTypeEnum searchFieldTypeEnum = SearchFieldNameEnum.getEnumBySearchableFields(searchableFields).getFieldTypeEnum();
         final boolean isDateFormat = SearchFieldTypeEnum.DATE.equals(searchFieldTypeEnum) || SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum);
         final Predicate predicate = checkCertificateValidationResult(root, criteriaBuilder, dto, valueObject, searchableFields);
         if (predicate == null) {
             final Object expressionValue = prepareValue(valueObject, searchableFields);
             final SearchFieldObject searchFieldObject = SearchFieldTypeEnum.DATETIME.equals(searchFieldTypeEnum) ? new SearchFieldObject(AttributeContentType.DATETIME) : null;
-            return buildPredicateByCondition(criteriaBuilder, searchCondition, null, root, searchableFields, expressionValue, isDateFormat, SearchableFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()), dto, searchFieldObject);
+            return buildPredicateByCondition(criteriaBuilder, filterConditionOperator, null, root, searchableFields, expressionValue, isDateFormat, FilterFieldType.BOOLEAN.equals(searchFieldTypeEnum.getFieldType()), dto, searchFieldObject);
         }
         return predicate;
     }
 
-    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, SearchCondition searchCondition, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
+    private static Predicate buildPredicateByCondition(final CriteriaBuilder criteriaBuilder, FilterConditionOperator filterConditionOperator, Expression expression, Root root, SearchableFields searchableFields, Object expressionValue, final boolean isDateFormat, final boolean isBoolean, final SearchFilterRequestDto dto, SearchFieldObject searchFieldObject) {
         if (expression == null) {
             if (searchableFields.getPathToBeJoin() == null) {
                 expression = prepareExpression(root, searchableFields.getCode());
-            }
-            else {
+            } else {
                 final Join join = prepareJoin(root, searchableFields.getPathToBeJoin());
                 expression = join.get(searchableFields.getCode());
             }
         }
 
-        if (expressionValue == null) {
+        if (expressionValue == null && dto.getValue() != null) {
             expressionValue = dto.getValue().toString();
         }
 
@@ -100,32 +103,34 @@ public class Sql2PredicateConverter {
             if (searchFieldObject == null) {
                 searchFieldObject = new SearchFieldObject(AttributeContentType.DATE);
             }
-            return prepareDateTimePredicate(criteriaBuilder, searchCondition, expression, expressionValue.toString(), searchFieldObject);
+            return prepareDateTimePredicate(criteriaBuilder, filterConditionOperator, expression, expressionValue.toString(), searchFieldObject);
         }
 
         Predicate predicate = null;
         if (isBoolean) {
-            if (searchableFields.getExpectedValue() == null) {
-                switch (searchCondition) {
-                    case EQUALS -> predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
-                    case NOT_EQUALS -> predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+            if (searchableFields == null || searchableFields.getExpectedValue() == null) {
+                switch (filterConditionOperator) {
+                    case EQUALS ->
+                            predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                    case NOT_EQUALS ->
+                            predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
                 }
                 return predicate;
             } else {
                 final Boolean booleanValue = Boolean.parseBoolean(expressionValue.toString());
                 expressionValue = searchableFields.getExpectedValue();
-                if (SearchCondition.EQUALS.equals(searchCondition) && !booleanValue) {
-                    searchCondition = SearchCondition.NOT_EQUALS;
-                } else if (SearchCondition.NOT_EQUALS.equals(searchCondition) && !booleanValue) {
-                    searchCondition = SearchCondition.EQUALS;
+                if (FilterConditionOperator.EQUALS.equals(filterConditionOperator) && !booleanValue) {
+                    filterConditionOperator = FilterConditionOperator.NOT_EQUALS;
+                } else if (FilterConditionOperator.NOT_EQUALS.equals(filterConditionOperator) && !booleanValue) {
+                    filterConditionOperator = FilterConditionOperator.EQUALS;
                 }
             }
         }
 
-        switch (searchCondition) {
+        switch (filterConditionOperator) {
             case EQUALS -> predicate = criteriaBuilder.equal(expression, expressionValue);
             case NOT_EQUALS -> {
-                if (searchableFields.getPathToBeJoin() != null) {
+                if (searchableFields != null && searchableFields.getPathToBeJoin() != null) {
                     predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.equal(expression, expressionValue)), criteriaBuilder.isNull(expression));
                 } else {
                     predicate = criteriaBuilder.or(criteriaBuilder.notEqual(expression, expressionValue), criteriaBuilder.isNull(expression));
@@ -141,7 +146,7 @@ public class Sql2PredicateConverter {
             case EMPTY -> predicate = retrievePredicateForNull(criteriaBuilder, root, searchableFields, expression);
             case NOT_EMPTY -> predicate = criteriaBuilder.isNotNull(expression);
             case GREATER, LESSER -> {
-                if (searchCondition.equals(SearchCondition.GREATER)) {
+                if (filterConditionOperator.equals(FilterConditionOperator.GREATER)) {
                     predicate = criteriaBuilder.greaterThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
                 } else {
                     predicate = criteriaBuilder.lessThan(expression.as(Integer.class), Integer.valueOf(dto.getValue().toString()));
@@ -153,18 +158,19 @@ public class Sql2PredicateConverter {
 
     private static Predicate retrievePredicateForNull(final CriteriaBuilder criteriaBuilder, final Root root, final SearchableFields searchableFields, final Expression expression) {
         if (searchableFields != null && searchableFields.getCode().contains(".")) {
-            int indexOfDot = searchableFields.getCode().indexOf(".");
+            int indexOfDot = searchableFields.getCode().lastIndexOf(".");
             final String mainPropertyString = searchableFields.getCode().substring(0, indexOfDot);
             final Expression mainExpression = prepareExpression(root, mainPropertyString);
-            return criteriaBuilder.isNull(mainExpression);
+
+            return mainExpression instanceof SqmPluralValuedSimplePath<?> ? criteriaBuilder.equal(criteriaBuilder.size(mainExpression), criteriaBuilder.literal(0)) : criteriaBuilder.isNull(mainExpression);
         } else {
             return criteriaBuilder.isNull(expression);
         }
     }
 
-    private static Predicate prepareDateTimePredicate(final CriteriaBuilder criteriaBuilder, final SearchCondition searchCondition, final Expression expression, final String value, final SearchFieldObject searchFieldObject) {
+    private static Predicate prepareDateTimePredicate(final CriteriaBuilder criteriaBuilder, final FilterConditionOperator filterConditionOperator, final Expression expression, final String value, final SearchFieldObject searchFieldObject) {
         Predicate dateTimePredicate = null;
-        switch (searchCondition) {
+        switch (filterConditionOperator) {
             case EQUALS -> {
                 switch (searchFieldObject.getAttributeContentType()) {
                     case DATETIME ->
@@ -209,28 +215,28 @@ public class Sql2PredicateConverter {
         return dateTimePredicate;
     }
 
-    private static SearchCondition checkOrReplaceSearchCondition(final SearchFilterRequestDto dto, final SearchableFields searchableFields) {
+    private static FilterConditionOperator checkOrReplaceSearchCondition(final SearchFilterRequestDto dto, final SearchableFields searchableFields) {
         if (searchableFields.getEnumClass() != null
                 && searchableFields.getEnumClass().equals(KeyUsage.class)) {
-            if (dto.getCondition().equals(SearchCondition.EQUALS)) {
-                return SearchCondition.CONTAINS;
-            } else if (dto.getCondition().equals(SearchCondition.NOT_EQUALS)) {
-                return SearchCondition.NOT_CONTAINS;
+            if (dto.getCondition().equals(FilterConditionOperator.EQUALS)) {
+                return FilterConditionOperator.CONTAINS;
+            } else if (dto.getCondition().equals(FilterConditionOperator.NOT_EQUALS)) {
+                return FilterConditionOperator.NOT_CONTAINS;
             }
         }
         return dto.getCondition();
     }
 
-    private static Expression<?> prepareExpression(final Root root, final String code) {
-        final StringTokenizer stz = new StringTokenizer(code, ".");
-        Path path = root.get(stz.nextToken());
+    public static Expression<?> prepareExpression(final From from, final String attributeName) {
+        final StringTokenizer stz = new StringTokenizer(attributeName, ".");
+        Path path = from.get(stz.nextToken());
         while (stz.hasMoreTokens()) {
             path = path.get(stz.nextToken());
         }
         return path;
     }
 
-    private static Join prepareJoin(final Root root, final String joinPath) {
+    public static Join prepareJoin(final Root root, final String joinPath) {
         final StringTokenizer stz = new StringTokenizer(joinPath, ".");
         Join join = root.join(stz.nextToken(), JoinType.LEFT);
         while (stz.hasMoreTokens()) {
@@ -249,7 +255,7 @@ public class Sql2PredicateConverter {
             }
             return findEnumByCustomValue(valueObject, searchableFields);
         }
-        return valueObject.toString();
+        return valueObject == null ? null : valueObject.toString();
     }
 
     private static Object findEnumByCustomValue(Object valueObject, final SearchableFields searchableFields) {
@@ -302,14 +308,13 @@ public class Sql2PredicateConverter {
         final List<Predicate> rootPredicates = new ArrayList<>();
 
         for (final SearchFilterRequestDto dto : dtos) {
-            final SearchGroup searchGroup = dto.getSearchGroup();
-            if (searchGroup == SearchGroup.CUSTOM || searchGroup == SearchGroup.META) {
+            final FilterFieldSource filterFieldSource = dto.getFieldSource();
+            if (filterFieldSource == FilterFieldSource.CUSTOM || filterFieldSource == FilterFieldSource.META || filterFieldSource == FilterFieldSource.DATA) {
 
                 // --- SUB QUERY ---
                 final Subquery<UUID> subquery = criteriaQuery.subquery(UUID.class);
                 final Root<AttributeContent2Object> subRoot = subquery.from(AttributeContent2Object.class);
-                final Join<AttributeContent2Object, AttributeContent> joinAttributeContent = subRoot.join("attributeContent");
-                final Join<AttributeContent, AttributeContentItem> joinAttributeContentItem = joinAttributeContent.join("attributeContentItems");
+                final Join<AttributeContent2Object, AttributeContentItem> joinAttributeContentItem = subRoot.join("attributeContentItem");
 
                 subquery.select(subRoot.get("objectUuid"));
 
@@ -322,7 +327,7 @@ public class Sql2PredicateConverter {
                 final String fieldIdentifierName = fieldIdentifier[0];
                 final Optional<SearchFieldObject> searchFieldObject =
                         searchableFields.stream().filter(attr ->
-                                attr.getAttributeType().equals(searchGroup.getAttributeType())
+                                attr.getAttributeType().equals(filterFieldSource.getAttributeType())
                                         && attr.getAttributeName().equals(fieldIdentifierName)
                                         && attr.getAttributeContentType().equals(fieldAttributeContentType)).findFirst();
 
@@ -336,19 +341,22 @@ public class Sql2PredicateConverter {
                     final Expression expressionFunctionToGetJsonValue = criteriaBuilder.function("jsonb_extract_path_text", String.class, subACIRoot.get("json"),
                             criteriaBuilder.literal(searchField.getAttributeContentType().isFilterByData() ? "data" : "reference"));
 
-                    final Predicate predicateForContentType = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.contentType"), searchField.getAttributeContentType());
+                    final Predicate predicateForContentType = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeDefinition.contentType"), searchField.getAttributeContentType());
                     final Predicate predicateToKeepRelationWithUpperQuery = criteriaBuilder.equal(subACIRoot.get("uuid"), joinAttributeContentItem.get("uuid"));
-                    final Predicate predicateGroup = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.type"), searchField.getAttributeType());
-                    final Predicate predicateAttributeName =
-                            criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeContent.attributeDefinition.attributeName"), fieldIdentifierName);
+                    final Predicate predicateGroup = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeDefinition.type"), searchField.getAttributeType());
+                    final Predicate predicateAttributeName = criteriaBuilder.equal(prepareExpression(subACIRoot, "attributeDefinition.name"), fieldIdentifierName);
 
                     jsonValueQuery.select(expressionFunctionToGetJsonValue);
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
 
-                    final Predicate predicateOfTheExpression =
-                            buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
+                    final List<Predicate> expressionPredicates = new ArrayList<>();
+                    final List<Object> expressionValues = readAndCheckIncomingValues(dto);
+                    for (final Object expressionValue : expressionValues) {
+                        final Predicate expressionPredicate = buildPredicateByCondition(criteriaBuilder, dto.getCondition(), jsonValueQuery, null, null, expressionValue, searchField.isDateTimeFormat(), searchField.isBooleanFormat(), dto, searchField);
+                        expressionPredicates.add(expressionPredicate);
+                    }
+                    subPredicates.add(expressionPredicates.size() > 1 ? criteriaBuilder.or(expressionPredicates.toArray(new Predicate[]{})) : expressionPredicates.get(0));
 
-                    subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));
                     rootPredicates.add(criteriaBuilder.in(root.get("objectUuid")).value(subquery));
                 }
@@ -365,6 +373,11 @@ public class Sql2PredicateConverter {
     public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final UUID scheduledJobUuid) {
         final Expression<?> expressionPath = prepareExpression(root, "scheduledJobUuid");
         return cb.equal(expressionPath, scheduledJobUuid);
+    }
+
+    public static Query getAllValuesOfProperty(String property, Resource resource, EntityManager entityManager) {
+        Class resourceClass = ResourceToClass.getClassByResource(resource);
+        return entityManager.createQuery("SELECT DISTINCT " + property + " FROM " + resourceClass.getName());
     }
 
 

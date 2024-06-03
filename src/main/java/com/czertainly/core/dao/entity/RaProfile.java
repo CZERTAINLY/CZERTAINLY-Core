@@ -9,7 +9,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
-import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
+import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -38,11 +38,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Column(name = "authority_instance_name")
     private String authorityInstanceName;
-
-    //    @Lob
-    @Basic(fetch = FetchType.LAZY)
-    @Column(name = "attributes", length = Integer.MAX_VALUE)
-    private String attributes;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
@@ -94,7 +89,8 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUuid(acmeProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttribute.class)));
         dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttribute.class)));
-        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
+        dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
         return dto;
     }
@@ -107,7 +103,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setScepAvailable(true);
         dto.setUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
+                + ScepServiceImpl.SCEP_URL_PREFIX + "/raProfile/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));
@@ -158,7 +154,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setUuid(uuid.toString());
         dto.setName(name);
         dto.setDescription(this.description);
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.attributes, DataAttribute.class)));
         dto.setEnabled(enabled);
 
         if (authorityInstanceReference != null) {
@@ -189,14 +184,6 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     public void setDescription(String description) {
         this.description = description;
-    }
-
-    public String getAttributes() {
-        return attributes;
-    }
-
-    public void setAttributes(String attributes) {
-        this.attributes = attributes;
     }
 
     public Boolean getEnabled() {

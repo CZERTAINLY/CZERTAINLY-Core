@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -60,7 +61,7 @@ public class GroupServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddCertificateGroup() throws ValidationException, AlreadyExistException {
+    public void testAddCertificateGroup() throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
         GroupRequestDto request = new GroupRequestDto();
         request.setName("test");
 
@@ -84,7 +85,7 @@ public class GroupServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditCertificateGroup() throws NotFoundException {
+    public void testEditCertificateGroup() throws NotFoundException, AttributeException {
         GroupRequestDto request = new GroupRequestDto();
         request.setName("Test");
         request.setDescription("some description");

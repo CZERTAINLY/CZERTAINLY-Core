@@ -29,6 +29,8 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -164,16 +166,18 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     private Predicate createPredicate(AuditLogFilter filter) {
         BooleanBuilder predicate = new BooleanBuilder();
+        ZoneId zoneId = ZoneId.systemDefault();
+
 
         if (StringUtils.isNotBlank(filter.getAuthor())) {
             predicate.and(QAuditLog.auditLog.author.likeIgnoreCase(filter.getAuthor()));
         }
 
         if (filter.getCreatedFrom() != null) {
-            predicate.and(QAuditLog.auditLog.created.after(filter.getCreatedFrom().atStartOfDay()));
+            predicate.and(QAuditLog.auditLog.created.after(filter.getCreatedFrom().atStartOfDay().atZone(zoneId).toOffsetDateTime()));
         }
         if (filter.getCreatedTo() != null) {
-            predicate.and(QAuditLog.auditLog.created.before(filter.getCreatedTo().atTime(LocalTime.MAX)));
+            predicate.and(QAuditLog.auditLog.created.before(filter.getCreatedTo().atTime(LocalTime.MAX).atZone(zoneId).toOffsetDateTime()));
         } else {
             predicate.and(QAuditLog.auditLog.created.isNotNull());
         }

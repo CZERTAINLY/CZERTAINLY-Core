@@ -257,6 +257,18 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link AttributeException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(AttributeException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleAttributeException(AttributeException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
      * Handler for {@link AccessDeniedException}.
      *
      * @return
@@ -279,7 +291,7 @@ public class ExceptionHandlingAdvice {
                     + BeautificationUtil.camelToHumanForm((String) resourceName)
                     + "'");
         } else {
-            responseDto.setMessage("Access denied for the specified operation");
+            responseDto.setMessage("Access denied for the specified operation: " + ex.getMessage());
         }
         return response.body(responseDto);
     }
@@ -382,6 +394,30 @@ public class ExceptionHandlingAdvice {
         LOG.error("HTTP 500: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(messageBuilder.toString());
     }
+
+    /**
+     * Handler for {@link RuleException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(RuleException.class)
+    public ErrorMessageDto handleRuleException(RuleException ex) {
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link CertificateRequestException}.
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(CertificateRequestException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleCertificateRequestException(CertificateRequestException ex) {
+        LOG.error("HTTP 400 (CertificateRequestException): {}, {}", ex.getMessage(), ex.getCause().getMessage());
+        String cause = ex.getCause() == null ? "" : ": " + ex.getCause().getMessage();
+        return ErrorMessageDto.getInstance(ex.getMessage() + cause);
+    }
+
 
     /**
      * Handler for {@link Exception}.

@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.HealthDto;
@@ -188,7 +185,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddConnector() throws ConnectorException, AlreadyExistException {
+    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
@@ -216,7 +213,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditConnector() throws ConnectorException {
+    void testEditConnector() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));

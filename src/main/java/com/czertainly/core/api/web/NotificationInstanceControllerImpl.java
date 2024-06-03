@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.NotificationInstanceController;
@@ -40,7 +41,7 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
 
     @Override
     public ResponseEntity<?> createNotificationInstance(
-            @RequestBody NotificationInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
+            @RequestBody NotificationInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         NotificationInstanceDto notificationInstance = notificationInstanceService.createNotificationInstance(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -55,7 +56,7 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     @Override
     public NotificationInstanceDto editNotificationInstance(
             @PathVariable String uuid,
-            @RequestBody NotificationInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException {
+            @RequestBody NotificationInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         return notificationInstanceService.editNotificationInstance(UUID.fromString(uuid), request);
     }
 

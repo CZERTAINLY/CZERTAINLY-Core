@@ -4,7 +4,7 @@ import com.czertainly.api.model.core.acme.Order;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
-import com.czertainly.core.service.acme.impl.ExtendedAcmeHelperService;
+import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.SerializationUtil;
@@ -205,11 +205,11 @@ public class AcmeOrder extends UniquelyIdentifiedAndAudited implements Serializa
     private String getBaseUrl() {
         if(ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/")){
             return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + ExtendedAcmeHelperService.ACME_URI_HEADER + "/raProfile/"
+                    + AcmeConstants.ACME_URI_HEADER + "/raProfile/"
                     + acmeAccount.getRaProfile().getName();
         }
         return ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                + ExtendedAcmeHelperService.ACME_URI_HEADER + "/"
+                + AcmeConstants.ACME_URI_HEADER + "/"
                 + acmeAccount.getAcmeProfile().getName();
     }
 

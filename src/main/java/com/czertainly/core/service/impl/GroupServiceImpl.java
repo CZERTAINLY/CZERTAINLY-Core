@@ -1,9 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.audit.ObjectType;
 import com.czertainly.api.model.core.audit.OperationType;
@@ -11,16 +8,15 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Group;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.GroupService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -36,20 +32,31 @@ import java.util.stream.Collectors;
 public class GroupServiceImpl implements GroupService {
     private static final Logger logger = LoggerFactory.getLogger(GroupServiceImpl.class);
 
-    @Autowired
     private GroupRepository groupRepository;
 
-    @Autowired
-    private CertificateRepository certificateRepository;
+    private ResourceObjectAssociationService objectAssociationService;
+
+    private AttributeEngine attributeEngine;
 
     @Autowired
-    private AttributeService attributeService;
+    public void setGroupRepository(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
+    @Autowired
+    public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
+        this.objectAssociationService = objectAssociationService;
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public List<GroupDto> listGroups(SecurityFilter filter) {
-        List<Group> groups;
         return groupRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(Group::mapToDto)
@@ -61,15 +68,14 @@ public class GroupServiceImpl implements GroupService {
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DETAIL)
     public GroupDto getGroup(SecuredUUID uuid) throws NotFoundException {
         GroupDto dto = getGroupEntity(uuid).mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(uuid.getValue(), Resource.GROUP));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.GROUP, uuid.getValue()));
         return dto;
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.CREATE)
-    public GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException {
-
+    public GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(
                     ValidationError.create("Name must not be empty")
@@ -79,15 +85,32 @@ public class GroupServiceImpl implements GroupService {
         if (groupRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Group.class, request.getName());
         }
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.GROUP);
+        attributeEngine.validateCustomAttributesContent(Resource.GROUP, request.getCustomAttributes());
+
         Group group = new Group();
         group.setName(request.getName());
         group.setDescription(request.getDescription());
         group.setEmail(request.getEmail());
         groupRepository.save(group);
-        attributeService.createAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.GROUP);
+
         GroupDto dto = group.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(group.getUuid(), Resource.GROUP));
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.GROUP, group.getUuid(), request.getCustomAttributes()));
+        return dto;
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
+    public GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException, AttributeException {
+        Group group = getGroupEntity(uuid);
+        attributeEngine.validateCustomAttributesContent(Resource.GROUP, request.getCustomAttributes());
+
+        group.setDescription(request.getDescription());
+        group.setEmail(request.getEmail());
+        groupRepository.save(group);
+
+        GroupDto dto = group.mapToDto();
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.GROUP, group.getUuid(), request.getCustomAttributes()));
         return dto;
     }
 
@@ -96,12 +119,9 @@ public class GroupServiceImpl implements GroupService {
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
     public void deleteGroup(SecuredUUID uuid) throws NotFoundException {
         Group group = getGroupEntity(uuid);
-        for(Certificate certificate: certificateRepository.findByGroup(group)){
-            certificate.setGroup(null);
-            certificate.setGroupUuid(null);
-            certificateRepository.save(certificate);
-        }
-        attributeService.deleteAttributeContent(group.getUuid(), Resource.GROUP);
+
+        objectAssociationService.removeGroupAssociations(group.getUuid());
+        attributeEngine.deleteAllObjectAttributeContent(Resource.GROUP, group.getUuid());
         groupRepository.delete(group);
     }
 
@@ -109,10 +129,10 @@ public class GroupServiceImpl implements GroupService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
     public void bulkDeleteGroup(List<SecuredUUID> entityUuids) {
-        for(SecuredUUID uuid: entityUuids){
-            try{
+        for (SecuredUUID uuid : entityUuids) {
+            try {
                 deleteGroup(uuid);
-            }catch(NotFoundException e){
+            } catch (NotFoundException e) {
                 logger.warn("Unable to find the group with uuid {}. It may have been deleted", uuid);
             }
         }
@@ -122,23 +142,6 @@ public class GroupServiceImpl implements GroupService {
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public Long statisticsGroupCount(SecurityFilter filter) {
         return groupRepository.countUsingSecurityFilter(filter);
-    }
-
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
-    public GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.GROUP);
-        Group group = getGroupEntity(uuid);
-
-        group.setDescription(request.getDescription());
-        group.setEmail(request.getEmail());
-        groupRepository.save(group);
-
-        attributeService.updateAttributeContent(group.getUuid(), request.getCustomAttributes(), Resource.GROUP);
-        GroupDto dto = group.mapToDto();
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(group.getUuid(), Resource.GROUP));
-        return dto;
     }
 
     @Override
@@ -159,5 +162,10 @@ public class GroupServiceImpl implements GroupService {
 
     private Group getGroupEntity(SecuredUUID uuid) throws NotFoundException {
         return groupRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Group.class, uuid));
+    }
+
+    @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.MEMBERS)
+    public void groupMembersDummyMethod() {
+        // Method is used just to sync MEMBERS resource action for GROUP resource with Auth service
     }
 }

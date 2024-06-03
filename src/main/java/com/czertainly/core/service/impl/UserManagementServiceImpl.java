@@ -1,5 +1,6 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
@@ -10,15 +11,16 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.GroupService;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
 import jakarta.transaction.Transactional;
@@ -33,6 +35,7 @@ import java.security.cert.CertificateException;
 import java.security.cert.CertificateExpiredException;
 import java.security.cert.CertificateNotYetValidException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -41,16 +44,38 @@ import java.util.UUID;
 public class UserManagementServiceImpl implements UserManagementService {
     private static final Logger logger = LoggerFactory.getLogger(UserManagementServiceImpl.class);
 
-    @Autowired
     private UserManagementApiClient userManagementApiClient;
 
-    @Autowired
     private CertificateService certificateService;
+    private GroupService groupService;
+    private ResourceObjectAssociationService objectAssociationService;
+
+    private AttributeEngine attributeEngine;
 
     @Autowired
-    private GroupService groupService;
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
     @Autowired
-    private AttributeService attributeService;
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setGroupService(GroupService groupService) {
+        this.groupService = groupService;
+    }
+
+    @Autowired
+    public void setObjectAssociationService(ResourceObjectAssociationService objectAssociationService) {
+        this.objectAssociationService = objectAssociationService;
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.LIST)
@@ -62,14 +87,14 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto getUser(String userUuid) throws NotFoundException {
         UserDetailDto dto = userManagementApiClient.getUserDetail(userUuid);
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(userUuid), Resource.USER));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid)));
         return dto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.CREATE)
-    public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.USER);
+    public UserDetailDto createUser(AddUserRequestDto request) throws CertificateException, NotFoundException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.USER, request.getCustomAttributes());
         if (StringUtils.isBlank(request.getUsername())) {
             throw new ValidationException(ValidationError.create("username must not be empty"));
         }
@@ -87,28 +112,28 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setLastName(request.getLastName());
         requestDto.setDescription(request.getDescription());
 
-        if (request.getGroupUuid() != null) {
-            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(request.getGroupUuid()));
-            requestDto.setGroupName(groupDto.getName());
-            requestDto.setGroupUuid(request.getGroupUuid());
+        List<NameAndUuidDto> groups = new ArrayList<>();
+        for (String groupUuid : request.getGroupUuids()) {
+            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(groupUuid));
+            groups.add(new NameAndUuidDto(groupDto.getUuid(), groupDto.getName()));
         }
+        requestDto.setGroups(groups);
 
         UserDetailDto response = userManagementApiClient.createUser(requestDto);
         if (certificate != null) {
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
         }
 
-        attributeService.deleteAttributeContent(UUID.fromString(response.getUuid()), request.getCustomAttributes(), Resource.USER);
-        response.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(response.getUuid()), Resource.USER));
+        response.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(response.getUuid()), request.getCustomAttributes()));
         return response;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.UPDATE)
-    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException {
-        attributeService.validateCustomAttributes(request.getCustomAttributes(), Resource.USER);
+    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
+        attributeEngine.validateCustomAttributesContent(Resource.USER, request.getCustomAttributes());
         UserDetailDto dto = getUserUpdateRequestPayload(userUuid, request, "", "");
-        attributeService.updateAttributeContent(UUID.fromString(userUuid), request.getCustomAttributes(), Resource.USER);
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(userUuid), request.getCustomAttributes()));
         return dto;
     }
 
@@ -122,8 +147,11 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DELETE)
     public void deleteUser(String userUuid) {
         userManagementApiClient.removeUser(userUuid);
-        certificateService.removeCertificateUser(UUID.fromString(userUuid));
-        attributeService.deleteAttributeContent(UUID.fromString(userUuid), Resource.USER);
+
+        UUID uuid = UUID.fromString(userUuid);
+        certificateService.removeCertificateUser(uuid);
+        objectAssociationService.removeOwnerAssociations(uuid);
+        attributeEngine.deleteAllObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
     }
 
     @Override
@@ -173,13 +201,13 @@ public class UserManagementServiceImpl implements UserManagementService {
     public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException {
         request.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
         UserDetailDto dto = userManagementApiClient.identifyUser(request);
-        dto.setCustomAttributes(attributeService.getCustomAttributesWithValues(UUID.fromString(dto.getUuid()), Resource.USER));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(dto.getUuid())));
         return dto;
     }
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        return listUsers().stream().map(u -> new NameAndUuidDto(u.getUuid(), u.getUsername())).toList();
     }
 
     @Override
@@ -231,10 +259,13 @@ public class UserManagementServiceImpl implements UserManagementService {
         requestDto.setFirstName(request.getFirstName());
         requestDto.setLastName(request.getLastName());
 
-        if (request.getGroupUuid() != null) {
-            GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(request.getGroupUuid()));
-            requestDto.setGroupName(groupDto.getName());
-            requestDto.setGroupUuid(request.getGroupUuid());
+        if (request.getGroupUuids() != null) {
+            List<NameAndUuidDto> groups = new ArrayList<>();
+            for (String groupUuid : request.getGroupUuids()) {
+                GroupDto groupDto = groupService.getGroup(SecuredUUID.fromString(groupUuid));
+                groups.add(new NameAndUuidDto(groupDto.getUuid(), groupDto.getName()));
+            }
+            requestDto.setGroups(groups);
         }
 
         UserDetailDto response = userManagementApiClient.updateUser(userUuid, requestDto);

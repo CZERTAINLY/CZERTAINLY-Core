@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CustomAttributeController;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
@@ -13,7 +14,9 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.converter.AttributeContentTypeConverter;
@@ -45,18 +48,19 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
+    @AuthEndpoint(resourceName = Resource.ATTRIBUTE)
     public List<CustomAttributeDefinitionDto> listCustomAttributes(AttributeContentType attributeContentType) {
-        return attributeService.listAttributes(attributeContentType);
+        return attributeService.listCustomAttributes(SecurityFilter.create(), attributeContentType);
     }
 
     @Override
     public CustomAttributeDefinitionDetailDto getCustomAttribute(String uuid) throws NotFoundException {
-        return attributeService.getAttribute(SecuredUUID.fromString(uuid));
+        return attributeService.getCustomAttribute(UUID.fromString(uuid));
     }
 
     @Override
-    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, NotFoundException {
-        CustomAttributeDefinitionDetailDto definitionDetailDto = attributeService.createAttribute(request);
+    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, NotFoundException, AttributeException {
+        CustomAttributeDefinitionDetailDto definitionDetailDto = attributeService.createCustomAttribute(request);
 
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -67,48 +71,48 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    public CustomAttributeDefinitionDetailDto editCustomAttribute(String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException {
-        return attributeService.editAttribute(SecuredUUID.fromString(uuid), request);
+    public CustomAttributeDefinitionDetailDto editCustomAttribute(String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException {
+        return attributeService.editCustomAttribute(UUID.fromString(uuid), request);
     }
 
     @Override
     public void deleteCustomAttribute(String uuid) throws NotFoundException {
-        attributeService.deleteAttribute(SecuredUUID.fromString(uuid), AttributeType.CUSTOM);
+        attributeService.deleteCustomAttribute(UUID.fromString(uuid));
     }
 
     @Override
     public void enableCustomAttribute(String uuid) throws NotFoundException {
-        attributeService.enableAttribute(SecuredUUID.fromString(uuid), AttributeType.CUSTOM);
+        attributeService.enableCustomAttribute(UUID.fromString(uuid), true);
     }
 
     @Override
     public void disableCustomAttribute(String uuid) throws NotFoundException {
-        attributeService.disableAttribute(SecuredUUID.fromString(uuid), AttributeType.CUSTOM);
+        attributeService.enableCustomAttribute(UUID.fromString(uuid), false);
     }
 
     @Override
     public void bulkDeleteCustomAttributes(List<String> attributeUuids) {
-        attributeService.bulkDeleteAttributes(SecuredUUID.fromList(attributeUuids), AttributeType.CUSTOM);
+        attributeService.bulkDeleteCustomAttributes(attributeUuids);
     }
 
     @Override
     public void bulkEnableCustomAttributes(List<String> attributeUuids) {
-        attributeService.bulkEnableAttributes(SecuredUUID.fromList(attributeUuids), AttributeType.CUSTOM);
+        attributeService.bulkEnableCustomAttributes(attributeUuids, true);
     }
 
     @Override
     public void bulkDisableCustomAttributes(List<String> attributeUuids) {
-        attributeService.bulkDisableAttributes(SecuredUUID.fromList(attributeUuids), AttributeType.CUSTOM);
+        attributeService.bulkEnableCustomAttributes(attributeUuids, false);
     }
 
     @Override
     public void updateResources(String uuid, List<Resource> resources) throws NotFoundException {
-        attributeService.updateResources(SecuredUUID.fromString(uuid), resources);
+        attributeService.updateResources(UUID.fromString(uuid), resources);
     }
 
     @Override
     public List<BaseAttribute> getResourceCustomAttributes(Resource resource) {
-        return attributeService.getResourceAttributes(resource);
+        return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
     @Override
@@ -122,7 +126,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
             String objectUuid,
             String attributeUuid,
             List<BaseAttributeContent> request
-    ) throws NotFoundException {
+    ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(
                 resourceName,
                 SecuredUUID.fromString(objectUuid),
@@ -136,7 +140,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
             Resource resourceName,
             String objectUuid,
             String attributeUuid
-    ) throws NotFoundException {
+    ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(
                 resourceName,
                 SecuredUUID.fromString(objectUuid),

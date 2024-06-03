@@ -5,15 +5,19 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -35,7 +39,7 @@ import com.czertainly.core.service.scep.message.ScepResponse;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CsrUtil;
+import com.czertainly.core.util.CertificateRequestUtils;
 import com.czertainly.core.util.RandomUtil;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -98,6 +102,12 @@ public class ScepServiceImpl implements ScepService {
     private CertificateService certificateService;
     private CryptographicKeyService cryptographicKeyService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
@@ -173,7 +183,6 @@ public class ScepServiceImpl implements ScepService {
     }
 
     private void init(String profileName) throws ScepException {
-        String attributes;
         this.raProfileBased = ServletUriComponentsBuilder.fromCurrentRequestUri().build().toUriString().contains("/raProfile/");
         if (raProfileBased) {
             raProfile = raProfileRepository.findByName(profileName).orElse(null);
@@ -181,16 +190,20 @@ public class ScepServiceImpl implements ScepService {
                 return;
             }
             scepProfile = raProfile.getScepProfile();
-            attributes = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
+            String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
+            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
         } else {
             scepProfile = scepProfileRepository.findByName(profileName).orElse(null);
             if (scepProfile == null) {
                 return;
             }
             raProfile = scepProfile.getRaProfile();
-            attributes = scepProfile.getIssueCertificateAttributes();
+            if (raProfile == null) {
+                return;
+            }
+
+            issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid());
         }
-        issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         if (scepCaCertificate == null) {
@@ -426,7 +439,8 @@ public class ScepServiceImpl implements ScepService {
         }
         ClientCertificateSignRequestDto requestDto = new ClientCertificateSignRequestDto();
         try {
-            requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setFormat(CertificateRequestFormat.PKCS10);
             requestDto.setAttributes(issueAttributes);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
@@ -440,7 +454,7 @@ public class ScepServiceImpl implements ScepService {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
-        } catch (IOException e) {
+        } catch (IOException | CertificateRequestException e) {
             throw new ScepException("Unable to issue certificate. Error parsing CSR.", e, FailInfo.BAD_REQUEST);
         } catch (InvalidKeyException e) {
             throw new ScepException("Unable to issue certificate. Invalid key", e, FailInfo.BAD_REQUEST);
@@ -492,15 +506,15 @@ public class ScepServiceImpl implements ScepService {
         ClientCertificateRequestDto requestDto = new ClientCertificateRequestDto();
         if (raProfile != null) requestDto.setRaProfileUuid(raProfile.getUuid());
         try {
-            requestDto.setPkcs10(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setRequest(new String(Base64.getEncoder().encode(scepRequest.getPkcs10Request().getEncoded())));
+            requestDto.setFormat(CertificateRequestFormat.PKCS10);
         } catch (IOException e) {
             throw new ScepException("Unable to decode PKCS#10 request", e, FailInfo.BAD_REQUEST);
         }
         CertificateDetailDto response;
         try {
             response = clientOperationService.submitCertificateRequest(requestDto);
-        } catch (NotFoundException | CertificateException | IOException | NoSuchAlgorithmException |
-                 InvalidKeyException e) {
+        } catch (CertificateException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
 
@@ -731,7 +745,7 @@ public class ScepServiceImpl implements ScepService {
         try {
             client.ValidateRequest(
                     scepRequest.getTransactionId(),
-                    CsrUtil.byteArrayCsrToString(scepRequest.getPkcs10Request().getEncoded())
+                    CertificateRequestUtils.byteArrayCsrToString(scepRequest.getPkcs10Request().getEncoded())
             );
         } catch (Exception e) {
             throw new ScepException("Validation failed for Intune request.", e, FailInfo.BAD_REQUEST);
@@ -752,7 +766,7 @@ public class ScepServiceImpl implements ScepService {
             String sha1Thumbprint = CertificateUtil.getSha1Thumbprint(certificate.getEncoded());
             client.SendSuccessNotification(
                     request.getTransactionId(),
-                    CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                    CertificateRequestUtils.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
                     sha1Thumbprint,
                     serialNumber,
                     expiryDate,
@@ -770,7 +784,7 @@ public class ScepServiceImpl implements ScepService {
             try {
                 client.SendFailureNotification(
                         request.getTransactionId(),
-                        CsrUtil.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
+                        CertificateRequestUtils.byteArrayCsrToString(request.getPkcs10Request().getEncoded()),
                         errorCode,
                         error
                 );
