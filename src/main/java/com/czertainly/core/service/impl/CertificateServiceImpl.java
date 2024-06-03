@@ -304,15 +304,9 @@ public class CertificateServiceImpl implements CertificateService {
     public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
-        List<ValidationError> errors = new ArrayList<>();
-
         if (certificate.getUserUuid() != null) {
-            errors.add(ValidationError.create("Certificate is used by some user."));
             eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.DELETE.getCode(), CertificateEventStatus.FAILED.toString(), "Certificate is used by an User", null);
-        }
-
-        if (!errors.isEmpty()) {
-            throw new ValidationException("Could not delete certificate.", errors);
+            throw new ValidationException(String.format("Could not delete certificate %s with UUID %s: Certificate is used by some user.", certificate.getCommonName(), certificate.getUuid().toString()));
         }
 
         // remove certificate from Locations
@@ -329,6 +323,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRepository.delete(certificate);
         if (content != null) {
             certificateContentRepository.delete(content);
+            certificate.setCertificateContent(null);
         }
 
         objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
@@ -384,22 +379,27 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @Async("threadPoolTaskExecutor")
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException {
         setupSecurityFilter(filter);
 
         UUID loggedUserUuid = null;
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getUuids() != null && !request.getUuids().isEmpty())) {
+            int deletedCount = 0;
             for (String uuid : request.getUuids()) {
+                UUID certificateUuid = UUID.fromString(uuid);
                 try {
-                    deleteCertificate(SecuredUUID.fromString(uuid));
+                    deleteCertificate(SecuredUUID.fromUUID(certificateUuid));
+                    ++deletedCount;
                 } catch (Exception e) {
-                    logger.error("Unable to delete the certificate {}: {}", uuid, e.getMessage());
-                    if (loggedUserUuid == null)
+                    logger.error("Unable to delete the certificate {}: {}", certificateUuid, e.getMessage());
+                    if (loggedUserUuid == null) {
                         loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
-                    notificationProducer.produceNotificationText(Resource.CERTIFICATE, UUID.fromString(uuid), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + uuid, e.getMessage());
+                    }
+                    notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid, NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + certificateUuid, e.getMessage());
                 }
             }
+            logger.debug("Bulk deleted {} of {} certificates.", deletedCount, request.getUuids().size());
         } else {
             String joins = "WHERE c.userUuid IS NULL";
             String data = searchService.createCriteriaBuilderString(filter, true);
@@ -418,7 +418,6 @@ public class CertificateServiceImpl implements CertificateService {
                 certificateContentRepository.deleteAll(certificateContents);
             }
         }
-        certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
     }
 
     @Deprecated
