@@ -1,6 +1,7 @@
 package com.czertainly.core.service.cmp.message.handler;
 
 import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
@@ -82,8 +83,8 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                     raProfile.getSecuredUuid(),
                     dto);
-        } catch (NotFoundException|CertificateException|IOException|
-                 NoSuchAlgorithmException|InvalidKeyException|CertificateOperationException e) {
+        } catch (CertificateRequestException | NotFoundException | CertificateException | IOException |
+                 NoSuchAlgorithmException | InvalidKeyException | CertificateOperationException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "cannot issue certificate", e);
         }
