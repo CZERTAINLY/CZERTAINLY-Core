@@ -171,7 +171,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
     public CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request) {
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
         RequestValidatorHelper.revalidateSearchRequestDto(request);
@@ -180,7 +180,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CRYPTOGRAPHIC_KEY, filter, request.getFilters());
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter, (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("createdAt")))
+        final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter,
+                        List.of("cryptographicKey", "cryptographicKey.certificates", "cryptographicKey.groups", "cryptographicKey.owner", "cryptographicKey.tokenInstanceReference", "cryptographicKey.tokenProfile"),
+                        (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("createdAt")))
                 .stream()
                 .map(CryptographicKeyItem::mapToSummaryDto)
                 .toList();
@@ -203,11 +205,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.LIST)
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.LIST, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
     public List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid, SecurityFilter filter) {
         logger.info("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
-        List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, null, null, (root, cb) -> cb.desc(root.get("created")))
+        List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), null, null, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(CryptographicKey::mapToDto)
                 .collect(Collectors.toList()
@@ -234,10 +236,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, String uuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
+    public KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting details of the Key with UUID {} for Token profile {}", uuid, tokenInstanceUuid);
-        CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
+        CryptographicKey key = getCryptographicKeyEntityWithAssociations(uuid.getValue());
         KeyDetailDto dto = key.mapToDetailDto();
         logger.debug("Key details: {}", dto);
 
@@ -251,10 +253,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.REQUEST)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, String uuid, String keyItemUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
+    public KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, String keyItemUuid) throws NotFoundException {
         logger.info("Requesting details of the Key Item {} with UUID {} for Token profile {}", keyItemUuid, uuid, tokenInstanceUuid);
-        CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
+        CryptographicKey key = getCryptographicKeyEntity(uuid.getValue());
         CryptographicKeyItem item = cryptographicKeyItemRepository.findByUuidAndCryptographicKey(
                 UUID.fromString(keyItemUuid),
                 key
@@ -335,10 +337,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CRYPTOGRAPHIC_KEY, operation = OperationType.CHANGE)
-    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public KeyDetailDto editKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, EditKeyRequestDto request) throws NotFoundException, AttributeException {
+    @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.MEMBERS)
+    public KeyDetailDto editKey(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditKeyRequestDto request) throws NotFoundException, AttributeException {
         logger.info("Updating the key with uuid {}. Request: {}", uuid, request);
-        CryptographicKey key = getCryptographicKeyEntity(uuid);
+        CryptographicKey key = getCryptographicKeyEntity(uuid.getValue());
 
         attributeEngine.validateCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, request.getCustomAttributes());
 
@@ -373,7 +375,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         attributeEngine.updateObjectCustomAttributesContent(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getCustomAttributes());
 
         logger.debug("Key details updated. Key: {}", key);
-        return getKey(tokenInstanceUuid, uuid.toString());
+        return getKey(tokenInstanceUuid, uuid);
     }
 
     @Override
@@ -892,14 +894,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     private CryptographicKey getCryptographicKeyEntity(UUID uuid) throws NotFoundException {
-        return cryptographicKeyRepository
-                .findByUuid(uuid)
-                .orElseThrow(
-                        () -> new NotFoundException(
-                                CryptographicKey.class,
-                                uuid
-                        )
-                );
+        return cryptographicKeyRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
+    }
+
+    private CryptographicKey getCryptographicKeyEntityWithAssociations(UUID uuid) throws NotFoundException {
+        return cryptographicKeyRepository.findWithAssociationsByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKey.class, uuid));
     }
 
     private void mergeAndValidateAttributes(KeyRequestType type, TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {

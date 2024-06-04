@@ -55,6 +55,11 @@ public enum Resource {
     // APPROVALS
     APPROVAL_PROFILE("approvalProfiles"),
     APPROVAL("approvals"),
+    // WORKFLOWS
+
+    RULE("rules"),
+    ACTION("actions"),
+    TRIGGER("triggers"),
     ;
 
     @Schema(description = "Resource Name",

@@ -21,7 +21,6 @@ import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
-import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -37,14 +36,11 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.provider.asymmetric.x509.CertificateFactory;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.PEMParser;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
-import org.bouncycastle.pkcs.PKCS10CertificationRequest;
-import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -384,7 +380,9 @@ public class CertificateUtil {
 
         String basicConstraints = CertificateUtil.getBasicConstraint(certificate.getBasicConstraints());
         modal.setBasicConstraints(basicConstraints);
-        if (basicConstraints.equals("Subject Type=CA")) modal.setTrustedCa(false);
+        // Set trusted certificate mark either for CA or for self-signed certificate
+        if (basicConstraints.equals("Subject Type=CA") || Objects.equals(modal.getSubjectDnNormalized(), modal.getIssuerDnNormalized()))
+            modal.setTrustedCa(false);
     }
 
 

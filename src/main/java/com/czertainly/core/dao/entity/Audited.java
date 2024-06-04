@@ -3,13 +3,13 @@ package com.czertainly.core.dao.entity;
 import jakarta.persistence.Column;
 import jakarta.persistence.EntityListeners;
 import jakarta.persistence.MappedSuperclass;
+import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.UpdateTimestamp;
 import org.springframework.data.annotation.CreatedBy;
-import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedBy;
-import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @MappedSuperclass
 @EntityListeners(AuditingEntityListener.class)
@@ -21,12 +21,12 @@ public abstract class Audited {
     protected String author;
 
     @Column(name = "i_cre", nullable = false, updatable = false)
-    @CreatedDate
-    protected LocalDateTime created;
+    @CreationTimestamp
+    protected OffsetDateTime created;
 
     @Column(name = "i_upd", nullable = false)
-    @LastModifiedDate
-    protected LocalDateTime updated;
+    @UpdateTimestamp
+    protected OffsetDateTime updated;
 
     public String getAuthor() {
         return author;
@@ -36,19 +36,19 @@ public abstract class Audited {
         this.author = author;
     }
 
-    public LocalDateTime getCreated() {
+    public OffsetDateTime getCreated() {
         return created;
     }
 
-    public void setCreated(LocalDateTime created) {
+    public void setCreated(OffsetDateTime created) {
         this.created = created;
     }
 
-    public LocalDateTime getUpdated() {
+    public OffsetDateTime getUpdated() {
         return updated;
     }
 
-    public void setUpdated(LocalDateTime updated) {
+    public void setUpdated(OffsetDateTime updated) {
         this.updated = updated;
     }
 }

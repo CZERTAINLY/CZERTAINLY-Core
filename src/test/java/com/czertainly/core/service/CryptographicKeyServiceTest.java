@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -126,7 +127,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
     public void testGetKeyByUuid() throws NotFoundException {
         KeyDetailDto dto = cryptographicKeyService.getKey(
                 tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid().toString()
+                SecuredUUID.fromUUID(key.getUuid())
         );
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(key.getUuid().toString(), dto.getUuid());
@@ -139,7 +140,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
                         tokenInstanceReference.getSecuredParentUuid(),
-                        "abfbc322-29e1-11ed-a261-0242ac120002")
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
 
@@ -238,7 +239,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
                         tokenInstanceReference.getSecuredParentUuid(),
-                        "abfbc322-29e1-11ed-a261-0242ac120002"
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
                 )
         );
     }
@@ -301,7 +302,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
                         tokenInstanceReference.getSecuredParentUuid(),
-                        "abfbc322-29e1-11ed-a261-0242ac120002"
+                        SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
                 )
         );
     }
@@ -368,7 +369,7 @@ public class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         KeyDetailDto dto = cryptographicKeyService.editKey(
                 tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid(),
+                key.getSecuredUuid(),
                 request
         );
         Assertions.assertEquals(request.getName(), key.getName());

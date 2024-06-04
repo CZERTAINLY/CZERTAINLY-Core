@@ -23,7 +23,6 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.rules.RuleActionType;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -32,7 +31,11 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.workflows.Trigger;
+import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
+import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -43,6 +46,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -55,9 +59,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.function.BiFunction;
 
@@ -89,20 +95,23 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private NotificationProducer notificationProducer;
-    private RuleService ruleService;
-    private Object2TriggerRepository object2TriggerRepository;
     private EventProducer eventProducer;
     private AttributeEngine attributeEngine;
+
+    private TriggerService triggerService;
+    private TriggerAssociationRepository triggerAssociationRepository;
     private CertificateRuleEvaluator certificateRuleEvaluator;
 
+    private DiscoveryCertificateTask discoveryCertificateTask;
+
     @Autowired
-    public void setRuleService(RuleService ruleService) {
-        this.ruleService = ruleService;
+    public void setTriggerService(TriggerService triggerService) {
+        this.triggerService = triggerService;
     }
 
     @Autowired
-    public void setObject2TriggerRepository(Object2TriggerRepository object2TriggerRepository) {
-        this.object2TriggerRepository = object2TriggerRepository;
+    public void setTriggerAssociationRepository(TriggerAssociationRepository triggerAssociationRepository) {
+        this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
     @Autowired
@@ -132,7 +141,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.DISCOVERY, filter, request.getFilters());
 
         final BiFunction<Root<DiscoveryHistory>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
-        final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+        final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto).toList();
         final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
@@ -203,7 +212,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             } catch (Exception e) {
                 logger.error(e.getMessage(), e);
             }
-            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null) {
+            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null && discoveryCertificateRepository.findByCertificateContent(cert.getCertificateContent()).isEmpty()) {
                 CertificateContent content = certificateContentRepository.findById(cert.getCertificateContent().getId())
                         .orElse(null);
                 if (content != null) {
@@ -216,11 +225,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 }
             }
         }
+
+        attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
+        discoveryRepository.delete(discovery);
+
+        triggerService.deleteTriggerAssociation(Resource.DISCOVERY, discovery.getUuid());
+
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
-            attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
-            object2TriggerRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, discovery.getUuid());
-            discoveryRepository.delete(discovery);
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
                 discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
@@ -249,41 +261,99 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
+    public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
+        if (discoveryRepository.findByName(request.getName()).isPresent()) {
+            throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
+        }
+        if (request.getConnectorUuid() == null) {
+            throw new ValidationException(ValidationError.create("Connector UUID is empty"));
+        }
+        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
+
+        attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
+        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
+
+
+        DiscoveryHistory discovery = new DiscoveryHistory();
+        discovery.setName(request.getName());
+        discovery.setConnectorName(connector.getName());
+        discovery.setStartTime(new Date());
+        discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
+        discovery.setConnectorUuid(connector.getUuid());
+        discovery.setKind(request.getKind());
+
+        if (saveEntity) {
+            discovery = discoveryRepository.save(discovery);
+            attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
+            attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
+            if (request.getTriggers() != null) {
+                int triggerOrder = -1;
+                for (UUID triggerUuid : request.getTriggers()) {
+                    TriggerAssociation triggerAssociation = new TriggerAssociation();
+                    triggerAssociation.setResource(Resource.DISCOVERY);
+                    triggerAssociation.setObjectUuid(discovery.getUuid());
+                    triggerAssociation.setTriggerUuid(triggerUuid);
+                    Trigger trigger = triggerService.getTriggerEntity(triggerUuid.toString());
+                    // If it is an ignore trigger, the order is always -1, otherwise increment the order
+                    if (trigger.isIgnoreTrigger()) {
+                        triggerAssociation.setTriggerOrder(-1);
+                    } else {
+                        triggerAssociation.setTriggerOrder(++triggerOrder);
+                    }
+                    triggerAssociationRepository.save(triggerAssociation);
+                }
+                discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
+            }
+            return discovery.mapToDto();
+        }
+
+        return null;
+    }
+
+    @Override
     @Async("threadPoolTaskExecutor")
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    public void createDiscoveryAsync(DiscoveryHistory modal) {
-        createDiscovery(modal);
-
-        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, modal.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", modal.getName(), modal.getStatus()), modal.getMessage());
+    public void runDiscoveryAsync(UUID discoveryUuid) {
+        runDiscovery(discoveryUuid);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    public void createDiscovery(DiscoveryHistory modal) {
-        logger.info("Starting creating discovery {}", modal.getName());
+    public DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid) {
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+
+        // reload discovery modal with all association since it could be in separate transaction/session due to async
+        DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
+
+        logger.info("Starting discovery: name={}, uuid={}", discovery.getName(), discovery.getUuid());
         try {
             DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
-            dtoRequest.setName(modal.getName());
-            dtoRequest.setKind(modal.getKind());
+            dtoRequest.setName(discovery.getName());
+            dtoRequest.setKind(discovery.getKind());
 
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(modal.getConnectorUuid().toString()));
+            Connector connector = connectorService.getConnectorEntity(
+                    SecuredUUID.fromString(discovery.getConnectorUuid().toString()));
 
             // TODO: necessary to load full credentials this way?
             // Load complete credential data
-            var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid());
+            var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
+                    AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
             credentialService.loadFullCredentialData(dataAttributes);
             dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
 
             DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
-            modal.setDiscoveryConnectorReference(response.getUuid());
-            discoveryRepository.save(modal);
+            logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
+                    discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
+
+            discovery.setDiscoveryConnectorReference(response.getUuid());
+            discoveryRepository.save(discovery);
 
             DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
             getRequest.setName(response.getName());
-            getRequest.setKind(modal.getKind());
+            getRequest.setKind(discovery.getKind());
             getRequest.setPageNumber(1);
             getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
 
@@ -291,21 +361,31 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             boolean isReachedMaxTime = false;
             int oldCertificateCount = 0;
             while (waitForCompletion) {
-                if (modal.getDiscoveryConnectorReference() == null) {
-                    return;
+                if (discovery.getDiscoveryConnectorReference() == null) {
+                    discovery.setStatus(DiscoveryStatus.FAILED);
+                    discovery.setMessage("Discovery does not have associated connector");
+                    discoveryRepository.save(discovery);
+                    return discovery.mapToDto();
                 }
-                logger.debug("Waiting {}ms.", SLEEP_TIME);
+                logger.debug("Waiting {}ms for discovery to be completed: name={}, uuid={}",
+                        SLEEP_TIME, discovery.getName(), discovery.getUuid());
                 Thread.sleep(SLEEP_TIME);
 
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
 
-                if ((modal.getStartTime().getTime() - new Date().getTime()) / 1000 > MAXIMUM_WAIT_TIME
+                logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
+                        discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
+
+                if ((discovery.getStartTime().getTime() - new Date().getTime()) / 1000 > MAXIMUM_WAIT_TIME
                         && !isReachedMaxTime && oldCertificateCount == response.getTotalCertificatesDiscovered()) {
                     isReachedMaxTime = true;
-                    modal.setStatus(DiscoveryStatus.WARNING);
-                    modal.setMessage(
-                            "Discovery exceeded maximum time of " + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number of certificates discovered. Please abort the discovery if the provider is stuck in IN_PROGRESS");
-                    discoveryRepository.save(modal);
+                    discovery.setStatus(DiscoveryStatus.WARNING);
+                    discovery.setMessage(
+                            "Discovery " + discovery.getName() + " exceeded maximum time of "
+                                    + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number " +
+                                    "of certificates discovered. Please abort the discovery if the provider " +
+                                    "is stuck in state " + DiscoveryStatus.IN_PROGRESS.getLabel());
+                    discoveryRepository.save(discovery);
                 }
 
                 oldCertificateCount = response.getTotalCertificatesDiscovered();
@@ -321,12 +401,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
 
                 if (response.getCertificateData().isEmpty()) {
-                    modal.setMessage(String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
+                    discovery.setMessage(String.format("Retrieved only %d certificates but provider discovered %d " +
+                            "certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
                     break;
                 }
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
-                    response.setStatus(DiscoveryStatus.FAILED);
-                    updateDiscovery(modal, response);
+                    updateDiscovery(discovery, response, DiscoveryStatus.FAILED);
                     logger.error("Too many content in response. Maximum processable is {}.", MAXIMUM_CERTIFICATES_PER_PAGE);
                     throw new InterruptedException(
                             "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
@@ -337,77 +417,32 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 currentTotal += response.getCertificateData().size();
             }
 
-            updateDiscovery(modal, response);
-            updateCertificates(certificatesDiscovered, modal);
+            updateDiscovery(discovery, response, DiscoveryStatus.PROCESSING);
+            updateCertificates(certificatesDiscovered, discovery);
 
-            eventProducer.produceDiscoveryFinishedEventMessage(modal.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), ResourceEvent.DISCOVERY_FINISHED);
-
+            eventProducer.produceDiscoveryFinishedEventMessage(discovery.getUuid(), loggedUserUuid, ResourceEvent.DISCOVERY_FINISHED);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            modal.setStatus(DiscoveryStatus.FAILED);
-            modal.setMessage(e.getMessage());
-            discoveryRepository.save(modal);
+            discovery.setStatus(DiscoveryStatus.FAILED);
+            discovery.setMessage(e.getMessage());
+            discoveryRepository.save(discovery);
             logger.error(e.getMessage());
         } catch (Exception e) {
-            modal.setStatus(DiscoveryStatus.FAILED);
-            modal.setMessage(e.getMessage());
-            discoveryRepository.save(modal);
+            discovery.setStatus(DiscoveryStatus.FAILED);
+            discovery.setMessage(e.getMessage());
+            discoveryRepository.save(discovery);
             logger.error(e.getMessage());
         }
+
+        if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
+            notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+        }
+
+        return discovery.mapToDto();
     }
 
-    @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
-    public DiscoveryHistory createDiscoveryModal(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
-        if (discoveryRepository.findByName(request.getName()).isPresent()) {
-            throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
-        }
-        if (request.getConnectorUuid() == null) {
-            throw new ValidationException(ValidationError.create("Connector UUID is empty"));
-        }
-        Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(request.getConnectorUuid()));
-
-        attributeEngine.validateCustomAttributesContent(Resource.DISCOVERY, request.getCustomAttributes());
-        connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), FunctionGroupCode.DISCOVERY_PROVIDER, request.getAttributes(), request.getKind());
-
-
-        DiscoveryHistory modal = new DiscoveryHistory();
-        modal.setName(request.getName());
-        modal.setConnectorName(connector.getName());
-        modal.setStartTime(new Date());
-        modal.setStatus(DiscoveryStatus.IN_PROGRESS);
-        modal.setConnectorUuid(connector.getUuid());
-        modal.setKind(request.getKind());
-
-        if (saveEntity) {
-            modal = discoveryRepository.save(modal);
-            attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, modal.getUuid(), request.getCustomAttributes());
-            attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, modal.getUuid(), request.getAttributes());
-            if (request.getTriggers() != null) {
-                int triggerOrder = 0;
-                for (UUID triggerUuid : request.getTriggers()) {
-                    RuleTrigger2Object ruleTrigger2Object = new RuleTrigger2Object();
-                    ruleTrigger2Object.setResource(Resource.DISCOVERY);
-                    ruleTrigger2Object.setObjectUuid(modal.getUuid());
-                    ruleTrigger2Object.setTriggerUuid(triggerUuid);
-                    RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(triggerUuid));
-                    // If there is an ignore action in trigger, the order is always -1, otherwise increment the order
-                    if (trigger.getActions().stream().anyMatch(action -> action.getActionType() == RuleActionType.IGNORE)) {
-                        ruleTrigger2Object.setTriggerOrder(-1);
-                    } else {
-                        ruleTrigger2Object.setTriggerOrder(triggerOrder);
-                        triggerOrder += 1;
-                    }
-                    object2TriggerRepository.save(ruleTrigger2Object);
-                }
-            }
-        }
-
-        return modal;
-    }
-
-    private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response) throws AttributeException {
-        modal.setStatus(response.getStatus());
+    private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response, DiscoveryStatus status) throws AttributeException {
+        modal.setStatus(status);
         modal.setEndTime(new Date());
         modal.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
         attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.DISCOVERY, modal.getUuid()));
@@ -487,19 +522,18 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public void evaluateDiscoveryTriggers(UUID discoveryUuid) {
-
+    public void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) throws RuleException {
         // Get newly discovered certificates
-        DiscoveryHistory discoveryHistory = discoveryRepository.findByUuid(discoveryUuid).orElse(null);
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, true, Pageable.unpaged());
+        DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
+        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
-        List<RuleTrigger2Object> ruleTrigger2Objects = object2TriggerRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
-        List<RuleTrigger> orderedTriggers = new ArrayList<>();
-        List<RuleTrigger> ignoreTriggers = new ArrayList<>();
-        for (RuleTrigger2Object ruleTrigger2Object : ruleTrigger2Objects) {
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
+        List<Trigger> orderedTriggers = new ArrayList<>();
+        List<Trigger> ignoreTriggers = new ArrayList<>();
+        for (TriggerAssociation triggerAssociation : triggerAssociations) {
             try {
-                RuleTrigger trigger = ruleService.getRuleTriggerEntity(String.valueOf(ruleTrigger2Object.getTriggerUuid()));
-                if (ruleTrigger2Object.getTriggerOrder() == -1) {
+                Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
+                if (triggerAssociation.getTriggerOrder() == -1) {
                     ignoreTriggers.add(trigger);
                 } else {
                     orderedTriggers.add(trigger);
@@ -511,71 +545,95 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         for (DiscoveryCertificate discoveryCertificate : discoveredCertificates) {
-                // Get X509 from discovered certificate and create certificate entity, do not save in database yet
-                X509Certificate x509Cert;
-                try {
-                    x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
-                } catch (java.security.cert.CertificateException e) {
-                    logger.error("Unable to create certificate from discovery certificate with UUID {}.", discoveryCertificate.getUuid());
-                    continue;
-                }
-                Certificate entry = certificateService.createCertificateEntity(x509Cert);
-
-                // First, check the triggers that have action with action type set to ignore
-                boolean ignored = false;
-                for (RuleTrigger trigger : ignoreTriggers) {
-                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
-                        ignored = true;
-                        break;
-                    }
-                }
-
-                // If some trigger ignored this certificate, certificate is not saved and continue with next one
-                if (ignored) continue;
-
-                // Save certificate to database
-                certificateService.updateCertificateEntity(entry);
-
-                // Evaluate rest of the triggers in given order
-                for (RuleTrigger trigger : orderedTriggers) {
-                    // If rules are satisfied, perform defined actions
-                    if (satisfiesRules(entry, trigger, discoveryCertificate.getDiscoveryUuid())) {
-                        certificateRuleEvaluator.performRuleActions(trigger, entry);
-                    }
-                }
-
-                // Set metadata attributes, create certificate event history entry and validate certificate
-                try {
-                    attributeEngine.updateMetadataAttributes(discoveryCertificate.getMeta(), new ObjectAttributeContentInfo(discoveryHistory.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, discoveryHistory.getUuid(), discoveryHistory.getName()));
-                } catch (AttributeException e) {
-                    logger.error("Could not update metadata for discovery certificate {}.", discoveryCertificate.getUuid());
-                }
-                Map<String, Object> additionalInfo = new HashMap<>();
-                additionalInfo.put("Discovery Name", discoveryHistory.getName());
-                additionalInfo.put("Discovery UUID", discoveryHistory.getUuid());
-                additionalInfo.put("Discovery Connector Name", discoveryHistory.getConnectorName());
-                additionalInfo.put("Discovery Kind", discoveryHistory.getKind());
-                certificateEventHistoryService.addEventHistory(
-                        entry.getUuid(),
-                        CertificateEvent.DISCOVERY,
-                        CertificateEventStatus.SUCCESS,
-                        "Discovered from Connector: " + discoveryHistory.getConnectorName() + " via discovery: " + discoveryHistory.getName(),
-                        MetaDefinitions.serialize(additionalInfo)
-                );
-                certificateService.validate(entry);
+            try {
+                processDiscoveredCertificate(discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
+            } catch (Exception e) {
+                logger.warn("Couldn't process discovered certificate {}. Error: {}", discoveryCertificate, e.getMessage());
             }
+        }
+
+        discovery.setStatus(DiscoveryStatus.COMPLETED);
+        discoveryRepository.save(discovery);
+
+        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(userUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
     }
 
-    // Check if rules are satisfied for a certificate, rules are considered not satisfied also when an error is encountered
-    private boolean satisfiesRules(Certificate certificate, RuleTrigger trigger, UUID discoveryCertificateUuid) {
-        boolean satisfiesRules;
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void processDiscoveredCertificate(DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, List<Trigger> ignoreTriggers, List<Trigger> orderedTriggers) throws RuleException {
+        // Get X509 from discovered certificate and create certificate entity, do not save in database yet
+        Certificate entry;
+        X509Certificate x509Cert;
         try {
-            satisfiesRules = certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate);
-            return satisfiesRules;
-        } catch (RuleException e) {
-            logger.error("Could not evaluate rules of trigger {} on discovery certificate with UUID {}, reason: {}",
-                    trigger.getName(), discoveryCertificateUuid, e.getMessage());
-            return false;
+            x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
+            entry = certificateService.createCertificateEntity(x509Cert);
+        } catch (java.security.cert.CertificateException e) {
+            logger.error("Unable to create certificate from discovery certificate with UUID {}.", discoveryCertificate.getUuid());
+            return;
         }
+
+        // First, check the triggers that have action with action type set to ignore
+        boolean ignored = false;
+        List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
+        for (Trigger trigger : ignoreTriggers) {
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), null, discoveryCertificate.getUuid());
+            if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
+                ignored = true;
+                triggerHistory.setConditionsMatched(true);
+                triggerHistory.setActionsPerformed(true);
+                break;
+            } else {
+                triggerHistory.setConditionsMatched(false);
+                triggerHistory.setActionsPerformed(false);
+            }
+            ignoreTriggerHistories.add(triggerHistory);
+        }
+
+        // If some trigger ignored this certificate, certificate is not saved and continue with next one
+        if (ignored) {
+            return;
+        }
+
+        // Save certificate to database
+        certificateService.updateCertificateEntity(entry);
+
+        // update objectUuid of not ignored certs
+        for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
+            ignoreTriggerHistory.setObjectUuid(entry.getUuid());
+        }
+
+        // Evaluate rest of the triggers in given order
+        for (Trigger trigger : orderedTriggers) {
+            // Create trigger history entry
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), entry.getUuid(), discoveryCertificate.getUuid());
+            // If rules are satisfied, perform defined actions
+            if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
+                triggerHistory.setConditionsMatched(true);
+                certificateRuleEvaluator.performActions(trigger, entry, triggerHistory);
+                triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
+            } else {
+                triggerHistory.setConditionsMatched(false);
+                triggerHistory.setActionsPerformed(false);
+            }
+        }
+
+        // Set metadata attributes, create certificate event history entry and validate certificate
+        try {
+            attributeEngine.updateMetadataAttributes(discoveryCertificate.getMeta(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, entry.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
+        } catch (AttributeException e) {
+            logger.error("Could not update metadata for discovery certificate {}.", discoveryCertificate.getUuid());
+        }
+        Map<String, Object> additionalInfo = new HashMap<>();
+        additionalInfo.put("Discovery Name", discovery.getName());
+        additionalInfo.put("Discovery UUID", discovery.getUuid());
+        additionalInfo.put("Discovery Connector Name", discovery.getConnectorName());
+        additionalInfo.put("Discovery Kind", discovery.getKind());
+        certificateEventHistoryService.addEventHistory(
+                entry.getUuid(),
+                CertificateEvent.DISCOVERY,
+                CertificateEventStatus.SUCCESS,
+                "Discovered from Connector: " + discovery.getConnectorName() + " via discovery: " + discovery.getName(),
+                MetaDefinitions.serialize(additionalInfo)
+        );
+        certificateService.validate(entry);
     }
 }

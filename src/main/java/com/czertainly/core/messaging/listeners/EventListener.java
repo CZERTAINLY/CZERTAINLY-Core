@@ -11,12 +11,12 @@ import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.DiscoveryService;
 import com.czertainly.core.util.AuthHelper;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -48,12 +48,12 @@ public class EventListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter")
     public void processMessage(EventMessage eventMessage) throws NotFoundException, CertificateException, NoSuchAlgorithmException, RuleException, AttributeException {
-        authHelper.authenticateAsUser(eventMessage.getUserUuid());
         switch (eventMessage.getResource()) {
             case CERTIFICATE -> certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
             case DISCOVERY ->
             {
-                if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID());
+                authHelper.authenticateAsUser(eventMessage.getUserUuid());
+                if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID(), eventMessage.getUserUuid());
             }
             default -> logger.warn("Event handling is supported only for certificates for now");
         }

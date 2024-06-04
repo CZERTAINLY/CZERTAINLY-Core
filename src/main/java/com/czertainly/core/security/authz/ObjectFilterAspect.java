@@ -1,12 +1,15 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.config.OpaSecuredAnnotationMetadataExtractor;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
+import com.czertainly.core.service.ResourceObjectAssociationService;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.aspectj.lang.ProceedingJoinPoint;
@@ -26,7 +29,7 @@ import java.util.stream.Collectors;
 
 @Component
 @Aspect
-@EnableAspectJAutoProxy(exposeProxy=true)
+@EnableAspectJAutoProxy(exposeProxy = true)
 public class ObjectFilterAspect {
 
     protected final Log logger = LogFactory.getLog(this.getClass());
@@ -57,16 +60,33 @@ public class ObjectFilterAspect {
             Collection<ExternalAuthorizationConfigAttribute> attributes = createAttributesFromAnnotation(joinPoint);
 
             Map<String, String> properties = attributes
-                .stream()
-                .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
+                    .stream()
+                    .collect(Collectors.toMap(ExternalAuthorizationConfigAttribute::getAttributeName, ExternalAuthorizationConfigAttribute::getAttributeValueAsString));
 
-            if(!properties.get("parentName").equals(Resource.NONE.getCode())) {
+            if (!properties.get("parentName").equals(Resource.NONE.getCode())) {
                 SecurityResourceFilter parentResourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, true);
                 secFilter.setParentResourceFilter(parentResourceFilter);
             }
-
             SecurityResourceFilter resourceFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, false);
             secFilter.setResourceFilter(resourceFilter);
+
+            try {
+                Resource resource = Resource.findByCode(properties.get("name"));
+                ResourceAction resourceAction = ResourceAction.findByCode(properties.get("action"));
+
+                // if resource has groups and action is list or detail (only allowed through group membership), load user group members permissions
+                if (resource.hasGroups() && (resourceAction == ResourceAction.LIST || resourceAction == ResourceAction.DETAIL)) {
+                    properties.put("name", Resource.GROUP.getCode());
+                    properties.put("action", ResourceAction.MEMBERS.getCode());
+
+                    SecurityResourceFilter groupMembersFilter = getResourceFilter((CzertainlyAuthenticationToken) auth, properties, false);
+                    secFilter.setGroupMembersFilter(groupMembersFilter);
+                }
+            } catch (ValidationException e) {
+                logger.trace("Unsupported resource or action: " + e.getMessage());
+            } catch (Exception e) {
+                logger.trace("Cannot load user group members permissions: " + e.getMessage());
+            }
 
             return joinPoint.proceed(arguments);
         }
@@ -74,7 +94,7 @@ public class ObjectFilterAspect {
 
     private SecurityResourceFilter getResourceFilter(CzertainlyAuthenticationToken auth, Map<String, String> properties, boolean parentResource) {
         Map<String, String> voteProperties = properties;
-        if(parentResource) {
+        if (parentResource) {
             Map<String, String> parentProperties = properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             parentProperties.put("name", properties.get("parentName"));
             parentProperties.put("action", properties.get("parentAction"));
@@ -88,7 +108,8 @@ public class ObjectFilterAspect {
         logger.trace(String.format("User has the following object access rights. %s", result.toString()));
 
         SecurityResourceFilter resourceFilter = SecurityResourceFilter.create();
-        resourceFilter.setResource(voteProperties.get("name"));
+        resourceFilter.setResource(Resource.findByCode(voteProperties.get("name")));
+        resourceFilter.setResourceAction(ResourceAction.findByCode(voteProperties.get("action")));
         resourceFilter.addAllowedObjects(result.getAllowedObjects());
         resourceFilter.addDeniedObjects(result.getForbiddenObjects());
         resourceFilter.setAreOnlySpecificObjectsAllowed(!result.isActionAllowedForGroupOfObjects());

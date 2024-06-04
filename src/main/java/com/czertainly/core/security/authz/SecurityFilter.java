@@ -1,36 +1,19 @@
 package com.czertainly.core.security.authz;
 
+import lombok.Data;
+
+@Data
 public class SecurityFilter {
     private SecurityResourceFilter resourceFilter;
 
     private SecurityResourceFilter parentResourceFilter;
 
-    private String parentRefProperty;
+    private SecurityResourceFilter groupMembersFilter;
 
-    public SecurityResourceFilter getResourceFilter() {
-        return resourceFilter;
-    }
+    private String parentRefProperty;
 
     public static SecurityFilter create() {
         return new SecurityFilter();
     }
 
-    public void setResourceFilter(SecurityResourceFilter resourceFilter) {
-        this.resourceFilter = resourceFilter;
-    }
-
-    public SecurityResourceFilter getParentResourceFilter() {
-        return parentResourceFilter;
-    }
-
-    public void setParentResourceFilter(SecurityResourceFilter parentResourceFilter) {
-        this.parentResourceFilter = parentResourceFilter;
-    }
-    public String getParentRefProperty() {
-        return parentRefProperty;
-    }
-
-    public void setParentRefProperty(String parentRefProperty) {
-        this.parentRefProperty = parentRefProperty;
-    }
 }

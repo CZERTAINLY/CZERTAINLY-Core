@@ -146,7 +146,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
         dto.setSupportKeyManagement(supportKeyManagement);
         List<CertificateInLocationDto> cilDtoList = new ArrayList<>();
 
-        List<CertificateLocation> orderedList = certificates.stream().sorted(Comparator.comparing(CertificateLocation::getCreated).reversed()).collect(Collectors.toList());
+        List<CertificateLocation> orderedList = certificates.stream().sorted(Comparator.comparing(CertificateLocation::getCreated).reversed()).toList();
         for (CertificateLocation certificateLocation : orderedList) {
             CertificateInLocationDto cilDto = new CertificateInLocationDto();
             cilDto.setCommonName(certificateLocation.getCertificate().getCommonName());
