@@ -1,1 +1,0 @@
-ALTER TABLE ONLY cmp_profile ALTER COLUMN variant SET DEFAULT 'V2';

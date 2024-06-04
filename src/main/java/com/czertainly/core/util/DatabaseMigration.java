@@ -10,7 +10,6 @@ import java.util.zip.CRC32;
 /**
  * Helper class for calculating checksums of files.
  * And for storing the checksums of the Java-based migrations.
- *
  * Inspired by <a href="https://github.com/zaunerc/flyway-checksum-tool">flyway-checksum-tool</a>
  */
 public class DatabaseMigration {
@@ -59,6 +58,7 @@ public class DatabaseMigration {
         V202311071500__IssuerAndSubjectDnMigration(-1352440028, true),
         V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899, true),
         V202404021000__CreateCmpUserAndPermissions(414709752),
+        V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899, true),
         V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276);
 
       
