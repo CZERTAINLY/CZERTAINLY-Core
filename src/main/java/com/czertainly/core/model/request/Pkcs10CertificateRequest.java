@@ -8,7 +8,6 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
-import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -24,7 +23,7 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
         this.encoded = request;
         try {
             this.jcaObject =  new JcaPKCS10CertificationRequest(encoded);
-        } catch (IOException e) {
+        } catch (Exception e) {
             throw new CertificateRequestException("Cannot process PKCS#10 request", e);
         }
     }

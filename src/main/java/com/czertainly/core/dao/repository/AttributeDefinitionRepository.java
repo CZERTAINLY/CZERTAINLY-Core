@@ -2,7 +2,9 @@ package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.model.SearchFieldObject;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
@@ -17,9 +19,7 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     Optional<AttributeDefinition> findByUuidAndType(UUID uuid, AttributeType type);
     Optional<AttributeDefinition> findByUuidAndTypeAndGlobalTrue(UUID uuid, AttributeType type);
     Optional<AttributeDefinition> findByAttributeUuid(UUID uuid);
-    List<AttributeDefinition> findByTypeAndConnectorUuid(AttributeType type, UUID connectorUuid);
     List<AttributeDefinition> findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType type, UUID connectorUuid, List<UUID> uuids, List<String> names);
-    List<AttributeDefinition> findByTypeAndContentType(AttributeType type, AttributeContentType contentType);
     List<AttributeDefinition> findByTypeAndGlobal(AttributeType type, boolean global);
     List<AttributeDefinition> findByConnectorUuidAndTypeAndGlobal(UUID connectorUuid, AttributeType type, boolean global);
     Optional<AttributeDefinition> findByTypeAndNameAndGlobal(AttributeType attributeType, String attributeName, boolean global);
@@ -37,5 +37,28 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     void removeConnectorByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
     long deleteByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
+
+    @Query("""
+            SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
+                ad.name, ad.contentType, ad.type, ad.label, ad.definition)
+                FROM AttributeDefinition ad
+                LEFT JOIN AttributeRelation ar ON ar.attributeDefinitionUuid = ad.uuid
+                LEFT JOIN AttributeContentItem aci ON aci.attributeDefinitionUuid = ad.uuid
+                LEFT JOIN AttributeContent2Object aco ON aco.attributeContentItemUuid = aci.uuid
+                WHERE ad.type IN ?2 AND (ar.resource = ?1 OR aco.objectType = ?1)
+            """)
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrType(final Resource resourceType, final List<AttributeType> attributeTypes);
+
+    @Query("""
+            SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(
+                ad.name, ad.contentType, ad.type, ad.label, ad.definition)
+                FROM AttributeDefinition ad
+                LEFT JOIN AttributeRelation ar ON ar.attributeDefinitionUuid = ad.uuid
+                LEFT JOIN AttributeContentItem aci ON aci.attributeDefinitionUuid = ad.uuid
+                LEFT JOIN AttributeContent2Object aco ON aco.attributeContentItemUuid = aci.uuid
+                WHERE ad.type IN ?2 AND ad.contentType IN ?3 AND (ar.resource = ?1 OR aco.objectType = ?1)
+            """)
+    List<SearchFieldObject> findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentTypeAndReadOnlyFalse(final Resource resourceType, final List<AttributeType> attributeTypes, final List<AttributeContentType> attributeContentTypes);
+
 
 }

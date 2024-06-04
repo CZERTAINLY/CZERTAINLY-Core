@@ -1,13 +1,19 @@
 package com.czertainly.core.model;
 
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import lombok.Data;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
+import java.util.List;
 
+@Data
 public class SearchFieldObject {
 
     private String attributeName;
@@ -15,6 +21,15 @@ public class SearchFieldObject {
     private AttributeContentType attributeContentType;
 
     private AttributeType attributeType;
+
+    private String label;
+
+    private boolean list;
+
+    private boolean multiSelect;
+
+    private List<String> contentItems;
+
 
     public SearchFieldObject(AttributeContentType attributeContentType) {
         this.attributeContentType = attributeContentType;
@@ -26,28 +41,28 @@ public class SearchFieldObject {
         this.attributeType = attributeType;
     }
 
-    public String getAttributeName() {
-        return attributeName;
-    }
-
-    public void setAttributeName(String attributeName) {
+    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType, AttributeType attributeType, String label, BaseAttribute<?> attributeDefinition) {
         this.attributeName = attributeName;
-    }
-
-    public AttributeContentType getAttributeContentType() {
-        return attributeContentType;
-    }
-
-    public void setAttributeContentType(AttributeContentType attributeContentType) {
         this.attributeContentType = attributeContentType;
-    }
-
-    public AttributeType getAttributeType() {
-        return attributeType;
-    }
-
-    public void setAttributeType(AttributeType attributeType) {
         this.attributeType = attributeType;
+        this.label = label;
+
+        if (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA) {
+            if (attributeDefinition instanceof CustomAttribute customAttribute) {
+                list = customAttribute.getProperties().isList();
+                multiSelect = customAttribute.getProperties().isMultiSelect();
+                if (list && customAttribute.getContent() != null) {
+                    contentItems = customAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
+                }
+            } else {
+                DataAttribute dataAttribute = (DataAttribute) attributeDefinition;
+                list = dataAttribute.getProperties().isList();
+                multiSelect = dataAttribute.getProperties().isMultiSelect();
+                if (list && dataAttribute.getContent() != null) {
+                    contentItems = dataAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
+                }
+            }
+        }
     }
 
     public boolean isDateTimeFormat() {

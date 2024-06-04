@@ -9,11 +9,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
+import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
 import java.io.Serializable;
 import java.util.HashMap;
 import java.util.UUID;
 
+@EntityListeners(AuditingEntityListener.class)
 @Entity
 @Table(name = "certificate_event_history")
 public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateEventHistoryDto> {

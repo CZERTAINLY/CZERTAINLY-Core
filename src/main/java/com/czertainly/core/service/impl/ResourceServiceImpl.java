@@ -208,6 +208,9 @@ public class ResourceServiceImpl implements ResourceService {
             case ACME_PROFILE:
                 acmeProfileService.evaluatePermissionChain(objectUuid);
                 break;
+            case SCEP_PROFILE:
+                scepProfileService.evaluatePermissionChain(objectUuid);
+                break;
             case AUTHORITY:
                 authorityInstanceService.evaluatePermissionChain(objectUuid);
                 break;

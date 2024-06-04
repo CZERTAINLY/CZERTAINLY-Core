@@ -75,7 +75,7 @@ public class ActionListener {
             authHelper.authenticateAsUser(actionMessage.getUserUuid());
             processAction(actionMessage, hasApproval, isApproved);
         } catch (Exception e) {
-            String errorMessage = String.format("Failed to perform %s %s%s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), isApproved ? "" : " rejected");
+            String errorMessage = String.format("Failed to perform %s %s%s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), !hasApproval || isApproved ? "" : " rejected");
             logger.error("{}: {}", errorMessage, e.getMessage());
             notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());

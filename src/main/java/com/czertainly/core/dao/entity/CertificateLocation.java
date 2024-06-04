@@ -6,7 +6,7 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.persistence.*;
 
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Objects;
 
@@ -76,7 +76,7 @@ public class CertificateLocation implements Serializable {
         this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
     }
 
-    public LocalDateTime getCreated() {return certificate.getCreated();}
+    public OffsetDateTime getCreated() {return certificate.getCreated();}
 
     public boolean isWithKey() {
         return withKey;
