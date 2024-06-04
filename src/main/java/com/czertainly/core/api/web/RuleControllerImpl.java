@@ -1,9 +1,10 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RuleController;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.rules.*;
+import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.service.RuleService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,6 +18,7 @@ import java.util.List;
 public class RuleControllerImpl implements RuleController {
 
     private RuleService ruleService;
+
     @Autowired
     public void setRuleService(RuleService ruleService) {
         this.ruleService = ruleService;
@@ -27,6 +29,30 @@ public class RuleControllerImpl implements RuleController {
         webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
     }
 
+    @Override
+    public List<ConditionDto> listConditions(Resource resource) {
+        return ruleService.listConditions(resource);
+    }
+
+    @Override
+    public ConditionDto createCondition(ConditionRequestDto request) throws AlreadyExistException {
+        return ruleService.createCondition(request);
+    }
+
+    @Override
+    public ConditionDto getCondition(String conditionUuid) throws NotFoundException {
+        return ruleService.getCondition(conditionUuid);
+    }
+
+    @Override
+    public ConditionDto updateCondition(String conditionUuid, UpdateConditionRequestDto request) throws NotFoundException {
+        return ruleService.updateCondition(conditionUuid, request);
+    }
+
+    @Override
+    public void deleteCondition(String conditionUuid) throws NotFoundException {
+        ruleService.deleteCondition(conditionUuid);
+    }
 
     @Override
     public List<RuleDto> listRules(Resource resource) {
@@ -34,7 +60,7 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    public RuleDetailDto createRule(RuleRequestDto request) {
+    public RuleDetailDto createRule(RuleRequestDto request) throws NotFoundException, AlreadyExistException {
         return ruleService.createRule(request);
     }
 
@@ -51,80 +77,5 @@ public class RuleControllerImpl implements RuleController {
     @Override
     public void deleteRule(String ruleUuid) throws NotFoundException {
         ruleService.deleteRule(ruleUuid);
-    }
-
-    @Override
-    public List<RuleConditionGroupDto> listConditionGroups(Resource resource) {
-        return ruleService.listConditionGroups(resource);
-    }
-
-    @Override
-    public RuleConditionGroupDto createConditionGroup(RuleConditionGroupRequestDto request) {
-        return ruleService.createConditionGroup(request);
-    }
-
-    @Override
-    public RuleConditionGroupDto getConditionGroup(String conditionGroupUuid) throws NotFoundException {
-        return ruleService.getConditionGroup(conditionGroupUuid);
-    }
-
-    @Override
-    public RuleConditionGroupDto updateConditionGroup(String conditionGroupUuid, UpdateRuleConditionGroupRequestDto request) throws NotFoundException {
-        return ruleService.updateConditionGroup(conditionGroupUuid, request);
-    }
-
-    @Override
-    public void deleteConditionGroup(String conditionGroupUuid) throws NotFoundException {
-        ruleService.deleteConditionGroup(conditionGroupUuid);
-    }
-
-    @Override
-    public List<RuleActionGroupDto> listActionGroups(Resource resource) {
-        return ruleService.listActionGroups(resource);
-    }
-
-    @Override
-    public RuleActionGroupDto createActionGroup(RuleActionGroupRequestDto request) {
-        return ruleService.createActionGroup(request);
-    }
-
-    @Override
-    public RuleActionGroupDto getActionGroup(String actionGroupUuid) throws NotFoundException {
-        return ruleService.getActionGroup(actionGroupUuid);
-    }
-
-    @Override
-    public RuleActionGroupDto updateActionGroup(String actionGroupUuid, UpdateRuleActionGroupRequestDto request) throws NotFoundException {
-        return ruleService.updateActionGroup(actionGroupUuid, request);
-    }
-
-    @Override
-    public void deleteActionGroup(String actionGroupUuid) throws NotFoundException {
-        ruleService.deleteActionGroup(actionGroupUuid);
-    }
-
-    @Override
-    public List<RuleTriggerDto> listTriggers(Resource resource, Resource triggerResource) {
-        return ruleService.listTriggers(resource, triggerResource);
-    }
-
-    @Override
-    public RuleTriggerDetailDto createTrigger(RuleTriggerRequestDto request) {
-        return ruleService.createTrigger(request);
-    }
-
-    @Override
-    public RuleTriggerDetailDto getTrigger(String triggerUuid) throws NotFoundException {
-        return ruleService.getTrigger(triggerUuid);
-    }
-
-    @Override
-    public RuleTriggerDetailDto updateTrigger(String triggerUuid, UpdateRuleTriggerRequestDto request) throws NotFoundException {
-        return ruleService.updateTrigger(triggerUuid, request);
-    }
-
-    @Override
-    public void deleteTrigger(String triggerUuid) throws NotFoundException {
-        ruleService.deleteTrigger(triggerUuid);
     }
 }

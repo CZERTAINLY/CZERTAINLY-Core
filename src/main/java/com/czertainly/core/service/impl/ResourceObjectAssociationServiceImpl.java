@@ -14,11 +14,11 @@ import com.czertainly.core.dao.repository.OwnerAssociationRepository;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.AuthHelper;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 

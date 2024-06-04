@@ -13,12 +13,11 @@ import java.util.UUID;
 @Setter
 @Entity
 @Table(name = "owner_association")
-@DiscriminatorValue("OWNER")
 public class OwnerAssociation extends ResourceObjectAssociation {
-    @Column(name = "owner_uuid")
+    @Column(name = "owner_uuid", nullable = false)
     private UUID ownerUuid;
 
-    @Column(name = "owner_username")
+    @Column(name = "owner_username", nullable = false)
     private String ownerUsername;
 
     @Override

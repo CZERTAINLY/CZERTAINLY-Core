@@ -6,9 +6,12 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDt
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -163,12 +166,12 @@ public interface RaProfileService extends ResourceExtensionService {
     List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException;
 
     /**
-     * Function to check if an user has All RA profile Access
+     * Function to check if an user has RA profile Access for member certificates
      *
-     * @param filter Security Filter
-     * @return Boolean of permission
+     * @param certificateUuid UUID of the certificate
+     * @param raProfileUuid UUID of the RA Profile
      */
-    boolean evaluateNullableRaPermissions(SecurityFilter filter);
+    void evaluateCertificateRaProfilePermissions(SecuredUUID certificateUuid, SecuredParentUUID raProfileUuid);
 
     /**
      * Function to list the RA Profiles associated with the SCEP Profiles

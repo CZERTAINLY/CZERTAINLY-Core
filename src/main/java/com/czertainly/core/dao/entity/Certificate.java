@@ -114,7 +114,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
-    @Where(clause = "resource = 'CERTIFICATE'")
     private OwnerAssociation owner;
 
     @Column(name = "status_validation_timestamp")

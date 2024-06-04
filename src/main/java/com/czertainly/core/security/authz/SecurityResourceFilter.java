@@ -1,5 +1,8 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.model.auth.ResourceAction;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -7,7 +10,9 @@ import java.util.stream.Collectors;
 
 public class SecurityResourceFilter {
 
-    private String resource;
+    private Resource resource;
+
+    private ResourceAction resourceAction;
 
     /**
      * List of object uuids user can access
@@ -40,12 +45,20 @@ public class SecurityResourceFilter {
         return new SecurityResourceFilter();
     }
 
-    public String getResource() {
+    public Resource getResource() {
         return resource;
     }
 
-    public void setResource(String resource) {
+    public void setResource(Resource resource) {
         this.resource = resource;
+    }
+
+    public ResourceAction getResourceAction() {
+        return resourceAction;
+    }
+
+    public void setResourceAction(ResourceAction resourceAction) {
+        this.resourceAction = resourceAction;
     }
 
     public List<UUID> getAllowedObjects() {

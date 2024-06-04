@@ -157,7 +157,7 @@ public class LocationServiceImpl implements LocationService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.LOCATION, filter, request.getFilters());
 
         final BiFunction<Root<Location>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
-        final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
+        final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, List.of("certificates", "certificates.certificate"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(Location::mapToDto).toList();
         final Long maxItems = locationRepository.countUsingSecurityFilter(filter, additionalWhereClause);
@@ -788,8 +788,7 @@ public class LocationServiceImpl implements LocationService {
             }
             clientCertificateDataResponseDto = clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.get().getAuthorityInstanceReferenceUuid()), raProfile.get().getSecuredUuid(), clientCertificateSignRequestDto);
         } catch (NotFoundException | java.security.cert.CertificateException | CertificateOperationException |
-                 InvalidKeyException | IOException |
-                 NoSuchAlgorithmException e) {
+                 InvalidKeyException | IOException | NoSuchAlgorithmException | CertificateRequestException e) {
             logger.debug("Failed to issue Certificate for Location {}, {}: {}", location.getName(), location.getUuid(), e.getMessage());
             throw new LocationException("Failed to issue Certificate for Location " + location.getName() + ". Reason: " + e.getMessage());
         }

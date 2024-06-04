@@ -7,7 +7,6 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -34,11 +33,9 @@ public interface DiscoveryService extends ResourceExtensionService {
      */
     DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
 
-    DiscoveryHistory createDiscoveryModal(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException;
-
-
-    void createDiscovery(DiscoveryHistory modal) throws AlreadyExistException, ConnectorException;
-    void createDiscoveryAsync(DiscoveryHistory modal) throws AlreadyExistException, ConnectorException;
+    DiscoveryHistoryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException;
+    DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid);
+    void runDiscoveryAsync(UUID discoveryUuid);
 
     void deleteDiscovery(SecuredUUID uuid) throws NotFoundException;
 
@@ -53,6 +50,6 @@ public interface DiscoveryService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void evaluateDiscoveryTriggers(UUID discoveryUuid) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
+    void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
 
 }
