@@ -19,7 +19,7 @@ import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.util.Arrays;
 
 import java.math.BigInteger;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.UUID;
 
 public class CmpEntityUtil {
@@ -43,8 +43,8 @@ public class CmpEntityUtil {
         CmpProfile cmpProfile = new CmpProfile();
         cmpProfile.setUuid(UUID.randomUUID());
         cmpProfile.setName("testCmpProfile1_"+System.currentTimeMillis());
-        cmpProfile.setCreated(LocalDateTime.now());
-        cmpProfile.setUpdated(LocalDateTime.now());
+        cmpProfile.setCreated(OffsetDateTime.now());
+        cmpProfile.setUpdated(OffsetDateTime.now());
         cmpProfile.setEnabled(true);
         cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
         cmpProfile.setRaProfile(raProfile);
@@ -58,8 +58,8 @@ public class CmpEntityUtil {
         CmpProfile cmpProfile = new CmpProfile();
         cmpProfile.setUuid(UUID.randomUUID());
         cmpProfile.setName("testCmpProfile0");
-        cmpProfile.setCreated(LocalDateTime.now());
-        cmpProfile.setUpdated(LocalDateTime.now());
+        cmpProfile.setCreated(OffsetDateTime.now());
+        cmpProfile.setUpdated(OffsetDateTime.now());
         cmpProfile.setEnabled(true);
         cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
         cmpProfile.setRaProfile(raProfile);
