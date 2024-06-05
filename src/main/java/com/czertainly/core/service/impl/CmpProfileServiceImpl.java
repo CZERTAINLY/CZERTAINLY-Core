@@ -13,6 +13,8 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
+import com.czertainly.api.model.core.cmp.CmpProfileVariant;
+import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
@@ -151,8 +153,25 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                 }
                 cmpProfile.setSigningCertificateUuid(UUID.fromString(request.getSigningCertificateUuid()));
             }
-            default ->
-                throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
+            default -> throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
+        }
+
+        // check if variant is supported
+        switch (request.getVariant()) {
+            case V2 -> cmpProfile.setVariant(CmpProfileVariant.V2);
+            case V2_3GPP -> {
+                if (request.getRequestProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Request protection method for the 3GPP CMP request must be " + ProtectionMethod.SIGNATURE.getCode()));
+                }
+                if (request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Response protection method for the 3GPP CMP response must be " + ProtectionMethod.SHARED_SECRET.getCode()));
+                }
+                cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
+            }
+            case V3 -> throw new ValidationException(ValidationError.create("CMPv3 is not supported yet"));
+            default -> throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
         }
 
         // validate custom attributes
@@ -224,8 +243,25 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                 }
                 cmpProfile.setSigningCertificateUuid(UUID.fromString(request.getSigningCertificateUuid()));
             }
-            default ->
-                    throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
+            default -> throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
+        }
+
+        // check if variant is supported
+        switch (request.getVariant()) {
+            case V2 -> cmpProfile.setVariant(CmpProfileVariant.V2);
+            case V2_3GPP -> {
+                if (request.getRequestProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Request protection method for the 3GPP CMP request must be " + ProtectionMethod.SIGNATURE.getCode()));
+                }
+                if (request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Response protection method for the 3GPP CMP response must be " + ProtectionMethod.SHARED_SECRET.getCode()));
+                }
+                cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
+            }
+            case V3 -> throw new ValidationException(ValidationError.create("CMPv3 is not supported yet"));
+            default -> throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
         }
 
         // validate custom attributes
@@ -298,7 +334,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DELETE)
-    public List<BulkActionMessageDto> bulkForceRemoveCmpProfiles(List<SecuredUUID> cmpProfileUuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> bulkForceRemoveCmpProfiles(List<SecuredUUID> cmpProfileUuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
         for (SecuredUUID cmpProfileUuid : cmpProfileUuids) {
             CmpProfile cmpProfile = null;
