@@ -4,7 +4,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.service.cmp.message.CertificateKeyService;
-import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.*;
@@ -16,7 +15,7 @@ import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import java.util.List;
 
 /**
- * Implementation/variation of CMP protocol for 3gpp mobile network
+ * Implementation/variation of CMP protocol for 3GPP standard
  */
 public class Mobile3gppProfileContext extends CmpConfigurationContext {
 
