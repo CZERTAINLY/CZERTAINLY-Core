@@ -1322,6 +1322,29 @@ public class CertificateServiceImpl implements CertificateService {
         return certificates.stream().filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled)).map(Certificate::mapToListDto).toList();
     }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
+    public List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter) {
+        setupSecurityFilter(filter);
+
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(
+                filter,
+                List.of("groups", "owner"),
+                (root, cb) -> cb.and(
+                        cb.isNotNull(root.get("keyUuid")),
+                        cb.equal(root.get("state"), CertificateState.ISSUED),
+                        cb.or(
+                                cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID),
+                                cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING)
+                        )
+                )
+        );
+
+        return certificates.stream()
+                .filter(CertificateUtil::isCertificateCmpAcceptable)
+                .map(Certificate::mapToListDto).toList();
+    }
+
     private String getExpiryTime(Date now, Date expiry) {
         long diffInMilliseconds = expiry.getTime() - now.getTime();
         long difference = TimeUnit.DAYS.convert(diffInMilliseconds, TimeUnit.MILLISECONDS);

@@ -278,4 +278,12 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of available CA certificates
      */
     List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
+
+    /**
+     * List certificates eligible for signing CMP responses
+     * @param filter Security Filter
+     * @return List of available signing certificates
+     */
+    List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter);
+
 }

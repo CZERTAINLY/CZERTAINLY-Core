@@ -20,6 +20,8 @@ import com.czertainly.core.model.request.Pkcs10CertificateRequest;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
+import org.bouncycastle.asn1.cmp.CMPCertificate;
+import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -490,6 +492,29 @@ public class CertificateUtil {
         return privateKeyAvailable;
     }
 
+    public static boolean isCertificateCmpAcceptable(Certificate certificate) {
+        if (certificate.getKey() == null ||
+                !certificate.getState().equals(CertificateState.ISSUED) ||
+                (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)
+                        && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))
+        ) {
+            return false;
+        }
+
+        // Check if the private key has SIGN enabled
+        // Other types of keys such as split keys and secret keys are not needed to be checked since they cannot be used in certificates
+        boolean privateKeyAvailable = false;
+        for (CryptographicKeyItem item : certificate.getKey().getItems()) {
+            if (item.getType().equals(KeyType.PRIVATE_KEY)) {
+                if (item.getState() != KeyState.ACTIVE || !item.getUsage().contains(KeyUsage.SIGN)) {
+                    return false;
+                }
+                privateKeyAvailable = true;
+            }
+        }
+        return privateKeyAvailable;
+    }
+
     public static String generateRandomX509CertificateBase64(KeyPair keyPair) throws CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
         return Base64.getEncoder().encodeToString(generateRandomX509Certificate(keyPair).getEncoded());
     }
@@ -550,4 +575,58 @@ public class CertificateUtil {
         return keyPair;
     }
 
+    /**
+     * Function to convert: from list of X509 certificates to list of CMPCertificates
+     *
+     * @param certs certificates to convert
+     * @return array of converted certificates
+     * @throws CertificateException if certificate could not be converted
+     */
+    public static CMPCertificate[] toCmpCertificates(List<X509Certificate> certs) throws CertificateException {
+        CMPCertificate[] cmpCertificates = new CMPCertificate[certs.size()];
+        int index = 0;
+        for (X509Certificate x509Cert : certs) {
+            cmpCertificates[index++] = toCmpCertificate(x509Cert);
+        }
+        return cmpCertificates;
+    }
+
+    /**
+     * Function to convert: from single X509 certificate to CMPCertificate
+     *
+     * @param cert certificate to convert
+     * @return converted certificate
+     * @throws CertificateException if certificate could not be converted
+     */
+    public static CMPCertificate toCmpCertificate(final java.security.cert.Certificate cert)
+            throws CertificateException {
+        return CMPCertificate.getInstance(cert.getEncoded());
+    }
+
+    /**
+     * Checks whether given X.509 certificate is intermediate certificate and not
+     * self-signed.
+     *
+     * @param cert certificate to be checked
+     * @return <code>true</code> if the certificate is intermediate and not
+     *         self-signed
+     */
+    public static boolean isIntermediateCertificate(X509Certificate cert) {
+        try {
+            cert.verify(cert.getPublicKey());// true=self-signed (certificate signature with its own public key)
+            return false;
+        } catch (final SignatureException | InvalidKeyException keyEx) {
+            return true;// invalid key == it is not self-signed
+        } catch (CertificateException | NoSuchAlgorithmException | NoSuchProviderException e) {
+            return false;// could be self-signed
+        }
+    }
+
+    private static final SecureRandom SECURE_RANDOM = new SecureRandom();
+
+    public static byte[] generateRandomBytes(int length) {
+        final byte[] generated = new byte[length];
+        SECURE_RANDOM.nextBytes(generated);
+        return generated;
+    }
 }
