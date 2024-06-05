@@ -57,7 +57,7 @@ public class V202404021100__CreateCmpUserAndPermissions extends BaseJavaMigratio
 
     @Override
     public Integer getChecksum() {
-        return DatabaseMigration.JavaMigrationChecksums.V202404021000__CreateCmpUserAndPermissions.getChecksum();
+        return DatabaseMigration.JavaMigrationChecksums.V202404021100__CreateCmpUserAndPermissions.getChecksum();
     }
 
     public void migrate(Context context) throws Exception {
@@ -83,7 +83,7 @@ public class V202404021100__CreateCmpUserAndPermissions extends BaseJavaMigratio
         for (String permissionObject : detailPermissionObjects) {
             ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
             requestDto.setName(Resource.findByCode(permissionObject));
-            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode()));
+            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode(), ResourceAction.MEMBERS.getCode()));
             requestDto.setListObjectsEndpoint(detailPermissionObjectsListingEndpoints.get(permissionObject));
             resources.add(requestDto);
         }
@@ -130,7 +130,7 @@ public class V202404021100__CreateCmpUserAndPermissions extends BaseJavaMigratio
         for (String permissionObject : detailPermissionObjects) {
             ResourcePermissionsRequestDto requestDto = new ResourcePermissionsRequestDto();
             requestDto.setName(permissionObject);
-            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode()));
+            requestDto.setActions(List.of(ResourceAction.DETAIL.getCode(), ResourceAction.LIST.getCode(), ResourceAction.MEMBERS.getCode()));
             requestDto.setAllowAllActions(false);
             requestDto.setObjects(List.of());
             resourcePermissionsRequestDtos.add(requestDto);
