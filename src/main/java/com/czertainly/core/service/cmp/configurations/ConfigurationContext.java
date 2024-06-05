@@ -53,6 +53,6 @@ public interface ConfigurationContext {
 
     List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke);
 
-    //if I want to scan extra cert field
-    boolean dumpSinging();
+    // to scan extra cert field
+    boolean dumpSigning();
 }

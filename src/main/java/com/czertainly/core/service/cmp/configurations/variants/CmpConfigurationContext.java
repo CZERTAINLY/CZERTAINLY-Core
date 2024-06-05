@@ -88,14 +88,14 @@ public class CmpConfigurationContext implements ConfigurationContext {
                         PKIFailureInfo.systemFailure,
                         "wrong config3gppProfile: unknown type of protection strategy, type="+czrtProtectionMethod);
         }
-    }// pri vyberu
+    }
 
     @Override
     public byte[] getSharedSecret() {
         /* senderKID field MUST hold an identifier
          *    that indicates to the receiver the appropriate shared secret
          *    information to use to verify the message */
-        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();//muze byt pouzit pro dohledani v db
+        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
         return getProfile().getSharedSecret().getBytes();
     }
 
@@ -105,7 +105,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
     }
 
     @Override
-    public boolean dumpSinging() {
-        return true;//default: false (true pro vyvojove ucely)
+    public boolean dumpSigning() {
+        return false; //default: false
     }
 }

@@ -165,7 +165,7 @@ public class PkiMessageBuilder {
         ).distinct()
         .toArray(CMPCertificate[]::new);
 
-        if(config.dumpSinging()) {
+        if(config.dumpSigning()) {
             PkiMessageDumper.dumpSingerCertificate(
                     "builder",
                     null,

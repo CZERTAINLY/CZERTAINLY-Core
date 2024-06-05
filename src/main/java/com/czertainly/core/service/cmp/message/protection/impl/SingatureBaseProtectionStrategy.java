@@ -121,7 +121,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
     public DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception {
         ASN1EncodableVector v = new ASN1EncodableVector();
         v.addAll(new ASN1Encodable[]{header,body});
-        if (configuration.dumpSinging()) {
+        if (configuration.dumpSigning()) {
             PkiMessageDumper.dumpSingerCertificate(
                     "protection",
                     CertificateUtil.parseCertificate(signingCertificate.getCertificateContent().getContent()),
