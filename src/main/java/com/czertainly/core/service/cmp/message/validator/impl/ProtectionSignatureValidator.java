@@ -56,6 +56,7 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
         ASN1OctetString tid = message.getHeader().getTransactionID();
         String msgType = PkiMessageDumper.msgTypeAsString(message.getBody().getType());
         CMPCertificate[] extraCerts = message.getExtraCerts();
+        // -- TODO improvement, add configuration key, which says where singing certificate must be taken from
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
             LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getProfile().getName());
             throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
