@@ -14,7 +14,6 @@ import com.czertainly.core.service.cmp.message.CertificateKeyService;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
-import com.czertainly.core.util.AlgorithmUtil;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CryptographyUtil;
 import org.bouncycastle.asn1.ASN1Encodable;
@@ -28,6 +27,7 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.GeneralName;
 import org.bouncycastle.operator.ContentSigner;
+import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -166,9 +166,8 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
                     null);
         }
         ContentSigner signer = new JcaContentSignerBuilder(
-                AlgorithmUtil.getSignatureAlgorithmName(
-                        getProtectionAlg().getAlgorithm().getId(),
-                        privateKey.getAlgorithm()))
+                new DefaultAlgorithmNameFinder().getAlgorithmName(getProtectionAlg())
+        )
                 .setProvider(certificateKeyService.getProvider(profile.getName()))
                 .build(privateKey);
         OutputStream sOut = signer.getOutputStream();
