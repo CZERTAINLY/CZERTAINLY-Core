@@ -86,9 +86,9 @@ public class CmpConfigurationContext implements ConfigurationContext {
             default:
                 throw new CmpConfigurationException(requestMessage.getHeader().getTransactionID(),
                         PKIFailureInfo.systemFailure,
-                        "wrong config3gppProfile: unknown type of protection strategy, type="+czrtProtectionMethod);
+                        "wrong configuration: unknown type of protection strategy, type="+czrtProtectionMethod);
         }
-    }
+    }// pri vyberu
 
     @Override
     public byte[] getSharedSecret() {
