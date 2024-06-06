@@ -37,18 +37,17 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
 
     /**
      * Signature-base protection implementation assumes:
-     *  <ul>
-     *      <ol>that incoming message has <code>extraCert</code> field NOT EMPTY.</ol>
-     *      <ol>try to find first certificate from <code>extraCert</code></ol>
-     *      <ol>try to get public key of first certificate from <code>extraCert</code></ol>
-     *      <ol>given public key is used for signature verification</ol>
-     *      <ol>subject of signature {@link ProtectedPart} is count from {@link PKIHeader} and {@link PKIBody} values</ol>
-     *      <ol>given counted {@link ProtectedPart} is verify against value in {@link PKIMessage#getProtection()}</ol>
-     *  </ul>
+     * <ul>
+     *     <ol>that incoming message has <code>extraCert</code> field NOT EMPTY.</ol>
+     *     <ol>try to find first certificate from <code>extraCert</code></ol>
+     *     <ol>try to get public key of first certificate from <code>extraCert</code></ol>
+     *     <ol>given public key is used for signature verification</ol>
+     *     <ol>subject of signature {@link ProtectedPart} is count from {@link PKIHeader} and {@link PKIBody} values</ol>
+     *     <ol>given counted {@link ProtectedPart} is verify against value in {@link PKIMessage#getProtection()}</ol>
+     * </ul>
      *
      * @param message is subject of signature-based validation
      * @return null, if validation is ok
-     *
      * @throws CmpProcessingException if validation has failed
      */
     @Override
@@ -56,7 +55,7 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
         ASN1OctetString tid = message.getHeader().getTransactionID();
         String msgType = PkiMessageDumper.msgTypeAsString(message.getBody().getType());
         CMPCertificate[] extraCerts = message.getExtraCerts();
-        // -- TODO improvement, add configuration key, which says where singing certificate must be taken from
+        // TODO: improvement, add configuration to CMP Profile to configure location of signing certificate
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
             LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getProfile().getName());
             throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
@@ -68,7 +67,7 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
             byte[] protectedBytes = new ProtectedPart(header, message.getBody()).getEncoded(ASN1Encoding.DER);
             byte[] protectionBytes = message.getProtection().getBytes();
             X509Certificate singerCertificate = CertificateUtil.getX509Certificate(extraCerts[0].getEncoded());
-            if(configuration.dumpSigning()) {
+            if (configuration.dumpSigning()) {
                 PkiMessageDumper.dumpSingerCertificate("validator", singerCertificate, null);
             }
             Signature signature = Signature.getInstance(
@@ -81,12 +80,12 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
                         ImplFailureInfo.CRYPTOSIG542);
             }
 
-        } catch(CmpProcessingException ex) {
+        } catch (CmpProcessingException ex) {
             throw ex;
-        }  catch (final KeyException | NoSuchAlgorithmException ex) {
+        } catch (final KeyException | NoSuchAlgorithmException ex) {
             throw new CmpProcessingException(PKIFailureInfo.badAlg,
                     ImplFailureInfo.CRYPTOSIG543);
-        } catch(Exception ex) {
+        } catch (Exception ex) {
             throw new CmpProcessingException(
                     PKIFailureInfo.notAuthorized,
                     ex.getClass().getSimpleName() + ":" + ex.getLocalizedMessage());

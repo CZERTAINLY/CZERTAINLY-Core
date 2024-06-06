@@ -32,7 +32,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
                                    CertificateKeyService certificateKeyServiceImpl,
                                    List<RequestAttributeDto> issueAttributes,
                                    List<RequestAttributeDto> revokeAttributes) {
-        this.requestMessage =pkiRequest;
+        this.requestMessage = pkiRequest;
         this.profile = profile;
         this.certificateKeyService = certificateKeyServiceImpl;
         this.issueAttributes = issueAttributes;
@@ -40,17 +40,23 @@ public class CmpConfigurationContext implements ConfigurationContext {
     }
 
     @Override
-    public CmpProfile getProfile() { return profile; }
+    public CmpProfile getProfile() {
+        return profile;
+    }
 
     /**
      * <b>scope: header template - response part</b>
+     *
      * @return pki header recipient
      */
     @Override
-    public GeneralName getRecipient() { return null; /*requestMessage.getHeader().getRecipient();*/ }
+    public GeneralName getRecipient() {
+        return null; /*requestMessage.getHeader().getRecipient();*/
+    }
 
     /**
      * <b>scope: header template - response part</b>
+     *
      * @return pki header recipient
      */
     @Override
@@ -60,42 +66,44 @@ public class CmpConfigurationContext implements ConfigurationContext {
     }
 
     @Override
-    public void validateOnCrmfRequest(PKIMessage request) throws CmpProcessingException {}
+    public void validateOnCrmfRequest(PKIMessage request) throws CmpProcessingException {
+    }
 
     @Override
-    public void validateOnCrmfResponse(PKIMessage response) throws CmpProcessingException {}
+    public void validateOnCrmfResponse(PKIMessage response) throws CmpProcessingException {
+    }
 
     @Override
-    public ProtectionMethod getProtectionMethod() throws CmpConfigurationException {
+    public ProtectionMethod getProtectionMethod() {
         return getProfile().getRequestProtectionMethod();
     }
 
     @Override
     public ProtectionStrategy getProtectionStrategy() throws CmpBaseException {
         ProtectionMethod czrtProtectionMethod = getProfile().getResponseProtectionMethod();
-        switch (czrtProtectionMethod){
+        switch (czrtProtectionMethod) {
             case SIGNATURE:
                 return new SingatureBaseProtectionStrategy(this,
                         requestMessage.getHeader().getProtectionAlg(), certificateKeyService);
             case SHARED_SECRET:
-                byte[] salt = CertificateUtil.generateRandomBytes(20);//precist z db
-                int iterationCount = 1000;//precist z db
+                byte[] salt = CertificateUtil.generateRandomBytes(20);
+                int iterationCount = 1000;
                 return new PasswordBasedMacProtectionStrategy(this,
                         requestMessage.getHeader().getProtectionAlg(),
                         getSharedSecret(), salt, iterationCount);
             default:
                 throw new CmpConfigurationException(requestMessage.getHeader().getTransactionID(),
                         PKIFailureInfo.systemFailure,
-                        "wrong configuration: unknown type of protection strategy, type="+czrtProtectionMethod);
+                        "wrong configuration: unknown type of protection strategy, type=" + czrtProtectionMethod);
         }
-    }// pri vyberu
+    }
 
     @Override
     public byte[] getSharedSecret() {
         /* senderKID field MUST hold an identifier
          *    that indicates to the receiver the appropriate shared secret
          *    information to use to verify the message */
-        ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
+        // ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
         return getProfile().getSharedSecret().getBytes();
     }
 
