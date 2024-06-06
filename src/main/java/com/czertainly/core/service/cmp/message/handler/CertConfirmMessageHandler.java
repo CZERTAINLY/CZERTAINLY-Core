@@ -11,14 +11,25 @@ import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CryptographyUtil;
+import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
+import org.bouncycastle.operator.DefaultDigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DigestAlgorithmIdentifierFinder;
+import org.bouncycastle.operator.DigestCalculator;
+import org.bouncycastle.operator.bc.BcDigestCalculatorProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.security.cert.X509Certificate;
+import java.util.List;
 import java.util.Optional;
 
 /**
@@ -121,25 +132,43 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
 
     private void processConfirmation(ASN1OctetString tid, CertStatus certStatus)
             throws CmpProcessingException {
+        ASN1OctetString incomingFingerprint = certStatus.getCertHash();
+        //flag if certificate has been found and confirmed
+        boolean confirmed = false;
+
+        // find related transactions by transactionId
+        // (note: many certificates can be related to one transactionId - future use case; actually 1 trx == 1 cert)
+        List<CmpTransaction> relatedTransactions = cmpTransactionService.findByTransactionId(tid.toString());
+
         // -- find certificate from database (by incoming fingerprint)
-        String incomingFingerprint = certStatus.getCertHash().toString()
-                .substring(1);//remove '#' at 0 index (incoming from pki message)
-        // -- find certificate (by incoming fingerprint)
-        Optional<Certificate> certificate = certificateRepository.findByFingerprint(incomingFingerprint);
-        if(certificate.isEmpty()) {
-            LOG.error("TID={}, FP={} | certificate is not found for given certHash(fingerprint)", tid, incomingFingerprint);
-            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
-                    ImplFailureInfo.CMPHANCERTCONF001);
+        for (CmpTransaction cmpTransaction : relatedTransactions) {
+            ASN1OctetString fingerprint = getFingerprint(tid, cmpTransaction.getCertificate());
+            if (fingerprint.equals(incomingFingerprint)) {
+                cmpTransaction.setState(CmpTransactionState.CERT_CONFIRMED);
+                cmpTransactionService.save(cmpTransaction);
+                confirmed=true;
+            }
         }
-        Optional<CmpTransaction> relatedTransaction = cmpTransactionService.findByTransactionIdAndFingerprint(
-                tid.toString(), incomingFingerprint);
-        if(relatedTransaction.isEmpty()) {
+
+        if(!confirmed) {
             LOG.error("TID={}, FP={} | given transactionId and related certificate are not found", tid, incomingFingerprint);
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     ImplFailureInfo.CMPHANCERTCONF002);
         }
-        // -- update transaction
-        relatedTransaction.get().setState(CmpTransactionState.CERT_CONFIRMED);
-        cmpTransactionService.save(relatedTransaction.get());
+    }
+
+    private static final DigestAlgorithmIdentifierFinder DIGEST_ALG_FINDER = new DefaultDigestAlgorithmIdentifierFinder();
+    private static final BcDigestCalculatorProvider DIGEST_CALCULATOR_PROVIDER = new BcDigestCalculatorProvider();
+    private ASN1OctetString getFingerprint(ASN1OctetString tid, Certificate certificate) throws CmpProcessingException {
+        try {
+            X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+            AlgorithmIdentifier sigAlgId = CryptographyUtil.getAlgorithmIdentifierInstance(x509Cert.getSigAlgName());
+            DigestCalculator digester = DIGEST_CALCULATOR_PROVIDER.get(DIGEST_ALG_FINDER.find(sigAlgId));
+            digester.getOutputStream().write(x509Cert.getEncoded());
+            return new DEROctetString(digester.getDigest());
+        } catch (Exception e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
+                    "problem to compute certificate fingerprint (cert hash)");
+        }
     }
 }
