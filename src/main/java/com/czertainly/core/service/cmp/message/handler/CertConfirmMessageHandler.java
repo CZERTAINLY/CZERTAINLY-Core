@@ -6,14 +6,12 @@ import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CryptographyUtil;
-import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
@@ -30,7 +28,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.X509Certificate;
 import java.util.List;
-import java.util.Optional;
 
 /**
  * Handler for certification confirmation message.
@@ -47,13 +44,12 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
 
     private static final Logger LOG = LoggerFactory.getLogger(CertConfirmMessageHandler.class.getName());
 
-    private CertificateRepository certificateRepository;
-    @Autowired
-    public void setCertificateRepository(CertificateRepository certificateRepository) { this.certificateRepository=certificateRepository; }
-
     private CmpTransactionService cmpTransactionService;
+
     @Autowired
-    public void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
+    public void setCmpTransactionService(CmpTransactionService cmpTransactionService) {
+        this.cmpTransactionService = cmpTransactionService;
+    }
 
     /**
      * <pre>
@@ -101,15 +97,19 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
      *             statusInfo  PKIStatusInfo OPTIONAL
      *          }
      * </pre>
+     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.18">Certificate Confirmation Content</a>
      */
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
         ASN1OctetString tid = request.getHeader().getTransactionID();
         String msgBodyAsString = PkiMessageDumper.msgTypeAsString(request.getBody().getType());
-        if(PKIBody.TYPE_CERT_CONFIRM!=request.getBody().getType()) {
+        if (PKIBody.TYPE_CERT_CONFIRM != request.getBody().getType()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "confirmation (certConf) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ msgBodyAsString +"; only type=cerfConf is supported");
+                    "confirmation (certConf) message cannot be handled - " +
+                            "unsupported body rawType=" + request.getBody().getType() +
+                            ", type=" + msgBodyAsString +
+                            "; only type=cerfConf is supported");
         }
 
         CertConfirmContent certConfirmBody = (CertConfirmContent) request.getBody().getContent();
@@ -126,7 +126,7 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
                     .build();
         } catch (Exception e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "problem build pkiConfirm response message, type="+ msgBodyAsString, e);
+                    "problem build pkiConfirm response message, type=" + msgBodyAsString, e);
         }
     }
 
@@ -140,17 +140,18 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
         // (note: many certificates can be related to one transactionId - future use case; actually 1 trx == 1 cert)
         List<CmpTransaction> relatedTransactions = cmpTransactionService.findByTransactionId(tid.toString());
 
-        // -- find certificate from database (by incoming fingerprint)
+        // check the fingerprint with the certificate stored in transaction
         for (CmpTransaction cmpTransaction : relatedTransactions) {
             ASN1OctetString fingerprint = getFingerprint(tid, cmpTransaction.getCertificate());
+            LOG.debug("TID={}, FP={}, CFP={} | compare fingerprints", tid, incomingFingerprint, fingerprint);
             if (fingerprint.equals(incomingFingerprint)) {
                 cmpTransaction.setState(CmpTransactionState.CERT_CONFIRMED);
                 cmpTransactionService.save(cmpTransaction);
-                confirmed=true;
+                confirmed = true;
             }
         }
 
-        if(!confirmed) {
+        if (!confirmed) {
             LOG.error("TID={}, FP={} | given transactionId and related certificate are not found", tid, incomingFingerprint);
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     ImplFailureInfo.CMPHANCERTCONF002);
@@ -159,11 +160,14 @@ public class CertConfirmMessageHandler implements MessageHandler<PKIMessage> {
 
     private static final DigestAlgorithmIdentifierFinder DIGEST_ALG_FINDER = new DefaultDigestAlgorithmIdentifierFinder();
     private static final BcDigestCalculatorProvider DIGEST_CALCULATOR_PROVIDER = new BcDigestCalculatorProvider();
+
     private ASN1OctetString getFingerprint(ASN1OctetString tid, Certificate certificate) throws CmpProcessingException {
         try {
             X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
             AlgorithmIdentifier sigAlgId = CryptographyUtil.getAlgorithmIdentifierInstance(x509Cert.getSigAlgName());
+            LOG.debug("TID={} | certificate signature algorithm: {}", tid, sigAlgId.getAlgorithm().getId());
             DigestCalculator digester = DIGEST_CALCULATOR_PROVIDER.get(DIGEST_ALG_FINDER.find(sigAlgId));
+            LOG.debug("TID={} | certificate fingerprint algorithm: {}", tid, digester.getAlgorithmIdentifier().getAlgorithm().getId());
             digester.getOutputStream().write(x509Cert.getEncoded());
             return new DEROctetString(digester.getDigest());
         } catch (Exception e) {
