@@ -107,17 +107,19 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         CmpProfileDetailDto cmpProfileDto = new CmpProfileDetailDto();
         if(raProfile != null) {
             cmpProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
+            cmpProfileDto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                    + CmpConstants.CMP_BASE_CONTEXT + "/" + name);
         }
         cmpProfileDto.setDescription(description);
         cmpProfileDto.setEnabled(enabled);
         cmpProfileDto.setVariant(variant);
         cmpProfileDto.setName(name);
         cmpProfileDto.setUuid(uuid.toString());
+        cmpProfileDto.setRequestProtectionMethod(requestProtectionMethod);
+        cmpProfileDto.setResponseProtectionMethod(responseProtectionMethod);
+
         if(signingCertificate != null) cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
-        if(raProfile != null) {
-            cmpProfileDto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
-                    + CmpConstants.CMP_BASE_CONTEXT + "/" + name);
-        }
+
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return cmpProfileDto;
     }
