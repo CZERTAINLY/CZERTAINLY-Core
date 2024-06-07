@@ -6,9 +6,7 @@ import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.util.CertificateUtil;
-import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
-import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DEROctetString;
@@ -39,8 +37,8 @@ public class PkiMessageBuilder {
     /**
      * see rfc4210, D.1.4
      * <p>A "special" X.500 DN is called the "NULL-DN"; this means a DN
-     *        containing a zero-length SEQUENCE OF RelativeDistinguishedNames
-     *        (its DER encoding is then '3000'H).</p>
+     * containing a zero-length SEQUENCE OF RelativeDistinguishedNames
+     * (its DER encoding is then '3000'H).</p>
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.1">General Rules for Interpretation of These Profiles at rfcx4210</a>
      */
@@ -63,13 +61,13 @@ public class PkiMessageBuilder {
      * <p>Optional field, extraCerts   [1] SEQUENCE SIZE (1..MAX) OF CMPCertificate OPTIONAL</p>
      *
      * <p>The extraCerts field can contain certificates that may be useful to
-     *    the recipient.  For example, this can be used by a CA or RA to
-     *    present an end entity with certificates that it needs to verify its
-     *    own new certificate (if, for example, the CA that issued the end
-     *    entity's certificate is not a root CA for the end entity).  Note that
-     *    this field does not necessarily contain a certification path; the
-     *    recipient may have to sort, select from, or otherwise process the
-     *    extra certificates in order to use them.</p>
+     * the recipient.  For example, this can be used by a CA or RA to
+     * present an end entity with certificates that it needs to verify its
+     * own new certificate (if, for example, the CA that issued the end
+     * entity's certificate is not a root CA for the end entity).  Note that
+     * this field does not necessarily contain a certification path; the
+     * recipient may have to sort, select from, or otherwise process the
+     * extra certificates in order to use them.</p>
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (extraCert is OPTIONAL)</a>
      */
@@ -102,6 +100,7 @@ public class PkiMessageBuilder {
      *                              InfoTypeAndValue     OPTIONAL
      *      }
      * </pre>
+     *
      * @param template wrapper which keeps/creates values for build of {@link PKIHeader}
      * @return builder itself
      */
@@ -131,12 +130,11 @@ public class PkiMessageBuilder {
     /**
      * @param pkiBody which will be added to final {@link PKIMessage}
      * @return builder itself (for flow-api)
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">Overall of PKI Message (Body is mandatory)</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI body structure</a>
      */
     public PkiMessageBuilder addBody(PKIBody pkiBody) throws CmpProcessingException {
-        if(pkiBody == null) {
+        if (pkiBody == null) {
             throw new CmpProcessingException(transactionID, PKIFailureInfo.systemFailure, "PKI body is null");
         }
         this.pkiBody = pkiBody;
@@ -145,20 +143,18 @@ public class PkiMessageBuilder {
 
     /**
      * <p>The extraCerts field can contain certificates that may be useful to
-     *      the recipient.  For example, this can be used by a CA or RA to
-     *      present an end entity with certificates that it needs to verify its
-     *      own new certificate (if, for example, the CA that issued the end
-     *      entity's certificate is not a root CA for the end entity).  Note that
-     *      this field does not necessarily contain a certification path; the
-     *      recipient may have to sort, select from, or otherwise process the
-     *      extra certificates in order to use them.</p>
+     * the recipient.  For example, this can be used by a CA or RA to
+     * present an end entity with certificates that it needs to verify its
+     * own new certificate (if, for example, the CA that issued the end
+     * entity's certificate is not a root CA for the end entity).  Note that
+     * this field does not necessarily contain a certification path; the
+     * recipient may have to sort, select from, or otherwise process the
+     * extra certificates in order to use them.</p>
      * Location:
-     *      (optional) PKIMessage.caPubs (at same level as header/body)
+     * (optional) PKIMessage.caPubs (at same level as header/body)
      *
      * @param chainOfCertificates chain of certificates for extraCerts
      * @return builder itself
-     * @throws Exception if any error occurs (filtering/listing of incoming certificates)
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">PKI Message header</a>
      */
     public PkiMessageBuilder addExtraCerts(List<CMPCertificate> chainOfCertificates) {
@@ -168,11 +164,11 @@ public class PkiMessageBuilder {
                             defaultIfNull(chainOfCertificates, Collections.emptyList()).stream()
                     ).distinct()
                     .toArray(CMPCertificate[]::new);
-        } catch(Exception e) {
+        } catch (Exception e) {
             throw new IllegalStateException("problem add extra certificates", e);
         }
 
-        if(config.dumpSigning()) {
+        if (config.dumpSigning()) {
             PkiMessageDumper.dumpSingerCertificate(
                     "builder",
                     null,
@@ -183,19 +179,20 @@ public class PkiMessageBuilder {
     }
 
     public PKIMessage build() {
-        if(pkiHeader == null) {
+        if (pkiHeader == null) {
             throw new IllegalStateException(
-                    "TID="+transactionID+" | response message cannot be without PKIHeader");
+                    "TID=" + transactionID + " | response message cannot be without PKIHeader");
         }
-        if(pkiBody == null) {
+        if (pkiBody == null) {
             throw new IllegalStateException(
-                    "TID="+transactionID+" | response message cannot be without PKIBody");
+                    "TID=" + transactionID + " | response message cannot be without PKIBody");
         }
         DERBitString protection = null;
-        try { protection = protectionStrategy.createProtection(pkiHeader, pkiBody); }
-        catch (Exception e) {
+        try {
+            protection = protectionStrategy.createProtection(pkiHeader, pkiBody);
+        } catch (Exception e) {
             throw new IllegalStateException(
-                    "TID="+transactionID+" | response message cannot be protected", e);
+                    "TID=" + transactionID + " | response message cannot be protected", e);
         }
         return new PKIMessage(
                 pkiHeader,
@@ -218,7 +215,10 @@ public class PkiMessageBuilder {
     public static HeaderTemplate buildBasicHeaderTemplate(PKIMessage message) {
         return new HeaderTemplate() {
             @Override
-            public int getPvno() { return message.getHeader().getPvno().intValueExact(); }
+            public int getPvno() {
+                return message.getHeader().getPvno().intValueExact();
+            }
+
             /**
              * The sender field contains the name of the sender of the PKIMessage.
              *    This name (in conjunction with senderKID, if supplied) should be
@@ -234,7 +234,9 @@ public class PkiMessageBuilder {
              * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">[1]PKIHeader element</a>
              */
             @Override
-            public GeneralName getSender() { return null; }
+            public GeneralName getSender() {
+                return null;
+            }
 
             /**
              * The senderNonce will typically be 128 bits of
@@ -244,7 +246,9 @@ public class PkiMessageBuilder {
              * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">[1]PKIHeader element</a>
              */
             @Override
-            public ASN1OctetString getSenderNonce() { return new DEROctetString(CertificateUtil.generateRandomBytes(16)); }
+            public ASN1OctetString getSenderNonce() {
+                return new DEROctetString(CertificateUtil.generateRandomBytes(16));
+            }
 
             /**
              * <p>The recipient field contains the name of the recipient of the
@@ -270,7 +274,9 @@ public class PkiMessageBuilder {
              * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.4">[2]Initial Registration/Certification (Basic Authenticated Scheme)</a>
              */
             @Override
-            public GeneralName getRecipient() { return message.getHeader().getSender(); }
+            public GeneralName getRecipient() {
+                return message.getHeader().getSender();
+            }
 
             /**
              * whereas the recipNonce
@@ -280,16 +286,24 @@ public class PkiMessageBuilder {
              * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">[1]PKIHeader element</a>
              */
             @Override
-            public ASN1OctetString getRecipNonce() { return message.getHeader().getSenderNonce(); }
+            public ASN1OctetString getRecipNonce() {
+                return message.getHeader().getSenderNonce();
+            }
 
             @Override
-            public ASN1GeneralizedTime getMessageTime() { return new ASN1GeneralizedTime(new Date()); }
+            public ASN1GeneralizedTime getMessageTime() {
+                return new ASN1GeneralizedTime(new Date());
+            }
 
             @Override
-            public ASN1OctetString getTransactionID() { return message.getHeader().getTransactionID(); }
+            public ASN1OctetString getTransactionID() {
+                return message.getHeader().getTransactionID();
+            }
 
             @Override
-            public InfoTypeAndValue[] getGeneralInfo() { return message.getHeader().getGeneralInfo(); }
+            public InfoTypeAndValue[] getGeneralInfo() {
+                return message.getHeader().getGeneralInfo();
+            }
         };
     }
 
@@ -305,21 +319,21 @@ public class PkiMessageBuilder {
      * @param body        of message (supported only PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
      *                    PKIBody.TYPE_KEY_UPDATE_REQ)
      * @param certificate the certificate to return
-     * @param caPubs list of CA certifications
+     * @param caPubs      list of CA certifications
      * @return a IP, CP or KUP body
      * @throws CmpProcessingException if body is not (PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
-     *                      PKIBody.TYPE_KEY_UPDATE_REQ)
+     *                                PKIBody.TYPE_KEY_UPDATE_REQ)
      */
     public static PKIBody createIpCpKupBody(PKIBody body, CMPCertificate certificate,
                                             CMPCertificate[] caPubs) throws CmpProcessingException {
         int bodyType = body.getType();
-        switch(bodyType){
+        switch (bodyType) {
             case PKIBody.TYPE_INIT_REQ:
             case PKIBody.TYPE_CERT_REQ:
             case PKIBody.TYPE_KEY_UPDATE_REQ:
                 break;
             default:
-                throw new CmpProcessingException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type="+bodyType);
+                throw new CmpProcessingException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type=" + bodyType);
         }
         CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
         CertRequest certRequest = certReqMsg.getCertReq();
@@ -330,21 +344,21 @@ public class PkiMessageBuilder {
                         new CertifiedKeyPair(new CertOrEncCert(certificate)),
                         null)
         };
-        return new PKIBody(bodyType+1, new CertRepMessage(caPubs, response));
+        return new PKIBody(bodyType + 1, new CertRepMessage(caPubs, response));
     }
 
     public static PKIBody createIpCpKupBody(PKIBody body, CertResponse[] response,
-                                                 CMPCertificate[] caPubs) throws CmpProcessingException {
+                                            CMPCertificate[] caPubs) throws CmpProcessingException {
         int bodyType = body.getType();
-        switch(bodyType){
+        switch (bodyType) {
             case PKIBody.TYPE_INIT_REQ:
             case PKIBody.TYPE_CERT_REQ:
             case PKIBody.TYPE_KEY_UPDATE_REQ:
                 break;
             default:
                 throw new CmpProcessingException(PKIFailureInfo.systemFailure,
-                        "cannot generate response for given type, type="+bodyType);
+                        "cannot generate response for given type, type=" + bodyType);
         }
-        return new PKIBody(bodyType+1, new CertRepMessage(caPubs, response));
+        return new PKIBody(bodyType + 1, new CertRepMessage(caPubs, response));
     }
 }

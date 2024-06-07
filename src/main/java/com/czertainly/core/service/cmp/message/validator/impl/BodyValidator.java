@@ -29,21 +29,28 @@ public class BodyValidator implements Validator<PKIMessage, Void> {
                 case PKIBody.TYPE_INIT_REQ:
                 case PKIBody.TYPE_CERT_REQ:
                 case PKIBody.TYPE_KEY_UPDATE_REQ:
-                    new BodyCertReqResValidator().validateIn(message, configuration); break;
+                    new BodyCertReqResValidator().validateIn(message, configuration);
+                    break;
                 case PKIBody.TYPE_CERT_REP:
                 case PKIBody.TYPE_INIT_REP:
                 case PKIBody.TYPE_KEY_UPDATE_REP:
-                    new BodyCertReqResValidator().validateOut(message, configuration); break;
+                    new BodyCertReqResValidator().validateOut(message, configuration);
+                    break;
                 case PKIBody.TYPE_REVOCATION_REQ:
-                    new BodyRevocationValidator().validateIn(message, configuration); break;
+                    new BodyRevocationValidator().validateIn(message, configuration);
+                    break;
                 case PKIBody.TYPE_REVOCATION_REP:
-                    new BodyRevocationValidator().validateOut(message, configuration); break;
+                    new BodyRevocationValidator().validateOut(message, configuration);
+                    break;
                 case PKIBody.TYPE_CERT_CONFIRM:
-                    new BodyCertConfValidator().validate(message, configuration); break;
+                    new BodyCertConfValidator().validate(message, configuration);
+                    break;
                 case PKIBody.TYPE_CONFIRM:
-                    new BodyPkiConfirmValidator().validate(message, configuration); break;
+                    new BodyPkiConfirmValidator().validate(message, configuration);
+                    break;
                 case PKIBody.TYPE_ERROR:
-                    new BodyErrorMessageValidator().validate(message, configuration); break;
+                    new BodyErrorMessageValidator().validate(message, configuration);
+                    break;
                 case PKIBody.TYPE_P10_CERT_REQ:
                 case PKIBody.TYPE_POLL_REQ:
                 case PKIBody.TYPE_POLL_REP:
@@ -51,10 +58,10 @@ public class BodyValidator implements Validator<PKIMessage, Void> {
                 case PKIBody.TYPE_GEN_REP:
                 case PKIBody.TYPE_NESTED:
                     throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                            "body validator: "+PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not implemented");
+                            "body validator: " + PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not implemented");
                 default:
                     throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                            "body validator: "+PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not supported");
+                            "body validator: " + PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not supported");
             }
         } catch (CmpProcessingException ex) {
             switch (message.getBody().getType()) {//only crmf (req/resp)

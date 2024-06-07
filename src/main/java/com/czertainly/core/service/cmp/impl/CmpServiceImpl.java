@@ -46,6 +46,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
+
 import static com.czertainly.core.service.cmp.CmpConstants.*;
 
 import java.io.IOException;
@@ -65,14 +66,20 @@ public class CmpServiceImpl implements CmpService {
     private boolean raProfileBased;
     private RaProfile raProfile;
     private RaProfileRepository raProfileRepository;
+
     @Autowired
-    public void setRaProfileRepository(RaProfileRepository raProfileRepository) { this.raProfileRepository = raProfileRepository; }
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
+    }
 
     // -- CMP PROFILE
     private CmpProfile cmpProfile;
     private CmpProfileRepository cmpProfileRepository;
+
     @Autowired
-    public void setCmpProfileRepository(CmpProfileRepository cmpProfileRepository) { this.cmpProfileRepository = cmpProfileRepository; }
+    public void setCmpProfileRepository(CmpProfileRepository cmpProfileRepository) {
+        this.cmpProfileRepository = cmpProfileRepository;
+    }
 
     // -- CERTIFICATE
     private List<X509Certificate> caCertificateChain = new ArrayList<>();
@@ -80,36 +87,61 @@ public class CmpServiceImpl implements CmpService {
     private List<RequestAttributeDto> issueAttributes;
     private List<RequestAttributeDto> revokeAttributes;
     private CertificateService certificateService;
+
     @Autowired
-    public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
     // -- CRYPTO
     private CertificateKeyServiceImpl certificateKeyServiceImpl;
+
     @Autowired
-    private void setCertificateKeyService(CertificateKeyServiceImpl certificateKeyServiceImpl) {  this.certificateKeyServiceImpl = certificateKeyServiceImpl; }
+    private void setCertificateKeyService(CertificateKeyServiceImpl certificateKeyServiceImpl) {
+        this.certificateKeyServiceImpl = certificateKeyServiceImpl;
+    }
 
     // -- HANDLER
     private CrmfMessageHandler crmfMessageHandler;
-    @Autowired public void setCrmfMessageHandler(CrmfMessageHandler crmfMessageHandler) { this.crmfMessageHandler = crmfMessageHandler; }
+
+    @Autowired
+    public void setCrmfMessageHandler(CrmfMessageHandler crmfMessageHandler) {
+        this.crmfMessageHandler = crmfMessageHandler;
+    }
+
     private CertConfirmMessageHandler certConfirmMessageHandler;
+
     @Autowired
-    public void setCertConfirmMessageHandler(CertConfirmMessageHandler certConfirmMessageHandler) { this.certConfirmMessageHandler = certConfirmMessageHandler; }
+    public void setCertConfirmMessageHandler(CertConfirmMessageHandler certConfirmMessageHandler) {
+        this.certConfirmMessageHandler = certConfirmMessageHandler;
+    }
+
     private RevocationMessageHandler revocationMessageHandler;
+
     @Autowired
-    public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) { this.revocationMessageHandler = revocationMessageHandler; }
+    public void setRevocationMessageHandler(RevocationMessageHandler revocationMessageHandler) {
+        this.revocationMessageHandler = revocationMessageHandler;
+    }
 
     // -- TRANSACTION
     private CmpTransactionService cmpTransactionService;
+
     @Autowired
-    private void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
+    private void setCmpTransactionService(CmpTransactionService cmpTransactionService) {
+        this.cmpTransactionService = cmpTransactionService;
+    }
 
     // -- VALIDATORS
-    @Autowired private HeaderValidator headerValidator;
-    @Autowired private BodyValidator bodyValidator;
-    @Autowired private ProtectionValidator protectionValidator;
+    @Autowired
+    private HeaderValidator headerValidator;
+    @Autowired
+    private BodyValidator bodyValidator;
+    @Autowired
+    private ProtectionValidator protectionValidator;
 
     // -- OTHERS
     private AttributeEngine attributeEngine;
+
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
@@ -120,7 +152,7 @@ public class CmpServiceImpl implements CmpService {
      * specific <code>profileName</code>.
      *
      * @param profileName specific customer-based configuration/customization
-     * @param request contains  {@link PKIMessage}
+     * @param request     contains  {@link PKIMessage}
      * @return response contains {@link PKIMessage}
      * @throws CmpBaseException if any error has been raised
      */
@@ -132,8 +164,9 @@ public class CmpServiceImpl implements CmpService {
         validateProfile(profileName);
 
         final PKIMessage pkiRequest;
-        try { pkiRequest = PKIMessage.getInstance(request); }
-        catch (IllegalArgumentException e) {
+        try {
+            pkiRequest = PKIMessage.getInstance(request);
+        } catch (IllegalArgumentException e) {
             LOG.error("PN={} | request message cannot be parsed", profileName, e);
             return buildBadRequest(PkiMessageError.unprotectedMessage(
                     PKIFailureInfo.badRequest,
@@ -152,12 +185,15 @@ public class CmpServiceImpl implements CmpService {
         }
 
         // -- (processing) part
-        ConfigurationContext configuration = switch(cmpProfile.getVariant()) {
-            /*   3gpp*/case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
+        ConfigurationContext configuration = switch (cmpProfile.getVariant()) {
+            /*   3gpp*/
+            case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
                     certificateKeyServiceImpl, issueAttributes, revokeAttributes);
-            /*rfc4210*/case V2 -> new CmpConfigurationContext(cmpProfile, pkiRequest,
+            /*rfc4210*/
+            case V2 -> new CmpConfigurationContext(cmpProfile, pkiRequest,
                     certificateKeyServiceImpl, issueAttributes, revokeAttributes);
-            /*rfc9483*/case V3 -> throw new UnsupportedOperationException("not implemented");
+            /*rfc9483*/
+            case V3 -> throw new UnsupportedOperationException("not implemented");
             default -> throw new CmpConfigurationException(pkiRequest.getHeader().getTransactionID(),
                     PKIFailureInfo.systemFailure, "profile does not have a existing/known profile variant");
         };
@@ -176,15 +212,17 @@ public class CmpServiceImpl implements CmpService {
                 case PKIBody.TYPE_CERT_REQ:                        // ( 2)       cr, Certification Req; CertReqMessages
                 case PKIBody.TYPE_KEY_UPDATE_REQ:                  // ( 7)      kur, Key Update Request; CertReqMessages
                     pkiResponse = crmfMessageHandler.handle(pkiRequest, configuration);
-                    if(pkiResponse == null) {
+                    if (pkiResponse == null) {
                         throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
                                 String.format(" %s | general problem while handling crmf message", logPrefix));
                     }
                     break;
                 case PKIBody.TYPE_REVOCATION_REQ:                  // (11)       rr, Revocation Request; RevReqContent
-                    pkiResponse = revocationMessageHandler.handle(pkiRequest, configuration); break;
+                    pkiResponse = revocationMessageHandler.handle(pkiRequest, configuration);
+                    break;
                 case PKIBody.TYPE_CERT_CONFIRM:                    // (24) certConf, Certificate confirm; CertConfirmContent
-                    pkiResponse = certConfirmMessageHandler.handle(pkiRequest, configuration); break;
+                    pkiResponse = certConfirmMessageHandler.handle(pkiRequest, configuration);
+                    break;
                 case PKIBody.TYPE_CROSS_CERT_REQ:
                 case PKIBody.TYPE_KEY_RECOVERY_REQ:
                 case PKIBody.TYPE_GEN_MSG:
@@ -203,7 +241,7 @@ public class CmpServiceImpl implements CmpService {
                             ImplFailureInfo.CMPVALMSG201);
             }
 
-            if(pkiResponse == null) {
+            if (pkiResponse == null) {
                 throw new CmpProcessingException(
                         PKIFailureInfo.systemFailure,
                         String.format(" %s | general problem while handling PKIMessage", logPrefix));
@@ -224,7 +262,7 @@ public class CmpServiceImpl implements CmpService {
                     .addBody(e.toPKIBody())
                     .addExtraCerts(null)
                     .build();
-            if(verbose) {
+            if (verbose) {
                 LOG.error("{} | processing failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             } else {
@@ -238,7 +276,7 @@ public class CmpServiceImpl implements CmpService {
                     pkiRequest.getHeader(),
                     PKIFailureInfo.badDataFormat,
                     ImplFailureInfo.CMPSRV101);
-            if(verbose) {
+            if (verbose) {
                 LOG.error("{} | parsing failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             } else {
@@ -249,7 +287,7 @@ public class CmpServiceImpl implements CmpService {
         } catch (Exception e) {
             handleTrxError(tid, e);
             PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e);
-            if(verbose) {
+            if (verbose) {
                 LOG.error("{} | handling failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);
             } else {
@@ -261,9 +299,9 @@ public class CmpServiceImpl implements CmpService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void handleTrxError(ASN1OctetString tid, Exception e){
+    protected void handleTrxError(ASN1OctetString tid, Exception e) {
         List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
-        if(!trx.isEmpty()) {
+        if (!trx.isEmpty()) {
             for (CmpTransaction updatedTransaction : trx) {
                 updatedTransaction.setState(CmpTransactionState.FAILED);
                 String customReason = e.getMessage();
@@ -325,53 +363,55 @@ public class CmpServiceImpl implements CmpService {
     private void validateCmpProfile(String incomingProfileName) throws CmpConfigurationException {
         if (cmpProfile == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | Requested CMP Profile not found");
+                    "PN=" + incomingProfileName + " | Requested CMP Profile not found");
         }
         if (!cmpProfile.getEnabled()) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | CMP Profile is not enabled");
+                    "PN=" + incomingProfileName + " | CMP Profile is not enabled");
         }
 
-        if(ProtectionMethod.SIGNATURE.equals(cmpProfile.getResponseProtectionMethod())) {
+        if (ProtectionMethod.SIGNATURE.equals(cmpProfile.getResponseProtectionMethod())) {
             Certificate cmpCaCertificate = cmpProfile.getSigningCertificate();
             if (cmpCaCertificate == null) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                        "PN="+incomingProfileName+" | CMP profile does not have any associated CA certificate");
+                        "PN=" + incomingProfileName + " | CMP profile does not have any associated CA certificate");
             }
 
-            try { this.recipient = CertificateUtil.parseCertificate(cmpCaCertificate.getCertificateContent().getContent()); }
-            catch (CertificateException e) { // This should not occur
+            try {
+                this.recipient = CertificateUtil.parseCertificate(cmpCaCertificate.getCertificateContent().getContent());
+            } catch (CertificateException e) { // This should not occur
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                        "PN="+incomingProfileName+" | Error converting the certificate to x509 object");
+                        "PN=" + incomingProfileName + " | Error converting the certificate to x509 object");
             }
-            try { this.caCertificateChain = loadCertificateChain(cmpCaCertificate); }
-            catch (NotFoundException e) {
+            try {
+                this.caCertificateChain = loadCertificateChain(cmpCaCertificate);
+            } catch (NotFoundException e) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                        "PN="+incomingProfileName+" | Failed to load certificate chain of CMP profile CA certificate");
+                        "PN=" + incomingProfileName + " | Failed to load certificate chain of CMP profile CA certificate");
             }
 
             if (!CertificateUtil.isCertificateCmpAcceptable(cmpCaCertificate)) {
-                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,"CMP Profile does not have associated acceptable CA certificate");
+                throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "CMP Profile does not have associated acceptable CA certificate");
             }
         }
         if (!raProfileBased && cmpProfile.getRaProfile() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | CMP Profile does not contain associated RA Profile");
+                    "PN=" + incomingProfileName + " | CMP Profile does not contain associated RA Profile");
         }
     }
 
     private void validateRaProfile(String incomingProfileName) throws CmpConfigurationException {
         if (raProfile == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | Requested RA Profile not found");
+                    "PN=" + incomingProfileName + " | Requested RA Profile not found");
         }
         if (!raProfile.getEnabled()) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | RA Profile is not enabled");
+                    "PN=" + incomingProfileName + " | RA Profile is not enabled");
         }
         if (raProfileBased && raProfile.getCmpProfile() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                    "PN="+incomingProfileName+" | RA Profile does not contain associated CMP Profile");
+                    "PN=" + incomingProfileName + " | RA Profile does not contain associated CMP Profile");
         }
     }
 
@@ -382,15 +422,15 @@ public class CmpServiceImpl implements CmpService {
             if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                         String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
-                        certificate.getUuid(),
-                        certificate.getFingerprint(),
-                        certificate.getValidationStatus().getLabel()));
+                                certificate.getUuid(),
+                                certificate.getFingerprint(),
+                                certificate.getValidationStatus().getLabel()));
             }
             try {
                 certificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent()));
             } catch (CertificateException e) {
                 // This should not happen
-                throw new IllegalArgumentException("PN="+this.cmpProfile.getName()+" | Failed to parse certificate content: " +
+                throw new IllegalArgumentException("PN=" + this.cmpProfile.getName() + " | Failed to parse certificate content: " +
                         certificate.getCertificateContent());
             }
         }

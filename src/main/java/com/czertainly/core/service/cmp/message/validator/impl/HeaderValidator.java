@@ -32,6 +32,7 @@ import java.util.Objects;
  *      }
  *      PKIFreeText ::= SEQUENCE SIZE (1..MAX) OF UTF8String
  * </pre>
+ *
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.1">PKI Message header</a>
  */
 @Component
