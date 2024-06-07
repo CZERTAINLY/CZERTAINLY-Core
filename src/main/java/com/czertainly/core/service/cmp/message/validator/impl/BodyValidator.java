@@ -19,7 +19,7 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Component
 @Transactional
-public class BodyValidator implements Validator<PKIMessage, Void> {
+public class BodyValidator extends BaseValidator implements Validator<PKIMessage, Void> {
 
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
@@ -57,18 +57,7 @@ public class BodyValidator implements Validator<PKIMessage, Void> {
                             "body validator: "+PkiMessageDumper.msgTypeAsString(message.getBody()) + " is not supported");
             }
         } catch (CmpProcessingException ex) {
-            switch (message.getBody().getType()) {//only crmf (req/resp)
-                case PKIBody.TYPE_INIT_REQ:
-                case PKIBody.TYPE_CERT_REQ:
-                case PKIBody.TYPE_KEY_UPDATE_REQ:
-                case PKIBody.TYPE_CERT_REP:
-                case PKIBody.TYPE_INIT_REP:
-                case PKIBody.TYPE_KEY_UPDATE_REP:
-                    throw new CmpCrmfValidationException(tid, message.getBody().getType(),
-                            ex.getFailureInfo(), ex.getMessage());
-                default:
-                    throw ex;
-            }
+            throw remapException(tid, message.getBody().getType(), ex);
         } catch (Throwable thr) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "body validator: internal error - " + thr.getLocalizedMessage());

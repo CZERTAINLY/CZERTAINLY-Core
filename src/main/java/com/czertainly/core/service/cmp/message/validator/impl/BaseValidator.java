@@ -1,12 +1,10 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
+import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.bouncycastle.asn1.cmp.PKIMessage;
-import org.bouncycastle.asn1.cmp.PKIStatus;
-import org.bouncycastle.asn1.cmp.PKIStatusInfo;
+import org.bouncycastle.asn1.cmp.*;
 
 import java.util.Objects;
 
@@ -167,6 +165,28 @@ public abstract class BaseValidator {
         if (value.getOctets().length < minimalLength) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
                     fieldName + "'s value is too short");
+        }
+    }
+
+    /**
+     * Check if given <code>bodyType</code> is CRMF-based message and remap from <code>CmpProcessingException</code>
+     * onto <code>CmpCrmfValidationException</code>. Otherwise rethrow given exception <code>ex</code> as-is.
+     * @param tid transaction id
+     * @param bodyType type of body
+     * @param ex original exception for eventual remapping (if bodyType is CRMF-based message)
+     */
+    protected CmpProcessingException remapException(ASN1OctetString tid, int bodyType, CmpProcessingException ex) {
+        switch (bodyType) {//only crmf (req/resp)
+            case PKIBody.TYPE_INIT_REQ:
+            case PKIBody.TYPE_CERT_REQ:
+            case PKIBody.TYPE_KEY_UPDATE_REQ:
+            case PKIBody.TYPE_CERT_REP:
+            case PKIBody.TYPE_INIT_REP:
+            case PKIBody.TYPE_KEY_UPDATE_REP:
+                return new CmpCrmfValidationException(tid, bodyType,
+                        ex.getFailureInfo(), ex.getMessage());
+            default:
+                return ex;
         }
     }
 }

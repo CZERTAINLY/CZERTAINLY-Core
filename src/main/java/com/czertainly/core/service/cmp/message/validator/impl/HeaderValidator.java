@@ -82,18 +82,7 @@ public class HeaderValidator extends BaseValidator implements Validator<PKIMessa
 
             return null;//header is ok
         } catch (CmpProcessingException ex) {
-            switch (message.getBody().getType()) {//only crmf (req/resp)
-                case PKIBody.TYPE_INIT_REQ:
-                case PKIBody.TYPE_CERT_REQ:
-                case PKIBody.TYPE_KEY_UPDATE_REQ:
-                case PKIBody.TYPE_CERT_REP:
-                case PKIBody.TYPE_INIT_REP:
-                case PKIBody.TYPE_KEY_UPDATE_REP:
-                    throw new CmpCrmfValidationException(tid, message.getBody().getType(),
-                            ex.getFailureInfo(), ex.getMessage());
-                default:
-                    throw ex;
-            }
+            throw remapException(tid, message.getBody().getType(), ex);
         } catch (Throwable thr) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "header validator: internal error - " + thr.getLocalizedMessage());

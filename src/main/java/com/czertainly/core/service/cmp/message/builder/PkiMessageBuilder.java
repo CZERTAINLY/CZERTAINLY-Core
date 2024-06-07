@@ -6,21 +6,14 @@ import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.util.CertificateUtil;
-import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
-import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
-import org.bouncycastle.asn1.crmf.CertReqMessages;
-import org.bouncycastle.asn1.crmf.CertReqMsg;
-import org.bouncycastle.asn1.crmf.CertRequest;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.GeneralName;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.util.Collections;
 import java.util.Date;
@@ -33,8 +26,6 @@ import static com.czertainly.core.util.NullUtil.*;
  * Builder pattern implementation to create specific types of {@link PKIMessage}.
  */
 public class PkiMessageBuilder {
-
-    private static final Logger LOG = LoggerFactory.getLogger(PkiMessageBuilder.class.getName());
 
     /**
      * see rfc4210, D.1.4
@@ -157,7 +148,6 @@ public class PkiMessageBuilder {
      *
      * @param chainOfCertificates chain of certificates for extraCerts
      * @return builder itself
-     * @throws Exception if any error occurs (filtering/listing of incoming certificates)
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">PKI Message header</a>
      */
@@ -191,7 +181,7 @@ public class PkiMessageBuilder {
             throw new IllegalStateException(
                     "TID="+transactionID+" | response message cannot be without PKIBody");
         }
-        DERBitString protection = null;
+        DERBitString protection;
         try { protection = protectionStrategy.createProtection(pkiHeader, pkiBody); }
         catch (Exception e) {
             throw new IllegalStateException(
@@ -291,46 +281,6 @@ public class PkiMessageBuilder {
             @Override
             public InfoTypeAndValue[] getGeneralInfo() { return message.getHeader().getGeneralInfo(); }
         };
-    }
-
-    /**
-     * Generate an {@link PKIBody} for types:
-     * <ul>
-     *     <li>{@link PKIBody#TYPE_INIT_REP} IP,</li>
-     *     <li>{@link PKIBody#TYPE_CERT_REP} CP,</li>
-     *     <li>{@link PKIBody#TYPE_KEY_UPDATE_REP} or KUP</li>
-     *  </ul>
-     *  with returning a certificate
-     *
-     * @param body        of message (supported only PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
-     *                    PKIBody.TYPE_KEY_UPDATE_REQ)
-     * @param certificate the certificate to return
-     * @param caPubs list of CA certifications
-     * @return a IP, CP or KUP body
-     * @throws CmpProcessingException if body is not (PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ or
-     *                      PKIBody.TYPE_KEY_UPDATE_REQ)
-     */
-    public static PKIBody createIpCpKupBody(PKIBody body, CMPCertificate certificate,
-                                            CMPCertificate[] caPubs) throws CmpProcessingException {
-        int bodyType = body.getType();
-        switch(bodyType){
-            case PKIBody.TYPE_INIT_REQ:
-            case PKIBody.TYPE_CERT_REQ:
-            case PKIBody.TYPE_KEY_UPDATE_REQ:
-                break;
-            default:
-                throw new CmpProcessingException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type="+bodyType);
-        }
-        CertReqMsg certReqMsg = ((CertReqMessages) body.getContent()).toCertReqMsgArray()[0];
-        CertRequest certRequest = certReqMsg.getCertReq();
-        CertResponse[] response = {
-                new CertResponse(
-                        certRequest.getCertReqId(),
-                        new PKIStatusInfo(PKIStatus.granted),
-                        new CertifiedKeyPair(new CertOrEncCert(certificate)),
-                        null)
-        };
-        return new PKIBody(bodyType+1, new CertRepMessage(caPubs, response));
     }
 
     public static PKIBody createIpCpKupBody(PKIBody body, CertResponse[] response,

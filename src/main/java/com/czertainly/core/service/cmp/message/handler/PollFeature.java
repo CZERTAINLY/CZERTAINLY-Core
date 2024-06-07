@@ -27,7 +27,7 @@ public class PollFeature {
     @PersistenceContext
     private EntityManager entityManager;
 
-    //@Value("${app.cmp.protocol.poll.feature.timeout}")
+    @Value("${cmp.protocol.poll.feature.timeout}")
     private Integer pollFeatureTimeout;
 
     private CertificateService certificateService;

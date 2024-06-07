@@ -11,8 +11,6 @@ import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
 import org.bouncycastle.asn1.crmf.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * <h6>Proof-of-Possession (POP)</h6>
@@ -51,7 +49,7 @@ import org.slf4j.LoggerFactory;
  *
  *        <li>
  *    2.  The CA/RA has established an authenticated identity for the
- *        certificate subject, but the requestor is not placing it into the
+ *        certificate subject, but the requester is not placing it into the
  *        certificate request.  In this case, the POPOSigningKeyInput
  *        structure would be filled out using the sender choice for
  *        authInfo.  The public key for the certificate being requested
@@ -74,8 +72,6 @@ import org.slf4j.LoggerFactory;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-4.1">Signature Key POP at rfc4211</a>
  */
 public class POPValidator implements Validator<PKIMessage, Void> {
-
-    private static final Logger LOG = LoggerFactory.getLogger(POPValidator.class.getName());
 
     /**
      * Find public key (from ${@link PKIBody}/${@link CertTemplate}) and verify signature
@@ -141,7 +137,7 @@ public class POPValidator implements Validator<PKIMessage, Void> {
                      *        over the DER-encoded POPOSigningKeyInput structure.
                      *
                      *    2.  The CA/RA has established an authenticated identity for the
-                     *        certificate subject, but the requestor is not placing it into the
+                     *        certificate subject, but the requester is not placing it into the
                      *        certificate request.  In this case, the POPOSigningKeyInput
                      *        structure would be filled out using the sender choice for
                      *        authInfo.  The public key for the certificate being requested
