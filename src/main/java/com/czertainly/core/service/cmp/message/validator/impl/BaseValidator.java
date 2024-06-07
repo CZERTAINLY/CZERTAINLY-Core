@@ -62,21 +62,6 @@ public abstract class BaseValidator {
     }
 
     /**
-     * Check if <code>value</code> is NULL otherwise (value is NOT NULL) throws {@link CmpProcessingException}
-     *
-     * @param value which must be NULL
-     * @param failInfo type of purpose (why value is NOT NULL)
-     * @param errorMsg error description (why value is NOT NULL)
-     * @throws CmpProcessingException if value is NOT NULL
-     */
-    protected void checkValueIsNull(ASN1OctetString tid, Object value, int failInfo, String errorMsg)
-            throws CmpProcessingException {
-        if (!Objects.isNull(value)) {
-            throw new CmpProcessingException(tid, failInfo, errorMsg);
-        }
-    }
-
-    /**
      * Check if <code>value</code> is NOT NULL otherwise (value is NULL) throws {@link CmpProcessingException}
      *
      * @param value which must be NOT NULL (not be empty)
@@ -170,23 +155,17 @@ public abstract class BaseValidator {
 
     /**
      * Check if given <code>bodyType</code> is CRMF-based message and remap from <code>CmpProcessingException</code>
-     * onto <code>CmpCrmfValidationException</code>. Otherwise rethrow given exception <code>ex</code> as-is.
+     * onto <code>CmpCrmfValidationException</code>. Otherwise, rethrow given exception <code>ex</code> as-is.
      * @param tid transaction id
      * @param bodyType type of body
      * @param ex original exception for eventual remapping (if bodyType is CRMF-based message)
      */
     protected CmpProcessingException remapException(ASN1OctetString tid, int bodyType, CmpProcessingException ex) {
-        switch (bodyType) {//only crmf (req/resp)
-            case PKIBody.TYPE_INIT_REQ:
-            case PKIBody.TYPE_CERT_REQ:
-            case PKIBody.TYPE_KEY_UPDATE_REQ:
-            case PKIBody.TYPE_CERT_REP:
-            case PKIBody.TYPE_INIT_REP:
-            case PKIBody.TYPE_KEY_UPDATE_REP:
-                return new CmpCrmfValidationException(tid, bodyType,
-                        ex.getFailureInfo(), ex.getMessage());
-            default:
-                return ex;
-        }
+        return switch (bodyType) {//only crmf (req/resp)
+            case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ, PKIBody.TYPE_KEY_UPDATE_REQ, PKIBody.TYPE_CERT_REP,
+                 PKIBody.TYPE_INIT_REP, PKIBody.TYPE_KEY_UPDATE_REP -> new CmpCrmfValidationException(tid, bodyType,
+                    ex.getFailureInfo(), ex.getMessage());
+            default -> ex;
+        };
     }
 }

@@ -159,9 +159,6 @@ public class CmpServiceImpl implements CmpService {
      */
     @Override
     public ResponseEntity<byte[]> handlePost(String profileName, byte[] request) throws CmpBaseException {
-        init(profileName);
-        validateProfile(profileName);
-
         final PKIMessage pkiRequest;
         try {
             pkiRequest = PKIMessage.getInstance(request);
@@ -197,13 +194,15 @@ public class CmpServiceImpl implements CmpService {
 
         try {
             PKIMessage pkiResponse;
+            int bodyType = pkiRequest.getBody().getType();
+            init(profileName);
+            validateProfile(tid, bodyType, profileName);
 
             headerValidator.validate(pkiRequest, configuration);
             bodyValidator.validate(pkiRequest, configuration);
             protectionValidator.validateIn(pkiRequest, configuration);
 
             //see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2, PKI Message Body
-            int bodyType = pkiRequest.getBody().getType();
             switch (bodyType) {
                 case PKIBody.TYPE_INIT_REQ:                        // ( 1)       ir, Initial Request; CertReqMessages
                 case PKIBody.TYPE_CERT_REQ:                        // ( 2)       cr, Certification Req; CertReqMessages
@@ -347,14 +346,23 @@ public class CmpServiceImpl implements CmpService {
             issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CMP_PROFILE, cmpProfile.getUuid());
             revokeAttributes = attributeEngine.getRequestObjectDataAttributesContent(cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.CMP_PROFILE, cmpProfile.getUuid());
         }
-
-
         LOG.debug("PN={} | CMP service initialized: isRaProfileBased: {}, raProfile: {}, cmpProfile: {}", profileName, raProfileBased, raProfile, cmpProfile);
     }
 
-    private void validateProfile(String incomingProfileName) throws CmpConfigurationException {
-        validateCmpProfile(incomingProfileName);
-        validateRaProfile(incomingProfileName);
+    private void validateProfile(ASN1OctetString tid, int bodyType, String incomingProfileName) throws CmpBaseException {
+        try {
+            validateCmpProfile(incomingProfileName);
+            validateRaProfile(incomingProfileName);
+        } catch (CmpConfigurationException e) {
+            switch (bodyType) {
+                case PKIBody.TYPE_INIT_REQ:
+                case PKIBody.TYPE_CERT_REQ:
+                case PKIBody.TYPE_KEY_UPDATE_REQ:
+                    throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure, e.getMessage());
+                default:
+                    throw new CmpProcessingException(PKIFailureInfo.systemFailure, e.getMessage());
+            }
+        }
     }
 
     private void validateCmpProfile(String incomingProfileName) throws CmpConfigurationException {
