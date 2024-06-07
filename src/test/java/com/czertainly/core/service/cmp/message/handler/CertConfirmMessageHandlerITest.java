@@ -34,16 +34,26 @@ import static org.junit.jupiter.api.Assertions.*;
 @Disabled
 public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
 
-    @Autowired private CertificateContentRepository certificateContentRepository;
-    @Autowired private CertificateRepository certificateRepository;
-    @Autowired private CmpTransactionService cmpTransactionService;
-    @Autowired private CmpProfileRepository cmpProfileRepository;
-    @Autowired private RaProfileRepository raProfileRepository;
-    @Autowired private CertificateKeyServiceImpl certificateKeyService;
-    @Autowired private CryptographicKeyRepository cryptographicKeyRepository;
-    @Autowired private CryptographicKeyItemRepository cryptographicKeyItemRepository;
-    @Autowired private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
-    @Autowired private ConnectorRepository connectorRepository;
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
+    @Autowired
+    private CertificateRepository certificateRepository;
+    @Autowired
+    private CmpTransactionService cmpTransactionService;
+    @Autowired
+    private CmpProfileRepository cmpProfileRepository;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
+    private CertificateKeyServiceImpl certificateKeyService;
+    @Autowired
+    private CryptographicKeyRepository cryptographicKeyRepository;
+    @Autowired
+    private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+    @Autowired
+    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    @Autowired
+    private ConnectorRepository connectorRepository;
 
     private CertConfirmMessageHandler testedHandler;
     private CmpProfile cmpProfileSigPrt;
@@ -62,14 +72,13 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
 
         // -- IoC setting up
         testedHandler = new CertConfirmMessageHandler();
-        testedHandler.setCertificateRepository(certificateRepository);
         testedHandler.setCmpTransactionService(cmpTransactionService);
 
         // -- create customer/client profile (signature-based)
         RaProfile raProfile = raProfileRepository.save(CmpEntityUtil.createRaProfile());
         cmpProfileSigPrt = cmpProfileRepository.save(
                 CmpEntityUtil.createCmpProfile(raProfile,
-                createSigningCertificateEntity(mockServer)));
+                        createSigningCertificateEntity(mockServer)));
         // -- create customer/client profile (macpwd-based)
         cmpProfileMacPrt = cmpProfileRepository.save(
                 CmpEntityUtil.createCmpProfile(raProfile, sharedSecret));
@@ -79,11 +88,11 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         x509certificate = CmpTestUtil.makeV3Certificate(serialNumber, kp, "CN=Test", kp, "CN=Test");
         // -- create issued certificate - db entity (which must be confirmed - via tested handler)
         Certificate issuedCertificate = certificateRepository.save(CmpEntityUtil.createCertificate(
-                CmpTestUtil.createMessageDigest(x509certificate),
-                serialNumber,
-                CertificateState.ISSUED,
-                certificateContentRepository.save(
-                    CmpEntityUtil.createEmptyCertContent())
+                        CmpTestUtil.createMessageDigest(x509certificate),
+                        serialNumber,
+                        CertificateState.ISSUED,
+                        certificateContentRepository.save(
+                                CmpEntityUtil.createEmptyCertContent())
                 )
         );
         // -- transaction related to issued certificate - db entity
@@ -103,7 +112,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- WHEN --
         PKIBody body = CmpTestUtil.createCertConfBody(x509certificate, serialNumber);
         PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
-                transactionId, CmpTestUtil.generateKeyPairEC().getPrivate(), body)
+                        transactionId, CmpTestUtil.generateKeyPairEC().getPrivate(), body)
                 .toASN1Structure();
 
         // -- test handling of message
@@ -119,7 +128,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         assertEquals(new DEROctetString(transactionId.getBytes()).toString(),
                 response.getHeader().getTransactionID().toString());
         assertInstanceOf(PKIConfirmContent.class, response.getBody().getContent());
-        assertTrue(response.getExtraCerts().length>0);
+        assertTrue(response.getExtraCerts().length > 0);
 
         // (2) check certificate (found by serial number) and its state
         Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(
@@ -131,7 +140,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(transactionId,
                         serialNumber.toString(16))
                 .ifPresent(cmpTransaction -> assertEquals(CmpTransactionState.CERT_CONFIRMED, cmpTransaction.getState())
-        );
+                );
     }
 
     @Test
@@ -139,7 +148,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- WHEN --
         PKIBody body = CmpTestUtil.createCertConfBody(x509certificate, serialNumber);
         PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
-                transactionId, CmpTestUtil.generateKeyPairEC().getPrivate(), body)
+                        transactionId, CmpTestUtil.generateKeyPairEC().getPrivate(), body)
                 .toASN1Structure();
 
         // -- test handling of message
@@ -161,15 +170,15 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
                 serialNumber.toString(16));
         assertFalse(certificate.isEmpty());
         assertEquals(CertificateState.ISSUED, certificate.get().getState());
-        assertTrue(response.getExtraCerts().length>0);
+        assertTrue(response.getExtraCerts().length > 0);
 
         // (3) check transaction (found by serial number - same as related with cert) and its state
         cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
-            transactionId, serialNumber.toString(16)
+                transactionId, serialNumber.toString(16)
         ).ifPresent(
-            cmpTransaction -> assertEquals(
-                CmpTransactionState.CERT_CONFIRMED,
-                cmpTransaction.getState())
+                cmpTransaction -> assertEquals(
+                        CmpTransactionState.CERT_CONFIRMED,
+                        cmpTransaction.getState())
         );
     }
 
@@ -178,7 +187,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- WHEN --
         PKIBody body = CmpTestUtil.createCertConfBody(x509certificate, serialNumber);
         PKIMessage request = CmpTestUtil.createMacBasedMessage(
-                transactionId, sharedSecret, body)
+                        transactionId, sharedSecret, body)
                 .toASN1Structure();
 
         // -- test handling of message
@@ -215,7 +224,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
     public void test_handle_rfc4210_mac_protection() throws Exception {
         // -- WHEN --
         PKIMessage request = CmpTestUtil.createMacBasedMessage(
-                transactionId, sharedSecret, CmpTestUtil.createCertConfBody(x509certificate, serialNumber))
+                        transactionId, sharedSecret, CmpTestUtil.createCertConfBody(x509certificate, serialNumber))
                 .toASN1Structure();
 
         // -- test handling of message
@@ -255,7 +264,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
     // --  entities
     private Certificate createSigningCertificateEntity(WireMockServer mockServer) {
         Connector connector = new Connector();
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
