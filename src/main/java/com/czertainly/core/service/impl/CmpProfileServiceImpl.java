@@ -127,63 +127,17 @@ public class CmpProfileServiceImpl implements CmpProfileService {
 
         CmpProfile cmpProfile = new CmpProfile();
 
-        // set request protection method
-        switch (request.getRequestProtectionMethod()) {
-            case SHARED_SECRET -> {
-                if (request.getSharedSecret() == null || request.getSharedSecret().isEmpty()) {
-                    throw new ValidationException(ValidationError.create("Shared secret cannot be empty"));
-                }
-                cmpProfile.setSharedSecret(request.getSharedSecret());
-            }
-            case SIGNATURE -> {}
-            default ->
-                throw new ValidationException(ValidationError.create("Protection method for the CMP request not supported"));
-        }
+        // validate and set variant configuration
+        validateAndSetVariantConfiguration(cmpProfile, request);
 
-        // set response protection method
-        switch (request.getResponseProtectionMethod()) {
-            case SHARED_SECRET -> cmpProfile.setSigningCertificateUuid(null);
-            case SIGNATURE -> {
-                if (request.getSigningCertificateUuid() == null || request.getSigningCertificateUuid().isEmpty()) {
-                    throw new ValidationException(ValidationError.create("Signing certificate cannot be empty"));
-                }
-                Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getSigningCertificateUuid()));
-                if (!CertificateUtil.isCertificateCmpAcceptable(certificate)) {
-                    throw new ValidationException(ValidationError.create("Signing certificate cannot be used for CMP Profile"));
-                }
-                cmpProfile.setSigningCertificateUuid(UUID.fromString(request.getSigningCertificateUuid()));
-            }
-            default -> throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
-        }
-
-        // check if variant is supported
-        switch (request.getVariant()) {
-            case V2 -> cmpProfile.setVariant(CmpProfileVariant.V2);
-            case V2_3GPP -> {
-                if (request.getRequestProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Request protection method for the 3GPP CMP request must be " + ProtectionMethod.SIGNATURE.getCode()));
-                }
-                if (request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Response protection method for the 3GPP CMP response must be " + ProtectionMethod.SHARED_SECRET.getCode()));
-                }
-                cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
-            }
-            case V3 -> throw new ValidationException(ValidationError.create("CMPv3 is not supported yet"));
-            default -> throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
-        }
+        // validate and set protection methods
+        validateAndSetProtectionMethods(cmpProfile, request);
 
         // validate custom attributes
         attributeEngine.validateCustomAttributesContent(Resource.CMP_PROFILE, request.getCustomAttributes());
 
         // check if RA Profile is provided
-        RaProfile raProfile = null;
-        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
-            raProfile = getRaProfile(request.getRaProfileUuid());
-            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
-            extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
-        }
+        RaProfile raProfile = getProvidedRaProfile(request);
 
         // new CMP Profile is disabled by default
         cmpProfile.setEnabled(false);
@@ -217,63 +171,17 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
 
-        // set request protection method
-        switch (request.getRequestProtectionMethod()) {
-            case SHARED_SECRET -> {
-                if (request.getSharedSecret() == null || request.getSharedSecret().isEmpty()) {
-                    throw new ValidationException(ValidationError.create("Shared secret cannot be empty"));
-                }
-                cmpProfile.setSharedSecret(request.getSharedSecret());
-            }
-            case SIGNATURE -> cmpProfile.setSharedSecret(null);
-            default ->
-                    throw new ValidationException(ValidationError.create("Protection method for the CMP request not supported"));
-        }
+        // validate and set variant configuration
+        validateAndSetVariantConfiguration(cmpProfile, request);
 
-        // set response protection method
-        switch (request.getResponseProtectionMethod()) {
-            case SHARED_SECRET -> {}
-            case SIGNATURE -> {
-                if (request.getSigningCertificateUuid() == null || request.getSigningCertificateUuid().isEmpty()) {
-                    throw new ValidationException(ValidationError.create("Signing certificate cannot be empty"));
-                }
-                Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getSigningCertificateUuid()));
-                if (!CertificateUtil.isCertificateCmpAcceptable(certificate)) {
-                    throw new ValidationException(ValidationError.create("Signing certificate cannot be used for CMP Profile"));
-                }
-                cmpProfile.setSigningCertificateUuid(UUID.fromString(request.getSigningCertificateUuid()));
-            }
-            default -> throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
-        }
-
-        // check if variant is supported
-        switch (request.getVariant()) {
-            case V2 -> cmpProfile.setVariant(CmpProfileVariant.V2);
-            case V2_3GPP -> {
-                if (request.getRequestProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Request protection method for the 3GPP CMP request must be " + ProtectionMethod.SIGNATURE.getCode()));
-                }
-                if (request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
-                    throw new ValidationException(ValidationError.create(
-                            "Response protection method for the 3GPP CMP response must be " + ProtectionMethod.SHARED_SECRET.getCode()));
-                }
-                cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
-            }
-            case V3 -> throw new ValidationException(ValidationError.create("CMPv3 is not supported yet"));
-            default -> throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
-        }
+        // validate and set protection methods
+        validateAndSetProtectionMethods(cmpProfile, request);
 
         // validate custom attributes
         attributeEngine.validateCustomAttributesContent(Resource.CMP_PROFILE, request.getCustomAttributes());
 
         // check if RA Profile is provided
-        RaProfile raProfile = null;
-        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
-            raProfile = getRaProfile(request.getRaProfileUuid());
-            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
-            extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
-        }
+        RaProfile raProfile = getProvidedRaProfile(request);
 
         // delete old connector data attributes content
         UUID oldConnectorUuid = cmpProfile.getRaProfile() == null ? null : cmpProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
@@ -429,6 +337,111 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     // Helper private methods
     // -----------------------------------------------------------------------------------------------------------------
     // -----------------------------------------------------------------------------------------------------------------
+
+    /**
+     * Validate the variant configuration for the CMP Profile
+     * @param cmpProfile CMP Profile entity
+     * @param request CMP Profile request DTO
+     * @throws ValidationException When the variant configuration is not valid
+     */
+    private void validateAndSetVariantConfiguration(CmpProfile cmpProfile, CmpProfileRequestDto request) throws ValidationException {
+        switch (request.getVariant()) {
+            case V2 -> {
+                // when the response protection method is shared secret, the request protection method must be shared
+                // secret, because they share the same secret and the client must know the secret to decrypt
+                // the response
+                if (request.getResponseProtectionMethod() == ProtectionMethod.SHARED_SECRET &&
+                        request.getRequestProtectionMethod() != ProtectionMethod.SHARED_SECRET) {
+                    throw new ValidationException(ValidationError.create(
+                            "Request protection method for the CMPv2 must be " +
+                                    ProtectionMethod.SHARED_SECRET.getCode()) +
+                            " when response protection method is " + ProtectionMethod.SHARED_SECRET.getCode());
+                }
+                // when the request protection method is signature, the response protection method must be signature
+                // because the client does not have knowledge of the shared secret
+                if (request.getRequestProtectionMethod() == ProtectionMethod.SIGNATURE &&
+                        request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Response protection method for the CMPv2 must be " +
+                                    ProtectionMethod.SIGNATURE.getCode()) +
+                            " when request protection method is " + ProtectionMethod.SIGNATURE.getCode());
+                }
+                cmpProfile.setVariant(CmpProfileVariant.V2);
+            }
+            case V2_3GPP -> {
+                if (request.getRequestProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Request protection method for the 3GPP CMP request must be " +
+                                    ProtectionMethod.SIGNATURE.getCode()));
+                }
+                if (request.getResponseProtectionMethod() != ProtectionMethod.SIGNATURE) {
+                    throw new ValidationException(ValidationError.create(
+                            "Response protection method for the 3GPP CMP response must be " +
+                                    ProtectionMethod.SIGNATURE.getCode()));
+                }
+                cmpProfile.setVariant(CmpProfileVariant.V2_3GPP);
+            }
+            case V3 -> throw new ValidationException(ValidationError.create("CMPv3 is not supported yet"));
+            default ->
+                    throw new ValidationException(ValidationError.create("Variant for the CMP Profile not supported"));
+        }
+    }
+
+    /**
+     * Validate and set the protection methods for the CMP Profile
+     * @param cmpProfile CMP Profile entity
+     * @param request CMP Profile request DTO
+     * @throws NotFoundException When the certificate for signature response protection is not found
+     */
+    private void validateAndSetProtectionMethods(CmpProfile cmpProfile, CmpProfileRequestDto request) throws NotFoundException {
+        // validate and set request protection method
+        switch (request.getRequestProtectionMethod()) {
+            case SHARED_SECRET -> {
+                if (request.getSharedSecret() == null || request.getSharedSecret().isEmpty()) {
+                    throw new ValidationException(ValidationError.create("Shared secret cannot be empty"));
+                }
+                cmpProfile.setSharedSecret(request.getSharedSecret());
+            }
+            case SIGNATURE -> cmpProfile.setSharedSecret(null);
+            default ->
+                    throw new ValidationException(ValidationError.create("Protection method for the CMP request not supported"));
+        }
+
+        // validate and set response protection method
+        switch (request.getResponseProtectionMethod()) {
+            case SHARED_SECRET -> cmpProfile.setSigningCertificateUuid(null);
+            case SIGNATURE -> {
+                if (request.getSigningCertificateUuid() == null || request.getSigningCertificateUuid().isEmpty()) {
+                    throw new ValidationException(ValidationError.create("Signing certificate cannot be empty"));
+                }
+                Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(request.getSigningCertificateUuid()));
+                if (!CertificateUtil.isCertificateCmpAcceptable(certificate)) {
+                    throw new ValidationException(ValidationError.create("Signing certificate cannot be used for CMP Profile"));
+                }
+                cmpProfile.setSigningCertificateUuid(UUID.fromString(request.getSigningCertificateUuid()));
+            }
+            default ->
+                    throw new ValidationException(ValidationError.create("Protection method for the CMP response not supported"));
+        }
+    }
+
+    /**
+     * Get the RA Profile entity from the provided RA Profile UUID, if available
+     * @param request CMP Profile request DTO
+     * @return RA Profile entity
+     * @throws ConnectorException When the RA Profile is not found, or connector is not available
+     * @throws AttributeException When the attributes are not valid
+     */
+    private RaProfile getProvidedRaProfile(CmpProfileRequestDto request) throws AttributeException, ConnectorException {
+        // check if RA Profile is provided
+        RaProfile raProfile = null;
+        if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
+            raProfile = getRaProfile(request.getRaProfileUuid());
+            extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+            extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
+        }
+        return raProfile;
+    }
 
     private void getDtoAttributes(CmpProfile cmpProfile, CmpProfileDetailDto dto) {
         if (cmpProfile.getRaProfile() != null) {
