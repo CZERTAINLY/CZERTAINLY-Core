@@ -28,24 +28,24 @@ import org.bouncycastle.asn1.crmf.*;
  *          signature               BIT STRING }
  * </pre>
  *
- *    <p>POP for a signature key is accomplished by performing a signature
- *    operation on a piece of data containing the identity for which the
- *    certificate is desired.
- *    </p>
+ * <p>POP for a signature key is accomplished by performing a signature
+ * operation on a piece of data containing the identity for which the
+ * certificate is desired.
+ * </p>
  *
- *    <p>There are three cases that need to be looked at when doing a POP for
- *    a signature key:</p>
- *    <ul>
- *        <li>
- *    1.  The certificate subject has not yet established an authenticated
- *        identity with a CA/RA, but has a password and identity string
- *        from the CA/RA.  In this case, the POPOSigningKeyInput structure
- *        would be filled out using the publicKeyMAC choice for authInfo,
- *        and the password and identity would be used to compute the
- *        publicKeyMAC value.  The public key for the certificate being
- *        requested would be placed in both the POPOSigningKeyInput and the
- *        Certificate Template structures.  The signature field is computed
- *        over the DER-encoded POPOSigningKeyInput structure.</li>
+ * <p>There are three cases that need to be looked at when doing a POP for
+ * a signature key:</p>
+ * <ul>
+ *     <li>
+ * 1.  The certificate subject has not yet established an authenticated
+ *     identity with a CA/RA, but has a password and identity string
+ *     from the CA/RA.  In this case, the POPOSigningKeyInput structure
+ *     would be filled out using the publicKeyMAC choice for authInfo,
+ *     and the password and identity would be used to compute the
+ *     publicKeyMAC value.  The public key for the certificate being
+ *     requested would be placed in both the POPOSigningKeyInput and the
+ *     Certificate Template structures.  The signature field is computed
+ *     over the DER-encoded POPOSigningKeyInput structure.</li>
  *
  *        <li>
  *    2.  The CA/RA has established an authenticated identity for the
@@ -56,13 +56,6 @@ import org.bouncycastle.asn1.crmf.*;
  *        would be placed in both the POPOSigningKeyInput and the
  *        Certificate Template structures.  The signature field is computed
  *        over the DER-encoded POPOSigningKeyInput structure.</li>
- *
- *    3.  <li>The certificate subject places its name in the Certificate
- *        Template structure along with the public key.  In this case the
- *        poposkInput field is omitted from the POPOSigningKey structure.
- *        The signature field is computed over the DER-encoded certificate
- *        template structure.</li>
- *    </ul>
  *
  * @see <a href="https://www.ssl.com/how-to/proving-possession-of-a-private-key/">example using of POP at ssl.com</a>
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.2.8">Proof-of-Possession Structures at rfc4210</a>
@@ -80,17 +73,15 @@ public class POPValidator implements Validator<PKIMessage, Void> {
      *
      * @param message which has been used for Proof-of-Possession (POP) verification
      * @return Void/null is ok
-     *
      * @throws CmpBaseException if any problem (technically or with implementation)
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">CertReqMessages syntax</a>
      */
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
-        if(!SUPPORTED_CRMF_MESSAGES_TYPES.contains(message.getBody().getType())) {
-                throw new CmpProcessingException(PKIFailureInfo.systemFailure, //system uses this validator bad way
-                        "validation pop: cannot use proofOfPossession verification for given message body/type, type="
-                        +message.getBody().getType());
+        if (!SUPPORTED_CRMF_MESSAGES_TYPES.contains(message.getBody().getType())) {
+            throw new CmpProcessingException(PKIFailureInfo.systemFailure, //system uses this validator bad way
+                    "validation pop: cannot use proofOfPossession verification for given message body/type, type="
+                            + message.getBody().getType());
         }
         ASN1OctetString tid = message.getHeader().getTransactionID();
         CertReqMsg certReqMsg = ((CertReqMessages) message.getBody().getContent()).toCertReqMsgArray()[0];
@@ -102,7 +93,7 @@ public class POPValidator implements Validator<PKIMessage, Void> {
         }
 
         // -- pop type (dispatch type of validation)
-        switch (proofOfPossession.getType()){
+        switch (proofOfPossession.getType()) {
             case ProofOfPossession.TYPE_RA_VERIFIED:
                 throw new CmpCrmfValidationException(tid, message.getBody().getType(), PKIFailureInfo.badPOP,
                         ImplFailureInfo.CMPVALPOP505);
@@ -112,7 +103,7 @@ public class POPValidator implements Validator<PKIMessage, Void> {
                         "validation pop: the given proofOfPossession type is not implemented yet");
             case ProofOfPossession.TYPE_SIGNING_KEY:
                 POPOSigningKey popoSigningKey = (POPOSigningKey) proofOfPossession.getObject();
-                if(popoSigningKey.getPoposkInput() == null) {
+                if (popoSigningKey.getPoposkInput() == null) {
                     /*
                      *    3.  The certificate subject places its name in the Certificate
                      *        Template structure along with the public key.  In this case the
