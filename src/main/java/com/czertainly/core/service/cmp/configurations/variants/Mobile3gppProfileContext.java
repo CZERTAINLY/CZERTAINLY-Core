@@ -108,12 +108,13 @@ public class Mobile3gppProfileContext extends CmpConfigurationContext {
     @Override
     public void validateOnCrmfResponse(PKIMessage response) throws CmpProcessingException {
         ASN1OctetString tid = response.getHeader().getTransactionID();
-        switch (response.getBody().getType()) {
+        int bodyType = response.getBody().getType();
+        switch (bodyType) {
             case PKIBody.TYPE_INIT_REP:
             case PKIBody.TYPE_CERT_REP:
             case PKIBody.TYPE_KEY_UPDATE_REP:
                 if(response.getExtraCerts() == null || response.getExtraCerts().length==0) {
-                    throw new CmpProcessingException(tid,
+                    throw new CmpCrmfValidationException(tid, bodyType,
                             PKIFailureInfo.badDataFormat, "field 'extraCerts' is null or empty");
                 }
                 break;// do something

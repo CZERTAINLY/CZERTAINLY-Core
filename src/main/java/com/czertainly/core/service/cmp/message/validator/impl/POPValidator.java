@@ -1,10 +1,12 @@
 package com.czertainly.core.service.cmp.message.validator.impl;
 
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.validator.Validator;
+import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.bouncycastle.asn1.cmp.PKIMessage;
@@ -83,7 +85,7 @@ public class POPValidator implements Validator<PKIMessage, Void> {
      * @param message which has been used for Proof-of-Possession (POP) verification
      * @return Void/null is ok
      *
-     * @throws CmpProcessingException if any problem (technically or with implementation)
+     * @throws CmpBaseException if any problem (technically or with implementation)
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">CertReqMessages syntax</a>
      */
@@ -94,22 +96,23 @@ public class POPValidator implements Validator<PKIMessage, Void> {
                         "validation pop: cannot use proofOfPossession verification for given message body/type, type="
                         +message.getBody().getType());
         }
-
+        ASN1OctetString tid = message.getHeader().getTransactionID();
         CertReqMsg certReqMsg = ((CertReqMessages) message.getBody().getContent()).toCertReqMsgArray()[0];
         ProofOfPossession proofOfPossession = certReqMsg.getPop();
 
         if (proofOfPossession == null) {
-            throw new CmpProcessingException(PKIFailureInfo.badPOP,
+            throw new CmpCrmfValidationException(tid, message.getBody().getType(), PKIFailureInfo.badPOP,
                     ImplFailureInfo.CMPVALPOP504);
         }
 
         // -- pop type (dispatch type of validation)
         switch (proofOfPossession.getType()){
             case ProofOfPossession.TYPE_RA_VERIFIED:
-                throw new CmpProcessingException(PKIFailureInfo.badPOP, ImplFailureInfo.CMPVALPOP505);
+                throw new CmpCrmfValidationException(tid, message.getBody().getType(), PKIFailureInfo.badPOP,
+                        ImplFailureInfo.CMPVALPOP505);
             case ProofOfPossession.TYPE_KEY_AGREEMENT:
             case ProofOfPossession.TYPE_KEY_ENCIPHERMENT:
-                throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                throw new CmpCrmfValidationException(tid, message.getBody().getType(), PKIFailureInfo.badPOP,
                         "validation pop: the given proofOfPossession type is not implemented yet");
             case ProofOfPossession.TYPE_SIGNING_KEY:
                 POPOSigningKey popoSigningKey = (POPOSigningKey) proofOfPossession.getObject();
@@ -146,11 +149,11 @@ public class POPValidator implements Validator<PKIMessage, Void> {
                      *        Certificate Template structures.  The signature field is computed
                      *        over the DER-encoded POPOSigningKeyInput structure.
                      */
-                    throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                    throw new CmpCrmfValidationException(tid, message.getBody().getType(), PKIFailureInfo.badPOP,
                             ImplFailureInfo.CMPVALPOP508);
                 }
             default:
-                throw new CmpProcessingException(PKIFailureInfo.badPOP,
+                throw new CmpCrmfValidationException(tid, message.getBody().getType(), PKIFailureInfo.badPOP,
                         "validation pop: the given proofOfPossession type is not supported yet");
         }
         return null;

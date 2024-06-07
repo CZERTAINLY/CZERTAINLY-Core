@@ -1,6 +1,7 @@
 package com.czertainly.core.service.cmp.message.handler;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -127,15 +128,15 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
         ASN1OctetString tid = request.getHeader().getTransactionID();
+        int bodyType = request.getBody().getType();
         String msgBodyType = PkiMessageDumper.msgTypeAsString(request);
-        if(!ALLOWED_TYPES.contains(request.getBody().getType())) {
+        if(!ALLOWED_TYPES.contains(bodyType)) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     "CRMF message cannot be handled - wrong type, type="+msgBodyType);
         }
 
         new POPValidator()
                 .validate(request, configuration);
-
 
         CertReqMessages certReqMessages = (CertReqMessages) request.getBody().getContent();
         CertReqMsg[] certRequests = certReqMessages.toCertReqMsgArray();
@@ -146,7 +147,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
 
             List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
             if(!trx.isEmpty()) {
-                throw new CmpProcessingException(tid, PKIFailureInfo.transactionIdInUse,
+                throw new CmpCrmfValidationException(tid, request.getBody().getType(), PKIFailureInfo.transactionIdInUse,
                         "crmf processing failed - given transaction is already used");
             }
 
@@ -156,27 +157,32 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
             ClientCertificateDataResponseDto requestedCert = switch (request.getBody().getType()) {
                 case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> crmfIrCrMessageHandler.handle(request, configuration);
                 case PKIBody.TYPE_KEY_UPDATE_REQ -> kurMessageHandler.handle(request, configuration);
-                case PKIBody.TYPE_KEY_RECOVERY_REQ, PKIBody.TYPE_CROSS_CERT_REQ ->
+                default ->
                         throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
                                 "CRMF message cannot be handled - type is not supported, type=" + msgBodyType);
-                default -> null;
             };
             if(requestedCert == null) {
-                throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badDataFormat,
                         "certificate was not provided");
             }
             // -- polling against the database
-            Certificate polledCert = pollFeature.pollCertificate(tid,
-                    serialNumber==null?null:serialNumber.getValue().toString(16), requestedCert.getUuid(),
-                    CertificateState.ISSUED);
+            Certificate polledCert = null;
+            try {
+                polledCert = pollFeature.pollCertificate(tid,
+                        serialNumber == null ? null : serialNumber.getValue().toString(16), requestedCert.getUuid(),
+                        CertificateState.ISSUED);
+            } catch (CmpProcessingException e) {
+                throw new CmpCrmfValidationException(tid, bodyType, e.getFailureInfo(),
+                        e.getMessage());
+            }
 
             // -- parse polled certificate (as X509)
-            X509Certificate parsedCert = parseCertificate(tid, polledCert);
+            X509Certificate parsedCert = parseCertificate(tid, bodyType, polledCert);
             // -- field: caPubs
             if(listOfCaCerts == null){
-                listOfCaCerts = createListCaPubs(tid, polledCert);
+                listOfCaCerts = createListCaPubs(tid, bodyType, polledCert);
             } else {
-                List<CMPCertificate> list = createListCaPubs(tid, polledCert);
+                List<CMPCertificate> list = createListCaPubs(tid, bodyType, polledCert);
                 if(!list.isEmpty()) listOfCaCerts.addAll(list);
             }
 
@@ -184,10 +190,9 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
             CmpTransactionState trxState = switch (request.getBody().getType()) {
                 case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ -> crmfIrCrMessageHandler.getTransactionState();
                 case PKIBody.TYPE_KEY_UPDATE_REQ -> kurMessageHandler.getTransactionState();
-                case PKIBody.TYPE_KEY_RECOVERY_REQ, PKIBody.TYPE_CROSS_CERT_REQ ->
+                default ->
                         throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
                                 "CRMF message cannot be handled - type is not supported, type=" + msgBodyType);
-                default -> null;
             };
             cmpTransactionService.save(cmpTransactionService.createTransactionEntity(
                     tid.toString(),
@@ -204,8 +209,9 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
                                 new CertifiedKeyPair(new CertOrEncCert(cmpCertificate)),
                                 null));
             } catch (CertificateEncodingException e) {
-                throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
-                        "SN="+parsedCert.getSerialNumber()+" | CRMF cmp certificate encoding error", e);
+                LOG.error("SN="+parsedCert.getSerialNumber()+" | CRMF cmp certificate encoding error", e);
+                throw new CmpCrmfValidationException(tid, request.getBody().getType(), PKIFailureInfo.badRequest,
+                        "SN="+parsedCert.getSerialNumber()+" | CRMF cmp certificate encoding error");
             }
         //}
 
@@ -217,7 +223,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         }
         // -- field 'certResMessages'
         if(listOfCertResponses == null && listOfCertResponses.isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
+            throw new CmpCrmfValidationException(tid, request.getBody().getType(), PKIFailureInfo.systemFailure,
                     "CRMF request failed - no issued certificates found");
         }
         CertResponse certResponses[] = new CertResponse[listOfCertResponses.size()];
@@ -234,8 +240,9 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
                     .addExtraCerts(null)
                     .build();
         } catch (Exception e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "CRMF message cannot be build, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()), e);
+            LOG.error("CRMF message cannot be handled", e);
+            throw new CmpCrmfValidationException(tid, request.getBody().getType(), PKIFailureInfo.badDataFormat,
+                    "CRMF message cannot be build, type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()));
         }
     }
 
@@ -246,23 +253,24 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
      * @return current db certificate entity converted into x509 format
      * @throws CmpProcessingException
      */
-    private X509Certificate parseCertificate(ASN1OctetString tid, Certificate polledCert)
+    private X509Certificate parseCertificate(ASN1OctetString tid, int bodyType, Certificate polledCert)
             throws CmpProcessingException {
         if(polledCert == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badDataFormat,
                     "unable to parse empty certificate");
         }
         String serialNumber = polledCert.getSerialNumber();
         CertificateContent polledCertContent = polledCert.getCertificateContent();
         if(polledCertContent == null || polledCertContent.getContent().isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badDataFormat,
                     "SN="+serialNumber+" | unable to parse empty certificate content");
         }
 
         try { return CertificateUtil.parseCertificate(polledCertContent.getContent()); }
         catch (CertificateException e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "SN="+serialNumber+" | unable to parse given certificate content", e);
+            LOG.error("SN="+serialNumber+" | unable to parse given certificate content", e);
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badDataFormat,
+                    "SN="+serialNumber+" | unable to parse given certificate content");
         }
     }
 
@@ -286,22 +294,23 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.2">...</a>
      */
-    private List<CMPCertificate> createListCaPubs(ASN1OctetString tid, Certificate leafCertificate)
+    private List<CMPCertificate> createListCaPubs(ASN1OctetString tid, int bodyType, Certificate leafCertificate)
             throws CmpProcessingException {
         try {
-            List<X509Certificate> caChain = loadCaCertificateChain(tid, leafCertificate);
+            List<X509Certificate> caChain = loadCaCertificateChain(tid, bodyType, leafCertificate);
             List<CMPCertificate> converted = new LinkedList<>();
             for (X509Certificate cr : caChain) {
                 converted.add(CertificateUtil.toCmpCertificate(cr));
             }
             return converted;
         }  catch (CertificateException e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "SN="+leafCertificate.getSerialNumber()+" | problem with convert of CA: from (x509) certificates to (cmp) certificates", e);
+            LOG.error("SN="+leafCertificate.getSerialNumber()+" | problem with convert of CA: from (x509) certificates to (cmp) certificates", e);
+            throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
+                    "SN="+leafCertificate.getSerialNumber()+" | problem with convert of CA: from (x509) certificates to (cmp) certificates");
         }
     }
 
-    private List<X509Certificate> loadCaCertificateChain(ASN1OctetString tid, Certificate leafCertificate)
+    private List<X509Certificate> loadCaCertificateChain(ASN1OctetString tid, int bodyType, Certificate leafCertificate)
             throws CmpProcessingException {
         ArrayList<X509Certificate> certificateChain = new ArrayList<>();
 
@@ -320,7 +329,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         for (CertificateDetailDto certificate : caChain) {
             // only certificate with valid status should be used
             if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
-                throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
+                throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
                         String.format("SN=%s | CA Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
                                 leafCertificateSerialNumber,
                                 certificate.getUuid(),
@@ -329,7 +338,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
             }
             try { certificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent())); }
             catch (CertificateException e) { // This should not happen
-                throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
+                throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
                         String.format("SN=%s | failed to parse CA certificate (caSN=%s); content=%s",
                                 leafCertificateSerialNumber,
                                 certificate.getSerialNumber(),

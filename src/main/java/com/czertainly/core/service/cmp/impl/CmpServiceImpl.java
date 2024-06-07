@@ -2,15 +2,12 @@ package com.czertainly.core.service.cmp.impl;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.cmp.PkiMessageError;
-import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
+import com.czertainly.api.interfaces.core.cmp.error.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
-import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
-import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
@@ -18,6 +15,7 @@ import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.CmpTransactionService;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
+import com.czertainly.core.service.cmp.message.builder.PkiMessageBuilder;
 import com.czertainly.core.service.cmp.message.handler.*;
 import com.czertainly.core.service.cmp.message.validator.impl.BodyValidator;
 import com.czertainly.core.service.cmp.message.validator.impl.HeaderValidator;
@@ -172,11 +170,17 @@ public class CmpServiceImpl implements CmpService {
             protectionValidator.validateIn(pkiRequest, configuration);
 
             //see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2, PKI Message Body
-            switch (pkiRequest.getBody().getType()) {
+            int bodyType = pkiRequest.getBody().getType();
+            switch (bodyType) {
                 case PKIBody.TYPE_INIT_REQ:                        // ( 1)       ir, Initial Request; CertReqMessages
                 case PKIBody.TYPE_CERT_REQ:                        // ( 2)       cr, Certification Req; CertReqMessages
                 case PKIBody.TYPE_KEY_UPDATE_REQ:                  // ( 7)      kur, Key Update Request; CertReqMessages
-                    pkiResponse = crmfMessageHandler.handle(pkiRequest, configuration); break;
+                    pkiResponse = crmfMessageHandler.handle(pkiRequest, configuration);
+                    if(pkiResponse == null) {
+                        throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
+                                String.format(" %s | general problem while handling crmf message", logPrefix));
+                    }
+                    break;
                 case PKIBody.TYPE_REVOCATION_REQ:                  // (11)       rr, Revocation Request; RevReqContent
                     pkiResponse = revocationMessageHandler.handle(pkiRequest, configuration); break;
                 case PKIBody.TYPE_CERT_CONFIRM:                    // (24) certConf, Certificate confirm; CertConfirmContent
@@ -215,7 +219,11 @@ public class CmpServiceImpl implements CmpService {
             return buildOk(pkiResponse);
         } catch (CmpBaseException e) {
             handleTrxError(tid, e);
-            PKIMessage pkiResponse = PkiMessageError.unprotectedMessage(pkiRequest.getHeader(), e.toPKIBody());
+            PKIMessage pkiResponse = new PkiMessageBuilder(configuration)
+                    .addHeader(PkiMessageBuilder.buildBasicHeaderTemplate(pkiRequest))
+                    .addBody(e.toPKIBody())
+                    .addExtraCerts(null)
+                    .build();
             if(verbose) {
                 LOG.error("{} | processing failed: \n\n response:\n {}", logPrefix,
                         PkiMessageDumper.dumpPkiMessage(pkiResponse), e);

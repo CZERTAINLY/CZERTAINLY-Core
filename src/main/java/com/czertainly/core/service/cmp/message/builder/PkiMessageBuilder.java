@@ -6,8 +6,11 @@ import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import com.czertainly.core.util.CertificateUtil;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
+import org.bouncycastle.asn1.ASN1Integer;
 import org.bouncycastle.asn1.ASN1OctetString;
+import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
@@ -158,12 +161,16 @@ public class PkiMessageBuilder {
      *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">PKI Message header</a>
      */
-    public PkiMessageBuilder addExtraCerts(List<CMPCertificate> chainOfCertificates) throws Exception {
-        extraCerts = Stream.concat(
-            defaultIfNull(protectionStrategy.getProtectingExtraCerts(), Collections.emptyList()).stream(),
-            defaultIfNull(chainOfCertificates, Collections.emptyList()).stream()
-        ).distinct()
-        .toArray(CMPCertificate[]::new);
+    public PkiMessageBuilder addExtraCerts(List<CMPCertificate> chainOfCertificates) {
+        try {
+            extraCerts = Stream.concat(
+                            defaultIfNull(protectionStrategy.getProtectingExtraCerts(), Collections.emptyList()).stream(),
+                            defaultIfNull(chainOfCertificates, Collections.emptyList()).stream()
+                    ).distinct()
+                    .toArray(CMPCertificate[]::new);
+        } catch(Exception e) {
+            throw new IllegalStateException("problem add extra certificates", e);
+        }
 
         if(config.dumpSigning()) {
             PkiMessageDumper.dumpSingerCertificate(
@@ -175,19 +182,25 @@ public class PkiMessageBuilder {
         return this;
     }
 
-    public PKIMessage build() throws Exception {
+    public PKIMessage build() {
         if(pkiHeader == null) {
-            throw new CmpProcessingException(transactionID, PKIFailureInfo.systemFailure,
-                    "response message cannot be without PKIHeader");
+            throw new IllegalStateException(
+                    "TID="+transactionID+" | response message cannot be without PKIHeader");
         }
         if(pkiBody == null) {
-            throw new CmpProcessingException(transactionID, PKIFailureInfo.systemFailure,
-                    "response message cannot be without PKIBody");
+            throw new IllegalStateException(
+                    "TID="+transactionID+" | response message cannot be without PKIBody");
+        }
+        DERBitString protection = null;
+        try { protection = protectionStrategy.createProtection(pkiHeader, pkiBody); }
+        catch (Exception e) {
+            throw new IllegalStateException(
+                    "TID="+transactionID+" | response message cannot be protected", e);
         }
         return new PKIMessage(
                 pkiHeader,
                 pkiBody,
-                protectionStrategy.createProtection(pkiHeader, pkiBody),
+                protection,
                 (extraCerts == null || extraCerts.length == 0) ? null : extraCerts);
     }
 
@@ -329,7 +342,8 @@ public class PkiMessageBuilder {
             case PKIBody.TYPE_KEY_UPDATE_REQ:
                 break;
             default:
-                throw new CmpProcessingException(PKIFailureInfo.systemFailure, "cannot generated response for given type, type="+bodyType);
+                throw new CmpProcessingException(PKIFailureInfo.systemFailure,
+                        "cannot generate response for given type, type="+bodyType);
         }
         return new PKIBody(bodyType+1, new CertRepMessage(caPubs, response));
     }
