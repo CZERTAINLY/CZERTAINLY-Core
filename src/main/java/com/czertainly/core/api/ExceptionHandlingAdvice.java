@@ -26,10 +26,7 @@ import org.springframework.web.method.annotation.MethodArgumentTypeMismatchExcep
 
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
@@ -112,14 +109,16 @@ public class ExceptionHandlingAdvice {
     /**
      * Handler for {@link MethodArgumentNotValidException}.
      *
-     * @return
+     * @return {@link ErrorMessageDto}
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     public ErrorMessageDto handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
         StringBuilder messageBuilder = new StringBuilder();
         messageBuilder.append("Validation error: ");
-        ex.getBindingResult().getFieldErrors().forEach(err -> messageBuilder.append(err.getDefaultMessage()).append(", "));
+        ex.getBindingResult().getFieldErrors().forEach(
+                err -> messageBuilder.append(err.getField()).append(" ").append(err.getDefaultMessage()).append(", ")
+        );
         // remote trailing comma and space
         messageBuilder.delete(messageBuilder.length() - 2, messageBuilder.length());
 

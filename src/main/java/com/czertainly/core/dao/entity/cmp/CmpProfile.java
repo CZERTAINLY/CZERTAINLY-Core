@@ -44,6 +44,12 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     @Column(name="enabled")
     private Boolean enabled;
 
+    @Setter
+    @Getter
+    @Column(name = "variant")
+    @Enumerated(EnumType.STRING)
+    private CmpProfileVariant variant = CmpProfileVariant.V2;
+
     @Getter
     @OneToOne(fetch = FetchType.LAZY)
     @JsonBackReference
@@ -91,6 +97,7 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         }
         cmpProfileDto.setDescription(description);
         cmpProfileDto.setEnabled(enabled);
+        cmpProfileDto.setVariant(variant);
         cmpProfileDto.setName(name);
         cmpProfileDto.setUuid(uuid.toString());
         return cmpProfileDto;
@@ -103,6 +110,7 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         }
         cmpProfileDto.setDescription(description);
         cmpProfileDto.setEnabled(enabled);
+        cmpProfileDto.setVariant(variant);
         cmpProfileDto.setName(name);
         cmpProfileDto.setUuid(uuid.toString());
         if(signingCertificate != null) cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
@@ -155,9 +163,4 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         }
     }
 
-    @Setter
-    @Getter
-    @Column(name = "variant")
-    @Enumerated(EnumType.STRING)
-    private CmpProfileVariant variant = CmpProfileVariant.V2;//default
 }
