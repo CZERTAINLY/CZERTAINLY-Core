@@ -181,6 +181,7 @@ public class CmpServiceImpl implements CmpService {
         }
 
         // -- (processing) part
+        init(profileName);
         ConfigurationContext configuration = switch (cmpProfile.getVariant()) {
             /*   3gpp*/
             case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
@@ -195,7 +196,6 @@ public class CmpServiceImpl implements CmpService {
         try {
             PKIMessage pkiResponse;
             int bodyType = pkiRequest.getBody().getType();
-            init(profileName);
             validateProfile(tid, bodyType, profileName);
 
             headerValidator.validate(pkiRequest, configuration);
