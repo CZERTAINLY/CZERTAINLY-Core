@@ -349,11 +349,19 @@ public class Sql2PredicateConverter {
                     jsonValueQuery.select(expressionFunctionToGetJsonValue);
                     jsonValueQuery.where(predicateForContentType, predicateToKeepRelationWithUpperQuery, predicateAttributeName, predicateGroup);
 
-                    // For correct behaviour of search, for operators specified in switchOperatorForComplement instead first get uuids for which opposite holds
-                    final Predicate predicateOfTheExpression =
-                            buildPredicateByCondition(criteriaBuilder, switchOperatorForComplement(dto.getCondition()), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), false, dto, searchField);
+                    final List<Predicate> expressionPredicates = new ArrayList<>();
+                    final List<Object> expressionValues = readAndCheckIncomingValues(dto);
+                    for (final Object expressionValue : expressionValues) {
+                        final Predicate expressionPredicate = buildPredicateByCondition(criteriaBuilder, switchOperatorForComplement(dto.getCondition()), jsonValueQuery, null, null, expressionValue, searchField.isDateTimeFormat(), false, dto, searchField);
+                        expressionPredicates.add(expressionPredicate);
+                    }
+                    subPredicates.add(expressionPredicates.size() > 1 ? criteriaBuilder.or(expressionPredicates.toArray(new Predicate[]{})) : expressionPredicates.get(0));
 
-                    subPredicates.add(predicateOfTheExpression);
+                    // For correct behaviour of search, for operators specified in switchOperatorForComplement instead first get uuids for which opposite holds
+//                    final Predicate predicateOfTheExpression =
+//                            buildPredicateByCondition(criteriaBuilder, switchOperatorForComplement(dto.getCondition()), jsonValueQuery, null, null, null, searchField.isDateTimeFormat(), false, dto, searchField);
+
+//                    subPredicates.add(predicateOfTheExpression);
                     subquery.where(subPredicates.toArray(new Predicate[]{}));
                     // If operator was switched, return complement of query result
                     if (dto.getCondition() == switchOperatorForComplement(dto.getCondition())) {
