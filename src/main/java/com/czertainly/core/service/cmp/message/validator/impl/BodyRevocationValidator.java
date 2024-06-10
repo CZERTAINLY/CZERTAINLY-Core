@@ -47,13 +47,13 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
         RevDetails[] revDetails = content.toRevDetailsArray();
         checkOneElementInArray(tid, revDetails, "RevDetails");
         CertTemplate certDetails = revDetails[0].getCertDetails();
-        checkValueNotNull(tid, certDetails, PKIFailureInfo.addInfoNotAvailable, "certDetails");
-        checkValueNotNull(tid, certDetails.getSerialNumber(), PKIFailureInfo.addInfoNotAvailable, "SerialNumber");
-        checkValueNotNull(tid, certDetails.getIssuer(), PKIFailureInfo.addInfoNotAvailable, "Issuer");
+        checkValueNotNull(tid, certDetails, PKIFailureInfo.badCertId, "certDetails");
+        checkValueNotNull(tid, certDetails.getSerialNumber(), PKIFailureInfo.badCertId, "SerialNumber");
+        checkValueNotNull(tid, certDetails.getIssuer(), PKIFailureInfo.badCertId, "Issuer");
         Extensions crlEntryDetails = revDetails[0].getCrlEntryDetails();
         checkValueNotNull(tid, crlEntryDetails, PKIFailureInfo.addInfoNotAvailable, "CrlEntryDetails");
         Extension reasonCodeExt = crlEntryDetails.getExtension(Extension.reasonCode);
-        checkValueNotNull(tid, reasonCodeExt, PKIFailureInfo.addInfoNotAvailable, "reasonCode");
+        checkValueNotNull(tid, reasonCodeExt, PKIFailureInfo.incorrectData, "reasonCode");
 
         long reasonCode = ASN1Enumerated.getInstance(reasonCodeExt.getParsedValue())
                 .getValue().longValue();

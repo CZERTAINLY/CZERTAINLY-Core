@@ -163,7 +163,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
             throws CmpProcessingException {
         Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
         if (certificate.isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "SN="+serialNumber+" | certificate for revocation could not be found");
         }
         return certificate.get();
@@ -189,7 +189,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
             throws CmpProcessingException {
         String sn = certificate.getSerialNumber();
         if (CertificateState.REVOKED.equals(certificate.getState())) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badCertTemplate,
+            throw new CmpProcessingException(tid, PKIFailureInfo.certRevoked,
                     "SN="+sn+" | Certificate is already revoked");
         }
         CertificateRevocationReason reason = getReason(revocation);

@@ -309,7 +309,7 @@ public class CmpServiceImpl implements CmpService {
 
     private ResponseEntity<byte[]> buildBadRequest(PKIMessage pkiMessage) {
         return ResponseEntity
-                .status(HttpStatus.BAD_REQUEST)
+                .status(HttpStatus.OK)
                 .header("Content-Type", HTTP_HEADER_CONTENT_TYPE)
                 .body(PkiMessageError.encode(pkiMessage));
     }

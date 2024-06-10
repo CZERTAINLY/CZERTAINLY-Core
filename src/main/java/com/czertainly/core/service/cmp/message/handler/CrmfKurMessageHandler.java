@@ -91,7 +91,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
 
         if(dbPublicKey.toString().equals(reqPublicKey.toString()))
         {//re-key is only about public keys change
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     "re-key operation failed: both public key are the same; must be different");
         }
 
@@ -125,11 +125,11 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
             publicKey = new JcaPEMKeyConverter().setProvider(BouncyCastleProvider.PROVIDER_NAME)
                     .getPublicKey(certRequest.getCertTemplate().getPublicKey());
         } catch (PEMException e) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     "re-key operation failed: public key from request cannot be parsed");
         }
         if(publicKey == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     "re-key operation failed: public key from request not found");
         }
         return publicKey;
@@ -140,7 +140,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
         String serialNumber = getSerialNumber(tid, certRequest);
         Optional<Certificate> dbCertificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
         if(dbCertificate.isEmpty()) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "current certificate is not found in inventory");
         }
         return dbCertificate.get();
@@ -183,7 +183,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
             }
         }
         if(certId == null || certId.getSerialNumber() == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badRequest,
+            throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "cannot find serial number of current certificate");
         }
         return certId.getSerialNumber().getValue().toString(16);
