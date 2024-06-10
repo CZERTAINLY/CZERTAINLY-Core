@@ -1,7 +1,6 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -21,7 +20,7 @@ public class AlgorithmUtil {
         String signatureAlgorithm;
         if (privateKeyAlgorithm.equals("RSA")) {
             signatureAlgorithm = digestAlgorithm + "withRSA";
-        } else if (privateKeyAlgorithm.equals("EC")) {
+        } else if (privateKeyAlgorithm.equals("EC") || privateKeyAlgorithm.equals("ECDSA")) {
             signatureAlgorithm = digestAlgorithm + "withECDSA";
         } else {
             throw new NoSuchAlgorithmException("Unsupported private key algorithm: " + privateKeyAlgorithm);
@@ -53,6 +52,12 @@ public class AlgorithmUtil {
             return "SHA-384";
         } else if (digestAlgorithmOID.equals("2.16.840.1.101.3.4.2.3")) { // SHA512 OID
             return "SHA-512";
+        } else if(digestAlgorithmOID.equals("1.2.840.10045.4.3.2")) {
+            return "SHA256";
+        } else if(digestAlgorithmOID.equals("1.2.840.10045.4.3.3")) {
+            return "SHA384";
+        } else if (digestAlgorithmOID.equals("1.2.840.10045.4.3.4")) {
+            return "SHA512";
         } else {
             throw new NoSuchAlgorithmException("Unsupported digest algorithm OID: " + digestAlgorithmOID);
         }

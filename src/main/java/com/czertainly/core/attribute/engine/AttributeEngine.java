@@ -98,18 +98,18 @@ public class AttributeEngine {
     public List<SearchFieldDataByGroupDto> getResourceSearchableFields(Resource resource, boolean settable) {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
 
-        final List<SearchFieldObject> customAttrSearchFieldObject = settable ? attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentType(resource, List.of(AttributeType.CUSTOM), Arrays.stream(AttributeContentType.values()).filter(AttributeContentType::isFilterByData).toList())
-                : attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM));
+        final List<SearchFieldObject> customAttrSearchFieldObject = settable ? attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrTypeAndAttrContentTypeAndReadOnlyFalse(resource, List.of(AttributeType.CUSTOM), Arrays.stream(AttributeContentType.values()).filter(AttributeContentType::isFilterByData).toList())
+                : attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM));
         if (!customAttrSearchFieldObject.isEmpty()) {
             searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(customAttrSearchFieldObject), FilterFieldSource.CUSTOM));
         }
 
         if (!settable) {
-            final List<SearchFieldObject> dataAttrSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.DATA));
+            final List<SearchFieldObject> dataAttrSearchFieldObject = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.DATA));
             if (!dataAttrSearchFieldObject.isEmpty()) {
                 searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(dataAttrSearchFieldObject), FilterFieldSource.DATA));
             }
-            final List<SearchFieldObject> metadataSearchFieldObject = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.META));
+            final List<SearchFieldObject> metadataSearchFieldObject = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.META));
             if (!metadataSearchFieldObject.isEmpty()) {
                 searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(SearchHelper.prepareSearchForJSON(metadataSearchFieldObject), FilterFieldSource.META));
             }
@@ -124,7 +124,7 @@ public class AttributeEngine {
             return null;
         }
 
-        final List<SearchFieldObject> searchFieldObjects = attributeContent2ObjectRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
+        final List<SearchFieldObject> searchFieldObjects = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
         return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }

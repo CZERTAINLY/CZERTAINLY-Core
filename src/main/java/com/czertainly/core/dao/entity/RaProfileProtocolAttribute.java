@@ -2,9 +2,12 @@ package com.czertainly.core.dao.entity;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.UUID;
 
+@Getter
 @Entity
 @Table(name = "ra_profile_protocol_attribute")
 public class RaProfileProtocolAttribute extends UniquelyIdentified {
@@ -14,6 +17,7 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
     @JoinColumn(name = "ra_profile_uuid", insertable = false, updatable = false)
     private RaProfile raProfile;
 
+    @Setter
     @Column(name = "ra_profile_uuid")
     private UUID raProfileUuid;
 
@@ -21,9 +25,11 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
      * ACME related attributes
      */
 
+    @Setter
     @Column(name = "acme_issue_certificate_attributes")
     private String acmeIssueCertificateAttributes;
 
+    @Setter
     @Column(name = "acme_revoke_certificate_attributes")
     private String acmeRevokeCertificateAttributes;
 
@@ -31,47 +37,24 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
      * SCEP related attributes
      */
 
+    @Setter
     @Column(name = "scep_issue_certificate_attributes")
     private String scepIssueCertificateAttributes;
 
-    public String getAcmeIssueCertificateAttributes() {
-        return acmeIssueCertificateAttributes;
-    }
+    /**
+     * CMP protocol related attributes
+     */
+    @Setter
+    @Column(name = "cmp_issue_certificate_attributes")
+    private String cmpIssueCertificateAttributes;
 
-    public void setAcmeIssueCertificateAttributes(String acmeIssueCertificateAttributes) {
-        this.acmeIssueCertificateAttributes = acmeIssueCertificateAttributes;
-    }
-
-    public String getAcmeRevokeCertificateAttributes() {
-        return acmeRevokeCertificateAttributes;
-    }
-
-    public void setAcmeRevokeCertificateAttributes(String acmeRevokeCertificateAttributes) {
-        this.acmeRevokeCertificateAttributes = acmeRevokeCertificateAttributes;
-    }
-
-    public String getScepIssueCertificateAttributes() {
-        return scepIssueCertificateAttributes;
-    }
-
-    public void setScepIssueCertificateAttributes(String scepIssueCertificateAttributes) {
-        this.scepIssueCertificateAttributes = scepIssueCertificateAttributes;
-    }
-
-    public RaProfile getRaProfile() {
-        return raProfile;
-    }
+    @Setter
+    @Column(name = "cmp_revoke_certificate_attributes")
+    private String cmpRevokeCertificateAttributes;
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
         if(raProfile != null) raProfileUuid = raProfile.getUuid();
     }
 
-    public UUID getRaProfileUuid() {
-        return raProfileUuid;
-    }
-
-    public void setRaProfileUuid(UUID raProfileUuid) {
-        this.raProfileUuid = raProfileUuid;
-    }
 }

@@ -22,5 +22,7 @@ public interface RaProfileRepository extends SecurityFilterRepository<RaProfile,
 
     List<RaProfile> findAllByScepProfileUuid(UUID scepProfileUuid);
 
+    List<RaProfile> findAllByCmpProfileUuid(UUID cmpProfileUuid);
+
     List<RaProfile> findAllByUuidIn(List<UUID>uuids);
 }

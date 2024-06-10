@@ -9,8 +9,6 @@ import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
-import com.czertainly.api.model.core.certificate.group.GroupDto;
-import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
