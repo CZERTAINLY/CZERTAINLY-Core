@@ -24,13 +24,14 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
 
     /**
      * see flow at rfc4210, section 5.1.3.1
-     *      id-PasswordBasedMac OBJECT IDENTIFIER ::= {1 2 840 113533 7 66 13}
-     *      PBMParameter ::= SEQUENCE {
-     *        salt                OCTET STRING,
-     *        owf                 AlgorithmIdentifier,
-     *        iterationCount      INTEGER,
-     *        mac                 AlgorithmIdentifier
-     *      }
+     * id-PasswordBasedMac OBJECT IDENTIFIER ::= {1 2 840 113533 7 66 13}
+     * PBMParameter ::= SEQUENCE {
+     * salt                OCTET STRING,
+     * owf                 AlgorithmIdentifier,
+     * iterationCount      INTEGER,
+     * mac                 AlgorithmIdentifier
+     * }
+     *
      * @param message subject (its protection and header) for validation
      * @return null if validation is ok
      * @throws CmpProcessingException if validation has failed
@@ -74,9 +75,9 @@ public class ProtectionMacValidator implements Validator<PKIMessage, Void> {
                 throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                         "mac validation: check of PasswordBasedMac protection failed");
             }
-        }
-        catch (CmpBaseException e) { throw e; }
-        catch (Exception e) {
+        } catch (CmpBaseException e) {
+            throw e;
+        } catch (Exception e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     e.getLocalizedMessage());
         }

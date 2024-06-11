@@ -31,7 +31,6 @@ import org.bouncycastle.asn1.sec.SECObjectIdentifiers;
 import org.bouncycastle.asn1.teletrust.TeleTrusTObjectIdentifiers;
 import org.bouncycastle.asn1.ua.UAObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.Extensions;
 import org.bouncycastle.asn1.x509.GeneralName;
@@ -57,7 +56,6 @@ import java.util.concurrent.ConcurrentHashMap;
  * A utility class providing functions for dumping messages.
  *
  * @author Andreas Kretschmer (cmp-ra-component/Apache 2.0 Licence)
- *
  * @see <a href="https://github.com/siemens/cmp-ra-component/blob/main/src/main/java/com/siemens/pki/cmpracomponent/util/MessageDumper.java">...</a>
  */
 public class PkiMessageDumper {
@@ -84,7 +82,7 @@ public class PkiMessageDumper {
     public static void dumpSingerCertificate(String location,
                                              X509Certificate singerCertificate,
                                              CMPCertificate[] extraCerts) {
-        if("builder".equals(location)) {
+        if ("builder".equals(location)) {
             if (extraCerts != null && extraCerts.length > 0) {
                 for (var i = 0; i < extraCerts.length; i++) {
                     org.bouncycastle.asn1.x509.Certificate cert = extraCerts[i].getX509v3PKCert();
@@ -109,7 +107,7 @@ public class PkiMessageDumper {
     }
 
     /**
-     * @param msg source of data for log prefix
+     * @param msg         source of data for log prefix
      * @param profileName next data for log prefix
      * @return short version of pki message (type, tid, profileName)
      */
@@ -123,51 +121,104 @@ public class PkiMessageDumper {
     /**
      * @param msg whose type is translated into shortcut, e.g. InitialRequest->ir
      * @return shortcut of given {@link PKIBody#getType()}
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI Body overview</a>
      */
     public static String msgTypeAsShortCut(boolean showIndex, PKIMessage msg) {
         String format = showIndex ? "(%s:%s)" : "(%s)";
         int type = msg.getBody().getType();
-        switch(type){
-            case PKIBody.TYPE_INIT_REQ ->          {return String.format(format, "ir",      type/* 0*/ );}
-            case PKIBody.TYPE_INIT_REP ->          {return String.format(format, "ip",      type/* 1*/ );}
-            case PKIBody.TYPE_CERT_REQ ->          {return String.format(format, "cr",      type/* 2*/ );}
-            case PKIBody.TYPE_CERT_REP ->          {return String.format(format, "ip",      type/* 3*/ );}
-            case PKIBody.TYPE_P10_CERT_REQ ->      {return String.format(format, "p10cr",   type/* 4*/ );}
-            case PKIBody.TYPE_POPO_CHALL ->        {return String.format(format, "popdecc", type/* 5*/ );}
-            case PKIBody.TYPE_POPO_REP ->          {return String.format(format, "popdecr", type/* 6*/ );}
-            case PKIBody.TYPE_KEY_UPDATE_REQ ->    {return String.format(format, "kur",     type/* 7*/ );}
-            case PKIBody.TYPE_KEY_UPDATE_REP ->    {return String.format(format, "kup",     type/* 8*/ );}
-            case PKIBody.TYPE_KEY_RECOVERY_REQ ->  {return String.format(format, "krr",     type/* 9*/ );}
-            case PKIBody.TYPE_KEY_RECOVERY_REP ->  {return String.format(format, "krp",     type/*10*/ );}
-            case PKIBody.TYPE_REVOCATION_REQ ->    {return String.format(format, "rr",      type/*11*/ );}
-            case PKIBody.TYPE_REVOCATION_REP ->    {return String.format(format, "rp",      type/*12*/ );}
-            case PKIBody.TYPE_CROSS_CERT_REQ ->    {return String.format(format, "ccr",     type/*13*/ );}
-            case PKIBody.TYPE_CROSS_CERT_REP ->    {return String.format(format, "ccp",     type/*14*/ );}
-            case PKIBody.TYPE_CA_KEY_UPDATE_ANN -> {return String.format(format, "ckuann",  type/*15*/ );}
-            case PKIBody.TYPE_CERT_ANN ->          {return String.format(format, "cann",    type/*16*/ );}
-            case PKIBody.TYPE_REVOCATION_ANN ->    {return String.format(format, "rann",    type/*17*/ );}
-            case PKIBody.TYPE_CRL_ANN ->           {return String.format(format, "crlann",  type/*18*/ );}
-            case PKIBody.TYPE_CONFIRM ->           {return String.format(format, "pkiconf", type/*19*/ );}
-            case PKIBody.TYPE_NESTED ->            {return String.format(format, "nested",  type/*20*/ );}
-            case PKIBody.TYPE_GEN_MSG ->           {return String.format(format, "genm",    type/*21*/ );}
-            case PKIBody.TYPE_GEN_REP ->           {return String.format(format, "genp",    type/*22*/ );}
-            case PKIBody.TYPE_ERROR ->             {return String.format(format, "error",   type/*23*/ );}
-            case PKIBody.TYPE_CERT_CONFIRM ->      {return String.format(format, "certConf",type/*24*/ );}
-            case PKIBody.TYPE_POLL_REQ ->          {return String.format(format, "pollReq", type/*25*/ );}
-            case PKIBody.TYPE_POLL_REP ->          {return String.format(format, "pollRep", type/*26*/ );}
+        switch (type) {
+            case PKIBody.TYPE_INIT_REQ -> {
+                return String.format(format, "ir", type/* 0*/);
+            }
+            case PKIBody.TYPE_INIT_REP -> {
+                return String.format(format, "ip", type/* 1*/);
+            }
+            case PKIBody.TYPE_CERT_REQ -> {
+                return String.format(format, "cr", type/* 2*/);
+            }
+            case PKIBody.TYPE_CERT_REP -> {
+                return String.format(format, "ip", type/* 3*/);
+            }
+            case PKIBody.TYPE_P10_CERT_REQ -> {
+                return String.format(format, "p10cr", type/* 4*/);
+            }
+            case PKIBody.TYPE_POPO_CHALL -> {
+                return String.format(format, "popdecc", type/* 5*/);
+            }
+            case PKIBody.TYPE_POPO_REP -> {
+                return String.format(format, "popdecr", type/* 6*/);
+            }
+            case PKIBody.TYPE_KEY_UPDATE_REQ -> {
+                return String.format(format, "kur", type/* 7*/);
+            }
+            case PKIBody.TYPE_KEY_UPDATE_REP -> {
+                return String.format(format, "kup", type/* 8*/);
+            }
+            case PKIBody.TYPE_KEY_RECOVERY_REQ -> {
+                return String.format(format, "krr", type/* 9*/);
+            }
+            case PKIBody.TYPE_KEY_RECOVERY_REP -> {
+                return String.format(format, "krp", type/*10*/);
+            }
+            case PKIBody.TYPE_REVOCATION_REQ -> {
+                return String.format(format, "rr", type/*11*/);
+            }
+            case PKIBody.TYPE_REVOCATION_REP -> {
+                return String.format(format, "rp", type/*12*/);
+            }
+            case PKIBody.TYPE_CROSS_CERT_REQ -> {
+                return String.format(format, "ccr", type/*13*/);
+            }
+            case PKIBody.TYPE_CROSS_CERT_REP -> {
+                return String.format(format, "ccp", type/*14*/);
+            }
+            case PKIBody.TYPE_CA_KEY_UPDATE_ANN -> {
+                return String.format(format, "ckuann", type/*15*/);
+            }
+            case PKIBody.TYPE_CERT_ANN -> {
+                return String.format(format, "cann", type/*16*/);
+            }
+            case PKIBody.TYPE_REVOCATION_ANN -> {
+                return String.format(format, "rann", type/*17*/);
+            }
+            case PKIBody.TYPE_CRL_ANN -> {
+                return String.format(format, "crlann", type/*18*/);
+            }
+            case PKIBody.TYPE_CONFIRM -> {
+                return String.format(format, "pkiconf", type/*19*/);
+            }
+            case PKIBody.TYPE_NESTED -> {
+                return String.format(format, "nested", type/*20*/);
+            }
+            case PKIBody.TYPE_GEN_MSG -> {
+                return String.format(format, "genm", type/*21*/);
+            }
+            case PKIBody.TYPE_GEN_REP -> {
+                return String.format(format, "genp", type/*22*/);
+            }
+            case PKIBody.TYPE_ERROR -> {
+                return String.format(format, "error", type/*23*/);
+            }
+            case PKIBody.TYPE_CERT_CONFIRM -> {
+                return String.format(format, "certConf", type/*24*/);
+            }
+            case PKIBody.TYPE_POLL_REQ -> {
+                return String.format(format, "pollReq", type/*25*/);
+            }
+            case PKIBody.TYPE_POLL_REP -> {
+                return String.format(format, "pollRep", type/*26*/);
+            }
         }
         return "<unknown-type>";
     }
 
     /**
      * @param verbose if true (=long version) otherwise short version of {@link PKIMessage}
-     * @param msg message for dump
+     * @param msg     message for dump
      * @return return log version (short/long by given <code>verbose</code> flag) of {@link PKIMessage}
      */
-    public static String dumpPkiMessage(boolean verbose, PKIMessage msg){
-        if(verbose) return dumpPkiMessage(msg);
+    public static String dumpPkiMessage(boolean verbose, PKIMessage msg) {
+        if (verbose) return dumpPkiMessage(msg);
         return " [" + msg.getHeader().getSender() + " => " + msg.getHeader().getRecipient() + "]";
     }
 
@@ -310,7 +361,7 @@ public class PkiMessageDumper {
         if (msg == null) {
             return "<null>";
         }
-        return "tid=" +msg.getHeader().getTransactionID()+ ": "+ msgTypeAsString(msg.getBody()) + " [" + msg.getHeader().getSender() + " => "
+        return "tid=" + msg.getHeader().getTransactionID() + ": " + msgTypeAsString(msg.getBody()) + " [" + msg.getHeader().getSender() + " => "
                 + msg.getHeader().getRecipient() + "]";
     }
 
@@ -417,6 +468,7 @@ public class PkiMessageDumper {
 
         /**
          * get declaring class
+         *
          * @return declaring class
          */
         public String getBcDeclaration() {
@@ -455,6 +507,7 @@ public class PkiMessageDumper {
             return declaringPackage + "." + id + " (" + oid + ")";
         }
     }
+
     /**
      * load ObjectIdentifiers defined somewhere in BouncyCastle
      */
@@ -515,6 +568,7 @@ public class PkiMessageDumper {
             }
         }
     }
+
     /**
      * Get OID Description for a given OID (ASN.1 representation)
      *
@@ -532,6 +586,7 @@ public class PkiMessageDumper {
 
     /**
      * function with one argument throwing an exception
+     *
      * @param <T> argument type
      * @param <R> result type
      * @param <E> exception type
@@ -539,6 +594,7 @@ public class PkiMessageDumper {
     public interface ExFunction<T, R, E extends Exception> {
         /**
          * execute function
+         *
          * @param arg function argument
          * @return result
          * @throws E in case of error

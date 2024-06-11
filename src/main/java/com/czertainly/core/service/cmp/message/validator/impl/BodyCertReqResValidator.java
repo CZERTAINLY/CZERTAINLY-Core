@@ -33,7 +33,7 @@ import java.util.Objects;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">CertReqMessage Syntax</a>
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
  */
-public class BodyCertReqResValidator extends BaseValidator implements BiValidator<Void,Void> {
+public class BodyCertReqResValidator extends BaseValidator implements BiValidator<Void, Void> {
 
     /**
      * <p>Validate ir, cr, kur (CertReqMessage) messages.</p>
@@ -74,10 +74,9 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
      *       utcTime        UTCTime,
      *       generalTime    GeneralizedTime }
      * </pre>
-
+     *
      * @param request correspondent type of {@link CertReqMessages} to given parameter <code>bodyType</code>
      * @throws CmpProcessingException if validation will fail
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4211#section-3">CertReqMessage Syntax</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */
@@ -89,22 +88,22 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
         CertReqMsg[] certReqMsgs = content.toCertReqMsgArray();
         if (certReqMsgs == null) {
             throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.addInfoNotAvailable,
-                    PkiMessageDumper.msgTypeAsString(bodyType) +": missing 'certReqMsgs'");
+                    PkiMessageDumper.msgTypeAsString(bodyType) + ": missing 'certReqMsgs'");
         }
         if (certReqMsgs.length == 0) {
             throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badDataFormat,
-                    PkiMessageDumper.msgTypeAsString(bodyType) +": 'certReqMsgs' cannot be empty");
+                    PkiMessageDumper.msgTypeAsString(bodyType) + ": 'certReqMsgs' cannot be empty");
         }
         if (certReqMsgs[0] == null) {
             throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.addInfoNotAvailable,
-                    PkiMessageDumper.msgTypeAsString(bodyType) +": 'certReqMsgs' has no value");
+                    PkiMessageDumper.msgTypeAsString(bodyType) + ": 'certReqMsgs' has no value");
         }
         // -- CertReqMsg/certReq
         CertReqMsg certReqMsg = certReqMsgs[0];
         CertRequest certReq = certReqMsg.getCertReq();
         if (!Objects.equals(certReq.getCertReqId(), ZERO)) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    PkiMessageDumper.msgTypeAsString(bodyType)+": certReq must be zero");
+                    PkiMessageDumper.msgTypeAsString(bodyType) + ": certReq must be zero");
         }
         // -- certTemplate/version,  version MUST be 2 if supplied.
         CertTemplate certTemplate = certReq.getCertTemplate();
@@ -112,12 +111,12 @@ public class BodyCertReqResValidator extends BaseValidator implements BiValidato
         if (versionInTemplate != -1 && versionInTemplate != 2) {
             throw new CmpProcessingException(tid,
                     PKIFailureInfo.badCertTemplate,
-                    PkiMessageDumper.msgTypeAsString(bodyType)+": certTemplate version must be -1 or 2");
+                    PkiMessageDumper.msgTypeAsString(bodyType) + ": certTemplate version must be -1 or 2");
         }
         // -- certTemplate/subject
         if (Objects.isNull(certTemplate.getSubject())) {
             throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.badCertTemplate,
-                    PkiMessageDumper.msgTypeAsString(bodyType)+": subject in template is missing");
+                    PkiMessageDumper.msgTypeAsString(bodyType) + ": subject in template is missing");
         }
         configuration.validateOnCrmfRequest(request);
         return null;//validation is ok

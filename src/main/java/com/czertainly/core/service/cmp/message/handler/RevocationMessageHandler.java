@@ -38,9 +38,9 @@ import java.util.Optional;
 /**
  * <p>5.3.9.  Revocation Request Content</p>
  * <p>
- *    When requesting revocation of a certificate (or several
- *    certificates), the following data structure is used.  The name of the
- *    requester is present in the PKIHeader structure.</p>
+ * When requesting revocation of a certificate (or several
+ * certificates), the following data structure is used.  The name of the
+ * requester is present in the PKIHeader structure.</p>
  *
  * <pre>
  *     RevReqContent ::= SEQUENCE OF RevDetails
@@ -53,10 +53,10 @@ import java.util.Optional;
  *
  * <p>5.3.10.  Revocation Response Content</p>
  * <p>
- *    The revocation response is the response to the above message.  If
- *    produced, this is sent to the requester of the revocation.  (A
- *    separate revocation announcement message MAY be sent to the subject
- *    of the certificate for which revocation was requested.)</p>
+ * The revocation response is the response to the above message.  If
+ * produced, this is sent to the requester of the revocation.  (A
+ * separate revocation announcement message MAY be sent to the subject
+ * of the certificate for which revocation was requested.)</p>
  * <pre>
  *      RevRepContent ::= SEQUENCE {
  *          status        SEQUENCE SIZE (1..MAX) OF PKIStatusInfo,
@@ -73,27 +73,39 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
     private static final Logger LOG = LoggerFactory.getLogger(RevocationMessageHandler.class.getName());
 
     private ClientOperationService clientOperationService;
+
     @Autowired
-    public void setClientOperationService(ClientOperationService clientOperationService) { this.clientOperationService = clientOperationService; }
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
 
     private CertificateRepository certificateRepository;
+
     @Autowired
-    public void setCertificateRepository(CertificateRepository certificateRepository) { this.certificateRepository = certificateRepository; }
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
 
     private PollFeature pollFeature;
+
     @Autowired
-    public void setPollFeature(PollFeature pollFeature) { this.pollFeature = pollFeature; }
+    public void setPollFeature(PollFeature pollFeature) {
+        this.pollFeature = pollFeature;
+    }
 
     private CmpTransactionService cmpTransactionService;
+
     @Autowired
-    public void setCmpTransactionService(CmpTransactionService cmpTransactionService) { this.cmpTransactionService = cmpTransactionService; }
+    public void setCmpTransactionService(CmpTransactionService cmpTransactionService) {
+        this.cmpTransactionService = cmpTransactionService;
+    }
 
     @Override
     public PKIMessage handle(PKIMessage request, ConfigurationContext configuration) throws CmpBaseException {
-        if(PKIBody.TYPE_REVOCATION_REQ!=request.getBody().getType()) {
+        if (PKIBody.TYPE_REVOCATION_REQ != request.getBody().getType()) {
             throw new CmpProcessingException(
                     PKIFailureInfo.systemFailure,
-                    "revocation (rr) message cannot be handled - unsupported body rawType="+request.getBody().getType()+", type="+ PkiMessageDumper.msgTypeAsString(request.getBody().getType()) +"; only type=cerfConf is supported");
+                    "revocation (rr) message cannot be handled - unsupported body rawType=" + request.getBody().getType() + ", type=" + PkiMessageDumper.msgTypeAsString(request.getBody().getType()) + "; only type=cerfConf is supported");
         }
         ASN1OctetString tid = request.getHeader().getTransactionID();
         RevReqContent revBody = (RevReqContent) request.getBody().getContent();
@@ -110,7 +122,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
             String serialNumber = getSerialNumber(revocation);
             Optional<CmpTransaction> relatedTransaction = cmpTransactionService.findByTransactionIdAndCertificateSerialNumber(
                     tid.toString(), serialNumber);
-            if(relatedTransaction.isPresent()) {
+            if (relatedTransaction.isPresent()) {
                 throw new CmpProcessingException(tid,
                         PKIFailureInfo.transactionIdInUse,
                         "revocation processing failed - given transactionId is already used");
@@ -140,10 +152,10 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
                                 new PKIFreeText("problem with revocation"),
                                 new PKIFailureInfo(PKIFailureInfo.systemFailure)),
                         certId
-                        );
+                );
             }
         }
-        if(revocationCount!=0) {
+        if (revocationCount != 0) {
             LOG.error("TID={} | some revocations failed (count={})", tid, revocationCount);
         }
 
@@ -164,7 +176,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         Optional<Certificate> certificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
         if (certificate.isEmpty()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
-                    "SN="+serialNumber+" | certificate for revocation could not be found");
+                    "SN=" + serialNumber + " | certificate for revocation could not be found");
         }
         return certificate.get();
     }
@@ -190,7 +202,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         String sn = certificate.getSerialNumber();
         if (CertificateState.REVOKED.equals(certificate.getState())) {
             throw new CmpProcessingException(tid, PKIFailureInfo.certRevoked,
-                    "SN="+sn+" | Certificate is already revoked");
+                    "SN=" + sn + " | Certificate is already revoked");
         }
         CertificateRevocationReason reason = getReason(revocation);
         try {
@@ -208,10 +220,10 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
             LOG.trace("TID={}, SN={} | revocation request (  end)", tid, sn);
         } catch (ConnectorException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "SN="+sn+" | cannot revoke certificate", e);
+                    "SN=" + sn + " | cannot revoke certificate", e);
         } catch (AttributeException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "SN="+sn+" | cannot revoke certificate - wrong attributes", e);
+                    "SN=" + sn + " | cannot revoke certificate - wrong attributes", e);
         }
     }
 }
