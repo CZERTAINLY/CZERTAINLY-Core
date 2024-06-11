@@ -125,14 +125,25 @@ public class CmpServiceImpl implements CmpService {
 
     // -- VALIDATORS
     private HeaderValidator headerValidator;
+
     @Autowired
-    private void setHeaderValidator(HeaderValidator headerValidator) { this.headerValidator = headerValidator; }
+    private void setHeaderValidator(HeaderValidator headerValidator) {
+        this.headerValidator = headerValidator;
+    }
+
     private BodyValidator bodyValidator;
+
     @Autowired
-    private void setBodyValidator(BodyValidator bodyValidator) { this.bodyValidator = bodyValidator; }
+    private void setBodyValidator(BodyValidator bodyValidator) {
+        this.bodyValidator = bodyValidator;
+    }
+
     private ProtectionValidator protectionValidator;
+
     @Autowired
-    private void setProtectionValidator(ProtectionValidator protectionValidator) { this.protectionValidator = protectionValidator; }
+    private void setProtectionValidator(ProtectionValidator protectionValidator) {
+        this.protectionValidator = protectionValidator;
+    }
 
     @Value("${cmp.verbose}")
     private Boolean verbose;
@@ -140,8 +151,11 @@ public class CmpServiceImpl implements CmpService {
     // -- OTHERS
     private AttributeEngine attributeEngine;
     private CertificateService certificateService;
+
     @Autowired
-    private void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
+    private void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -384,8 +398,7 @@ public class CmpServiceImpl implements CmpService {
 
             try {
                 CertificateUtil.parseCertificate(cmpCaCertificate.getCertificateContent().getContent());
-            }
-            catch (CertificateException e) { // This should not occur
+            } catch (CertificateException e) { // This should not occur
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                         "PN=" + incomingProfileName + " | Error converting the certificate to x509 object");
             }

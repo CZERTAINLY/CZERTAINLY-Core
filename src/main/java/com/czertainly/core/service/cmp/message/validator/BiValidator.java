@@ -11,7 +11,7 @@ import org.bouncycastle.asn1.cmp.PKIMessage;
  * @param <E> result of incoming validation
  * @param <R> result of outgoing validation
  */
-public interface BiValidator<E,R> {
+public interface BiValidator<E, R> {
 
     /**
      * validate incoming request message (from client - CZERTAINLY is server)

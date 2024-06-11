@@ -148,7 +148,6 @@ public class PkiMessageBuilder {
      *
      * @param chainOfCertificates chain of certificates for extraCerts
      * @return builder itself
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1">PKI Message header</a>
      */
     public PkiMessageBuilder addExtraCerts(List<CMPCertificate> chainOfCertificates) {

@@ -23,8 +23,6 @@ import org.bouncycastle.asn1.crmf.*;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -51,21 +49,25 @@ import java.util.Optional;
 @Transactional
 public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDataResponseDto> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CrmfKurMessageHandler.class.getName());
-
     private CertificateRepository certificateRepository;
+
     @Autowired
-    public void setCertificateRepository(CertificateRepository certificateRepository) { this.certificateRepository = certificateRepository; }
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
 
     private ClientOperationService clientOperationService;
+
     @Autowired
-    public void setClientOperationService(ClientOperationService clientOperationService) { this.clientOperationService = clientOperationService; }
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
 
     /**
      * Process request (modify/re-key certificate) to CA in asynchronous manner;
      * only create request (without waiting for response).
      *
-     * @param request incoming {@link PKIMessage} as request
+     * @param request       incoming {@link PKIMessage} as request
      * @param configuration server (profile) configuration
      * @return dto object keeps information about potentially issued certificate
      * @throws CmpBaseException if any error is raised
@@ -75,9 +77,9 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
         ASN1OctetString tid = request.getHeader().getTransactionID();
         String msgBodyType = PkiMessageDumper.msgTypeAsString(request);
         String msgKey = PkiMessageDumper.msgTypeAsShortCut(false, request);
-        if(PKIBody.TYPE_KEY_UPDATE_REQ!=request.getBody().getType()) {
+        if (PKIBody.TYPE_KEY_UPDATE_REQ != request.getBody().getType()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "message "+msgKey+" cannot be handled - wrong type, type="+msgBodyType);
+                    "message " + msgKey + " cannot be handled - wrong type, type=" + msgBodyType);
         }
         CertReqMessages crmf = (CertReqMessages) request.getBody().getContent();
         CertRequest certRequest = crmf.toCertReqMsgArray()[0].getCertReq();
@@ -89,8 +91,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
         Certificate dbCertificate = getCertificate(tid, certRequest);
         PublicKey dbPublicKey = convertCertificate(tid, dbCertificate).getPublicKey();
 
-        if(dbPublicKey.toString().equals(reqPublicKey.toString()))
-        {//re-key is only about public keys change
+        if (dbPublicKey.toString().equals(reqPublicKey.toString())) {//re-key is only about public keys change
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     "re-key operation failed: both public key are the same; must be different");
         }
@@ -128,7 +129,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     "re-key operation failed: public key from request cannot be parsed");
         }
-        if(publicKey == null) {
+        if (publicKey == null) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badMessageCheck,
                     "re-key operation failed: public key from request not found");
         }
@@ -139,7 +140,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
             throws CmpProcessingException {
         String serialNumber = getSerialNumber(tid, certRequest);
         Optional<Certificate> dbCertificate = certificateRepository.findBySerialNumberIgnoreCase(serialNumber);
-        if(dbCertificate.isEmpty()) {
+        if (dbCertificate.isEmpty()) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "current certificate is not found in inventory");
         }
@@ -149,15 +150,16 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
     /**
      * Get current certificate from czertainly database and parse/convert into x509 format.
      *
-     * @param tid identifier of current flow (see {@link PKIHeader#getTransactionID()})
+     * @param tid         identifier of current flow (see {@link PKIHeader#getTransactionID()})
      * @param currentCert found certificate for update
      * @return converted entity certificate into x509 format
      * @throws CmpProcessingException if found/convert/parse failed
      */
     private X509Certificate convertCertificate(ASN1OctetString tid, Certificate currentCert)
             throws CmpProcessingException {
-        try { return CertificateUtil.parseCertificate(currentCert.getCertificateContent().getContent()); }
-        catch (CertificateException e) {
+        try {
+            return CertificateUtil.parseCertificate(currentCert.getCertificateContent().getContent());
+        } catch (CertificateException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
                     "current certificate (in database) cannot parsed");
         }
@@ -167,7 +169,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
      * <p>Get serial number from {@link CertRequest} in {@link Controls} field;
      * using {@link CMPObjectIdentifiers#regCtrl_oldCertID}.</p>
      *
-     * @param tid is identifier of running transactionId flow
+     * @param tid         is identifier of running transactionId flow
      * @param certRequest CRMF request body
      * @return get serial number as hex-string
      * @throws CmpProcessingException if parsing serial number failed
@@ -182,7 +184,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
                 break;
             }
         }
-        if(certId == null || certId.getSerialNumber() == null) {
+        if (certId == null || certId.getSerialNumber() == null) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badCertId,
                     "cannot find serial number of current certificate");
         }

@@ -17,7 +17,7 @@ import org.bouncycastle.asn1.x509.Extensions;
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.9">Revocation request</a>
  * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.10">Revocation response</a>
  */
-public class BodyRevocationValidator extends BaseValidator implements BiValidator<Void,Void> {
+public class BodyRevocationValidator extends BaseValidator implements BiValidator<Void, Void> {
 
     /**
      * <p>Validate of Revocation message (rr)</p>
@@ -34,9 +34,9 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
      * 			-- requested crlEntryExtensions
      *                }
      * </pre>
+     *
      * @param request of message containing {@link RevReqContent}
      * @throws CmpProcessingException if validation will fail
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */
     @Override
@@ -82,7 +82,6 @@ public class BodyRevocationValidator extends BaseValidator implements BiValidato
      *
      * @param response of message containing {@link RevRepContent}
      * @throws CmpProcessingException if validation will fail
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */
     @Override
