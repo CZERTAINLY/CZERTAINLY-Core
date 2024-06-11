@@ -404,7 +404,23 @@ public class CmpServiceImpl implements CmpService {
             }
 
             try {
-                loadCertificateChain(cmpCaCertificate);
+                for (CertificateDetailDto certificate : certificateService.getCertificateChain(cmpCaCertificate.getSecuredUuid(), true).getCertificates()) {
+                    // only certificate with valid status should be used
+                    if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
+                        throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
+                                String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
+                                        certificate.getUuid(),
+                                        certificate.getFingerprint(),
+                                        certificate.getValidationStatus().getLabel()));
+                    }
+                    try {
+                        CertificateUtil.parseCertificate(certificate.getCertificateContent());
+                    } catch (CertificateException e) {
+                        // This should not happen
+                        throw new IllegalArgumentException("PN=" + this.cmpProfile.getName() + " | Failed to parse certificate content: " +
+                                certificate.getCertificateContent());
+                    }
+                }
             } catch (NotFoundException e) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                         "PN=" + incomingProfileName + " | CMP Profile does not have associated CA certificate chain");
@@ -432,27 +448,6 @@ public class CmpServiceImpl implements CmpService {
         if (raProfileBased && raProfile.getCmpProfile() == null) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN=" + incomingProfileName + " | RA Profile does not contain associated CMP Profile");
-        }
-    }
-
-    private void loadCertificateChain(Certificate leafCertificate) throws CmpConfigurationException, NotFoundException {
-        ArrayList<X509Certificate> certificateChain = new ArrayList<>();
-        for (CertificateDetailDto certificate : certificateService.getCertificateChain(leafCertificate.getSecuredUuid(), true).getCertificates()) {
-            // only certificate with valid status should be used
-            if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
-                throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
-                        String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
-                                certificate.getUuid(),
-                                certificate.getFingerprint(),
-                                certificate.getValidationStatus().getLabel()));
-            }
-            try {
-                certificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent()));
-            } catch (CertificateException e) {
-                // This should not happen
-                throw new IllegalArgumentException("PN=" + this.cmpProfile.getName() + " | Failed to parse certificate content: " +
-                        certificate.getCertificateContent());
-            }
         }
     }
 
