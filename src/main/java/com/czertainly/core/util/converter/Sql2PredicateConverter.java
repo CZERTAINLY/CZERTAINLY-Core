@@ -67,7 +67,11 @@ public class Sql2PredicateConverter {
         for (final Object valueObject : objects) {
             predicates.add(processPredicate(criteriaBuilder, root, dto, valueObject));
         }
-        return predicates.size() > 1 ? criteriaBuilder.or(predicates.toArray(new Predicate[]{})) : predicates.get(0);
+        if (dto.getCondition() ==  FilterConditionOperator.NOT_EQUALS) {
+            return predicates.size() > 1 ? criteriaBuilder.and(predicates.toArray(new Predicate[]{})) : predicates.get(0);
+        } else {
+            return predicates.size() > 1 ? criteriaBuilder.or(predicates.toArray(new Predicate[]{})) : predicates.get(0);
+        }
     }
 
     private static Predicate processPredicate(final CriteriaBuilder criteriaBuilder, final Root root, final SearchFilterRequestDto dto, final Object valueObject) {
@@ -107,7 +111,7 @@ public class Sql2PredicateConverter {
         }
 
         Predicate predicate = null;
-        if (isBoolean) {
+        if (isBoolean && filterConditionOperator != FilterConditionOperator.NOT_EMPTY && filterConditionOperator != FilterConditionOperator.EMPTY) {
             if (searchableFields == null || searchableFields.getExpectedValue() == null) {
                 switch (filterConditionOperator) {
                     case EQUALS ->
@@ -259,8 +263,12 @@ public class Sql2PredicateConverter {
     }
 
     private static Object findEnumByCustomValue(Object valueObject, final SearchableFields searchableFields) {
-        Optional<? extends IPlatformEnum> enumItem = Arrays.stream(searchableFields.getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getCode().equals(valueObject.toString())).findFirst();
-        return enumItem.isPresent() ? enumItem.get() : null;
+        if (valueObject != null) {
+            Optional<? extends IPlatformEnum> enumItem = Arrays.stream(searchableFields.getEnumClass().getEnumConstants()).filter(enumValue -> enumValue.getCode().equals(valueObject.toString())).findFirst();
+            return enumItem.orElse(null);
+        } else {
+            return null;
+        }
     }
 
     private static List<Object> readAndCheckIncomingValues(final SearchFilterRequestDto dto) {
