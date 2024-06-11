@@ -152,6 +152,7 @@ public class PkiMessageBuilder {
      */
     public PkiMessageBuilder addExtraCerts(List<CMPCertificate> chainOfCertificates) {
         try {
+            //noinspection SuspiciousToArrayCall
             extraCerts = Stream.concat(
                             defaultIfNull(protectionStrategy.getProtectingExtraCerts(), Collections.emptyList()).stream(),
                             defaultIfNull(chainOfCertificates, Collections.emptyList()).stream()

@@ -68,12 +68,11 @@ public class PollFeature {
                         tid, counter, polledCert.getSerialNumber(), polledCert.getState(), certUUID);
                 endRequest = System.currentTimeMillis();
                 counter++;
-                if (polledCert != null)
-                    entityManager.refresh(polledCert);//get entity from db (instead from hibernate 1lvl cache)
+                entityManager.refresh(polledCert);//get entity from db (instead from hibernate 1lvl cache)
                 if (counter > 1) TimeUnit.MILLISECONDS.sleep(1000);
-                if (serialNumber == null && polledCert != null) serialNumber = polledCert.getSerialNumber();
-            } while (endRequest - startRequest < timeout
-                    && (polledCert != null && !expectedState.equals(polledCert.getState())));
+                if (serialNumber == null) serialNumber = polledCert.getSerialNumber();
+            } while ((endRequest - startRequest < timeout)
+                    && !expectedState.equals(polledCert.getState()));
             LOG.trace("TID={}, SN={} | Polling of certificate with uuid={} is done", tid, serialNumber, certUUID);
         } catch (InterruptedException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
@@ -85,10 +84,6 @@ public class PollFeature {
             LOG.trace("<<<<< CERT polling (  end) <<<<< ");
         }
 
-        if (polledCert == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "SN=" + serialNumber + " | result of polling cannot be null or empty result");
-        }
         if (!expectedState.equals(polledCert.getState())) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     String.format("SN=%s | polled certificate is not at valid state (expected=%s), retrieved=%s",
