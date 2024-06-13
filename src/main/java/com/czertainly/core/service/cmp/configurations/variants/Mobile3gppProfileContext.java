@@ -37,7 +37,6 @@ public class Mobile3gppProfileContext extends CmpConfigurationContext {
      * <p>
      * source: 9.5.4.2	Initialization Request
      * </p>
-     *
      */
     @Override
     public void validateOnCrmfRequest(PKIMessage request) throws CmpProcessingException {
@@ -51,7 +50,7 @@ public class Mobile3gppProfileContext extends CmpConfigurationContext {
                 // PKIMessage, i.e. the size of the sequence for PKIMessages shall be 1 in
                 // all cases.
                 // see 9.5.2	Profile for the PKIMessage
-                if(certReqMsgs.length > 1) {
+                if (certReqMsgs.length > 1) {
                     throw new CmpCrmfValidationException(tid, bodyType,
                             PKIFailureInfo.badDataFormat, "only one certReqMsg is allowed");
                 }
@@ -69,7 +68,7 @@ public class Mobile3gppProfileContext extends CmpConfigurationContext {
                  */
                 CertTemplate certTemplate = certReqMsgs[0].getCertReq().getCertTemplate();
                 SubjectPublicKeyInfo publicKey = certTemplate.getPublicKey();
-                if(publicKey == null) {
+                if (publicKey == null) {
                     throw new CmpCrmfValidationException(tid, bodyType,
                             PKIFailureInfo.badCertTemplate, "public key in template is null");
                 }
@@ -86,34 +85,34 @@ public class Mobile3gppProfileContext extends CmpConfigurationContext {
      * <p>(3gpp) validation of crmf based response messages</p>
      *
      * <p>
-     *     The support of the optional extraCerts field is required by this profile. The certificates within
-     *     this field may be ordered in any order. The message-specific content of this field is specified
-     *     in the subclause   9.5.4 in the profiling of the single PKI message bodies.
+     * The support of the optional extraCerts field is required by this profile. The certificates within
+     * this field may be ordered in any order. The message-specific content of this field is specified
+     * in the subclause   9.5.4 in the profiling of the single PKI message bodies.
      * </p>
      * <p>
      * (3gpp) 9.5.4.3	Initialization Response</p>
      *
      * <p>
-     *      The extraCerts field of the PKIMessage carrying the initialization response shall be mandatory and shall
-     *      contain the operator root certificate and the RA/CA certificate (or certificates if separate private keys
-     *      are used for signing of certificates and CMP messages). If the RA/CA certificate(s) are not signed by the
-     *      operator root CA, also the intermediate certificates for the chain(s) up to the operator root certificate
-     *      shall be included in the extraCerts field. If additional (self-signed) Root CA certificates are required,
-     *      they shall be carried in the extraCerts field or caPubs field of the PKIMessage. Since extraCerts field is
-     *      not under CMP message integrity protection, CMP over TLS should be used as a security transport mechanism.
-     *      Since CMP already supports integrity protection for caPubs field, the use of security transport mechanisms
-     *      is optional.</p>
-     *
+     * The extraCerts field of the PKIMessage carrying the initialization response shall be mandatory and shall
+     * contain the operator root certificate and the RA/CA certificate (or certificates if separate private keys
+     * are used for signing of certificates and CMP messages). If the RA/CA certificate(s) are not signed by the
+     * operator root CA, also the intermediate certificates for the chain(s) up to the operator root certificate
+     * shall be included in the extraCerts field. If additional (self-signed) Root CA certificates are required,
+     * they shall be carried in the extraCerts field or caPubs field of the PKIMessage. Since extraCerts field is
+     * not under CMP message integrity protection, CMP over TLS should be used as a security transport mechanism.
+     * Since CMP already supports integrity protection for caPubs field, the use of security transport mechanisms
+     * is optional.</p>
      */
     @Override
     public void validateOnCrmfResponse(PKIMessage response) throws CmpProcessingException {
         ASN1OctetString tid = response.getHeader().getTransactionID();
-        switch (response.getBody().getType()) {
+        int bodyType = response.getBody().getType();
+        switch (bodyType) {
             case PKIBody.TYPE_INIT_REP:
             case PKIBody.TYPE_CERT_REP:
             case PKIBody.TYPE_KEY_UPDATE_REP:
-                if(response.getExtraCerts() == null || response.getExtraCerts().length==0) {
-                    throw new CmpProcessingException(tid,
+                if (response.getExtraCerts() == null || response.getExtraCerts().length == 0) {
+                    throw new CmpCrmfValidationException(tid, bodyType,
                             PKIFailureInfo.badDataFormat, "field 'extraCerts' is null or empty");
                 }
                 break;// do something

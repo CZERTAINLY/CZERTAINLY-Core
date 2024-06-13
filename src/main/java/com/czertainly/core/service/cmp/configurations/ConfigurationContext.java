@@ -23,12 +23,14 @@ public interface ConfigurationContext {
 
     /**
      * scope: protection (mac-based)
+     *
      * @return shared secret for mac-base protection
      */
     byte[] getSharedSecret();
 
     /**
      * It allows to client define specified validation of CRMF request messages
+     *
      * @param request of crmf based message
      */
     void validateOnCrmfRequest(PKIMessage request)
@@ -36,6 +38,7 @@ public interface ConfigurationContext {
 
     /**
      * It allows to client define specified validation of response messages
+     *
      * @param response of message
      */
     void validateOnCrmfResponse(PKIMessage response)
