@@ -75,10 +75,11 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
     public List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter) {
         logger.debug("Getting all the ACME Profiles available in the database");
-        return acmeProfileRepository.findUsingSecurityFilter(filter)
+        List<AcmeProfileListDto> acmeProfileListDtos = acmeProfileRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(AcmeProfile::mapToDtoSimple)
                 .collect(Collectors.toList());
+        return acmeProfileListDtos;
     }
 
     @Override
@@ -186,39 +187,32 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         }
 
         acmeProfile.setRaProfile(raProfile);
-        if (request.getDescription() != null) {
-            acmeProfile.setDescription(request.getDescription());
-        }
-        if (request.getDnsResolverIp() != null) {
-            acmeProfile.setDnsResolverIp(request.getDnsResolverIp());
-        }
-        if (request.getDnsResolverPort() != null) {
-            acmeProfile.setDnsResolverPort(request.getDnsResolverPort());
-        }
+
+        acmeProfile.setDescription(request.getDescription());
+
+        acmeProfile.setDnsResolverIp(request.getDnsResolverIp());
+        acmeProfile.setDnsResolverPort(request.getDnsResolverPort());
+
         if (request.getRetryInterval() != null) {
             if (request.getRetryInterval() < 0) {
                 throw new ValidationException(ValidationError.create("Retry Interval cannot be less than 0"));
             }
             acmeProfile.setRetryInterval(request.getRetryInterval());
+        } else {
+            acmeProfile.setRetryInterval(null);
         }
         if (request.getValidity() != null) {
             if (request.getValidity() < 0) {
                 throw new ValidationException(ValidationError.create("Order Validity cannot be less than 0"));
             }
             acmeProfile.setValidity(request.getValidity());
+        } else {
+            acmeProfile.setValidity(null);
         }
-        if (request.getTermsOfServiceUrl() != null) {
-            acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
-        }
-        if (request.getWebsiteUrl() != null) {
-            acmeProfile.setWebsite(request.getWebsiteUrl());
-        }
-        if (request.isTermsOfServiceChangeDisable() != null) {
-            acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
-        }
-        if (request.getTermsOfServiceChangeUrl() != null) {
-            acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
-        }
+        acmeProfile.setTermsOfServiceUrl(request.getTermsOfServiceUrl());
+        acmeProfile.setWebsite(request.getWebsiteUrl());
+        acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
+        acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
         acmeProfile = acmeProfileRepository.save(acmeProfile);
 
         AcmeProfileDto dto = acmeProfile.mapToDto();
