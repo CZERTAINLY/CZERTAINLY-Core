@@ -14,11 +14,13 @@
     <name>CZERTAINLY-Core</name>
 
     <properties>
-        <querydsl.version>5.0.0</querydsl.version>
-        <hsqldb.version>2.7.1</hsqldb.version>
-        <nimbus-jose-jwt.version>9.37</nimbus-jose-jwt.version>
-        <okhttp.version>4.11.0</okhttp.version>
-        <mockwebserver.version>4.11.0</mockwebserver.version>
+        <querydsl.version>5.1.0</querydsl.version>
+        <hsqldb.version>2.7.3</hsqldb.version>
+        <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
+        <okhttp.version>4.12.0</okhttp.version>
+        <mockwebserver.version>4.12.0</mockwebserver.version>
+        <commons-beanutils.version>1.9.4</commons-beanutils.version>
+        <testcontainers-postgresql.version>1.19.8</testcontainers-postgresql.version>
         <sonar.projectKey>3KeyCompany_CZERTAINLY-Core</sonar.projectKey>
     </properties>
 
@@ -148,7 +150,7 @@
         <dependency>
             <groupId>commons-beanutils</groupId>
             <artifactId>commons-beanutils</artifactId>
-            <version>1.9.4</version>
+            <version>${commons-beanutils.version}</version>
         </dependency>
 
         <!-- Tests -->
@@ -192,7 +194,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <version>1.19.8</version>
+            <version>${testcontainers-postgresql.version}</version>
             <scope>test</scope>
         </dependency>
 
