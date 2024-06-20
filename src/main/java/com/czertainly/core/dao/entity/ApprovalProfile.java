@@ -3,14 +3,15 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.exception.NotFoundException;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.Data;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
-@Data
+@Getter
+@Setter
+@ToString
+@RequiredArgsConstructor
 @Entity
 @Table(name = "approval_profile")
 public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
@@ -23,9 +24,11 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
 
     @JsonBackReference
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
+    @ToString.Exclude
     private List<ApprovalProfileVersion> approvalProfileVersions = new ArrayList<>();
 
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
+    @ToString.Exclude
     private List<ApprovalProfileRelation> approvalProfileRelations = new ArrayList<>();
 
     @JsonBackReference
@@ -41,4 +44,19 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
         return approvalProfileVersion.get();
     }
 
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        ApprovalProfile that = (ApprovalProfile) o;
+        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
+    }
+
+    @Override
+    public final int hashCode() {
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    }
 }
