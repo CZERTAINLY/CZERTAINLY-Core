@@ -113,6 +113,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         if (request.getRetryInterval() != null && request.getRetryInterval() < 0) {
             throw new ValidationException(ValidationError.create("Retry Interval cannot be less than 0"));
         }
+
         logger.info("Creating a new ACME Profile");
 
         if (acmeProfileRepository.existsByName(request.getName())) {
@@ -120,13 +121,16 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         }
 
         RaProfile raProfile = null;
-        attributeEngine.validateCustomAttributesContent(Resource.ACME_PROFILE, request.getCustomAttributes());
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {
             raProfile = getRaProfile(request.getRaProfileUuid());
-
+            if (ValidatorUtil.containsUnreservedCharacters(raProfile.getName())) {
+                throw new ValidationException(ValidationError.create("RA Profile name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
+            }
             extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
             extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
         }
+
+        attributeEngine.validateCustomAttributesContent(Resource.ACME_PROFILE, request.getCustomAttributes());
 
         AcmeProfile acmeProfile = new AcmeProfile();
         acmeProfile.setEnabled(false);
@@ -174,6 +178,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         RaProfile raProfile = null;
         if (request.getRaProfileUuid() != null) {
             raProfile = getRaProfile(request.getRaProfileUuid());
+            if (ValidatorUtil.containsUnreservedCharacters(raProfile.getName())) {
+                throw new ValidationException(ValidationError.create("RA Profile name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
+            }
             extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
             extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
         }
