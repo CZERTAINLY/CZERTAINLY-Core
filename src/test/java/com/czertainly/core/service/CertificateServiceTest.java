@@ -66,6 +66,8 @@ public class CertificateServiceTest extends BaseSpringBootTest {
     private GroupRepository groupRepository;
     @Autowired
     private ResourceObjectAssociationService associationService;
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
 
     private AttributeEngine attributeEngine;
 
@@ -143,6 +145,17 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setCertificateContentId(certificateContent.getId());
         certificate.setRaProfile(raProfileOld);
         certificate = certificateRepository.save(certificate);
+
+        // Ensure OwnerAssociation is created and associated
+        OwnerAssociation ownerAssociation = new OwnerAssociation();
+        ownerAssociation.setOwnerUuid(UUID.randomUUID()); // Set a proper UUID
+        ownerAssociation.setOwnerUsername("ownerName");
+        ownerAssociation.setResource(Resource.CERTIFICATE);
+        ownerAssociation.setObjectUuid(certificate.getUuid());
+        ownerAssociationRepository.saveAndFlush(ownerAssociation);
+
+        certificate.setOwner(ownerAssociation);
+        certificateRepository.save(certificate);
 
         List<MetadataAttribute> meta = new ArrayList<>();
         MetadataAttribute tst = new MetadataAttribute();
