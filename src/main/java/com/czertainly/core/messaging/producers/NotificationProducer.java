@@ -65,8 +65,8 @@ public class NotificationProducer {
         logger.debug("Sending notification of certificate status change. Certificate: {}", certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_STATUS_CHANGED,
                 Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
-                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
-                        : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
+                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getCommonName(), certificateDto.getNotBefore().toString(), certificateDto.getNotAfter().toString())
+                        : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName(), certificateDto.getCommonName(), certificateDto.getNotBefore().toString(), certificateDto.getNotAfter().toString())));
     }
 
     public void produceNotificationCertificateActionPerformed(CertificateDto certificateDto, ResourceAction action, String errorMessage) {
@@ -79,7 +79,8 @@ public class NotificationProducer {
         logger.debug("Sending notification of certificate action {} performed. Certificate: {}", action.getCode(), certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_ACTION_PERFORMED,
                 Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
-                new NotificationDataCertificateActionPerformed(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
+                new NotificationDataCertificateActionPerformed(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null,
+                        certificateDto.getNotAfter().toString(), errorMessage)));
     }
 
     public void produceNotificationScheduledJobCompleted(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String jobName, String jobType, String status) {
