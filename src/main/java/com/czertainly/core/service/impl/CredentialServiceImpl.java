@@ -67,7 +67,7 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<CredentialDto> listCredentials(SecurityFilter filter) {
         return credentialRepository.findUsingSecurityFilter(filter).stream()
-                .map(Credential::mapToDtoSimple)
+                .map(Credential::mapToDto)
                 .collect(Collectors.toList());
     }
 

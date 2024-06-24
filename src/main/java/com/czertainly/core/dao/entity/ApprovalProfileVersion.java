@@ -50,12 +50,7 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
 
     public ApprovalProfileDto mapToDto() {
         final ApprovalProfileDto approvalProfileDto = new ApprovalProfileDto();
-        approvalProfileDto.setUuid(this.getApprovalProfile().getUuid().toString());
-        approvalProfileDto.setDescription(this.description);
-        approvalProfileDto.setEnabled(this.getApprovalProfile().isEnabled());
-        approvalProfileDto.setName(this.getApprovalProfile().getName());
-        approvalProfileDto.setExpiry(this.expiry);
-        approvalProfileDto.setVersion(this.version);
+        setCommonFields(approvalProfileDto);
         approvalProfileDto.setNumberOfSteps(this.getApprovalSteps().size());
         approvalProfileDto.setAssociations(this.getApprovalProfile().getApprovalProfileRelations().size());
         return approvalProfileDto;
@@ -63,18 +58,22 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
 
     public ApprovalProfileDetailDto mapToDtoWithSteps() {
         final ApprovalProfileDetailDto approvalProfileDetailDto = new ApprovalProfileDetailDto();
-        approvalProfileDetailDto.setUuid(this.getApprovalProfile().getUuid().toString());
-        approvalProfileDetailDto.setDescription(this.description);
-        approvalProfileDetailDto.setEnabled(this.getApprovalProfile().isEnabled());
-        approvalProfileDetailDto.setName(this.getApprovalProfile().getName());
-        approvalProfileDetailDto.setExpiry(this.expiry);
-        approvalProfileDetailDto.setVersion(this.version);
+        setCommonFields(approvalProfileDetailDto);
         approvalProfileDetailDto.setAssociations(this.getApprovalProfile().getApprovalProfileRelations().size());
 
         if (approvalSteps != null) {
-            approvalProfileDetailDto.setApprovalSteps(getApprovalSteps().stream().map(as -> as.mapToDto()).collect(Collectors.toList()));
+            approvalProfileDetailDto.setApprovalSteps(getApprovalSteps().stream().map(ApprovalStep::mapToDto).collect(Collectors.toList()));
         }
         return approvalProfileDetailDto;
+    }
+
+    private void setCommonFields(ApprovalProfileDto approvalProfileDto) {
+        approvalProfileDto.setUuid(this.getApprovalProfile().getUuid().toString());
+        approvalProfileDto.setDescription(this.description);
+        approvalProfileDto.setEnabled(this.getApprovalProfile().isEnabled());
+        approvalProfileDto.setName(this.getApprovalProfile().getName());
+        approvalProfileDto.setExpiry(this.expiry);
+        approvalProfileDto.setVersion(this.version);
     }
 
     public ApprovalProfileVersion createNewVersionObject() {
@@ -92,8 +91,8 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         ApprovalProfileVersion that = (ApprovalProfileVersion) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -101,6 +100,6 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

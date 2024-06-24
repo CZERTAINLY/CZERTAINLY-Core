@@ -4,10 +4,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
+import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.util.Date;
@@ -20,6 +17,7 @@ import java.util.UUID;
 @ToString
 @RequiredArgsConstructor
 @Entity
+@Table(name = "scheduled_job_history")
 public class ScheduledJobHistory extends UniquelyIdentified {
 
     @Column(name = "job_execution")
@@ -68,8 +66,8 @@ public class ScheduledJobHistory extends UniquelyIdentified {
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         ScheduledJobHistory that = (ScheduledJobHistory) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -77,6 +75,6 @@ public class ScheduledJobHistory extends UniquelyIdentified {
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }
