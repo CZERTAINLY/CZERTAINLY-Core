@@ -38,7 +38,7 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
 
     public ApprovalProfileVersion getApprovalProfileVersionByVersion(final int version) throws NotFoundException {
         Optional<ApprovalProfileVersion> approvalProfileVersion = getApprovalProfileVersions().stream().filter(apv -> apv.getVersion() == version).findFirst();
-        if (!approvalProfileVersion.isPresent()) {
+        if (approvalProfileVersion.isEmpty()) {
             throw new NotFoundException("Unable to find approval profile version with version " + version);
         }
         return approvalProfileVersion.get();
@@ -48,8 +48,8 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         ApprovalProfile that = (ApprovalProfile) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -57,6 +57,6 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy hp ? hp.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

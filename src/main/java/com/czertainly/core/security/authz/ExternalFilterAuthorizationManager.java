@@ -61,8 +61,8 @@ public class ExternalFilterAuthorizationManager implements AuthorizationManager<
                 logger.error("Error during authorization process. Access will be denied.", e);
                 return new AuthorizationDecision(false);
             }
-        } else if (authentication instanceof CzertainlyAuthenticationToken) {
-            principal = ((CzertainlyAuthenticationToken) authentication).getPrincipal().getRawData();
+        } else if (authentication instanceof CzertainlyAuthenticationToken token) {
+            principal = token.getPrincipal().getRawData();
         } else {
             logger.error("Unsupported authentication type: " + authentication.getClass().getName());
             return new AuthorizationDecision(false);

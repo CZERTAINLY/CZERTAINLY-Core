@@ -39,9 +39,9 @@ public class SchedulerListener {
         try {
             final Class<?> clazz = Class.forName(schedulerMessage.getClassToBeExecuted());
             final Object clazzObject = applicationContext.getBean(clazz);
-            if (clazzObject != null && clazzObject instanceof SchedulerJobProcessor) {
+            if (clazzObject != null && clazzObject instanceof SchedulerJobProcessor processor) {
                 logger.info("Job {} is executed.", schedulerMessage.getJobName());
-                final SchedulerJobProcessor schedulerJobProcessor = ((SchedulerJobProcessor) clazzObject);
+                final SchedulerJobProcessor schedulerJobProcessor =processor;
                 schedulerJobProcessor.processTask(schedulerMessage.getJobName());
                 logger.info("Job {} was processed.", schedulerMessage.getJobName());
             }

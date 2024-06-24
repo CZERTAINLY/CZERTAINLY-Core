@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.core.env.Environment;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
@@ -22,17 +23,29 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 @EnableWebSecurity
 public class SecurityConfig {
 
-    private final ExternalFilterAuthorizationManager filterAuthorizationManager;
-    private final ProtocolValidationFilter protocolValidationFilter;
-    private final Environment environment;
+    private Environment environment;
+    private ExternalFilterAuthorizationManager filterAuthorizationManager;
+    private ProtocolValidationFilter protocolValidationFilter;
+    private AuthenticationManager authenticationManager;
 
     @Autowired
-    public SecurityConfig(ExternalFilterAuthorizationManager filterAuthorizationManager,
-                          ProtocolValidationFilter protocolValidationFilter,
-                          Environment environment) {
-        this.filterAuthorizationManager = filterAuthorizationManager;
-        this.protocolValidationFilter = protocolValidationFilter;
+    public void setEnvironment(Environment environment) {
         this.environment = environment;
+    }
+
+    @Autowired
+    public void setFilterAuthorizationManager(ExternalFilterAuthorizationManager filterAuthorizationManager) {
+        this.filterAuthorizationManager = filterAuthorizationManager;
+    }
+
+    @Autowired
+    public void setProtocolValidationFilter(ProtocolValidationFilter protocolValidationFilter) {
+        this.protocolValidationFilter = protocolValidationFilter;
+    }
+
+    @Autowired
+    public void setAuthenticationManager(@Lazy AuthenticationManager authenticationManager) {
+        this.authenticationManager = authenticationManager;
     }
 
     @Bean
@@ -66,7 +79,7 @@ public class SecurityConfig {
         return authenticationConfiguration.getAuthenticationManager();
     }
 
-    protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() throws Exception {
-        return new CzertainlyAuthenticationFilter(authenticationManager(new AuthenticationConfiguration()), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"));
+    protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
+        return new CzertainlyAuthenticationFilter(authenticationManager, new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"));
     }
 }
