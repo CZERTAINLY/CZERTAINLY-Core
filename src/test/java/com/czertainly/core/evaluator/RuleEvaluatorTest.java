@@ -83,6 +83,9 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private ResourceObjectAssociationService associationService;
 
+    @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
+
     private Certificate certificate;
 
     private ConditionItem condition;
@@ -97,6 +100,16 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @BeforeEach
     public void setUp() {
         certificate = new Certificate();
+        certificateRepository.save(certificate);
+
+        OwnerAssociation ownerAssociation = new OwnerAssociation();
+        ownerAssociation.setOwnerUuid(UUID.randomUUID());
+        ownerAssociation.setOwnerUsername("ownerName");
+        ownerAssociation.setResource(Resource.CERTIFICATE);
+        ownerAssociation.setObjectUuid(certificate.getUuid());
+        ownerAssociationRepository.saveAndFlush(ownerAssociation);
+
+        certificate.setOwner(ownerAssociation);
         certificateRepository.save(certificate);
         condition = new ConditionItem();
 
