@@ -53,7 +53,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")

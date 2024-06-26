@@ -126,6 +126,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+    @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
     private OwnerAssociation owner;
 
