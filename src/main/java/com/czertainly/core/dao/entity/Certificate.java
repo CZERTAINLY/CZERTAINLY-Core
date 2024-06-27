@@ -13,6 +13,8 @@ import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
 import org.slf4j.Logger;
@@ -128,6 +130,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
+    @NotFound(action = NotFoundAction.IGNORE)
     private OwnerAssociation owner;
 
     @Column(name = "status_validation_timestamp")

@@ -102,14 +102,14 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         certificate = new Certificate();
         certificateRepository.save(certificate);
 
-        OwnerAssociation ownerAssociation = new OwnerAssociation();
-        ownerAssociation.setOwnerUuid(UUID.randomUUID());
-        ownerAssociation.setOwnerUsername("ownerName");
-        ownerAssociation.setResource(Resource.CERTIFICATE);
-        ownerAssociation.setObjectUuid(certificate.getUuid());
-        ownerAssociationRepository.saveAndFlush(ownerAssociation);
+//        OwnerAssociation ownerAssociation = new OwnerAssociation();
+//        ownerAssociation.setOwnerUuid(UUID.randomUUID());
+//        ownerAssociation.setOwnerUsername("ownerName");
+//        ownerAssociation.setResource(Resource.CERTIFICATE);
+//        ownerAssociation.setObjectUuid(certificate.getUuid());
+//        ownerAssociationRepository.saveAndFlush(ownerAssociation);
 
-        certificate.setOwner(ownerAssociation);
+//        certificate.setOwner(ownerAssociation);
         certificateRepository.save(certificate);
         condition = new ConditionItem();
 

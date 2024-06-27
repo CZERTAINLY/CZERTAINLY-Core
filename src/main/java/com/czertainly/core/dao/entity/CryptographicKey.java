@@ -6,6 +6,8 @@ import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.NotFound;
+import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
 
@@ -57,6 +59,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
     @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     @ToString.Exclude
+    @NotFound(action = NotFoundAction.IGNORE)
     private OwnerAssociation owner;
 
     @JsonBackReference
