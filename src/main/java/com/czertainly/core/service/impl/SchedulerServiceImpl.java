@@ -6,10 +6,10 @@ import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
-import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
+import com.czertainly.api.model.core.scheduler.*;
+import com.czertainly.api.model.scheduler.SchedulerJobDto;
+import com.czertainly.api.model.scheduler.SchedulerRequestDto;
+import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -132,6 +132,26 @@ public class SchedulerServiceImpl implements SchedulerService {
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.ENABLE)
     public void disableScheduledJob(final String uuid) throws SchedulerException, NotFoundException {
         changeScheduledJobState(uuid, false);
+    }
+
+    @Override
+    public ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException {
+        Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
+        if (scheduledJobOptional.isPresent()) {
+            ScheduledJob scheduledJob = scheduledJobOptional.get();
+            scheduledJob.setCronExpression(request.getCronExpression());
+            scheduledJobsRepository.save(scheduledJob);
+            if (scheduledJob.isSystem()) throw  new ValidationException("Cannot updated system job.");
+            SchedulerRequestDto schedulerRequestDto = new SchedulerRequestDto(
+                    new SchedulerJobDto(scheduledJob.getUuid(), scheduledJob.getJobName(), request.getCronExpression(), scheduledJob.getJobClassName())
+            );
+            schedulerApiClient.updateScheduledJob(schedulerRequestDto);
+
+        } else {
+            throw new NotFoundException(ScheduledJob.class, uuid);
+        }
+
+        return null;
     }
 
     private void changeScheduledJobState(final String uuid, final boolean enabled) throws SchedulerException, NotFoundException {

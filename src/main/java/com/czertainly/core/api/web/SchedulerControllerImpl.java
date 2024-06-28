@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
+import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SchedulerService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,6 +26,11 @@ public class SchedulerControllerImpl implements SchedulerController {
     @Override
     public ScheduledJobDetailDto getScheduledJobDetail(final String uuid) throws NotFoundException {
         return schedulerService.getScheduledJobDetail(uuid);
+    }
+
+    @Override
+    public ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException {
+        return schedulerService.updateScheduledJob(uuid, request);
     }
 
     @Override

@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDto;
+import com.czertainly.api.model.scheduler.SchedulerRequestDto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import lombok.Getter;
