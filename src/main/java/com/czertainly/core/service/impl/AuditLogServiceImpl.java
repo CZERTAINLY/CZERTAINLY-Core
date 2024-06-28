@@ -6,9 +6,12 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.entity.QAuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
+import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.AuditLogService;
+import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -26,15 +29,13 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -61,6 +62,13 @@ public class AuditLogServiceImpl implements AuditLogService {
     private AuditLogRepository auditLogRepository;
     @Autowired
     private ExportProcessor exportProcessor;
+
+    private NotificationProducer notificationProducer;
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
+    }
 
     @Override
     public void log(ObjectType origination,
@@ -158,11 +166,15 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
+    @Async
     public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
         Predicate predicate = createPredicate(filter);
         List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
         auditLogRepository.deleteAll(entities);
+        notificationProducer.produceNotificationText(Resource.AUDIT_LOG, null, NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Audit logs have been purged.", null);
     }
+
 
     private Predicate createPredicate(AuditLogFilter filter) {
         BooleanBuilder predicate = new BooleanBuilder();
