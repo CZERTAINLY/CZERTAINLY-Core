@@ -11,6 +11,7 @@ import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -52,6 +53,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
 
     @OneToMany(fetch = FetchType.LAZY, mappedBy = "connector")
     @ToString.Exclude
+    @JsonManagedReference
     private Set<Connector2FunctionGroup> functionGroups = new HashSet<>();
 
     @OneToMany(mappedBy = "connectorUuid", fetch = FetchType.LAZY)

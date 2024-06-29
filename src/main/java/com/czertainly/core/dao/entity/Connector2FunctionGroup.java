@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -34,6 +35,7 @@ public class Connector2FunctionGroup {
 	@ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
 	@ToString.Exclude
+	@JsonBackReference
 	private FunctionGroup functionGroup;
 
 	@Column(name = "function_group_uuid", nullable = false)

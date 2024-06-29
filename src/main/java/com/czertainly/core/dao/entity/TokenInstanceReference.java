@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
@@ -42,6 +43,7 @@ public class TokenInstanceReference extends UniquelyIdentifiedAndAudited impleme
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private Connector connector;
 
     @Column(name = "connector_uuid")

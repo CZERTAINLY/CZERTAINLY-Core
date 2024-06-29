@@ -18,6 +18,7 @@ import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -46,6 +47,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private AuthorityInstanceReference authorityInstanceReference;
 
     @Column(name = "authority_instance_ref_uuid")

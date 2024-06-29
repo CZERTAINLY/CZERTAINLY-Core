@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -35,6 +36,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "token_instance_ref_uuid", insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private TokenInstanceReference tokenInstanceReference;
 
     @Column(name = "token_instance_ref_uuid")

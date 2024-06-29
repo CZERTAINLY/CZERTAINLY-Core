@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.connector.EndpointDto;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -33,6 +34,7 @@ public class Endpoint extends UniquelyIdentified implements Serializable, DtoMap
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "function_group_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private FunctionGroup functionGroup;
 
     @Column(name = "function_group_uuid", nullable = false)

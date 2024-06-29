@@ -7,6 +7,7 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -34,6 +35,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "entity_instance_ref_uuid", insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private EntityInstanceReference entityInstanceReference;
 
     @Column(name = "entity_instance_ref_uuid")
@@ -48,7 +50,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             fetch = FetchType.LAZY
             //orphanRemoval = true
     )
-    @JsonBackReference
+    @JsonManagedReference
     @ToString.Exclude
     private Set<CertificateLocation> certificates = new HashSet<>();
 
