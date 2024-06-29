@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -38,6 +39,7 @@ public class FunctionGroup extends UniquelyIdentified implements Serializable, D
 
     @OneToMany(fetch = FetchType.LAZY, mappedBy = "functionGroup")
     @ToString.Exclude
+    @JsonBackReference
     private Set<Connector2FunctionGroup> connectors = new HashSet<>();
 
     @Override
