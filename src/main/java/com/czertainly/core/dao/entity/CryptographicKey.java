@@ -9,6 +9,7 @@ import lombok.*;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLJoinTableRestriction;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
@@ -48,18 +49,17 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "group_association",
-            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
-            inverseJoinColumns = @JoinColumn(name = "group_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     )
     @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
-    @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
+    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", insertable = false, updatable = false)
+    @SQLRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     @ToString.Exclude
-    @NotFound(action = NotFoundAction.IGNORE)
     private OwnerAssociation owner;
 
     @JsonBackReference

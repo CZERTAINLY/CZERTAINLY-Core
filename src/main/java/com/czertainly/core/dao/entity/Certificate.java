@@ -16,6 +16,7 @@ import lombok.*;
 import org.hibernate.annotations.NotFound;
 import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLJoinTableRestriction;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -119,18 +120,17 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "group_association",
-            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false),
-            inverseJoinColumns = @JoinColumn(name = "group_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false),
+            inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     )
     @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", foreignKey = @ForeignKey(value = ConstraintMode.NO_CONSTRAINT), insertable = false, updatable = false)
-    @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
+    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", insertable = false, updatable = false)
+    @SQLRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
-    @NotFound(action = NotFoundAction.IGNORE)
     private OwnerAssociation owner;
 
     @Column(name = "status_validation_timestamp")
