@@ -48,8 +48,6 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name="contact")
     private String contact;
 
-    @Getter
-    @Setter
     @Column(name="terms_of_service_agreed")
     private Boolean termsOfServiceAgreed;
 

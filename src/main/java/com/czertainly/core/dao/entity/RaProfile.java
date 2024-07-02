@@ -67,7 +67,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @ToString.Exclude
     private Set<ComplianceProfile> complianceProfiles;
 
-    @OneToOne(mappedBy = "raProfile")
+    @OneToOne(mappedBy = "raProfile", fetch = FetchType.LAZY)
     @ToString.Exclude
     private RaProfileProtocolAttribute protocolAttribute;
 

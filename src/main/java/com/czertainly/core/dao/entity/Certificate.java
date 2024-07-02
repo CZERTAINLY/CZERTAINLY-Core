@@ -250,7 +250,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
-            // dto.setGroups(groups.stream().map(g -> g.getGroup().mapToDto()).toList());
         }
 
         //Check and assign private key availability

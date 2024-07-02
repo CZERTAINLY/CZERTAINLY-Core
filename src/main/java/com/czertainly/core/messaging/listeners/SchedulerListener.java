@@ -41,7 +41,7 @@ public class SchedulerListener {
             final Object clazzObject = applicationContext.getBean(clazz);
             if (clazzObject != null && clazzObject instanceof SchedulerJobProcessor processor) {
                 logger.info("Job {} is executed.", schedulerMessage.getJobName());
-                final SchedulerJobProcessor schedulerJobProcessor =processor;
+                final SchedulerJobProcessor schedulerJobProcessor = processor;
                 schedulerJobProcessor.processTask(schedulerMessage.getJobName());
                 logger.info("Job {} was processed.", schedulerMessage.getJobName());
             }
@@ -49,7 +49,7 @@ public class SchedulerListener {
         } catch (SchedulerException | ConnectorException | ClassNotFoundException e) {
             logger.error("Unable to process the job {}", schedulerMessage.getJobName());
 
-            final ScheduledJob scheduledJob  = scheduledJobsRepository.findByJobName(schedulerMessage.getJobName());
+            final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(schedulerMessage.getJobName());
             if (scheduledJob != null) {
                 final ScheduledJobHistory scheduledJobHistory = new ScheduledJobHistory();
                 scheduledJobHistory.setScheduledJobUuid(scheduledJob.getUuid());

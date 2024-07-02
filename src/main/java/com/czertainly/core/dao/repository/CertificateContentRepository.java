@@ -15,7 +15,7 @@ public interface CertificateContentRepository extends SecurityFilterRepository<C
     @Query("SELECT c FROM CertificateContent c " +
             "LEFT JOIN Certificate t1 ON c.id= t1.certificateContentId " +
             "LEFT JOIN DiscoveryCertificate t2 ON c.id = t2.certificateContentId " +
-            "WHERE t1 IS NULL AND t2 IS null")
+            "WHERE t1 IS NULL AND t2 IS NULL")
     List<CertificateContent> findCertificateContentNotUsed();
 
 }

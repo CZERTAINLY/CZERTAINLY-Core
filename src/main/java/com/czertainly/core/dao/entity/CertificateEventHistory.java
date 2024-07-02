@@ -25,21 +25,17 @@ import java.util.UUID;
 @Table(name = "certificate_event_history")
 public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateEventHistoryDto> {
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "event")
     private CertificateEvent event;
 
-    @Setter
     @Enumerated(EnumType.STRING)
     @Column(name = "status")
     private CertificateEventStatus status;
 
-    @Setter
     @Column(name="message")
     private String message;
 
-    @Setter
     @Column(name="additional_information", columnDefinition = "TEXT")
     private String additionalInformation;
 
@@ -48,7 +44,6 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     @ToString.Exclude
     private Certificate certificate;
 
-    @Setter
     @Column(name = "certificate_uuid", nullable = false)
     private UUID certificateUuid;
 

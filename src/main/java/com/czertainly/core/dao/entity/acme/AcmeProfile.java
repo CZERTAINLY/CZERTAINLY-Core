@@ -29,8 +29,6 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "name")
     private String name;
 
-    @Setter
-    @Getter
     @Column(name = "description")
     private String description;
 
