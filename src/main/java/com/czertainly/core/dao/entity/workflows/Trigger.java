@@ -72,8 +72,8 @@ public class Trigger extends UniquelyIdentified {
         TriggerDetailDto triggerDetailDto = new TriggerDetailDto();
         setCommonFields(triggerDetailDto);
 
-        if (rules != null) triggerDetailDto.setRules(rules.stream().map(Rule::mapToDto).toList());
-        if (actions != null) triggerDetailDto.setActions(actions.stream().map(Action::mapToDto).toList());
+        if (rules != null) triggerDetailDto.setRules(rules.stream().map(Rule::mapToDetailDto).toList());
+        if (actions != null) triggerDetailDto.setActions(actions.stream().map(Action::mapToDetailDto).toList());
         return triggerDetailDto;
     }
 
