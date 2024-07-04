@@ -8,8 +8,10 @@ import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.service.cmp.CmpEntityUtil;
 import com.czertainly.core.service.cmp.CmpTestUtil;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
@@ -49,7 +51,9 @@ public class KurMessageHandlerTest {
     @Mock private CertificateRepository certificateRepository;
     @Mock private ClientOperationService clientOperationService;
     @Mock private CertificateKeyService certificateKeyService;
+    @Mock private RaProfileRepository raProfileRepository;
 
+    private RaProfile raProfile;
     private CmpProfile cmpProfile;
     private CryptographicKeyItem ckPrivateKey;
     private X509Certificate x509Certificate;
@@ -82,8 +86,9 @@ public class KurMessageHandlerTest {
                 key
         );
 
+        raProfile = raProfileRepository.save(CmpEntityUtil.createRaProfile());
         cmpProfile = CmpEntityUtil.createCmpProfile(
-                CmpEntityUtil.createRaProfile(), certificateSig);
+                raProfile, certificateSig);
 
         String contentOfIssuedCert = "MIIFITCCAwmgAwIBAgIUWOYu4x4SR3+uoFbQXDgFk4tIm7MwDQYJKoZIhvcNAQELBQAwQDEgMB4GA1UEAwwXRGVtb0NsaWVudFN1YkNBXzIzMDdSU0ExHDAaBgNVBAoMEzNLZXkgQ29tcGFueSBzLnIuby4wHhcNMjQwNTE1MTYzNTA1WhcNMjYwNTE1MTYzNTA0WjAdMRswGQYDVQQDDBJjbXAtdGVzdC1kZXYuaXIuY3owggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQDIrii/N6zI35rtw6sYmApohhNqOXRa8ktsqDPROdzdNc55aBVyTQFvf0z1XRi26l4GhsUv3KpLVTLV3vrCXtOTAeZccQgNqfKqDIVByjzWxGxFMuiTwpToB+a/CqXblaavTlyrv9varnxBEDjXK7H5iA4U+HxhM+WWidcSstnqGG8CnTmWS9cnj163zF01JzQANuIXKQ1CvJkHaMidbj5n5+w/nU/73BZEhnKivbOw3WWgVlV7fnR325FCF25J4AzJ2YyXo0Xu95cH0psjX0DM/ZroV+geiPZgGUp8cszkNYJMg5vHXSIQnYDDhDyiACy0QUqpxmK2iZdAqpTeI2W7AgMBAAGjggE0MIIBMDAMBgNVHRMBAf8EAjAAMB8GA1UdIwQYMBaAFJVvVok/qW/9wNcwwbeXX+YsSq8dMFgGCCsGAQUFBwEBBEwwSjBIBggrBgEFBQcwAoY8aHR0cDovL3BraS4za2V5LmNvbXBhbnkvY2FzL2RlbW8vZGVtb2NsaWVudHN1YmNhXzIzMDdyc2EuY3J0MBEGA1UdIAQKMAgwBgYEVR0gADATBgNVHSUEDDAKBggrBgEFBQcDAjBOBgNVHR8ERzBFMEOgQaA/hj1odHRwOi8vcGtpLjNrZXkuY29tcGFueS9jcmxzL2RlbW8vZGVtb2NsaWVudHN1YmNhXzIzMDdyc2EuY3JsMB0GA1UdDgQWBBSzr9nhVund/xU3Zg5Pfc0taDDc/DAOBgNVHQ8BAf8EBAMCBaAwDQYJKoZIhvcNAQELBQADggIBAMh4GZJmz3lGiLT89RaTBRVrkOY3+g6Wz/wCi/TcAqnEmz72g+rP2aMOMWL87KhlU7A18liDh5F0EK+yW8zyJx8ZYCLqzvw1fO3ijzFZ/HcNr9eymu/1csP8mCk+CFWgezGsg+jhBJICFM8tgAUm4HOZgsjy3oFLNXhIUBfATrSMMnAtYWoC7zXrseSNvVYPBvwCMzUyC0liMVLedxHgMYiIO1LuP1C9HjMk82QtI9rJjf67YoArpdJMue+QjwwYfgCQap5ZHa7fWdnrNxSneT1F4hxka5zI6BL2JNl0AWqvrgfKITzpNHg7t0QR36zBOleGUeGTflxQpkB1ibtHhaqlb6aN/Qw9K+m/bLVJO5rbCCImyXXTzTY06vzBwoygAYQP6CpRaD7Oq15VTJwAsrxFintOaX+ZXjeLSc0BtprJPU12+48yX27846R13u8y0kD5cvDsb/ukqTg2pNrdl7jAYBnG0BK0CLnRNluY/AV55PVsEOo9ymqOqHjznbhKu8bUtQWWu6lr2Vick7ACvyeRc50aBBTCMarty4t3mAc/g/odiP8Qb0Y8G2fCbMJiau5VQA53tJb61o+ph4zJAmCaW0Drnbws/OIVF1ZTnjb4m0zdWtvfM6hKpxJ/8jckOXU35m5woLgAbzEbOz2xLfYrmWQmLiWGuQ5ttUW8vYY5";
         x509Certificate = CertificateUtil.parseCertificate(contentOfIssuedCert);
@@ -105,7 +110,7 @@ public class KurMessageHandlerTest {
                         CmpTestUtil.generateKeyPairEC())
                 .toASN1Structure();
         ConfigurationContext configuration = new Mobile3gppProfileContext(
-                cmpProfile, request, certificateKeyService,
+                cmpProfile, raProfile, request, certificateKeyService,
                 null, null);
 
         // -- GIVEN
@@ -129,7 +134,7 @@ public class KurMessageHandlerTest {
                         CmpTestUtil.generateKeyPairEC())
                 .toASN1Structure();
         ConfigurationContext configuration = new Mobile3gppProfileContext(
-                cmpProfile, request, certificateKeyService,
+                cmpProfile, raProfile, request, certificateKeyService,
                 null, null);
 
         // -- GIVEN
@@ -155,7 +160,7 @@ public class KurMessageHandlerTest {
                         CmpTestUtil.generateKeyPairEC())
                 .toASN1Structure();
         ConfigurationContext configuration = new Mobile3gppProfileContext(
-                cmpProfile, request, certificateKeyService,
+                cmpProfile, raProfile, request, certificateKeyService,
                 null, null);
 
         // -- GIVEN
