@@ -16,10 +16,10 @@ import org.bouncycastle.asn1.cmp.PKIStatusInfo;
 public class BodyErrorMessageValidator extends BaseValidator implements Validator<PKIMessage, Void> {
 
     /**
-     *    <p>This data structure MAY be used by EE, CA, or RA to convey error
-     *    info.</p>
+     * <p>This data structure MAY be used by EE, CA, or RA to convey error
+     * info.</p>
      *
-     *     <pre>
+     * <pre>
      *     ErrorMsgContent ::= SEQUENCE {
      *         pKIStatusInfo          PKIStatusInfo,
      *         errorCode              INTEGER           OPTIONAL,
@@ -27,21 +27,20 @@ public class BodyErrorMessageValidator extends BaseValidator implements Validato
      *     }
      *    </pre>
      *
-     *    <p>This message MAY be generated at any time during a PKI transaction.
-     *    If the client sends this request, the server MUST respond with a
-     *    PKIConfirm response, or another ErrorMsg if any part of the header is
-     *    not valid.  Both sides MUST treat this message as the end of the
-     *    transaction (if a transaction is in progress).</p>
+     * <p>This message MAY be generated at any time during a PKI transaction.
+     * If the client sends this request, the server MUST respond with a
+     * PKIConfirm response, or another ErrorMsg if any part of the header is
+     * not valid.  Both sides MUST treat this message as the end of the
+     * transaction (if a transaction is in progress).</p>
      *
-     *    <p>If protection is desired on the message, the client MUST protect it
-     *    using the same technique (i.e., signature or MAC) as the starting
-     *    message of the transaction.  The CA MUST always sign it with a
-     *    signature key.</p>
+     * <p>If protection is desired on the message, the client MUST protect it
+     * using the same technique (i.e., signature or MAC) as the starting
+     * message of the transaction.  The CA MUST always sign it with a
+     * signature key.</p>
      *
      * @param response which contains {@link ErrorMsgContent}
      * @return null if validation is ok
      * @throws CmpProcessingException if validation has failed
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.21">Error Message Content</a>
      */
     @Override

@@ -2,12 +2,9 @@ package com.czertainly.core.service.cmp.message.builder;
 
 import org.bouncycastle.asn1.ASN1GeneralizedTime;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.DERGeneralizedTime;
 import org.bouncycastle.asn1.cmp.InfoTypeAndValue;
 import org.bouncycastle.asn1.cmp.PKIHeader;
 import org.bouncycastle.asn1.x509.GeneralName;
-
-import java.util.Date;
 
 /**
  * To allow to provide values for {@link PKIHeader} dynamically

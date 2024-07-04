@@ -49,6 +49,7 @@ public class ResourceServiceImpl implements ResourceService {
     private GroupService groupService;
     private RaProfileService raProfileService;
     private ScepProfileService scepProfileService;
+    private CmpProfileService cmpProfileService;
     private CryptographicKeyService keyService;
     private TokenProfileService tokenProfileService;
     private TokenInstanceService tokenInstanceService;
@@ -127,6 +128,11 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Autowired
+    public void setCmpProfileService(CmpProfileService cmpProfileService) {
+        this.cmpProfileService = cmpProfileService;
+    }
+
+    @Autowired
     public void setKeyService(CryptographicKeyService keyService) {
         this.keyService = keyService;
     }
@@ -196,6 +202,7 @@ public class ResourceServiceImpl implements ResourceService {
             case TOKEN_PROFILE -> tokenProfileService.listResourceObjects(SecurityFilter.create());
             case TOKEN -> tokenInstanceService.listResourceObjects(SecurityFilter.create());
             case USER -> userManagementService.listResourceObjects(SecurityFilter.create());
+            case CMP_PROFILE -> cmpProfileService.listResourceObjects(SecurityFilter.create());
             default ->
                     throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
         };
@@ -210,6 +217,9 @@ public class ResourceServiceImpl implements ResourceService {
                 break;
             case SCEP_PROFILE:
                 scepProfileService.evaluatePermissionChain(objectUuid);
+                break;
+            case CMP_PROFILE:
+                cmpProfileService.evaluatePermissionChain(objectUuid);
                 break;
             case AUTHORITY:
                 authorityInstanceService.evaluatePermissionChain(objectUuid);

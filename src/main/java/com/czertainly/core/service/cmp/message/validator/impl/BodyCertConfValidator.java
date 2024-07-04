@@ -24,9 +24,9 @@ public class BodyCertConfValidator extends BaseValidator implements Validator<PK
      *             statusInfo  PKIStatusInfo OPTIONAL
      *          }
      * </pre>
+     *
      * @param request of certConf message, {@link CertConfirmContent}
      * @throws CmpProcessingException if validation has failed
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.3.18">Certificate Confirmation Content</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-F">Appendix F.  Compilable ASN.1 Definitions (rfc4210)</a>
      */

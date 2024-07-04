@@ -13,18 +13,21 @@ import org.springframework.stereotype.Component;
 public class CertificateKeyServiceImpl implements CertificateKeyService {
 
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+
     @Autowired
     public void setCryptographicOperationsApiClient(CryptographicOperationsApiClient cryptographicOperationsApiClient) {
         this.cryptographicOperationsApiClient = cryptographicOperationsApiClient;
     }
+
     private CryptographicKeyService cryptographicKeyService;
+
     @Autowired
     public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
         this.cryptographicKeyService = cryptographicKeyService;
     }
 
     @Override
-    public CzertainlyProvider getProvider (String cmpProfileName) {
+    public CzertainlyProvider getProvider(String cmpProfileName) {
         return CzertainlyProvider.getInstance(cmpProfileName,
                 true, cryptographicOperationsApiClient);
     }
