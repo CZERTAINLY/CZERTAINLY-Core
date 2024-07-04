@@ -57,7 +57,7 @@ class ProtectionSignatureValidator implements Validator<PKIMessage, Void> {
         CMPCertificate[] extraCerts = message.getExtraCerts();
         // TODO: improvement, add configuration to CMP Profile to configure location of signing certificate
         if (extraCerts == null || extraCerts.length == 0 || extraCerts[0] == null) {
-            LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getProfile().getName());
+            LOG.error("TID={}, TP={}, PN={} | extraCerts are empty", tid, msgType, configuration.getCmpProfile().getName());
             throw new CmpProcessingException(PKIFailureInfo.addInfoNotAvailable,
                     ImplFailureInfo.CRYPTOSIG541);
         }

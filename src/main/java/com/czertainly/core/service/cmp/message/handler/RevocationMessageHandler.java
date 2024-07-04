@@ -135,7 +135,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
                         certificate.getSerialNumber(), certificate.getUuid().toString(), CertificateState.REVOKED);
                 cmpTransactionService.save(cmpTransactionService.createTransactionEntity(
                         tid.toString(),
-                        configuration.getProfile(),
+                        configuration.getCmpProfile(),
                         certificate.getUuid().toString(),
                         CmpTransactionState.CERT_REVOKED));
 
@@ -209,7 +209,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
             ClientCertificateRevocationDto dto = new ClientCertificateRevocationDto();
             dto.setReason(reason);
             dto.setAttributes(configuration.getClientOperationAttributes(true));
-            RaProfile raProfile = configuration.getProfile().getRaProfile();
+            RaProfile raProfile = configuration.getRaProfile();
             // -- (1)revoke request (ask for issue)
             LOG.trace("TID={}, SN={} | revocation request (begin)", tid, sn);
             clientOperationService.revokeCertificate(

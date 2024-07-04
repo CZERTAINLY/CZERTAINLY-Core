@@ -204,7 +204,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         };
         cmpTransactionService.save(cmpTransactionService.createTransactionEntity(
                 tid.toString(),
-                configuration.getProfile(),
+                configuration.getCmpProfile(),
                 polledCert.getUuid().toString(),
                 trxState));
 
