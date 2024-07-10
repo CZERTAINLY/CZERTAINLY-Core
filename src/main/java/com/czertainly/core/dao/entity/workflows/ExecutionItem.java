@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.workflows;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.ExecutionItemDto;
+import com.czertainly.core.dao.converter.ObjectToJsonConverter;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.persistence.*;
@@ -37,6 +38,7 @@ public class ExecutionItem extends UniquelyIdentified {
 
     @Column(name = "data", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ObjectToJsonConverter.class)
     private Object data;
 
     public ExecutionItemDto mapToDto() {

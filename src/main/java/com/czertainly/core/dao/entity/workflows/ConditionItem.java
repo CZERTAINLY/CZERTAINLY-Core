@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.workflows;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.ConditionItemDto;
+import com.czertainly.core.dao.converter.ObjectToJsonConverter;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import jakarta.persistence.*;
 import lombok.*;
@@ -38,6 +39,7 @@ public class ConditionItem extends UniquelyIdentified {
 
     @Column(name = "value", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ObjectToJsonConverter.class)
     private Object value;
 
     public ConditionItemDto mapToDto() {

@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.approval.ApprovalDetailStepDto;
 import com.czertainly.api.model.client.approval.ApprovalDto;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.dao.converter.ObjectToJsonConverter;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.*;
 import lombok.*;
@@ -67,6 +68,7 @@ public class Approval extends UniquelyIdentified {
 
     @Column(name = "object_data", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ObjectToJsonConverter.class)
     private Object objectData;
 
     public ApprovalDto mapToDto() {

@@ -2,7 +2,9 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDto;
+import com.czertainly.core.dao.converter.ObjectToJsonConverter;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Table;
 import lombok.*;
@@ -29,6 +31,7 @@ public class ScheduledJob extends UniquelyIdentified{
 
     @Column(name = "object_data", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
+    @Convert(converter = ObjectToJsonConverter.class)
     private Object objectData;
 
     @Column(name = "user_uuid")
