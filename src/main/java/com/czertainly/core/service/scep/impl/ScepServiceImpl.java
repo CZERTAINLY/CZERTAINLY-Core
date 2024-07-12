@@ -29,6 +29,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.dao.repository.scep.ScepTransactionRepository;
 import com.czertainly.core.intune.scepvalidation.IntuneScepServiceClient;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.provider.CzertainlyProvider;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -448,7 +449,7 @@ public class ScepServiceImpl implements ScepService {
         }
         ClientCertificateDataResponseDto response;
         try {
-            response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto, scepProfile.getUuid(), null, CertificateProtocol.SCEP);
+            response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
         } catch (ConnectorException e) {
             throw new ScepException("Unable to use connector to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (CertificateException | CertificateOperationException e) {
@@ -514,7 +515,7 @@ public class ScepServiceImpl implements ScepService {
         }
         CertificateDetailDto response;
         try {
-            response = clientOperationService.submitCertificateRequest(requestDto, scepProfile.getUuid(), null, CertificateProtocol.SCEP);
+            response = clientOperationService.submitCertificateRequest(requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
         } catch (CertificateException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }

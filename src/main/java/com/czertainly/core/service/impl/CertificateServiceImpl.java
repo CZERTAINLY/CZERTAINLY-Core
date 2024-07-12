@@ -21,7 +21,6 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -38,6 +37,7 @@ import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -1188,9 +1188,7 @@ public class CertificateServiceImpl implements CertificateService {
             UUID keyUuid,
             UUID raProfileUuid,
             UUID sourceCertificateUuid,
-            UUID protocolProfileUuid,
-            UUID additionalProtocolUuid,
-            CertificateProtocol protocol
+            CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
@@ -1258,12 +1256,12 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate = certificateRepository.save(certificate);
 
-        if (protocol != null) {
+        if (protocolInfo != null) {
             CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
             protocolAssociation.setCertificateUuid(certificate.getUuid());
-            protocolAssociation.setProtocol(protocol);
-            protocolAssociation.setProtocolProfileUuid(protocolProfileUuid);
-            protocolAssociation.setAdditionalProtocolUuid(additionalProtocolUuid);
+            protocolAssociation.setProtocol(protocolInfo.getProtocol());
+            protocolAssociation.setProtocolProfileUuid(protocolInfo.getProtocolProfileUuid());
+            protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
             certificateProtocolAssociationRepository.save(protocolAssociation);
         }
 
