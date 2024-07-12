@@ -21,7 +21,7 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.api.model.core.enums.Protocol;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -1190,7 +1190,7 @@ public class CertificateServiceImpl implements CertificateService {
             UUID sourceCertificateUuid,
             UUID protocolProfileUuid,
             UUID additionalProtocolUuid,
-            Protocol protocol
+            CertificateProtocol protocol
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);

@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.core.enums.Protocol;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -18,7 +18,7 @@ public class CertificateProtocolAssociation extends UniquelyIdentified {
 
     @Column(name = "protocol", nullable = false)
     @Enumerated(EnumType.STRING)
-    private Protocol protocol;
+    private CertificateProtocol protocol;
 
     @Column(name = "protocol_profile_uuid", nullable = false)
     private UUID protocolProfileUuid;
