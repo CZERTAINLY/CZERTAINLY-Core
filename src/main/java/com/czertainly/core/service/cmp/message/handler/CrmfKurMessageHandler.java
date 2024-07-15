@@ -103,7 +103,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
                     ClientCertificateRekeyRequestDto.builder();
             dtoBuilder.request(Base64.getEncoder().encodeToString(crmf.getEncoded()));
             dtoBuilder.format(CertificateRequestFormat.CRMF);
-            RaProfile raProfile = configuration.getProfile().getRaProfile();
+            RaProfile raProfile = configuration.getRaProfile();
             // -- (1)certification request (ask for issue)
             return clientOperationService.rekeyCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),

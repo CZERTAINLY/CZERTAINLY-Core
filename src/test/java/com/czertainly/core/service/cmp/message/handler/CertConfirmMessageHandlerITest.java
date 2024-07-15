@@ -55,6 +55,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
     @Autowired
     private ConnectorRepository connectorRepository;
 
+    private RaProfile raProfile;
     private CertConfirmMessageHandler testedHandler;
     private CmpProfile cmpProfileSigPrt;
     private CmpProfile cmpProfileMacPrt;//mac-protection
@@ -75,7 +76,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         testedHandler.setCmpTransactionService(cmpTransactionService);
 
         // -- create customer/client profile (signature-based)
-        RaProfile raProfile = raProfileRepository.save(CmpEntityUtil.createRaProfile());
+        raProfile = raProfileRepository.save(CmpEntityUtil.createRaProfile());
         cmpProfileSigPrt = cmpProfileRepository.save(
                 CmpEntityUtil.createCmpProfile(raProfile,
                         createSigningCertificateEntity(mockServer)));
@@ -118,6 +119,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- test handling of message
         PKIMessage response = testedHandler.handle(request,
                 new Mobile3gppProfileContext(cmpProfileSigPrt,
+                        raProfile,
                         request,
                         certificateKeyService,
                         null,
@@ -154,6 +156,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- test handling of message
         PKIMessage response = testedHandler.handle(request,
                 new CmpConfigurationContext(cmpProfileSigPrt,
+                        raProfile,
                         request,
                         certificateKeyService,
                         null,
@@ -193,6 +196,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- test handling of message
         PKIMessage response = testedHandler.handle(request,
                 new Mobile3gppProfileContext(cmpProfileMacPrt,
+                        raProfile,
                         request,
                         certificateKeyService,
                         null,
@@ -230,6 +234,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         // -- test handling of message
         PKIMessage response = testedHandler.handle(request,
                 new CmpConfigurationContext(cmpProfileMacPrt,
+                        raProfile,
                         request,
                         certificateKeyService,
                         null,

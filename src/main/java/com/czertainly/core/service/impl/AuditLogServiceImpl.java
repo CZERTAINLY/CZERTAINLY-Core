@@ -9,6 +9,7 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.AuditLogService;
+import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -17,6 +18,9 @@ import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Predicate;
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.PreDestroy;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.CriteriaDelete;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
@@ -29,7 +33,6 @@ import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalTime;
-import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -61,6 +64,10 @@ public class AuditLogServiceImpl implements AuditLogService {
     private AuditLogRepository auditLogRepository;
     @Autowired
     private ExportProcessor exportProcessor;
+
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Override
     public void log(ObjectType origination,
@@ -159,10 +166,10 @@ public class AuditLogServiceImpl implements AuditLogService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
-        Predicate predicate = createPredicate(filter);
-        List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
-        auditLogRepository.deleteAll(entities);
+        CriteriaDelete<AuditLog> criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryForAuditLog(filter, entityManager.getCriteriaBuilder());
+        entityManager.createQuery(criteriaQueryDataObject).executeUpdate();
     }
+
 
     private Predicate createPredicate(AuditLogFilter filter) {
         BooleanBuilder predicate = new BooleanBuilder();

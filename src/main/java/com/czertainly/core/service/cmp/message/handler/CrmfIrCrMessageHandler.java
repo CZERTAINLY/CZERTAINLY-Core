@@ -77,7 +77,7 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             ClientCertificateSignRequestDto dto = new ClientCertificateSignRequestDto();
             dto.setRequest(Base64.getEncoder().encodeToString(crmf.getEncoded()));
             dto.setFormat(CertificateRequestFormat.CRMF);
-            RaProfile raProfile = configuration.getProfile().getRaProfile();
+            RaProfile raProfile = configuration.getRaProfile();
             // -- (1)certification request (ask for issue)
             return clientOperationService.issueCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),

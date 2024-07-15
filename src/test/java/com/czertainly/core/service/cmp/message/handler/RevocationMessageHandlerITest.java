@@ -62,6 +62,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
     private RevocationMessageHandler testedHandler;
     private CmpProfile cmpProfileSigPrt;
     private CmpProfile cmpProfileMacPrt;//mac-protection
+    private RaProfile raProfile;
 
     private final String transactionId = "999";
     private final String sharedSecret = "sh@r3dS3cr3t";
@@ -112,7 +113,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
         authorityInstance.setAuthorityInstanceUuid("1l");
         authorityInstance = authorityInstanceReferenceRepository.save(authorityInstance);
 
-        RaProfile raProfile = raProfileRepository.saveAndFlush(CmpEntityUtil.createRaProfile(authorityInstance));
+        raProfile = raProfileRepository.saveAndFlush(CmpEntityUtil.createRaProfile(authorityInstance));
 
         // create chain of cert(s)
         Certificate rootCA = certificateRepository.save(CmpEntityUtil.createCertificate(
@@ -193,6 +194,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
 
         PKIMessage response = testedHandler.handle(request,
                 new Mobile3gppProfileContext(cmpProfileSigPrt,
+                        raProfile,
                         request,
                         certificateKeyService,
                         null,
@@ -241,6 +243,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
         // -- test handling of message
         PKIMessage response = testedHandler.handle(request,
                 new Mobile3gppProfileContext(cmpProfileMacPrt,
+                        raProfile,
                         request,
                         certificateKeyService,
                         null,

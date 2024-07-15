@@ -52,8 +52,6 @@ import static com.czertainly.core.service.cmp.CmpConstants.*;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
-import java.security.cert.X509Certificate;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
@@ -198,10 +196,10 @@ public class CmpServiceImpl implements CmpService {
         init(profileName);
         ConfigurationContext configuration = switch (cmpProfile.getVariant()) {
             /*   3gpp*/
-            case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, pkiRequest,
+            case V2_3GPP -> new Mobile3gppProfileContext(cmpProfile, raProfile, pkiRequest,
                     certificateKeyServiceImpl, issueAttributes, revokeAttributes);
             /*rfc4210*/
-            case V2 -> new CmpConfigurationContext(cmpProfile, pkiRequest,
+            case V2 -> new CmpConfigurationContext(cmpProfile, raProfile, pkiRequest,
                     certificateKeyServiceImpl, issueAttributes, revokeAttributes);
             /*rfc9483*/
             case V3 -> throw new UnsupportedOperationException("not implemented");
