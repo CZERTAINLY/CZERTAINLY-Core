@@ -15,8 +15,6 @@ import org.slf4j.LoggerFactory;
  */
 public class ProtectionPBMac1Validator implements Validator<PKIMessage, Void> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(ProtectionPBMac1Validator.class.getName());
-
     @Override
     public Void validate(PKIMessage message, ConfigurationContext configuration) throws CmpBaseException {
         throw new UnsupportedOperationException("not implemented yet");

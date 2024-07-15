@@ -15,8 +15,11 @@ import java.util.UUID;
 public class CmpTransactionService {
 
     private CmpTransactionRepository cmpTransactionRepository;
+
     @Autowired
-    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) { this.cmpTransactionRepository = cmpTransactionRepository; }
+    private void setCmpTransactionRepository(CmpTransactionRepository cmpTransactionRepository) {
+        this.cmpTransactionRepository = cmpTransactionRepository;
+    }
 
     public void save(CmpTransaction transaction) {
         this.cmpTransactionRepository.save(transaction);
@@ -32,8 +35,8 @@ public class CmpTransactionService {
      * <p>There's a next solution to move m:n relationship to another table (with removing certificate
      * column in {@link CmpTransactionService}) with list of {@link com.czertainly.core.dao.entity.Certificate}</p>
      *
-     * @param transactionId
-     * @return
+     * @param transactionId unique identifier of transaction
+     * @return list of transactions
      */
     public List<CmpTransaction> findByTransactionId(String transactionId) {
         return cmpTransactionRepository.findByTransactionId(transactionId);
@@ -41,15 +44,15 @@ public class CmpTransactionService {
 
     /**
      * Helper to create {@link CmpTransaction} entity
-     * 
-     * @param transactionId
-     * @param cmpProfile
-     * @param certificateUuid
-     * @param state
-     * @return
+     *
+     * @param transactionId   unique identifier of transaction
+     * @param cmpProfile      CMP profile
+     * @param certificateUuid unique identifier of certificate
+     * @param state           state of transaction
+     * @return new instance of {@link CmpTransaction}
      */
     public CmpTransaction createTransactionEntity(String transactionId, CmpProfile cmpProfile,
-                                                   String certificateUuid, CmpTransactionState state) {
+                                                  String certificateUuid, CmpTransactionState state) {
         CmpTransaction cmpTransaction = new CmpTransaction();
         cmpTransaction.setTransactionId(transactionId);
         cmpTransaction.setCmpProfile(cmpProfile);
@@ -60,8 +63,9 @@ public class CmpTransactionService {
 
     /**
      * Find transaction by transactionId and fingerprint from related certificate
+     *
      * @param transactionId unique identifier of transaction
-     * @param fingerprint unique identifier of certificate
+     * @param fingerprint   unique identifier of certificate
      * @return a concrete transaction (fingerprints must be unique in given table)
      */
     public Optional<CmpTransaction> findByTransactionIdAndFingerprint(String transactionId, String fingerprint) {
@@ -70,8 +74,9 @@ public class CmpTransactionService {
 
     /**
      * Find transaction by transactionId and serial number from related certificate
+     *
      * @param transactionId unique identifier of transaction
-     * @param serialNumber unique identifier of certificate
+     * @param serialNumber  unique identifier of certificate
      * @return a concrete transaction (serial numbers must be unique in given table)
      */
     public Optional<CmpTransaction> findByTransactionIdAndCertificateSerialNumber(String transactionId, String serialNumber) {

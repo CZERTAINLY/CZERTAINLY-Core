@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.service.cmp.message.protection.ProtectionStrategy;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -15,7 +16,9 @@ import java.util.List;
 
 public interface ConfigurationContext {
 
-    CmpProfile getProfile();
+    CmpProfile getCmpProfile();
+
+    RaProfile getRaProfile();
 
     GeneralName getRecipient();
 
@@ -23,12 +26,14 @@ public interface ConfigurationContext {
 
     /**
      * scope: protection (mac-based)
+     *
      * @return shared secret for mac-base protection
      */
     byte[] getSharedSecret();
 
     /**
      * It allows to client define specified validation of CRMF request messages
+     *
      * @param request of crmf based message
      */
     void validateOnCrmfRequest(PKIMessage request)
@@ -36,6 +41,7 @@ public interface ConfigurationContext {
 
     /**
      * It allows to client define specified validation of response messages
+     *
      * @param response of message
      */
     void validateOnCrmfResponse(PKIMessage response)

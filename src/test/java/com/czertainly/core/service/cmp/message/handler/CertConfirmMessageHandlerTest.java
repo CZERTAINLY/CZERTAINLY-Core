@@ -14,6 +14,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.provider.CzertainlyProvider;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
 import com.czertainly.core.service.cmp.CmpEntityUtil;
@@ -53,9 +54,11 @@ public class CertConfirmMessageHandlerTest {
     @Mock private CertificateRepository certificateRepository;
     @Mock private CmpTransactionService cmpTransactionService;
     @Mock private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+    @Mock private RaProfileRepository raProfileRepository;
 
     private X509CertificateHolder x509certificate;
     private final BigInteger serialNumber = BigInteger.valueOf(123456789);
+    private RaProfile raProfile;
     private CmpProfile cmpProfile;
     private CryptographicKeyItem ckPrivateKey;
 
@@ -89,8 +92,9 @@ public class CertConfirmMessageHandlerTest {
                 key
         );
 
+        raProfile = raProfileRepository.save(CmpEntityUtil.createRaProfile());
         cmpProfile = CmpEntityUtil.createCmpProfile(
-                CmpEntityUtil.createRaProfile(), certificateSig);
+                raProfile, certificateSig);
     }
 
     @Test
@@ -104,7 +108,7 @@ public class CertConfirmMessageHandlerTest {
                 body)
                 .toASN1Structure();
         ConfigurationContext configuration = new Mobile3gppProfileContext(
-                cmpProfile, request, certificateKeyService,
+                cmpProfile, raProfile, request, certificateKeyService,
                 null, null);
 
         // -- GIVEN
@@ -147,7 +151,7 @@ public class CertConfirmMessageHandlerTest {
                         body)
                 .toASN1Structure();
         ConfigurationContext configuration = new Mobile3gppProfileContext(
-                new CmpProfile(), request, certificateKeyService,
+                new CmpProfile(), raProfile, request, certificateKeyService,
                 null, null);
 
         // -- GIVEN
@@ -171,7 +175,7 @@ public class CertConfirmMessageHandlerTest {
                         body)
                 .toASN1Structure();
         ConfigurationContext configuration = new Mobile3gppProfileContext(
-                new CmpProfile(), request, certificateKeyService,
+                new CmpProfile(), raProfile, request, certificateKeyService,
                 null, null);
 
         // -- GIVEN

@@ -87,21 +87,27 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
     }
 
     @Override
-    public List<CMPCertificate> getProtectingExtraCerts() throws Exception { return null; }
+    public List<CMPCertificate> getProtectingExtraCerts() throws Exception {
+        return null;
+    }
 
     @Override
-    public GeneralName getSender() { return null; }
+    public GeneralName getSender() {
+        return null;
+    }
 
     @Override
-    public ASN1OctetString getSenderKID() { return configuration.getSenderKID(); }
+    public ASN1OctetString getSenderKID() {
+        return configuration.getSenderKID();
+    }
 
     private AlgorithmIdentifier getDigestAlgorithm() throws CmpConfigurationException {
         PBMParameter pbmParameter = PBMParameter.getInstance(
                 headerProtectionAlgorithm.getParameters());
         AlgorithmIdentifier algorithmIdentifier = pbmParameter.getOwf();
-        if(algorithmIdentifier == null) {
+        if (algorithmIdentifier == null) {
             algorithmIdentifier = DIGEST_ALGORITHM_IDENTIFIER_FINDER.find("SHA256");//db query/cmp profile.getSignatureName
-            if(algorithmIdentifier == null) {
+            if (algorithmIdentifier == null) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of DIGEST algorithm");
             }
         }
@@ -110,6 +116,7 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
 
     /**
      * scope: PasswordBased-MAC  Protection
+     *
      * @return algorithm for mac (for PKI Protection field)
      * @throws CmpConfigurationException if algorithm cannot be found (e.g. wrong mac name).
      */
@@ -117,9 +124,9 @@ public class PasswordBasedMacProtectionStrategy extends BaseProtectionStrategy i
         PBMParameter pbmParameter = PBMParameter.getInstance(
                 headerProtectionAlgorithm.getParameters());
         AlgorithmIdentifier algorithmIdentifier = pbmParameter.getMac();
-        if(algorithmIdentifier == null) {
+        if (algorithmIdentifier == null) {
             algorithmIdentifier = MAC_ALGORITHM_IDENTIFIER_FINDER.find("HMACSHA256");//db query/cmp profile.getSignatureName
-            if(algorithmIdentifier == null) {
+            if (algorithmIdentifier == null) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure, "wrong name of MAC algorithm");
             }
         }

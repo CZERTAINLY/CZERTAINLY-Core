@@ -12,10 +12,11 @@ import java.util.List;
  * @param <I> subject of validation
  * @param <E> return type of validation
  */
-public interface Validator<I,E> {
+public interface Validator<I, E> {
 
     /**
      * validate given <code>subject</code>
+     *
      * @param subject for validation
      * @return result of validation
      * @throws CmpBaseException if validation has failed
@@ -31,6 +32,7 @@ public interface Validator<I,E> {
      *          krr      [9]  CertReqMessages,       --Key Recovery Req
      *          ccr      [13] CertReqMessages,       --Cross-Cert.  Request
      * </pre>
+     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2">PKI Body overall</a>
      */
     List<Integer> CRMF_MESSAGES_TYPES = List.of(
@@ -40,6 +42,6 @@ public interface Validator<I,E> {
             PKIBody.TYPE_KEY_RECOVERY_REQ, // -- not implemented
             PKIBody.TYPE_CROSS_CERT_REQ);  // -- not implemented
 
-    List<Integer> SUPPORTED_CRMF_MESSAGES_TYPES = CRMF_MESSAGES_TYPES.subList(0,3);
+    List<Integer> SUPPORTED_CRMF_MESSAGES_TYPES = CRMF_MESSAGES_TYPES.subList(0, 3);
 
 }

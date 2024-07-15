@@ -5,6 +5,7 @@ import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.service.cmp.message.CertificateKeyService;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
@@ -23,25 +24,32 @@ import java.util.List;
 public class CmpConfigurationContext implements ConfigurationContext {
 
     protected final PKIMessage requestMessage;
-    protected final CmpProfile profile;
+    protected final CmpProfile cmpProfile;
+    private final RaProfile raProfile;
     private final CertificateKeyService certificateKeyService;
     private final List<RequestAttributeDto> issueAttributes;
     private final List<RequestAttributeDto> revokeAttributes;
 
-    public CmpConfigurationContext(CmpProfile profile, PKIMessage pkiRequest,
+    public CmpConfigurationContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
                                    CertificateKeyService certificateKeyServiceImpl,
                                    List<RequestAttributeDto> issueAttributes,
                                    List<RequestAttributeDto> revokeAttributes) {
         this.requestMessage = pkiRequest;
-        this.profile = profile;
+        this.cmpProfile = cmpProfile;
+        this.raProfile = raProfile;
         this.certificateKeyService = certificateKeyServiceImpl;
         this.issueAttributes = issueAttributes;
         this.revokeAttributes = revokeAttributes;
     }
 
     @Override
-    public CmpProfile getProfile() {
-        return profile;
+    public CmpProfile getCmpProfile() {
+        return cmpProfile;
+    }
+
+    @Override
+    public RaProfile getRaProfile() {
+        return raProfile;
     }
 
     /**
@@ -75,12 +83,12 @@ public class CmpConfigurationContext implements ConfigurationContext {
 
     @Override
     public ProtectionMethod getProtectionMethod() {
-        return getProfile().getRequestProtectionMethod();
+        return getCmpProfile().getRequestProtectionMethod();
     }
 
     @Override
     public ProtectionStrategy getProtectionStrategy() throws CmpBaseException {
-        ProtectionMethod czrtProtectionMethod = getProfile().getResponseProtectionMethod();
+        ProtectionMethod czrtProtectionMethod = getCmpProfile().getResponseProtectionMethod();
         switch (czrtProtectionMethod) {
             case SIGNATURE:
                 return new SingatureBaseProtectionStrategy(this,
@@ -104,7 +112,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
          *    that indicates to the receiver the appropriate shared secret
          *    information to use to verify the message */
         // ASN1OctetString senderKID = requestMessage.getHeader().getSenderKID();
-        return getProfile().getSharedSecret().getBytes();
+        return getCmpProfile().getSharedSecret().getBytes();
     }
 
     @Override

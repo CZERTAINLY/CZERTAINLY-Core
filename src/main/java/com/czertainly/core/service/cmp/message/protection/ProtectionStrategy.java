@@ -13,7 +13,6 @@ public interface ProtectionStrategy {
 
     /**
      * @return protection algorithm for {@link PKIMessage#getProtection()} (for outgoing/response part)
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#appendix-D.2">Algorithm Use Profile</a>
      * @see <a href="https://www.rfc-editor.org/rfc/rfc9481.html">Certificate Management Protocol (CMP) Algorithms</a>
      */
@@ -29,10 +28,9 @@ public interface ProtectionStrategy {
      * </pre>
      *
      * @param header part for protection
-     * @param body part for protection
+     * @param body   part for protection
      * @return the protection string
      * @throws Exception in case of error
-     *
      * @see <a href="https://www.rfc-editor.org/rfc/rfc4210#section-5.1.3">PKI Message Protection</a>
      */
     DERBitString createProtection(PKIHeader header, PKIBody body) throws Exception;

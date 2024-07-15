@@ -27,18 +27,21 @@ public class PollFeature {
     @PersistenceContext
     private EntityManager entityManager;
 
-    //@Value("${app.cmp.protocol.poll.feature.timeout}")
+    @Value("${cmp.protocol.poll.feature.timeout}")
     private Integer pollFeatureTimeout;
 
     private CertificateService certificateService;
+
     @Autowired
-    public void setCertificateService(CertificateService certificateService) { this.certificateService = certificateService; }
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
     /**
      * Convert asynchronous behaviour (manipulation with certificate, e.g. issuing/re-keying/revoking) to synchronous
      * (cmp client ask for certificate) using polling certificate until certificate.
      *
-     * @param tid processing transaction id, see {@link PKIHeader#getTransactionID()}
+     * @param tid          processing transaction id, see {@link PKIHeader#getTransactionID()}
      * @param serialNumber of given certificate subject of polling
      * @return null if certificate (with state={@link CertificateState#ISSUED}) not found
      * @throws CmpProcessingException if polling of certificate failed
@@ -49,12 +52,12 @@ public class PollFeature {
         SecuredUUID certUUID = SecuredUUID.fromString(uuid);
 
         Certificate polledCert;
-        try{
+        try {
             LOG.trace("TID={}, SN={} | Polling of certificate with uuid={}", tid, serialNumber, certUUID);
             long startRequest = System.currentTimeMillis();
             long endRequest;
             int cfgValue = pollFeatureTimeout == null ? 10 : pollFeatureTimeout;//in seconds
-            int timeout = 1000*cfgValue;
+            int timeout = 1000 * cfgValue;
             int counter = 0;//counter for logging purpose only
             do {
                 LOG.trace(">>>>> TID={}, POLL=[{}] SN={} | polling request: certificate with uuid={}",
@@ -65,26 +68,22 @@ public class PollFeature {
                         tid, counter, polledCert.getSerialNumber(), polledCert.getState(), certUUID);
                 endRequest = System.currentTimeMillis();
                 counter++;
-                if(polledCert != null) entityManager.refresh(polledCert);//get entity from db (instead from hibernate 1lvl cache)
-                if(counter > 1) TimeUnit.MILLISECONDS.sleep(1000);
-                if(serialNumber == null && polledCert != null) serialNumber = polledCert.getSerialNumber();
-            } while ( endRequest - startRequest < timeout
-                    && (polledCert != null && !expectedState.equals(polledCert.getState())));
+                entityManager.refresh(polledCert);//get entity from db (instead from hibernate 1lvl cache)
+                if (counter > 1) TimeUnit.MILLISECONDS.sleep(1000);
+                if (serialNumber == null) serialNumber = polledCert.getSerialNumber();
+            } while ((endRequest - startRequest < timeout)
+                    && !expectedState.equals(polledCert.getState()));
             LOG.trace("TID={}, SN={} | Polling of certificate with uuid={} is done", tid, serialNumber, certUUID);
-        } catch(InterruptedException e) {
+        } catch (InterruptedException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "SN="+serialNumber+" | cannot poll certificate - processing thread has been interrupted", e);
+                    "SN=" + serialNumber + " | cannot poll certificate - processing thread has been interrupted", e);
         } catch (NotFoundException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "SN="+serialNumber+" | issued certificate from CA cannot be found, uuid="+certUUID);
+                    "SN=" + serialNumber + " | issued certificate from CA cannot be found, uuid=" + certUUID);
         } finally {
             LOG.trace("<<<<< CERT polling (  end) <<<<< ");
         }
 
-        if(polledCert == null) {
-            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
-                    "SN="+serialNumber+" | result of polling cannot be null or empty result");
-        }
         if (!expectedState.equals(polledCert.getState())) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
                     String.format("SN=%s | polled certificate is not at valid state (expected=%s), retrieved=%s",

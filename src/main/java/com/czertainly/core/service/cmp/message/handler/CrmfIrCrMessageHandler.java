@@ -16,12 +16,8 @@ import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
 import com.czertainly.core.service.v2.ClientOperationService;
 import org.bouncycastle.asn1.ASN1OctetString;
-import org.bouncycastle.asn1.cmp.PKIBody;
-import org.bouncycastle.asn1.cmp.PKIFailureInfo;
-import org.bouncycastle.asn1.cmp.PKIMessage;
-import org.bouncycastle.asn1.crmf.CertReqMessages;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import org.bouncycastle.asn1.cmp.*;
+import org.bouncycastle.asn1.crmf.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,20 +43,22 @@ import java.util.List;
 @Transactional
 public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateDataResponseDto> {
 
-    private static final Logger LOG = LoggerFactory.getLogger(CrmfIrCrMessageHandler.class.getName());
     private static final List<Integer> ALLOWED_TYPES = List.of(
             PKIBody.TYPE_INIT_REQ,          // ir       [0]  CertReqMessages,       --Initialization Req
             PKIBody.TYPE_CERT_REQ);         // cr       [2]  CertReqMessages,       --Certification Req
 
     private ClientOperationService clientOperationService;
+
     @Autowired
-    public void setClientOperationService(ClientOperationService clientOperationService) { this.clientOperationService = clientOperationService; }
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
 
     /**
      * Process request (issue certificate) to CA in asynchronous manner;
      * only create request (without waiting for response).
      *
-     * @param request incoming {@link PKIMessage} as request
+     * @param request       incoming {@link PKIMessage} as request
      * @param configuration server (profile) configuration
      * @return dto object keeps information about potentially issued certificate
      * @throws CmpBaseException if any error is raised
@@ -70,9 +68,9 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
         ASN1OctetString tid = request.getHeader().getTransactionID();
         String msgBodyType = PkiMessageDumper.msgTypeAsString(request);
         String msgKey = PkiMessageDumper.msgTypeAsShortCut(false, request);
-        if(!ALLOWED_TYPES.contains(request.getBody().getType())) {
+        if (!ALLOWED_TYPES.contains(request.getBody().getType())) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
-                    "message "+msgKey+" cannot be handled - wrong type, type="+msgBodyType);
+                    "message " + msgKey + " cannot be handled - wrong type, type=" + msgBodyType);
         }
 
         // -- process issue (asynchronous) operation
@@ -81,12 +79,12 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             ClientCertificateSignRequestDto dto = new ClientCertificateSignRequestDto();
             dto.setRequest(Base64.getEncoder().encodeToString(crmf.getEncoded()));
             dto.setFormat(CertificateRequestFormat.CRMF);
-            RaProfile raProfile = configuration.getProfile().getRaProfile();
+            RaProfile raProfile = configuration.getRaProfile();
             // -- (1)certification request (ask for issue)
             return clientOperationService.issueCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                     raProfile.getSecuredUuid(),
-                    dto, CertificateProtocolInfo.Cmp(configuration.getProfile().getUuid()));
+                    dto, CertificateProtocolInfo.Cmp(raProfile.getUuid()));
         } catch (CertificateRequestException | NotFoundException | CertificateException | IOException |
                  NoSuchAlgorithmException | InvalidKeyException | CertificateOperationException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,
