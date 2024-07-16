@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.v2.*;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -29,7 +30,7 @@ public interface ClientOperationService {
     ) throws ConnectorException, ValidationException;
 
     CertificateDetailDto submitCertificateRequest(
-            ClientCertificateRequestDto request
+            ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo
     ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException;
 
     ClientCertificateDataResponseDto issueRequestedCertificate(
@@ -41,7 +42,8 @@ public interface ClientOperationService {
     ClientCertificateDataResponseDto issueCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
-            ClientCertificateSignRequestDto request
+            ClientCertificateSignRequestDto request,
+            CertificateProtocolInfo protocolInfo
     ) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException;
 
     void approvalCreatedAction(final UUID certificateUuid) throws NotFoundException;

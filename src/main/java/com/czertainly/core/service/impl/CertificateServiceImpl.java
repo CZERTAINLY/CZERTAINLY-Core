@@ -37,6 +37,7 @@ import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -178,6 +179,13 @@ public class CertificateServiceImpl implements CertificateService {
     private Map<String, ICertificateValidator> certificateValidatorMap;
 
     private CrlService crlService;
+
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
+
+    @Autowired
+    public void setCertificateProtocolAssociationRepository(CertificateProtocolAssociationRepository certificateProtocolAssociationRepository) {
+        this.certificateProtocolAssociationRepository = certificateProtocolAssociationRepository;
+    }
 
     @Autowired
     public void setCrlService(CrlService crlService) {
@@ -1179,7 +1187,8 @@ public class CertificateServiceImpl implements CertificateService {
             List<RequestAttributeDto> issueAttributes,
             UUID keyUuid,
             UUID raProfileUuid,
-            UUID sourceCertificateUuid
+            UUID sourceCertificateUuid,
+            CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
@@ -1247,16 +1256,27 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate = certificateRepository.save(certificate);
 
+        if (protocolInfo != null) {
+            CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+            protocolAssociation.setCertificate(certificate);
+            protocolAssociation.setProtocol(protocolInfo.getProtocol());
+            protocolAssociation.setProtocolProfileUuid(protocolInfo.getProtocolProfileUuid());
+            protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
+            certificateProtocolAssociationRepository.save(protocolAssociation);
+            certificate.setProtocolAssociation(protocolAssociation);
+        }
+
+
         // set owner of certificate to logged user
         objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
 
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
-                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
-        );
+//        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+//                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+//                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+//        );
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
                 "Certificate request created", ""
