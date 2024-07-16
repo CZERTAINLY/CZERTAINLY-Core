@@ -12,9 +12,10 @@ import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import lombok.*;
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.ToString;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
@@ -196,6 +197,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "trusted_ca")
     private Boolean trustedCa;
 
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate", cascade = CascadeType.ALL)
+    @ToString.Exclude
+    private CertificateProtocolAssociation protocolAssociation;
+
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -273,6 +278,15 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             }
         }
         if (key != null) dto.setKey(key.mapToDto());
+
+        if (protocolAssociation != null) {
+            CertificateProtocolDto protocolDto = new CertificateProtocolDto();
+            protocolDto.setProtocol(protocolAssociation.getProtocol());
+            protocolDto.setProtocolProfileUuid(protocolAssociation.getProtocolProfileUuid());
+            protocolDto.setAdditionalProtocolUuid(protocolAssociation.getAdditionalProtocolUuid());
+            dto.setProtocolInfo(protocolDto);
+        }
+
         return dto;
     }
 

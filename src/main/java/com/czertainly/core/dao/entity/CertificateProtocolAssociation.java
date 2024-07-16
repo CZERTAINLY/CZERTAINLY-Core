@@ -13,6 +13,10 @@ import java.util.UUID;
 @Table(name = "certificate_protocol_association")
 public class CertificateProtocolAssociation extends UniquelyIdentified {
 
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_uuid", insertable = false, updatable = false)
+    private Certificate certificate;
+
     @Column(name = "certificate_uuid", nullable = false)
     private UUID certificateUuid;
 
@@ -25,6 +29,12 @@ public class CertificateProtocolAssociation extends UniquelyIdentified {
 
     @Column(name = "additional_protocol_uuid")
     private UUID additionalProtocolUuid;
+
+
+    public void setCertificate(Certificate certificate) {
+        this.certificate = certificate;
+        if(certificate != null) certificateUuid = certificate.getUuid();
+    }
 
 
 

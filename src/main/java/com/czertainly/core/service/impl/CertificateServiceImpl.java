@@ -1258,11 +1258,12 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (protocolInfo != null) {
             CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
-            protocolAssociation.setCertificateUuid(certificate.getUuid());
+            protocolAssociation.setCertificate(certificate);
             protocolAssociation.setProtocol(protocolInfo.getProtocol());
             protocolAssociation.setProtocolProfileUuid(protocolInfo.getProtocolProfileUuid());
             protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
             certificateProtocolAssociationRepository.save(protocolAssociation);
+            certificate.setProtocolAssociation(protocolAssociation);
         }
 
 
@@ -1272,10 +1273,10 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
-                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
-        );
+//        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+//                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+//                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+//        );
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
                 "Certificate request created", ""
