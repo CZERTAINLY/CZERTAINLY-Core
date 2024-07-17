@@ -32,7 +32,7 @@ echo "Removing previous image"
 docker rmi $IMAGE_NAME
 
 echo "Build main image"
-docker build --platform linux/amd64,linux/arm64 -f $DOCKERFILE_PATH -t $IMAGE_NAME .
+docker build -f $DOCKERFILE_PATH -t $IMAGE_NAME .
 
 echo "Cleaning workspace"
 rm -r data
