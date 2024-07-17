@@ -44,21 +44,27 @@ public class StatisticsServiceImpl implements StatisticsService {
         StatisticsDto dto = new StatisticsDto();
 
         dto.setTotalCertificates(certificateService.statisticsCertificateCount(SecurityFilter.create()));
+        logger.debug("Stats:statisticsCertificateCount");
         try {
             dto.setTotalDiscoveries(discoveryService.statisticsDiscoveryCount(SecurityFilter.create()));
+            logger.debug("Stats:statisticsDiscoveryCount");
         } catch (AccessDeniedException e) {
             dto.setTotalDiscoveries(0L);
         }
         try {
             dto.setTotalGroups(groupService.statisticsGroupCount(SecurityFilter.create()));
+            logger.debug("Stats:statisticsGroupCount");
         } catch (AccessDeniedException e) {
             dto.setTotalGroups(0L);
         }
         try {
             dto.setTotalRaProfiles(raProfileService.statisticsRaProfilesCount(SecurityFilter.create()));
+            logger.debug("Stats:statisticsRaProfilesCount");
         } catch (AccessDeniedException e){
             dto.setTotalRaProfiles(0L);
         }
-        return certificateService.addCertificateStatistics(SecurityFilter.create(), dto);
+        var resultStats = certificateService.addCertificateStatistics(SecurityFilter.create(), dto);
+        logger.debug("Stats:addCertificateStatistics");
+        return resultStats;
     }
 }

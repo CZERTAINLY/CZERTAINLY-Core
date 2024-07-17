@@ -3,7 +3,9 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.core.dao.Specifications;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.model.AggregateResultDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -13,17 +15,22 @@ import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.criteria.*;
+import jakarta.persistence.metamodel.Attribute;
+import jakarta.persistence.metamodel.SingularAttribute;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, ID> implements SecurityFilterRepository<T, ID> {
 
     private final JpaEntityInformation<T, ?> entityInformation;
     private final EntityManager entityManager;
+
+    private List<Predicate> combinedObjectAccessPredicates = null;
 
     public SecurityFilterRepositoryImpl(JpaEntityInformation<T, ?> entityInformation, EntityManager entityManager) {
         super(entityInformation, entityManager);
@@ -81,6 +88,47 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             return entityManager.createQuery(cr).getResultList();
         }
     }
+
+    @Override
+    public Map<String, Number> findAggregateUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, String groupByColumn, final BiFunction<Root<T>, CriteriaBuilder, Expression> aggregateFunction) {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
+        final Root<T> root = cr.from(entity);
+
+        Map<String, From> joinedAssociations = joinAssociations(root, fetchAssociations, null);
+        Expression<?> groupBySelection = groupByColumn.contains(".") ? joinedAssociations.get(groupByColumn.substring(0, groupByColumn.lastIndexOf("."))).get(groupByColumn.substring(groupByColumn.lastIndexOf(".") + 1)) : root.get(groupByColumn);
+
+        cr.multiselect(groupBySelection, aggregateFunction.apply(root, cb));
+        cr.groupBy(groupBySelection);
+
+//        Predicate objectAccessPredicate = Specifications.hasObjectAccess(filter, additionalWhereClause == null ? null : additionalWhereClause.apply(root, cb)).toPredicate((Root) root, cr, cb);
+//        cr = cr.where(objectAccessPredicate);
+
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
+        cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
+
+        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+    }
+
+    @Override
+    public Map<String, Number> findAggregateTest(Root root, CriteriaBuilder cb, CriteriaQuery<AggregateResultDto> cr, Predicate objectAccessPredicate, Predicate additionalWhereClause, Map<String, From> joinedAssociations, Attribute join, SingularAttribute groupBy, Expression groupByExpression, final BiFunction<Root<T>, CriteriaBuilder, Expression> aggregateFunction) {
+        Expression<?> groupBySelection = groupByExpression;
+        if (groupByExpression == null) {
+            From from = join == null ? root : root.join(join.getName(), JoinType.LEFT);
+            groupBySelection = from.get(groupBy);
+        }
+        cr.multiselect(groupBySelection, aggregateFunction.apply(root, cb));
+        cr.groupBy(groupBySelection);
+
+        final List<Predicate> predicates = new ArrayList<>();
+        if (objectAccessPredicate != null) predicates.add(objectAccessPredicate);
+        if (additionalWhereClause != null) predicates.add(additionalWhereClause);
+        cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
+
+        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+    }
+
 
     @Override
     public Long countUsingSecurityFilter(SecurityFilter filter) {
@@ -159,6 +207,29 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         }
     }
 
+    private Map<String, From> joinAssociations(Root<T> root, List<String> fetchAssociations, Map<String, From> joinedAssociationsMap) {
+        if (joinedAssociationsMap == null) {
+            joinedAssociationsMap = new HashMap<>();
+        }
+        for (String fetchAssociation : fetchAssociations) {
+            From from = root;
+            String associationFullName = null;
+            final StringTokenizer stz = new StringTokenizer(fetchAssociation, ".");
+            while (stz.hasMoreTokens()) {
+                String associationName = stz.nextToken();
+                associationFullName = associationFullName == null ? associationName : associationFullName + "." + associationName;
+                if (joinedAssociationsMap.get(associationFullName) == null) {
+                    from = from.join(associationName, JoinType.LEFT);
+                    joinedAssociationsMap.put(associationFullName, from);
+                } else {
+                    from = joinedAssociationsMap.get(associationFullName);
+                }
+            }
+        }
+
+        return joinedAssociationsMap;
+    }
+
     private List<Predicate> getPredicates(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
         if (additionalWhereClause != null) {
@@ -169,35 +240,37 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             throw new ValidationException(ValidationError.create("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource()));
         }
 
-        List<Predicate> combinedObjectAccessPredicates = new ArrayList<>();
-        Predicate resourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getResourceFilter(), "uuid");
-        Predicate parentResourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getParentResourceFilter(), filter.getParentRefProperty());
+        if (combinedObjectAccessPredicates == null) {
+            combinedObjectAccessPredicates = new ArrayList<>();
+            Predicate resourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getResourceFilter(), "uuid");
+            Predicate parentResourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getParentResourceFilter(), filter.getParentRefProperty());
 
-        // no predicates from security filter means user can retrieve all objects and it is not necessary to evaluate groups and owner associations
-        if (resourceFilterPredicate == null && parentResourceFilterPredicate == null) {
-            return predicates;
-        }
-
-        combinedObjectAccessPredicates.add(resourceFilterPredicate != null && parentResourceFilterPredicate != null ? cb.and(resourceFilterPredicate, parentResourceFilterPredicate) : (resourceFilterPredicate != null ? resourceFilterPredicate : parentResourceFilterPredicate));
-        if (filter.getResourceFilter() != null) {
-            // check for group membership predicate
-            if (filter.getResourceFilter().getResource().hasGroups()
-                    && (filter.getResourceFilter().getResourceAction() == ResourceAction.LIST || filter.getResourceFilter().getResourceAction() == ResourceAction.DETAIL)) {
-                combinedObjectAccessPredicates.add(getPredicateBySecurityResourceFilter(root, filter.getGroupMembersFilter(), "groups.uuid"));
+            // no predicates from security filter means user can retrieve all objects and it is not necessary to evaluate groups and owner associations
+            if (resourceFilterPredicate == null && parentResourceFilterPredicate == null) {
+                return predicates;
             }
-            // check for owner association predicate
-            if (filter.getResourceFilter().getResource().hasOwner()) {
-                try {
-                    NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
-                    String ownerAttributeName = root.getJavaType().equals(CryptographicKeyItem.class) ? "cryptographicKey.owner.ownerUsername" : "owner.ownerUsername";
-                    combinedObjectAccessPredicates.add(cb.equal(Sql2PredicateConverter.prepareExpression(root, ownerAttributeName), userInformation.getName()));
-                } catch (ValidationException e) {
-                    // cannot apply filter predicate for anonymous user
+
+            combinedObjectAccessPredicates.add(resourceFilterPredicate != null && parentResourceFilterPredicate != null ? cb.and(resourceFilterPredicate, parentResourceFilterPredicate) : (resourceFilterPredicate != null ? resourceFilterPredicate : parentResourceFilterPredicate));
+            if (filter.getResourceFilter() != null) {
+                // check for group membership predicate
+                if (filter.getResourceFilter().getResource().hasGroups()
+                        && (filter.getResourceFilter().getResourceAction() == ResourceAction.LIST || filter.getResourceFilter().getResourceAction() == ResourceAction.DETAIL)) {
+                    combinedObjectAccessPredicates.add(getPredicateBySecurityResourceFilter(root, filter.getGroupMembersFilter(), "groups.uuid"));
+                }
+                // check for owner association predicate
+                if (filter.getResourceFilter().getResource().hasOwner()) {
+                    try {
+                        NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
+                        String ownerAttributeName = root.getJavaType().equals(CryptographicKeyItem.class) ? "cryptographicKey.owner.ownerUsername" : "owner.ownerUsername";
+                        combinedObjectAccessPredicates.add(cb.equal(Sql2PredicateConverter.prepareExpression(root, ownerAttributeName), userInformation.getName()));
+                    } catch (ValidationException e) {
+                        // cannot apply filter predicate for anonymous user
+                    }
                 }
             }
-        }
 
-        combinedObjectAccessPredicates = combinedObjectAccessPredicates.stream().filter(Objects::nonNull).toList();
+            combinedObjectAccessPredicates = combinedObjectAccessPredicates.stream().filter(Objects::nonNull).toList();
+        }
 
         if (!combinedObjectAccessPredicates.isEmpty()) {
             predicates.add(combinedObjectAccessPredicates.size() == 1 ? combinedObjectAccessPredicates.get(0) : cb.or(combinedObjectAccessPredicates.toArray(new Predicate[0])));

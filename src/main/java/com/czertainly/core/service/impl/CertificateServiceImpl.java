@@ -31,6 +31,7 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.dao.Specifications;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
@@ -38,6 +39,8 @@ import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
+import com.czertainly.core.model.AggregateResultDto;
+import com.czertainly.core.model.AggregateResultView;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -50,9 +53,9 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.*;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -66,6 +69,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -187,6 +191,9 @@ public class CertificateServiceImpl implements CertificateService {
         this.certificateProtocolAssociationRepository = certificateProtocolAssociationRepository;
     }
 
+    @PersistenceContext
+    private EntityManager entityManager;
+
     @Autowired
     public void setCrlService(CrlService crlService) {
         this.crlService = crlService;
@@ -225,6 +232,14 @@ public class CertificateServiceImpl implements CertificateService {
 
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile", "key"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
+
+//        logger.debug("spec find");
+//        var certs = certificateRepository.findAll(Specifications.hasObjectAccess(filter, null), p);
+//        var listedKeyDTOs = certs.stream().map(Certificate::mapToListDto).toList();
+//        logger.debug("classic find");
+//        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), null, p, null).stream().map(Certificate::mapToListDto).toList();
+//        logger.debug("all");
+
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final CertificateResponseDto responseDto = new CertificateResponseDto();
@@ -1055,6 +1070,91 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         setupSecurityFilter(filter);
+
+        logger.debug("CertStats:init");
+        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> aggregateFunction = (root, cb) -> cb.countDistinct(root);
+        var keySizeStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of(), null, "keySize", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-keySize");
+        var typeStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of(), null, "certificateType", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-typeStats");
+        var groupsStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of("groups"), null, "groups.name", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-groupsStats");
+        var raProfileStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of("raProfile"), null, "raProfile.name", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-raProfileStats");
+        var bcStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of(), null, "basicConstraints", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-bcStats");
+        var stateStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of(), null, "state", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-stateStats");
+        var validationStatusStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of(), null, "validationStatus", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-validationStatusStats");
+        var complianceStatusStats = certificateRepository.findAggregateUsingSecurityFilter(filter, List.of(), null, "complianceStatus", aggregateFunction);
+        logger.debug("CertStats:FindAggregate-complianceStatusStats");
+
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
+        final Root root = cr.from(Certificate.class);
+
+        Map<String, From> joinedAssociations = new HashMap<>();
+        Predicate objectAccessPredicate = Specifications.hasObjectAccess(filter, null).toPredicate(root, cr, cb);
+
+        logger.debug("CertStats2:init");
+        keySizeStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, Certificate_.keySize, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-keySize");
+        typeStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, Certificate_.certificateType, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-typeStats");
+        groupsStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, Certificate_.groups, Group_.name, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-groupsStats");
+        raProfileStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, Certificate_.raProfile, RaProfile_.name, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-raProfileStats");
+        bcStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, Certificate_.basicConstraints, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-bcStats");
+        stateStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, Certificate_.state, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-stateStats");
+        validationStatusStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, Certificate_.validationStatus, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-validationStatusStats");
+        complianceStatusStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, Certificate_.complianceStatus, null, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-complianceStatusStats");
+
+        Date now = new Date();
+        Expression<Long> dateDiff = cb.toString(cb.diff((Expression)cb.literal(now), root.get(Certificate_.notAfter)));
+
+        var expiryStatswithoutCase = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, null, dateDiff, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-expiryStatswithoutCase");
+
+        var caseExpression = cb.selectCase()
+                .when(cb.lessThan(dateDiff, 10L), "Less than 10 days")
+                .when(cb.lessThan(dateDiff, 20L), "Less than 20 days")
+                .when(cb.lessThan(dateDiff, 90L), "Less than 90 days")
+                .otherwise("Greater than 90 days");
+        var expiryStats = certificateRepository.findAggregateTest(root, cb, cr, objectAccessPredicate, null, joinedAssociations, null, null, caseExpression, aggregateFunction);
+        logger.debug("CertStats2:FindAggregate-expiryStats");
+
+//        Map<String, From> joinedAssociations = new HashMap<>();
+//        logger.debug("CertStats2:init");
+//        keySizeStats = certificateRepository.countGroupedByColumn("keySize").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-keySize");
+//        typeStats = certificateRepository.countGroupedByColumn("certificateType").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-typeStats");
+//        groupsStats = certificateRepository.countGroupedByColumn("groups.name").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-groupsStats");
+//        raProfileStats = certificateRepository.countGroupedByColumn("raProfile.name").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-raProfileStats");
+//        bcStats = certificateRepository.countGroupedByColumn("basicConstraints").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-bcStats");
+//        stateStats = certificateRepository.countGroupedByColumn("state").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-stateStats");
+//        validationStatusStats = certificateRepository.countGroupedByColumn("validationStatus").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-validationStatusStats");
+//        complianceStatusStats = certificateRepository.countGroupedByColumn("complianceStatus").stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+//        logger.debug("CertStats2:FindAggregate-complianceStatusStats");
+
+
+//        List<AggregateResultView> results = certificateRepository.findBy(Specifications.countBy("keySize", Specifications.hasObjectAccess(filter, null)), q -> q.as(AggregateResultView.class).all());
+//        List<AggregateResultDto> results = certificateRepository.findAllBySpec(Specifications.countBy("keySize", Specifications.hasObjectAccess(filter, null)));
+//        logger.debug("CertStats:FindSpecProjection-keySize");
+//        results = certificateRepository.findBy(Specifications.countBy("certificateType", Specifications.hasObjectAccess(filter, null)), q -> q.as(AggregateResultView.class).all());
+//        results = certificateRepository.findAllBySpec(Specifications.countBy("certificateType", Specifications.hasObjectAccess(filter, null)));
+//        logger.debug("CertStats:FindSpecProjection-typeStats");
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile"), null);
 
         Map<String, Long> groupStat = new HashMap<>();
@@ -1097,6 +1197,7 @@ public class CertificateServiceImpl implements CertificateService {
         dto.setCertificateStatByState(stateStat);
         dto.setCertificateStatByValidationStatus(validationStatusStat);
         dto.setCertificateStatByComplianceStatus(complianceStat);
+        logger.debug("CertStats:afterAll");
         return dto;
     }
 
