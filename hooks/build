@@ -2,12 +2,12 @@
 
 echo "Build of CZERTAINLY CORE"
 
-# echo "Cleaning containers"
-# docker rm czertainlycont
-# docker rmi prebuild
+echo "Cleaning containers"
+docker rm czertainlycont
+docker rmi prebuild
 
-# echo "Refreshing directory for data from container"
-# rm -r data
+echo "Refreshing directory for data from container"
+rm -r data
 mkdir data
 
 echo "PreBuild build"
@@ -28,11 +28,11 @@ echo "Copy jar back to Tmp"
 docker cp czertainlycont:/home/app/target data/target
 docker cp czertainlycont:/home/app/docker data/docker
 
-# echo "Removing previous image"
-# docker rmi $IMAGE_NAME
+echo "Removing previous image"
+docker rmi $IMAGE_NAME
 
-# echo "Build main image"
-# docker build --platform linux/amd64,linux/arm64 -f $DOCKERFILE_PATH -t $IMAGE_NAME .
+echo "Build main image"
+docker build --platform linux/amd64,linux/arm64 -f $DOCKERFILE_PATH -t $IMAGE_NAME .
 
-# echo "Cleaning workspace"
-# rm -r data
+echo "Cleaning workspace"
+rm -r data
