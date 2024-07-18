@@ -28,14 +28,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
-            3keycompany/czertainly-pyadcs-connector
-            harbor.3key.company/czertainly/czertainly-pyadcs-connector
+            3keycompany/czertainly-core
+            harbor.3key.company/czertainly/czertainly-core
           tags: |
             type=ref,event=tag
             type=raw,value=develop-latest
             type=sha,prefix=develop-,format=long
 
-      - name: Build and push Docker image
+      - name: Test build Docker image
         uses: docker/build-push-action@v6
         id: build-and-push
         with:

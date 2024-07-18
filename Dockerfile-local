@@ -1,15 +1,4 @@
-# Build stage
-FROM maven:3.9.8-eclipse-temurin-21 as build
-COPY src /home/app/src
-COPY pom.xml /home/app
-COPY settings.xml /root/.m2/settings.xml
-COPY docker /home/app/docker
-ARG SERVER_USERNAME
-ARG SERVER_PASSWORD
-RUN mvn -f /home/app/pom.xml clean package
-
-# Package stage
-FROM eclipse-temurin:21.0.3_9-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 MAINTAINER CZERTAINLY <support@czertainly.com>
 
@@ -19,8 +8,8 @@ RUN addgroup --system --gid 10001 czertainly && adduser --system --home /opt/cze
 RUN apk update && \
   apk add --no-cache curl
 
-COPY --from=build /home/app/docker /
-COPY --from=build /home/app/target/*.jar /opt/czertainly/app.jar
+COPY data/docker /
+COPY data/target/*.jar /opt/czertainly/app.jar
 
 WORKDIR /opt/czertainly
 
