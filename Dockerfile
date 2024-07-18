@@ -1,31 +1,4 @@
-# Build stage
-FROM maven:3.9.8-eclipse-temurin-21 as build
-
-COPY src /home/app/src
-COPY pom.xml /home/app
-COPY settings.xml /root/.m2/settings.xml
-
-ARG SERVER_USERNAME
-ARG SERVER_PASSWORD
-
-RUN apt-get update && \
-    apt-get install ca-certificates curl gnupg -y && \
-    mkdir -m 0755 -p /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    echo \
-      "deb [arch="$(dpkg --print-architecture)" signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-      "$(. /etc/os-release && echo "$VERSION_CODENAME")" stable" | \
-      tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-RUN apt-get update && \
-    apt-get install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin -y
-
-COPY docker /home/app/docker
-
-RUN mvn -f /home/app/pom.xml clean package
-
-# Package stage
-FROM eclipse-temurin:21.0.3_9-jre-alpine
+FROM eclipse-temurin:21-jre-alpine
 
 MAINTAINER CZERTAINLY <support@czertainly.com>
 
@@ -35,8 +8,8 @@ RUN addgroup --system --gid 10001 czertainly && adduser --system --home /opt/cze
 RUN apk update && \
   apk add --no-cache curl
 
-COPY --from=build /home/app/docker /
-COPY --from=build /home/app/target/*.jar /opt/czertainly/app.jar
+COPY data/docker /
+COPY data/target/*.jar /opt/czertainly/app.jar
 
 WORKDIR /opt/czertainly
 

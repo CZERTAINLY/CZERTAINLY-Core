@@ -21,7 +21,7 @@ jobs:
 
       - name: Run pre-build
         run: |
-          ./build_image_locally
+          ./prebuild_image_script
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
