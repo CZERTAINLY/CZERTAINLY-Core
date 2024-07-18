@@ -22,7 +22,7 @@ else
 fi
 
 echo "Starting czertainlycont"
-docker start -d --restart=always czertainlycont
+docker start --restart=always czertainlycont
 
 echo "Copy jar back to Tmp"
 docker cp czertainlycont:/home/app/target data/target
