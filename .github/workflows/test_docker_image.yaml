@@ -1,0 +1,46 @@
+name: Test Docker image
+
+on:
+  pull_request:
+    branches: [ develop ]
+  workflow_dispatch:
+
+jobs:
+  push_to_registry:
+    name: Build Docker images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the repo
+        uses: actions/checkout@v4
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Run pre-build
+        run: |
+          ./prebuild_image_script
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: |
+            3keycompany/czertainly-core
+            harbor.3key.company/czertainly/czertainly-core
+          tags: |
+            type=ref,event=tag
+            type=raw,value=develop-latest
+            type=sha,prefix=develop-,format=long
+
+      - name: Test build Docker image
+        uses: docker/build-push-action@v6
+        id: build-and-push
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          file: ./Dockerfile
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}

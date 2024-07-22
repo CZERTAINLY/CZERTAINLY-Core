@@ -37,6 +37,7 @@ import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -179,6 +180,13 @@ public class CertificateServiceImpl implements CertificateService {
 
     private CrlService crlService;
 
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
+
+    @Autowired
+    public void setCertificateProtocolAssociationRepository(CertificateProtocolAssociationRepository certificateProtocolAssociationRepository) {
+        this.certificateProtocolAssociationRepository = certificateProtocolAssociationRepository;
+    }
+
     @Autowired
     public void setCrlService(CrlService crlService) {
         this.crlService = crlService;
@@ -306,7 +314,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (certificate.getUserUuid() != null) {
             eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.DELETE.getCode(), CertificateEventStatus.FAILED.toString(), "Certificate is used by an User", null);
-            throw new ValidationException(String.format("Could not delete certificate %s with UUID %s: Certificate is used by some user.", certificate.getCommonName(), certificate.getUuid().toString()));
+            throw new ValidationException("Could not delete certificate %s with UUID %s: Certificate is used by some user.".formatted(certificate.getCommonName(), certificate.getUuid().toString()));
         }
 
         // remove certificate from Locations
@@ -1179,7 +1187,8 @@ public class CertificateServiceImpl implements CertificateService {
             List<RequestAttributeDto> issueAttributes,
             UUID keyUuid,
             UUID raProfileUuid,
-            UUID sourceCertificateUuid
+            UUID sourceCertificateUuid,
+            CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
@@ -1247,16 +1256,27 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate = certificateRepository.save(certificate);
 
+        if (protocolInfo != null) {
+            CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+            protocolAssociation.setCertificate(certificate);
+            protocolAssociation.setProtocol(protocolInfo.getProtocol());
+            protocolAssociation.setProtocolProfileUuid(protocolInfo.getProtocolProfileUuid());
+            protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
+            certificateProtocolAssociationRepository.save(protocolAssociation);
+            certificate.setProtocolAssociation(protocolAssociation);
+        }
+
+
         // set owner of certificate to logged user
         objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
 
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
-                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
-        );
+//        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+//                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+//                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+//        );
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
                 "Certificate request created", ""
@@ -1603,7 +1623,7 @@ public class CertificateServiceImpl implements CertificateService {
             newOwnerName = newOwner.getName();
         }
 
-        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, String.format("%s -> %s", currentOwnerName, newOwnerName == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : newOwnerName), "");
+        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "%s -> %s".formatted(currentOwnerName, newOwnerName == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : newOwnerName), "");
     }
 
     private void bulkUpdateRaProfile(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {

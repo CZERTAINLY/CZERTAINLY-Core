@@ -3,13 +3,14 @@ package com.czertainly.core.service.cmp.message.handler;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
+import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
-import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
-import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
@@ -25,7 +26,8 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
-import java.util.*;
+import java.util.Base64;
+import java.util.List;
 
 /**
  * <p>Interface how to handle incoming request (ir/cr) message from client.</p>
@@ -77,12 +79,12 @@ public class CrmfIrCrMessageHandler implements MessageHandler<ClientCertificateD
             ClientCertificateSignRequestDto dto = new ClientCertificateSignRequestDto();
             dto.setRequest(Base64.getEncoder().encodeToString(crmf.getEncoded()));
             dto.setFormat(CertificateRequestFormat.CRMF);
-            RaProfile raProfile = configuration.getProfile().getRaProfile();
+            RaProfile raProfile = configuration.getRaProfile();
             // -- (1)certification request (ask for issue)
             return clientOperationService.issueCertificate(
                     SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),
                     raProfile.getSecuredUuid(),
-                    dto);
+                    dto, CertificateProtocolInfo.Cmp(raProfile.getUuid()));
         } catch (CertificateRequestException | NotFoundException | CertificateException | IOException |
                  NoSuchAlgorithmException | InvalidKeyException | CertificateOperationException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.systemFailure,

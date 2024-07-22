@@ -75,7 +75,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
                                            CertificateKeyService certificateKeyServiceImpl)
             throws CmpConfigurationException {
         super(configuration, headerProtectionAlgorithm);
-        this.profile = configuration.getProfile();
+        this.profile = configuration.getCmpProfile();
         this.signingCertificate = profile.getSigningCertificate();
         try {
             this.certificationsChain = List.of(CertificateUtil.getX509Certificate(

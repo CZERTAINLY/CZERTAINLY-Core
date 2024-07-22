@@ -3,6 +3,7 @@ package com.czertainly.core.service.cmp.configurations.variants;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.service.cmp.message.CertificateKeyService;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import org.bouncycastle.asn1.ASN1OctetString;
@@ -19,11 +20,11 @@ import java.util.List;
  */
 public class Mobile3gppProfileContext extends CmpConfigurationContext {
 
-    public Mobile3gppProfileContext(CmpProfile profile, PKIMessage pkiRequest,
+    public Mobile3gppProfileContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
                                     CertificateKeyService certificateKeyServiceImpl,
                                     List<RequestAttributeDto> issueAttributes,
                                     List<RequestAttributeDto> revokeAttributes) {
-        super(profile, pkiRequest, certificateKeyServiceImpl, issueAttributes, revokeAttributes);
+        super(cmpProfile, raProfile, pkiRequest, certificateKeyServiceImpl, issueAttributes, revokeAttributes);
     }
 
     /**
