@@ -16,7 +16,7 @@ import java.util.Optional;
 import java.util.function.BiFunction;
 
 @NoRepositoryBean
-public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID>, JpaSpecificationExecutor<T> {
+public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     Optional<T> findByUuid(SecuredUUID uuid);
 
