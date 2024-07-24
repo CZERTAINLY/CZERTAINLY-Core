@@ -3,9 +3,8 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.core.dao.Specifications;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
-import com.czertainly.core.model.AggregateResultDto;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.AggregateResultDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -90,45 +89,27 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Map<String, Number> findAggregateUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, String groupByColumn, final BiFunction<Root<T>, CriteriaBuilder, Expression> aggregateFunction) {
+    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
+
         final Root<T> root = cr.from(entity);
-
-        Map<String, From> joinedAssociations = joinAssociations(root, fetchAssociations, null);
-        Expression<?> groupBySelection = groupByColumn.contains(".") ? joinedAssociations.get(groupByColumn.substring(0, groupByColumn.lastIndexOf("."))).get(groupByColumn.substring(groupByColumn.lastIndexOf(".") + 1)) : root.get(groupByColumn);
-
-        cr.multiselect(groupBySelection, aggregateFunction.apply(root, cb));
-        cr.groupBy(groupBySelection);
-
-//        Predicate objectAccessPredicate = Specifications.hasObjectAccess(filter, additionalWhereClause == null ? null : additionalWhereClause.apply(root, cb)).toPredicate((Root) root, cr, cb);
-//        cr = cr.where(objectAccessPredicate);
-
-        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
-        cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
-
-        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
-    }
-
-    @Override
-    public Map<String, Number> findAggregateTest(Root root, CriteriaBuilder cb, CriteriaQuery<AggregateResultDto> cr, Predicate objectAccessPredicate, Predicate additionalWhereClause, Map<String, From> joinedAssociations, Attribute join, SingularAttribute groupBy, Expression groupByExpression, final BiFunction<Root<T>, CriteriaBuilder, Expression> aggregateFunction) {
-        Expression<?> groupBySelection = groupByExpression;
-        if (groupByExpression == null) {
+        Expression<?> groupBySelection;
+        if (groupByExpression != null) {
+            groupBySelection = groupByExpression.apply(root, cb);
+        } else {
             From from = join == null ? root : root.join(join.getName(), JoinType.LEFT);
             groupBySelection = from.get(groupBy);
         }
-        cr.multiselect(groupBySelection, aggregateFunction.apply(root, cb));
+        cr.multiselect(groupBySelection, cb.countDistinct(root));
         cr.groupBy(groupBySelection);
 
-        final List<Predicate> predicates = new ArrayList<>();
-        if (objectAccessPredicate != null) predicates.add(objectAccessPredicate);
-        if (additionalWhereClause != null) predicates.add(additionalWhereClause);
+        final List<Predicate> predicates = getPredicates(filter, null, root, cb);
         cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
 
-        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), AggregateResultDto::aggregation));
+        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), i -> i.aggregation().longValue()));
     }
-
 
     @Override
     public Long countUsingSecurityFilter(SecurityFilter filter) {

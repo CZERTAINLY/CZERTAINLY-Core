@@ -1,4 +1,4 @@
-package com.czertainly.core.model;
+package com.czertainly.core.dao;
 
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 
