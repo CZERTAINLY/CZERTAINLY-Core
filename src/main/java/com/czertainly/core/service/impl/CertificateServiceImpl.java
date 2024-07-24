@@ -189,9 +189,6 @@ public class CertificateServiceImpl implements CertificateService {
         this.certificateProtocolAssociationRepository = certificateProtocolAssociationRepository;
     }
 
-    @PersistenceContext
-    private EntityManager entityManager;
-
     @Autowired
     public void setCrlService(CrlService crlService) {
         this.crlService = crlService;
