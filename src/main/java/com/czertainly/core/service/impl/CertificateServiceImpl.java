@@ -50,9 +50,9 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.criteria.*;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -90,6 +90,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -1055,48 +1057,38 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         setupSecurityFilter(filter);
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile"), null);
 
-        Map<String, Long> groupStat = new HashMap<>();
-        Map<String, Long> raProfileStat = new HashMap<>();
-        Map<String, Long> typeStat = new HashMap<>();
-        Map<String, Long> keySizeStat = new HashMap<>();
-        Map<String, Long> bcStat = new HashMap<>();
-        Map<String, Long> expiryStat = new HashMap<>();
-        Map<String, Long> stateStat = new HashMap<>();
-        Map<String, Long> validationStatusStat = new HashMap<>();
-        Map<String, Long> complianceStat = new HashMap<>();
-        Date currentTime = new Date();
-        for (Certificate certificate : certificates) {
-            typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+        var keySizeStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null);
+        var typeStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null);
+        var groupsStats = certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null);
+        var raProfileStats = certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null);
+        var bcStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.basicConstraints, null);
+        var stateStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null);
+        var validationStatusStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null);
+        var complianceStatusStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null);
 
-            if (certificate.getGroups() == null || certificate.getGroups().isEmpty()) {
-                groupStat.merge("Unassigned", 1L, Long::sum);
-            } else {
-                for (Group group : certificate.getGroups()) {
-                    groupStat.merge(group.getName(), 1L, Long::sum);
-                }
-            }
+        Date now = new Date();
+        Instant nowInstant = now.toInstant();
+        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> groupByExpression = (root, cb) -> cb.selectCase()
+                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(10))))), "10")
+                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(20))))), "20")
+                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(30))))), "30")
+                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(60))))), "60")
+                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "90")
+                .when(cb.greaterThan(root.get(Certificate_.notAfter), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "More")
+                .otherwise("Expired");
 
-            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unassigned", 1L, Long::sum);
-            if (certificate.getCertificateContent() != null) {
-                expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
-                bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
-            }
-            keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
-            stateStat.merge(certificate.getState().getCode(), 1L, Long::sum);
-            validationStatusStat.merge(certificate.getValidationStatus().getCode(), 1L, Long::sum);
-            complianceStat.merge(certificate.getComplianceStatus().getCode(), 1L, Long::sum);
-        }
-        dto.setGroupStatByCertificateCount(groupStat);
-        dto.setRaProfileStatByCertificateCount(raProfileStat);
-        dto.setCertificateStatByType(typeStat);
-        dto.setCertificateStatByKeySize(keySizeStat);
-        dto.setCertificateStatByBasicConstraints(bcStat);
-        dto.setCertificateStatByExpiry(expiryStat);
-        dto.setCertificateStatByState(stateStat);
-        dto.setCertificateStatByValidationStatus(validationStatusStat);
-        dto.setCertificateStatByComplianceStatus(complianceStat);
+        var expiryStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression);
+
+        dto.setGroupStatByCertificateCount(groupsStats);
+        dto.setRaProfileStatByCertificateCount(raProfileStats);
+        dto.setCertificateStatByType(typeStats);
+        dto.setCertificateStatByKeySize(keySizeStats);
+        dto.setCertificateStatByBasicConstraints(bcStats);
+        dto.setCertificateStatByExpiry(expiryStats);
+        dto.setCertificateStatByState(stateStats);
+        dto.setCertificateStatByValidationStatus(validationStatusStats);
+        dto.setCertificateStatByComplianceStatus(complianceStatusStats);
         return dto;
     }
 

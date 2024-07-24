@@ -3,7 +3,8 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.AggregateResultDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -13,12 +14,15 @@ import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.criteria.*;
+import jakarta.persistence.metamodel.Attribute;
+import jakarta.persistence.metamodel.SingularAttribute;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
 
 import java.util.*;
 import java.util.function.BiFunction;
+import java.util.stream.Collectors;
 
 public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, ID> implements SecurityFilterRepository<T, ID> {
 
@@ -80,6 +84,29 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         } else {
             return entityManager.createQuery(cr).getResultList();
         }
+    }
+
+    @Override
+    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression) {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
+
+        final Root<T> root = cr.from(entity);
+        Expression<?> groupBySelection;
+        if (groupByExpression != null) {
+            groupBySelection = groupByExpression.apply(root, cb);
+        } else {
+            From from = join == null ? root : root.join(join.getName(), JoinType.LEFT);
+            groupBySelection = from.get(groupBy);
+        }
+        cr.multiselect(groupBySelection, cb.countDistinct(root));
+        cr.groupBy(groupBySelection);
+
+        final List<Predicate> predicates = getPredicates(filter, null, root, cb);
+        cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
+
+        return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), i -> i.aggregation().longValue()));
     }
 
     @Override
@@ -157,6 +184,29 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 }
             }
         }
+    }
+
+    private Map<String, From> joinAssociations(Root<T> root, List<String> fetchAssociations, Map<String, From> joinedAssociationsMap) {
+        if (joinedAssociationsMap == null) {
+            joinedAssociationsMap = new HashMap<>();
+        }
+        for (String fetchAssociation : fetchAssociations) {
+            From from = root;
+            String associationFullName = null;
+            final StringTokenizer stz = new StringTokenizer(fetchAssociation, ".");
+            while (stz.hasMoreTokens()) {
+                String associationName = stz.nextToken();
+                associationFullName = associationFullName == null ? associationName : associationFullName + "." + associationName;
+                if (joinedAssociationsMap.get(associationFullName) == null) {
+                    from = from.join(associationName, JoinType.LEFT);
+                    joinedAssociationsMap.put(associationFullName, from);
+                } else {
+                    from = joinedAssociationsMap.get(associationFullName);
+                }
+            }
+        }
+
+        return joinedAssociationsMap;
     }
 
     private List<Predicate> getPredicates(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
