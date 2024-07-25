@@ -21,6 +21,7 @@
         <commons-beanutils.version>1.9.4</commons-beanutils.version>
         <testcontainers-postgresql.version>1.19.8</testcontainers-postgresql.version>
         <sonar.projectKey>3KeyCompany_CZERTAINLY-Core</sonar.projectKey>
+        <java.version>21</java.version>
     </properties>
 
     <dependencyManagement>
