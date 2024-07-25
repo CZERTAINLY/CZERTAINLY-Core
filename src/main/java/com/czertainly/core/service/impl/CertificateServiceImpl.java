@@ -50,8 +50,6 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.*;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
@@ -94,7 +92,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -1058,37 +1056,64 @@ public class CertificateServiceImpl implements CertificateService {
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         setupSecurityFilter(filter);
 
-        var keySizeStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null);
-        var typeStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null);
-        var groupsStats = certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null);
-        var raProfileStats = certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null);
-        var bcStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.basicConstraints, null);
-        var stateStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null);
-        var validationStatusStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null);
-        var complianceStatusStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null);
+        long start = System.nanoTime();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            executor.invokeAll(List.of(
+                    () -> {
+                        dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setGroupStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setRaProfileStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByBasicConstraints(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.basicConstraints, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByState(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByValidationStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null));
+                        return null;
+                    },
+                    (Callable<Void>) () -> {
+                        Date now = new Date();
+                        Instant nowInstant = now.toInstant();
+                        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> groupByExpression = (root, cb) -> cb.selectCase()
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(10))))), "10")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(20))))), "20")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(30))))), "30")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(60))))), "60")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "90")
+                                .when(cb.greaterThan(root.get(Certificate_.notAfter), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "More")
+                                .otherwise("Expired");
 
-        Date now = new Date();
-        Instant nowInstant = now.toInstant();
-        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> groupByExpression = (root, cb) -> cb.selectCase()
-                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(10))))), "10")
-                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(20))))), "20")
-                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(30))))), "30")
-                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(60))))), "60")
-                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "90")
-                .when(cb.greaterThan(root.get(Certificate_.notAfter), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "More")
-                .otherwise("Expired");
-
-        var expiryStats = certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression);
-
-        dto.setGroupStatByCertificateCount(groupsStats);
-        dto.setRaProfileStatByCertificateCount(raProfileStats);
-        dto.setCertificateStatByType(typeStats);
-        dto.setCertificateStatByKeySize(keySizeStats);
-        dto.setCertificateStatByBasicConstraints(bcStats);
-        dto.setCertificateStatByExpiry(expiryStats);
-        dto.setCertificateStatByState(stateStats);
-        dto.setCertificateStatByValidationStatus(validationStatusStats);
-        dto.setCertificateStatByComplianceStatus(complianceStatusStats);
+                        dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression));
+                        return null;
+                    }
+            ));
+        } catch (Exception e) {
+            logger.error("An error occurred during calculation of certificate statistics: {}", e.getMessage());
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+        }
+        logger.debug("Certificate statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;
     }
 
