@@ -181,7 +181,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter,
-                        List.of("cryptographicKey", "cryptographicKey.certificates", "cryptographicKey.groups", "cryptographicKey.owner", "cryptographicKey.tokenInstanceReference", "cryptographicKey.tokenProfile"),
+                        List.of(),
                         (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("createdAt")))
                 .stream()
                 .map(CryptographicKeyItem::mapToSummaryDto)
