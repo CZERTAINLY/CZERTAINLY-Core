@@ -1,4 +1,4 @@
-name: Publish Docker image
+name: Publish CZERTAINLY Docker image
 
 on:
   push:
@@ -34,27 +34,12 @@ jobs:
           username: ${{ secrets.DOCKER_HUB_CZERTAINLY_USERNAME }}
           password: ${{ secrets.DOCKER_HUB_CZERTAINLY_PASSWORD }}
 
-      - name: Log in to 3Key Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKER_HUB_3KEY_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_3KEY_PASSWORD }}
-
-      - name: Log in to 3Key Harbor
-        uses: docker/login-action@v3
-        with:
-          registry: harbor.3key.company
-          username: ${{ secrets.HARBOR_3KEY_USERNAME }}
-          password: ${{ secrets.HARBOR_3KEY_PASSWORD }}
-
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
             czertainly/czertainly-core
-            3keycompany/czertainly-core
-            harbor.3key.company/czertainly/czertainly-core
           tags: |
             type=ref,event=tag
             type=raw,value=develop-latest
@@ -92,21 +77,3 @@ jobs:
         with:
           destination_container_repo: czertainly/czertainly-core
           provider: dockerhub
-
-      - name: Push README to 3Key Docker Hub
-        uses: christian-korneck/update-container-description-action@v1
-        env:
-          DOCKER_USER: ${{ secrets.DOCKER_HUB_3KEY_USERNAME }}
-          DOCKER_PASS: ${{ secrets.DOCKER_HUB_3KEY_PASSWORD }}
-        with:
-          destination_container_repo: 3keycompany/czertainly-core
-          provider: dockerhub
-
-      - name: Push README to 3Key Harbor
-        uses: christian-korneck/update-container-description-action@v1
-        env:
-          DOCKER_USER: ${{ secrets.HARBOR_3KEY_USERNAME }}
-          DOCKER_PASS: ${{ secrets.HARBOR_3KEY_PASSWORD }}
-        with:
-          destination_container_repo: harbor.3key.company/czertainly/czertainly-core
-          provider: harbor2
