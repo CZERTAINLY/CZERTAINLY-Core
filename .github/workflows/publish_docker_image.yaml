@@ -28,24 +28,31 @@ jobs:
         run: |
           ./prebuild_image_script
 
-      - name: Log in to Docker Hub
+      - name: Log in to CZERTAINLY Docker Hub
         uses: docker/login-action@v3
         with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          username: ${{ secrets.DOCKER_HUB_CZERTAINLY_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_CZERTAINLY_PASSWORD }}
 
-      - name: Log in to Harbor
+      - name: Log in to 3Key Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_3KEY_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_3KEY_PASSWORD }}
+
+      - name: Log in to 3Key Harbor
         uses: docker/login-action@v3
         with:
           registry: harbor.3key.company
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          username: ${{ secrets.HARBOR_3KEY_USERNAME }}
+          password: ${{ secrets.HARBOR_3KEY_PASSWORD }}
 
       - name: Extract metadata (tags, labels) for Docker
         id: meta
         uses: docker/metadata-action@v5
         with:
           images: |
+            czertainly/czertainly-core
             3keycompany/czertainly-core
             harbor.3key.company/czertainly/czertainly-core
           tags: |
@@ -77,20 +84,29 @@ jobs:
           COSIGN_PASSWORD: ${{ secrets.COSIGN_PASSWORD }}
           DIGEST: ${{ steps.build-and-push.outputs.digest }}
 
-      - name: Push README to Docker Hub
+      - name: Push README to CZERTAINLY Docker Hub
         uses: christian-korneck/update-container-description-action@v1
         env:
-          DOCKER_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
-          DOCKER_PASS: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_USER: ${{ secrets.DOCKER_HUB_CZERTAINLY_USERNAME }}
+          DOCKER_PASS: ${{ secrets.DOCKER_HUB_CZERTAINLY_PASSWORD }}
+        with:
+          destination_container_repo: czertainly/czertainly-core
+          provider: dockerhub
+
+      - name: Push README to 3Key Docker Hub
+        uses: christian-korneck/update-container-description-action@v1
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_HUB_3KEY_USERNAME }}
+          DOCKER_PASS: ${{ secrets.DOCKER_HUB_3KEY_PASSWORD }}
         with:
           destination_container_repo: 3keycompany/czertainly-core
           provider: dockerhub
 
-      - name: Push README to Harbor
+      - name: Push README to 3Key Harbor
         uses: christian-korneck/update-container-description-action@v1
         env:
-          DOCKER_USER: ${{ secrets.DOCKER_HUB_USERNAME }}
-          DOCKER_PASS: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_USER: ${{ secrets.HARBOR_3KEY_USERNAME }}
+          DOCKER_PASS: ${{ secrets.HARBOR_3KEY_PASSWORD }}
         with:
           destination_container_repo: harbor.3key.company/czertainly/czertainly-core
           provider: harbor2

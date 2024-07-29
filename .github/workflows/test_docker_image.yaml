@@ -28,6 +28,7 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: |
+            czertainly/czertainly-core
             3keycompany/czertainly-core
             harbor.3key.company/czertainly/czertainly-core
           tags: |
