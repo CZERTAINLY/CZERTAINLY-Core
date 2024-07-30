@@ -95,8 +95,7 @@ public class DiscoveryCertificateTask extends SchedulerJobProcessor {
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discovery != null ? Resource.DISCOVERY : null, discovery != null ? discovery.getUuid() : null);
         }
 
-        if (discovery.getStatus() == DiscoveryStatus.COMPLETED) return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, null, Resource.DISCOVERY, discovery.getUuid());
-        return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid());
+        return new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid());
     }
 
     private String prepareTimeSuffix() {
