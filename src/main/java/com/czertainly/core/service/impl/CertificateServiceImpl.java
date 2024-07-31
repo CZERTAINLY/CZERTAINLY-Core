@@ -73,13 +73,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.io.*;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -651,7 +647,7 @@ public class CertificateServiceImpl implements CertificateService {
                 if (downloadingChain) {
                     throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
                 }
-                return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
+                return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.getFirst().getUuid())).getCertificateContent().getContent();
             }
             // Encoding is PEM otherwise
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -1517,22 +1513,16 @@ public class CertificateServiceImpl implements CertificateService {
                 if (certificate == null) return "";
                 cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
             } else {
-                URL url = new URL(chainUrl);
+                URL url = URI.create(chainUrl).toURL();
                 URLConnection urlConnection = url.openConnection();
                 urlConnection.setConnectTimeout(1000);
                 urlConnection.setReadTimeout(1000);
-                String fileName = chainUrl.split("/")[chainUrl.split("/").length - 1];
-                try (InputStream in = url.openStream(); ReadableByteChannel rbc = Channels.newChannel(in); FileOutputStream fos = new FileOutputStream(fileName)) {
-                    fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+                try (InputStream in = url.openStream()) {
+                    cert = (X509Certificate) fac.generateCertificate(in);
                 } catch (Exception e) {
                     logger.error(e.getMessage());
                     return "";
                 }
-                FileInputStream is = new FileInputStream(fileName);
-                cert = (X509Certificate) fac.generateCertificate(is);
-                is.close();
-                Path path = Paths.get(fileName);
-                Files.deleteIfExists(path);
             }
             final StringWriter writer = new StringWriter();
             final JcaPEMWriter pemWriter = new JcaPEMWriter(writer);
