@@ -38,6 +38,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
+import com.czertainly.core.event.transaction.DiscoveryFinishedEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
@@ -55,12 +56,15 @@ import jakarta.persistence.criteria.Root;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
@@ -95,6 +99,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private NotificationProducer notificationProducer;
+    @Autowired
+    private ApplicationEventPublisher applicationEventPublisher; // Add this line to inject ApplicationEventPublisher
+
     private EventProducer eventProducer;
     private AttributeEngine attributeEngine;
 
@@ -418,9 +425,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
 
             updateDiscovery(discovery, response, DiscoveryStatus.PROCESSING);
+            logger.debug("Going to process {} certificates", certificatesDiscovered.size());
             updateCertificates(certificatesDiscovered, discovery);
+            logger.debug("Processed {} certificates", certificatesDiscovered.size());
 
-            eventProducer.produceDiscoveryFinishedEventMessage(discovery.getUuid(), loggedUserUuid, ResourceEvent.DISCOVERY_FINISHED);
+            // Publish the custom event after transaction completion
+            applicationEventPublisher.publishEvent(new DiscoveryFinishedEvent(discovery.getUuid(), loggedUserUuid));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             discovery.setStatus(DiscoveryStatus.FAILED);
@@ -447,6 +457,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         modal.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
         attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.DISCOVERY, modal.getUuid()));
         discoveryRepository.save(modal);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleDiscoveryFinishedEvent(DiscoveryFinishedEvent event) {
+        eventProducer.produceDiscoveryFinishedEventMessage(
+                event.discoveryUuid(),
+                event.loggedUserUuid(),
+                ResourceEvent.DISCOVERY_FINISHED
+        );
     }
 
     private boolean checkForCompletion(DiscoveryProviderDto response) {
@@ -526,6 +545,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         // Get newly discovered certificates
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
+
+        logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
+
         // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
         List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
         List<Trigger> orderedTriggers = new ArrayList<>();
