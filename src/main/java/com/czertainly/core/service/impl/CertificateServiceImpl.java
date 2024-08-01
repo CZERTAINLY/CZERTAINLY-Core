@@ -728,7 +728,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
-        Certificate certificate = getCertificateEntity(uuid);
+        Certificate certificate = getCertificateEntityWithAssociations(uuid);
         if (certificate.getCertificateContent() != null) {
             validate(certificate);
         }
