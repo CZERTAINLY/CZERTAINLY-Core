@@ -1,8 +1,8 @@
 #!/bin/bash
 
-echo "Build of CZERTAINLY CORE"
+echo "Pre-build CZERTAINLY CORE docker image"
 
-echo "Cleaning containers"
+echo "Cleaning containers if exists"
 docker rm czertainlycont
 docker rmi prebuild
 
@@ -11,7 +11,7 @@ rm -r data
 mkdir data
 
 echo "PreBuild build"
-docker build --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -f $DOCKERFILE_PATH-pre -t prebuild .
+docker build -f Dockerfile-pre -t prebuild .
 
 echo "MVN Build"
 if [[ "$OSTYPE" == "darwin"* ]]; then
@@ -22,17 +22,8 @@ else
 fi
 
 echo "Starting czertainlycont"
-docker start -d --restart=always czertainlycont
+docker start czertainlycont
 
 echo "Copy jar back to Tmp"
 docker cp czertainlycont:/home/app/target data/target
 docker cp czertainlycont:/home/app/docker data/docker
-
-echo "Removing previous image"
-docker rmi $IMAGE_NAME
-
-echo "Build main image"
-docker build --platform linux/amd64,linux/arm64 -f $DOCKERFILE_PATH -t $IMAGE_NAME .
-
-echo "Cleaning workspace"
-rm -r data

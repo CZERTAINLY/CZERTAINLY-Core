@@ -37,6 +37,7 @@ import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -49,9 +50,7 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.*;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -74,13 +73,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.io.*;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
-import java.nio.channels.Channels;
-import java.nio.channels.ReadableByteChannel;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.NoSuchProviderException;
@@ -89,9 +84,11 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.*;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -179,6 +176,13 @@ public class CertificateServiceImpl implements CertificateService {
 
     private CrlService crlService;
 
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
+
+    @Autowired
+    public void setCertificateProtocolAssociationRepository(CertificateProtocolAssociationRepository certificateProtocolAssociationRepository) {
+        this.certificateProtocolAssociationRepository = certificateProtocolAssociationRepository;
+    }
+
     @Autowired
     public void setCrlService(CrlService crlService) {
         this.crlService = crlService;
@@ -216,7 +220,7 @@ public class CertificateServiceImpl implements CertificateService {
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
 
         final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
-        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile", "key"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
+        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final CertificateResponseDto responseDto = new CertificateResponseDto();
@@ -643,7 +647,7 @@ public class CertificateServiceImpl implements CertificateService {
                 if (downloadingChain) {
                     throw new ValidationException("DER encoding of raw format is unsupported for certificate chain.");
                 }
-                return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.get(0).getUuid())).getCertificateContent().getContent();
+                return getCertificateEntity(SecuredUUID.fromString(certificateDetailDtos.getFirst().getUuid())).getCertificateContent().getContent();
             }
             // Encoding is PEM otherwise
             ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
@@ -830,7 +834,10 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public Certificate createCertificateEntity(X509Certificate certificate) {
-        logger.debug("Making a new entry for a certificate");
+        logger.debug("Making a new entry for a certificate: subject={}, serialNumber={}",
+                certificate.getSubjectX500Principal(),
+                certificate.getSerialNumber()
+        );
         Certificate modal = new Certificate();
         String fingerprint = null;
         try {
@@ -1047,48 +1054,65 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
     public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
         setupSecurityFilter(filter);
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner", "raProfile"), null);
 
-        Map<String, Long> groupStat = new HashMap<>();
-        Map<String, Long> raProfileStat = new HashMap<>();
-        Map<String, Long> typeStat = new HashMap<>();
-        Map<String, Long> keySizeStat = new HashMap<>();
-        Map<String, Long> bcStat = new HashMap<>();
-        Map<String, Long> expiryStat = new HashMap<>();
-        Map<String, Long> stateStat = new HashMap<>();
-        Map<String, Long> validationStatusStat = new HashMap<>();
-        Map<String, Long> complianceStat = new HashMap<>();
-        Date currentTime = new Date();
-        for (Certificate certificate : certificates) {
-            typeStat.merge(certificate.getCertificateType().getCode(), 1L, Long::sum);
+        long start = System.nanoTime();
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            executor.invokeAll(List.of(
+                    () -> {
+                        dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setGroupStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setRaProfileStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByBasicConstraints(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.basicConstraints, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByState(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByValidationStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null));
+                        return null;
+                    },
+                    () -> {
+                        dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null));
+                        return null;
+                    },
+                    (Callable<Void>) () -> {
+                        Date now = new Date();
+                        Instant nowInstant = now.toInstant();
+                        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> groupByExpression = (root, cb) -> cb.selectCase()
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(10))))), "10")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(20))))), "20")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(30))))), "30")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(60))))), "60")
+                                .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "90")
+                                .when(cb.greaterThan(root.get(Certificate_.notAfter), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "More")
+                                .otherwise("Expired");
 
-            if (certificate.getGroups() == null || certificate.getGroups().isEmpty()) {
-                groupStat.merge("Unassigned", 1L, Long::sum);
-            } else {
-                for (Group group : certificate.getGroups()) {
-                    groupStat.merge(group.getName(), 1L, Long::sum);
-                }
+                        dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression));
+                        return null;
+                    }
+            ));
+        } catch (Exception e) {
+            logger.error("An error occurred during calculation of certificate statistics: {}", e.getMessage());
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
             }
-
-            raProfileStat.merge(certificate.getRaProfile() != null ? certificate.getRaProfile().getName() : "Unassigned", 1L, Long::sum);
-            if (certificate.getCertificateContent() != null) {
-                expiryStat.merge(getExpiryTime(currentTime, certificate.getNotAfter()), 1L, Long::sum);
-                bcStat.merge(certificate.getBasicConstraints(), 1L, Long::sum);
-            }
-            keySizeStat.merge(certificate.getKeySize().toString(), 1L, Long::sum);
-            stateStat.merge(certificate.getState().getCode(), 1L, Long::sum);
-            validationStatusStat.merge(certificate.getValidationStatus().getCode(), 1L, Long::sum);
-            complianceStat.merge(certificate.getComplianceStatus().getCode(), 1L, Long::sum);
         }
-        dto.setGroupStatByCertificateCount(groupStat);
-        dto.setRaProfileStatByCertificateCount(raProfileStat);
-        dto.setCertificateStatByType(typeStat);
-        dto.setCertificateStatByKeySize(keySizeStat);
-        dto.setCertificateStatByBasicConstraints(bcStat);
-        dto.setCertificateStatByExpiry(expiryStat);
-        dto.setCertificateStatByState(stateStat);
-        dto.setCertificateStatByValidationStatus(validationStatusStat);
-        dto.setCertificateStatByComplianceStatus(complianceStat);
+        logger.debug("Certificate statistics calculated in {} ms", (System.nanoTime() - start) / 1_000_000L);
         return dto;
     }
 
@@ -1179,7 +1203,8 @@ public class CertificateServiceImpl implements CertificateService {
             List<RequestAttributeDto> issueAttributes,
             UUID keyUuid,
             UUID raProfileUuid,
-            UUID sourceCertificateUuid
+            UUID sourceCertificateUuid,
+            CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
@@ -1247,16 +1272,27 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate = certificateRepository.save(certificate);
 
+        if (protocolInfo != null) {
+            CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+            protocolAssociation.setCertificate(certificate);
+            protocolAssociation.setProtocol(protocolInfo.getProtocol());
+            protocolAssociation.setProtocolProfileUuid(protocolInfo.getProtocolProfileUuid());
+            protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
+            certificateProtocolAssociationRepository.save(protocolAssociation);
+            certificate.setProtocolAssociation(protocolAssociation);
+        }
+
+
         // set owner of certificate to logged user
         objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
 
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
-                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
-        );
+//        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+//                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+//                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+//        );
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
                 "Certificate request created", ""
@@ -1477,22 +1513,16 @@ public class CertificateServiceImpl implements CertificateService {
                 if (certificate == null) return "";
                 cert = (X509Certificate) fac.generateCertificate(new ByteArrayInputStream(certificate));
             } else {
-                URL url = new URL(chainUrl);
+                URL url = URI.create(chainUrl).toURL();
                 URLConnection urlConnection = url.openConnection();
                 urlConnection.setConnectTimeout(1000);
                 urlConnection.setReadTimeout(1000);
-                String fileName = chainUrl.split("/")[chainUrl.split("/").length - 1];
-                try (InputStream in = url.openStream(); ReadableByteChannel rbc = Channels.newChannel(in); FileOutputStream fos = new FileOutputStream(fileName)) {
-                    fos.getChannel().transferFrom(rbc, 0, Long.MAX_VALUE);
+                try (InputStream in = url.openStream()) {
+                    cert = (X509Certificate) fac.generateCertificate(in);
                 } catch (Exception e) {
                     logger.error(e.getMessage());
                     return "";
                 }
-                FileInputStream is = new FileInputStream(fileName);
-                cert = (X509Certificate) fac.generateCertificate(is);
-                is.close();
-                Path path = Paths.get(fileName);
-                Files.deleteIfExists(path);
             }
             final StringWriter writer = new StringWriter();
             final JcaPEMWriter pemWriter = new JcaPEMWriter(writer);

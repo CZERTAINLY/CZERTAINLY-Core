@@ -6,8 +6,8 @@ import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
+import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.security.authz.SecurityFilter;
-import org.springframework.http.ResponseEntity;
 
 public interface SchedulerService {
 
@@ -22,5 +22,7 @@ public interface SchedulerService {
     void enableScheduledJob(String uuid) throws SchedulerException, NotFoundException;
 
     void disableScheduledJob(String uuid) throws SchedulerException, NotFoundException;
+
+    ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException;
 
 }

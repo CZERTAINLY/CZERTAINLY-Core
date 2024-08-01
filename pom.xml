@@ -17,11 +17,13 @@
         <querydsl.version>5.1.0</querydsl.version>
         <hsqldb.version>2.7.3</hsqldb.version>
         <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
-        <okhttp.version>4.12.0</okhttp.version>
         <mockwebserver.version>4.12.0</mockwebserver.version>
         <commons-beanutils.version>1.9.4</commons-beanutils.version>
         <testcontainers-postgresql.version>1.19.8</testcontainers-postgresql.version>
-        <sonar.projectKey>3KeyCompany_CZERTAINLY-Core</sonar.projectKey>
+        <java.version>21</java.version>
+        <sonar.organization>czertainly</sonar.organization>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.projectKey>CZERTAINLY_CZERTAINLY-Core</sonar.projectKey>
     </properties>
 
     <dependencyManagement>
@@ -29,14 +31,14 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
-                <version>1.36.0</version>
+                <version>1.40.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>io.opentelemetry.instrumentation</groupId>
-                <artifactId>opentelemetry-instrumentation-bom-alpha</artifactId>
-                <version>2.2.0-alpha</version>
+                <artifactId>opentelemetry-instrumentation-bom</artifactId>
+                <version>2.6.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -128,6 +130,11 @@
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-jpamodelgen</artifactId>
+            <scope>provided</scope>
+        </dependency>
 
         <!-- Utility -->
         <dependency>
@@ -174,12 +181,7 @@
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>${nimbus-jose-jwt.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>${okhttp.version}</version>
-            <scope>test</scope>
-        </dependency>
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
@@ -212,7 +214,7 @@
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>msal4j</artifactId>
-            <version>1.14.2</version>
+            <version>1.16.2</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
@@ -252,6 +254,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine}</argLine>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
