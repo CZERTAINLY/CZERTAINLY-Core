@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -74,6 +75,8 @@ public interface CertificateService extends ResourceExtensionService  {
     Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException;
 
     Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+
+    CertificateContent checkAddCertificateContent(String fingerprint, String content);
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException;
 

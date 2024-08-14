@@ -61,6 +61,12 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
     @Column(name = "newly_discovered", nullable = false)
     private boolean newlyDiscovered;
 
+    @Column(name = "processed", nullable = false)
+    private boolean processed;
+
+    @Column(name = "processed_error")
+    private String processedError;
+
     @Column(name = "meta", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<MetadataAttribute> meta;

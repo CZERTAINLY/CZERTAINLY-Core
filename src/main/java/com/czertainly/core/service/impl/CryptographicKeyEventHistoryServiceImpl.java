@@ -87,7 +87,7 @@ public class CryptographicKeyEventHistoryServiceImpl implements CryptographicKey
     }
 
     @Override
-    @Async("threadPoolTaskExecutor")
+    @Async
     public void asyncSaveAllInBatch(List<CryptographicKeyEventHistory> certificateEventHistories) {
         keyEventHistoryRepository.saveAll(certificateEventHistories);
         logger.info("Inserted {} record into the database", certificateEventHistories.size());

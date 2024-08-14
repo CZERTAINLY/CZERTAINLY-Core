@@ -381,7 +381,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
-    @Async("threadPoolTaskExecutor")
+    @Async
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException {
@@ -864,7 +864,8 @@ public class CertificateServiceImpl implements CertificateService {
         return modal;
     }
 
-    private CertificateContent checkAddCertificateContent(String fingerprint, String content) {
+    @Override
+    public CertificateContent checkAddCertificateContent(String fingerprint, String content) {
         CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
         if (certificateContent != null) {
             return certificateContent;

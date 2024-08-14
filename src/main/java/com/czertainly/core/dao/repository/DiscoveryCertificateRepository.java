@@ -4,6 +4,7 @@ import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -17,11 +18,13 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
 
     List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history, Pageable pagable);
 
-    List<DiscoveryCertificate> findByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered, Pageable pagable);
+    @EntityGraph(attributePaths = {"certificateContent"})
+    List<DiscoveryCertificate> findByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered, Pageable pageable);
 
     long countByDiscovery(DiscoveryHistory history);
 
     long countByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered);
+    long countByDiscoveryAndNewlyDiscoveredAndProcessed(DiscoveryHistory history, boolean newlyDiscovered, boolean processed);
 	List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
 
 }
