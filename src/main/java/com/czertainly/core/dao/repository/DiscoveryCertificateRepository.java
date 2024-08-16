@@ -14,7 +14,7 @@ import java.util.UUID;
 @Repository
 public interface DiscoveryCertificateRepository extends SecurityFilterRepository<DiscoveryCertificate, Long> {
     Optional<DiscoveryCertificate> findByUuid(UUID uuid);
-    List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history);
+    long deleteByDiscovery(DiscoveryHistory history);
 
     List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history, Pageable pagable);
 
@@ -25,6 +25,6 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
 
     long countByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered);
     long countByDiscoveryAndNewlyDiscoveredAndProcessed(DiscoveryHistory history, boolean newlyDiscovered, boolean processed);
-	List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
+    List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
 
 }

@@ -58,6 +58,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
@@ -249,29 +251,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public void deleteDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
-        for (DiscoveryCertificate cert : discoveryCertificateRepository.findByDiscovery(discovery)) {
-            try {
-                discoveryCertificateRepository.delete(cert);
-            } catch (Exception e) {
-                logger.error(e.getMessage(), e);
-            }
-            if (certificateRepository.findByCertificateContent(cert.getCertificateContent()) == null && discoveryCertificateRepository.findByCertificateContent(cert.getCertificateContent()).isEmpty()) {
-                CertificateContent content = certificateContentRepository.findById(cert.getCertificateContent().getId())
-                        .orElse(null);
-                if (content != null) {
-                    try {
-                        certificateContentRepository.delete(content);
-                    } catch (Exception e) {
-                        logger.warn("Failed to delete the certificate.");
-                        logger.warn(e.getMessage());
-                    }
-                }
-            }
-        }
+        long certsDeleted = discoveryCertificateRepository.deleteByDiscovery(discovery);
+        logger.debug("Deleted {} discovery certificates", certsDeleted);
+
+        int certContentsDeleted = certificateContentRepository.deleteUnusedCertificateContents();
+        logger.debug("Deleted {} unused certificate contents", certContentsDeleted);
 
         attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
         discoveryRepository.delete(discovery);
-
         triggerService.deleteTriggerAssociation(Resource.DISCOVERY, discovery.getUuid());
 
         try {
@@ -533,7 +520,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response, DiscoveryStatus status) throws AttributeException {
         modal.setStatus(status);
-        modal.setEndTime(new Date());
         modal.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
         attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.DISCOVERY, modal.getUuid()));
         discoveryRepository.save(modal);
@@ -616,7 +602,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             int batchCount = (int) Math.ceil(discoveredCertificates.size() / (double) MAXIMUM_CERTIFICATES_PER_PAGE);
             int parallelism = batchCount < MAXIMUM_PARALLELISM ? batchCount : MAXIMUM_PARALLELISM;
             try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-                DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor);
+                SecurityContext securityContext = SecurityContextHolder.getContext();
+                DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
                 CompletableFuture<Stream<Object>> future = IntStream.range(0, batchCount).boxed().collect(
                         ParallelCollectors.parallel(
                                 batchIndex -> {
@@ -641,6 +628,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
 
         discovery.setStatus(DiscoveryStatus.COMPLETED);
+        discovery.setEndTime(new Date());
         discoveryRepository.save(discovery);
 
         notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(userUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());

@@ -31,8 +31,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Optional<Certificate> findByFingerprint(String fingerprint);
 
-    boolean existsByFingerprint(String fingerprint);
-
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
     List<Certificate> findByKeyUuid(UUID keyUuid);
