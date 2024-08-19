@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.model.request.Pkcs10CertificateRequest;
@@ -338,6 +339,30 @@ public class CertificateUtil {
                 .replace("\n", "");
     }
 
+    public static DiscoveryCertificate prepareDiscoveryCertificate(Certificate entry, X509Certificate certificate) {
+        DiscoveryCertificate discoveryCertificate = new DiscoveryCertificate();
+        if (entry != null) {
+            discoveryCertificate.setCommonName(entry.getCommonName());
+            discoveryCertificate.setSerialNumber(entry.getSerialNumber());
+            discoveryCertificate.setIssuerCommonName(entry.getIssuerCommonName());
+            discoveryCertificate.setNotAfter(entry.getNotAfter());
+            discoveryCertificate.setNotBefore(entry.getNotBefore());
+            discoveryCertificate.setCertificateContent(entry.getCertificateContent());
+        } else {
+            Certificate certificateModal = new Certificate();
+            setSubjectDNParams(certificateModal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubjectX500Principal().getEncoded()));
+            setIssuerDNParams(certificateModal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getIssuerX500Principal().getEncoded()));
+
+            discoveryCertificate.setCommonName(certificateModal.getCommonName());
+            discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
+            discoveryCertificate.setSerialNumber(certificate.getSerialNumber().toString(16));
+            discoveryCertificate.setNotAfter(certificate.getNotAfter());
+            discoveryCertificate.setNotBefore(certificate.getNotBefore());
+        }
+
+        return discoveryCertificate;
+    }
+
     public static void prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
         modal.setState(CertificateState.ISSUED);
         modal.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
@@ -609,7 +634,7 @@ public class CertificateUtil {
      *
      * @param cert certificate to be checked
      * @return <code>true</code> if the certificate is intermediate and not
-     *         self-signed
+     * self-signed
      */
     public static boolean isIntermediateCertificate(X509Certificate cert) {
         try {

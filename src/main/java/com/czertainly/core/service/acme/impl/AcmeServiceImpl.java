@@ -528,7 +528,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Transactional
-    @Async("threadPoolTaskExecutor")
+    @Async
     public void finalizeOrder(AcmeOrder order, AcmeJwsRequest jwsRequest, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         logger.debug("Finalizing Order with ID: {}", order.getOrderId());
         CertificateFinalizeRequest request = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), CertificateFinalizeRequest.class);
