@@ -145,91 +145,90 @@ public class DiscoveryCertificateHandler {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void processDiscoveredCertificate(String batch, int totalCount, DiscoveryHistory discovery, List<DiscoveryCertificate> discoveryCertificates, List<Trigger> ignoreTriggers, List<Trigger> orderedTriggers) {
+    public void processDiscoveredCertificate(int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, List<Trigger> ignoreTriggers, List<Trigger> orderedTriggers) {
         try {
-            logger.trace("Waiting to process batch {} of discovered certificates for discovery {}.", batch, discovery.getName());
+            logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
             processCertSemaphore.acquire();
-            logger.trace("Processing batch {} of discovered certificates for discovery {}.", batch, discovery.getName());
+            logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
 
-            // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
-            for (DiscoveryCertificate discoveryCertificate : discoveryCertificates) {
-                // Get X509 from discovered certificate and create certificate entity, do not save in database yet
-                Certificate entry;
-                X509Certificate x509Cert;
-                try {
-                    x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
-                    entry = certificateService.createCertificateEntity(x509Cert);
-                } catch (java.security.cert.CertificateException e) {
-                    logger.error("Unable to create certificate from discovery certificate with UUID {}: {}", discoveryCertificate.getUuid(), e.getMessage());
-                    discoveryCertificate.setProcessed(true);
-                    discoveryCertificate.setProcessedError("Unable to create certificate entity: " + e.getMessage());
-                    discoveryCertificateRepository.save(discoveryCertificate);
-                    continue;
-                }
-
-                try {
-                    // First, check the triggers that have action with action type set to ignore
-                    boolean ignored = false;
-                    List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
-                    for (Trigger trigger : ignoreTriggers) {
-                        TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), null, discoveryCertificate.getUuid());
-                        if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
-                            ignored = true;
-                            triggerHistory.setConditionsMatched(true);
-                            triggerHistory.setActionsPerformed(true);
-                            break;
-                        } else {
-                            triggerHistory.setConditionsMatched(false);
-                            triggerHistory.setActionsPerformed(false);
-                        }
-                        ignoreTriggerHistories.add(triggerHistory);
-                    }
-
-                    // If some trigger ignored this certificate, certificate is not saved and continue with next one
-                    if (ignored) {
-                        return;
-                    }
-
-                    // Save certificate to database
-                    certificateService.updateCertificateEntity(entry);
-
-                    // update objectUuid of not ignored certs
-                    for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
-                        ignoreTriggerHistory.setObjectUuid(entry.getUuid());
-                    }
-
-                    // Evaluate rest of the triggers in given order
-                    for (Trigger trigger : orderedTriggers) {
-                        // Create trigger history entry
-                        TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), entry.getUuid(), discoveryCertificate.getUuid());
-                        // If rules are satisfied, perform defined actions
-                        if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
-                            triggerHistory.setConditionsMatched(true);
-                            certificateRuleEvaluator.performActions(trigger, entry, triggerHistory);
-                            triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
-                        } else {
-                            triggerHistory.setConditionsMatched(false);
-                            triggerHistory.setActionsPerformed(false);
-                        }
-                    }
-                } catch (RuleException e) {
-                    logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", entry.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
-                    continue;
-                }
-
-                updateDiscoveredCertificate(discovery, entry, discoveryCertificate.getMeta());
+            // Get X509 from discovered certificate and create certificate entity, do not save in database yet
+            Certificate entry;
+            X509Certificate x509Cert;
+            try {
+                x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
+                entry = certificateService.createCertificateEntity(x509Cert);
+            } catch (Exception e) {
+                logger.error("Unable to create certificate from discovery certificate with UUID {}: {}", discoveryCertificate.getUuid(), e.getMessage());
                 discoveryCertificate.setProcessed(true);
+                discoveryCertificate.setProcessedError("Unable to create certificate entity: " + e.getMessage());
                 discoveryCertificateRepository.save(discoveryCertificate);
+                return;
             }
+
+            try {
+                // First, check the triggers that have action with action type set to ignore
+                boolean ignored = false;
+                List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
+                for (Trigger trigger : ignoreTriggers) {
+                    TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), null, discoveryCertificate.getUuid());
+                    if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
+                        ignored = true;
+                        triggerHistory.setConditionsMatched(true);
+                        triggerHistory.setActionsPerformed(true);
+                        break;
+                    } else {
+                        triggerHistory.setConditionsMatched(false);
+                        triggerHistory.setActionsPerformed(false);
+                    }
+                    ignoreTriggerHistories.add(triggerHistory);
+                }
+
+                // If some trigger ignored this certificate, certificate is not saved and continue with next one
+                if (ignored) {
+                    return;
+                }
+
+                // Save certificate to database
+                certificateService.updateCertificateEntity(entry);
+
+                // update objectUuid of not ignored certs
+                for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
+                    ignoreTriggerHistory.setObjectUuid(entry.getUuid());
+                }
+
+                // Evaluate rest of the triggers in given order
+                for (Trigger trigger : orderedTriggers) {
+                    // Create trigger history entry
+                    TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), entry.getUuid(), discoveryCertificate.getUuid());
+                    // If rules are satisfied, perform defined actions
+                    if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
+                        triggerHistory.setConditionsMatched(true);
+                        certificateRuleEvaluator.performActions(trigger, entry, triggerHistory);
+                        triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
+                    } else {
+                        triggerHistory.setConditionsMatched(false);
+                        triggerHistory.setActionsPerformed(false);
+                    }
+                }
+            } catch (RuleException e) {
+                logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", entry.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
+                return;
+            }
+
+            updateDiscoveredCertificate(discovery, entry, discoveryCertificate.getMeta());
+            discoveryCertificate.setProcessed(true);
+            discoveryCertificateRepository.save(discoveryCertificate);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            logger.error("Thread {} processing batch {} of discovered certificates interrupted.", Thread.currentThread().getName(), batch);
+            logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), certIndex);
         } finally {
-            logger.trace("Thread {} processing batch {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), batch);
+            logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), certIndex);
             processCertSemaphore.release();
         }
 
-        applicationEventPublisher.publishEvent(new DiscoveryProgressEvent(discovery.getUuid(), totalCount, false));
+        if (certIndex % 100 == 0) {
+            applicationEventPublisher.publishEvent(new DiscoveryProgressEvent(discovery.getUuid(), totalCount, false));
+        }
     }
 
     private void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {

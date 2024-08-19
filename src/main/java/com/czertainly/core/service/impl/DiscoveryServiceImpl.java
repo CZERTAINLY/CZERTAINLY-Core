@@ -73,6 +73,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
@@ -599,26 +600,23 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 }
             }
 
-            int batchCount = (int) Math.ceil(discoveredCertificates.size() / (double) MAXIMUM_CERTIFICATES_PER_PAGE);
-            int parallelism = batchCount < MAXIMUM_PARALLELISM ? batchCount : MAXIMUM_PARALLELISM;
+            // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
+            AtomicInteger index = new AtomicInteger(0);
             try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
                 SecurityContext securityContext = SecurityContextHolder.getContext();
                 DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
-                CompletableFuture<Stream<Object>> future = IntStream.range(0, batchCount).boxed().collect(
+                CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
                         ParallelCollectors.parallel(
-                                batchIndex -> {
-                                    int startIndex = batchIndex * MAXIMUM_CERTIFICATES_PER_PAGE;
-                                    int endIndex = batchIndex == batchCount - 1 ? discoveredCertificates.size() : startIndex + MAXIMUM_CERTIFICATES_PER_PAGE;
-                                    logger.debug("Processing certificate batch {}", batchIndex);
+                                discoveryCertificate -> {
                                     try {
-                                        discoveryCertificateHandler.processDiscoveredCertificate(Integer.toString(batchIndex), discoveredCertificates.size(), discovery, discoveredCertificates.subList(startIndex, endIndex), ignoreTriggers, orderedTriggers);
+                                        discoveryCertificateHandler.processDiscoveredCertificate(index.incrementAndGet(), discoveredCertificates.size(), discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
                                     } catch (Exception e) {
-                                        logger.error("Unable to process certificate batch {}: {}", batchIndex, e.getMessage(), e);
+                                        logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
                                     }
                                     return null; // Return null to satisfy the return type
                                 },
                                 executor,
-                                parallelism
+                                MAXIMUM_PARALLELISM
                         )
                 );
 
