@@ -1,6 +1,5 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.exception.*;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.CertificateRepository;
@@ -25,8 +24,8 @@ public class ValidationListener {
 
     private CertificateHandler certificateHandler;
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_VALIDATION_NAME, messageConverter = "jsonMessageConverter")
-    public void processMessage(final ValidationMessage validationMessage) throws MessageHandlingException {
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_VALIDATION_NAME, messageConverter = "jsonMessageConverter", concurrency = "5")
+    public void processMessage(final ValidationMessage validationMessage) {
         List<Certificate> certificates;
         if (validationMessage.getUuids() != null) {
             certificates = certificateRepository.findAllByUuidIn(validationMessage.getUuids());
