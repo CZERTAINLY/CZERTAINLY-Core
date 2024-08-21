@@ -22,6 +22,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
 
+    List<Certificate> findAllByUuidIn(List<UUID> uuids);
+
     @EntityGraph(attributePaths = {"certificateContent", "groups", "owner"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
@@ -73,4 +75,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     Optional<Certificate> findByIssuerDnNormalizedAndSerialNumber(String issuerDnNormalized, String serialNumber);
 
     List<Certificate> findBySubjectDnNormalized(String issuerDnNormalized);
+
+    List<Certificate> findByValidationStatusAndCertificateContentDiscoveryCertificatesDiscoveryUuid(CertificateValidationStatus validationStatus, UUID discoveryUuid);
+
+    List<Certificate> findByValidationStatusAndLocationsLocationUuid(CertificateValidationStatus validationStatus, UUID locationUuid);
 }

@@ -56,7 +56,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     @Override
     public CertificateValidationStatus validateCertificate(Certificate certificate, boolean isCompleteChain) throws CertificateException {
-        logger.debug("Initiating the certificate validation: {}", certificate);
+        logger.debug("Initiating the certificate validation: {}", certificate.toStringShort());
 
         ArrayList<Certificate> certificateChain = new ArrayList<>();
         Certificate lastCertificate = certificate;
@@ -82,7 +82,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             x509IssuerCertificate = x509Certificate;
         }
 
-        logger.debug("Certificate validation of {} finalized with result: {}", certificate, previousCertStatus);
+        logger.debug("Certificate validation of {} finalized with result: {}", certificate.toStringShort(), previousCertStatus);
         return previousCertStatus;
     }
 

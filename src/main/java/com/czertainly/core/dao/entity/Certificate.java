@@ -434,4 +434,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public final int hashCode() {
         return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
+
+    public String toStringShort() {
+        return String.format("Certificate(UUID=%s, subjectDn=%s, issuerDn=%s, serialNumber=%s, fingerprint=%s)", uuid, subjectDn, issuerDn, serialNumber, fingerprint);
+    }
 }

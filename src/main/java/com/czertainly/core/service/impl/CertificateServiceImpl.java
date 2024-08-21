@@ -34,6 +34,7 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
@@ -61,6 +62,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -168,6 +170,7 @@ public class CertificateServiceImpl implements CertificateService {
     private ExtendedAttributeService extendedAttributeService;
 
     private ResourceObjectAssociationService objectAssociationService;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
@@ -206,6 +209,11 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     public void setCertificateValidatorMap(Map<String, ICertificateValidator> certificateValidatorMap) {
         this.certificateValidatorMap = certificateValidatorMap;
+    }
+
+    @Autowired
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -697,7 +705,6 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
-
     @Override
     public void validate(Certificate certificate) {
         CertificateChainResponseDto certificateChainResponse = getCertificateChainInternal(certificate, true);
@@ -824,8 +831,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.save(entity);
             certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
 
-            certificateComplianceCheck(entity);
-            validate(entity);
+//            certificateComplianceCheck(entity);
+//            validate(entity);
 
             return entity;
         }
@@ -884,21 +891,39 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDetailDto upload(UploadCertificateRequestDto request) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(request.getCertificate());
+        long start = System.nanoTime();
         String fingerprint = CertificateUtil.getThumbprint(certificate);
+        logger.debug("Fingerprint calculated: {} ms", (System.nanoTime() - start) / 1_000_000L);
+        start = System.nanoTime();
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
+        logger.debug("Fingerprint search: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
+        start = System.nanoTime();
         attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
+        logger.debug("Attrs validation: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
+        start = System.nanoTime();
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
+        logger.debug("Create cert: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
+        start = System.nanoTime();
         CertificateDetailDto dto = entity.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
-        certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
+        logger.debug("Map to DTO: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
-        validate(entity);
+        start = System.nanoTime();
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
+        logger.debug("Add custom attrs: {} ms", (System.nanoTime() - start) / 1_000_000L);
+
+        start = System.nanoTime();
+        certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
+        logger.debug("Add History: {} ms", (System.nanoTime() - start) / 1_000_000L);
+
+        start = System.nanoTime();
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(entity.getUuid()));
+        logger.debug("Publish event: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
         return dto;
     }
