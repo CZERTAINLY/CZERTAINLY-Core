@@ -831,9 +831,6 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.save(entity);
             certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
 
-//            certificateComplianceCheck(entity);
-//            validate(entity);
-
             return entity;
         }
     }
@@ -891,39 +888,21 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public CertificateDetailDto upload(UploadCertificateRequestDto request) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(request.getCertificate());
-        long start = System.nanoTime();
         String fingerprint = CertificateUtil.getThumbprint(certificate);
-        logger.debug("Fingerprint calculated: {} ms", (System.nanoTime() - start) / 1_000_000L);
-        start = System.nanoTime();
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
-        logger.debug("Fingerprint search: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
-        start = System.nanoTime();
         attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
-        logger.debug("Attrs validation: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
-        start = System.nanoTime();
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
-        logger.debug("Create cert: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
-        start = System.nanoTime();
         CertificateDetailDto dto = entity.mapToDto();
-        logger.debug("Map to DTO: {} ms", (System.nanoTime() - start) / 1_000_000L);
-
-        start = System.nanoTime();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
-        logger.debug("Add custom attrs: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
-        start = System.nanoTime();
         certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
-        logger.debug("Add History: {} ms", (System.nanoTime() - start) / 1_000_000L);
-
-        start = System.nanoTime();
         applicationEventPublisher.publishEvent(new CertificateValidationEvent(entity.getUuid()));
-        logger.debug("Publish event: {} ms", (System.nanoTime() - start) / 1_000_000L);
 
         return dto;
     }
