@@ -10,6 +10,8 @@ public class RabbitMQConstants {
 
     public static final String QUEUE_ACTIONS_NAME = "core.actions";
 
+    public static final String QUEUE_VALIDATION_NAME = "core.validation";
+
     public static final String EXCHANGE_NAME = "czertainly";
 
     public static final String EVENT_ROUTING_KEY = "core";
@@ -19,5 +21,7 @@ public class RabbitMQConstants {
     public static final String SCHEDULER_ROUTING_KEY = "scheduler";
 
     public static final String ACTION_ROUTING_KEY = "action";
+
+    public static final String VALIDATION_ROUTING_KEY = "validation";
 
 }

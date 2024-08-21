@@ -17,7 +17,10 @@ import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
+import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.event.transaction.DiscoveryProgressEvent;
+import com.czertainly.core.messaging.model.ValidationMessage;
+import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.TriggerService;
@@ -32,6 +35,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.event.TransactionPhase;
+import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
@@ -43,9 +48,9 @@ import java.util.concurrent.Semaphore;
 
 @Service
 @Transactional
-public class DiscoveryCertificateHandler {
+public class CertificateHandler {
 
-    private static final Logger logger = LoggerFactory.getLogger(DiscoveryCertificateHandler.class);
+    private static final Logger logger = LoggerFactory.getLogger(CertificateHandler.class);
 
     private static final int MAX_PARALLEL_BATCHES = 20;
     private static final Semaphore createCertSemaphore = new Semaphore(MAX_PARALLEL_BATCHES);
@@ -54,6 +59,7 @@ public class DiscoveryCertificateHandler {
     private AttributeEngine attributeEngine;
     private CertificateRuleEvaluator certificateRuleEvaluator;
     private ApplicationEventPublisher applicationEventPublisher;
+    private ValidationProducer validationProducer;
 
     private TriggerService triggerService;
     private CertificateService certificateService;
@@ -75,6 +81,11 @@ public class DiscoveryCertificateHandler {
     @Autowired
     public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
         this.applicationEventPublisher = applicationEventPublisher;
+    }
+
+    @Autowired
+    public void setValidationProducer(ValidationProducer validationProducer) {
+        this.validationProducer = validationProducer;
     }
 
     @Autowired
@@ -100,6 +111,11 @@ public class DiscoveryCertificateHandler {
     @Autowired
     public void setDiscoveryCertificateRepository(DiscoveryCertificateRepository discoveryCertificateRepository) {
         this.discoveryCertificateRepository = discoveryCertificateRepository;
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    public void validate(Certificate certificate) {
+        certificateService.validate(certificate);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
@@ -250,6 +266,11 @@ public class DiscoveryCertificateHandler {
                 "Discovered from Connector: " + discovery.getConnectorName() + " via discovery: " + discovery.getName(),
                 MetaDefinitions.serialize(additionalInfo)
         );
-//        certificateService.validate(certificate);
+    }
+
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    public void handleCertificateValidationEvent(CertificateValidationEvent event) {
+        ValidationMessage validationMessage = new ValidationMessage(Resource.CERTIFICATE, event.certificateUuids(), event.discoveryUuid(), event.discoveryName(), event.locationUuid(), event.locationName());
+        validationProducer.produceMessage(validationMessage);
     }
 }

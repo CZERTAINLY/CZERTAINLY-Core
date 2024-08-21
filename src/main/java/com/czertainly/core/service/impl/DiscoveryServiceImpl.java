@@ -33,6 +33,7 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.event.transaction.DiscoveryFinishedEvent;
 import com.czertainly.core.event.transaction.DiscoveryProgressEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -43,7 +44,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
-import com.czertainly.core.service.handler.DiscoveryCertificateHandler;
+import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.pivovarit.collectors.ParallelCollectors;
@@ -75,7 +76,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 @Service
@@ -93,7 +93,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private ApplicationEventPublisher applicationEventPublisher;
 
     private AttributeEngine attributeEngine;
-    private DiscoveryCertificateHandler discoveryCertificateHandler;
+    private CertificateHandler certificateHandler;
 
     private TriggerService triggerService;
     private TriggerAssociationRepository triggerAssociationRepository;
@@ -126,8 +126,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Autowired
-    public void setDiscoveryCertificateHandler(DiscoveryCertificateHandler discoveryCertificateHandler) {
-        this.discoveryCertificateHandler = discoveryCertificateHandler;
+    public void setDiscoveryCertificateHandler(CertificateHandler certificateHandler) {
+        this.certificateHandler = certificateHandler;
     }
 
     @Autowired
@@ -459,7 +459,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
                     // run in separate virtual thread and continue
                     final int finalCurrentPage = currentPage;
-                    futures.add(executor.submit(() -> discoveryCertificateHandler.createDiscoveredCertificate(String.valueOf(finalCurrentPage), discovery, discoveredCertificates)));
+                    futures.add(executor.submit(() -> certificateHandler.createDiscoveredCertificate(String.valueOf(finalCurrentPage), discovery, discoveredCertificates)));
 
                     ++currentPage;
                     currentTotal += response.getCertificateData().size();
@@ -574,7 +574,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) {
         // Get newly discovered certificates
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
@@ -609,7 +608,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                         ParallelCollectors.parallel(
                                 discoveryCertificate -> {
                                     try {
-                                        discoveryCertificateHandler.processDiscoveredCertificate(index.incrementAndGet(), discoveredCertificates.size(), discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
+                                        certificateHandler.processDiscoveredCertificate(index.incrementAndGet(), discoveredCertificates.size(), discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
                                     } catch (Exception e) {
                                         logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
                                     }
@@ -630,6 +629,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
 
         notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(userUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discoveryUuid, discovery.getName(), null, null));
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)

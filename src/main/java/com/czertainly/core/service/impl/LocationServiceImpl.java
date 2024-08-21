@@ -40,6 +40,7 @@ import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -62,6 +63,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -89,6 +91,7 @@ public class LocationServiceImpl implements LocationService {
     private CertificateEventHistoryService certificateEventHistoryService;
     private AttributeEngine attributeEngine;
     private PermissionEvaluator permissionEvaluator;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
@@ -143,6 +146,11 @@ public class LocationServiceImpl implements LocationService {
     @Autowired
     public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
         this.permissionEvaluator = permissionEvaluator;
+    }
+
+    @Autowired
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -904,7 +912,7 @@ public class LocationServiceImpl implements LocationService {
 
         // TODO: response with the indication if the key is available for pushed certificate
 
-        certificateLocationRepository.save(certificateLocation);
+        certificateLocation = certificateLocationRepository.save(certificateLocation);
         location.getCertificates().add(certificateLocation);
 
         locationRepository.save(location);
@@ -1032,47 +1040,48 @@ public class LocationServiceImpl implements LocationService {
                 locationDetailResponseDto.getCertificates());
     }
 
-    private void updateContent(Location entity, boolean supportMultipleEntries, boolean supportKeyManagement,
+    private void updateContent(Location location, boolean supportMultipleEntries, boolean supportKeyManagement,
                                List<MetadataAttribute> metadata, List<CertificateLocationDto> certificates) throws CertificateException, AttributeException {
-        entity.setSupportMultipleEntries(supportMultipleEntries);
-        entity.setSupportKeyManagement(supportKeyManagement);
+        location.setSupportMultipleEntries(supportMultipleEntries);
+        location.setSupportKeyManagement(supportKeyManagement);
 
-        attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(entity.getEntityInstanceReference().getConnectorUuid(), Resource.LOCATION, entity.getUuid()));
-        attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(entity.getEntityInstanceReference().getConnectorUuid(), Resource.LOCATION, entity.getUuid()));
-        Set<CertificateLocation> cls = new HashSet<>();
+        attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.LOCATION, location.getUuid()));
+        attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.LOCATION, location.getUuid()));
+        Map<UUID, CertificateLocation> cls = new HashMap<>();
         for (CertificateLocationDto certificateLocationDto : certificates) {
             CertificateLocation cl = new CertificateLocation();
             cl.setWithKey(certificateLocationDto.isWithKey());
             cl.setCertificate(certificateService.createCertificate(certificateLocationDto.getCertificateData(), certificateLocationDto.getCertificateType()));
-            cl.setLocation(entity);
+            cl.setLocation(location);
             cl.setPushAttributes(certificateLocationDto.getPushAttributes());
             cl.setCsrAttributes(certificateLocationDto.getCsrAttributes());
-            cls.add(cl);
+            cls.put(cl.getCertificate().getUuid(), cl);
 
-            attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(entity.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, cl.getCertificate().getUuid(), Resource.LOCATION, entity.getUuid()));
-            attributeEngine.updateMetadataAttributes(certificateLocationDto.getMetadata(), new ObjectAttributeContentInfo(entity.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, cl.getCertificate().getUuid(), Resource.LOCATION, entity.getUuid(), entity.getName()));
+            attributeEngine.deleteObjectAttributesContent(AttributeType.META, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, cl.getCertificate().getUuid(), Resource.LOCATION, location.getUuid()));
+            attributeEngine.updateMetadataAttributes(certificateLocationDto.getMetadata(), new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, cl.getCertificate().getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
         }
 
-        Iterator<CertificateLocation> iterator = entity.getCertificates().iterator();
+        Iterator<CertificateLocation> iterator = location.getCertificates().iterator();
         while (iterator.hasNext()) {
             CertificateLocation cl = iterator.next();
 
-            if (!cls.contains(cl)) {
+            CertificateLocation lc = cls.get(cl.getId().getCertificateUuid());
+            if (lc == null) {
                 certificateLocationRepository.delete(cl);
                 iterator.remove();
             } else {
-                CertificateLocation lc = cls.stream().filter(e -> e.getCertificate().getUuid().equals(cl.getCertificate().getUuid())).findFirst().orElse(null);
-                if (lc != null) {
-                    cl.setCsrAttributes(lc.getCsrAttributes());
-                    cl.setPushAttributes(lc.getPushAttributes());
-                    cl.setWithKey(lc.isWithKey());
-                    certificateLocationRepository.save(cl);
-                }
+                cl.setCsrAttributes(lc.getCsrAttributes());
+                cl.setPushAttributes(lc.getPushAttributes());
+                cl.setWithKey(lc.isWithKey());
+                certificateLocationRepository.save(cl);
+                cls.remove(cl.getId().getCertificateUuid());
             }
         }
 
-        entity.getCertificates().addAll(cls);
-        locationRepository.save(entity);
+        location.getCertificates().addAll(cls.values());
+        locationRepository.save(location);
+
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, null, null, location.getUuid(), location.getName()));
     }
 
     private void authorityPreChecks(RaProfile raProfile) throws ValidationException {

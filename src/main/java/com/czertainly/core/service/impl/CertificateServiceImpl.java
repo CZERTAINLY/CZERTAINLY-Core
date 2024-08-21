@@ -34,6 +34,7 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
@@ -61,6 +62,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -168,6 +170,7 @@ public class CertificateServiceImpl implements CertificateService {
     private ExtendedAttributeService extendedAttributeService;
 
     private ResourceObjectAssociationService objectAssociationService;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
@@ -206,6 +209,11 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     public void setCertificateValidatorMap(Map<String, ICertificateValidator> certificateValidatorMap) {
         this.certificateValidatorMap = certificateValidatorMap;
+    }
+
+    @Autowired
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Override
@@ -697,7 +705,6 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
-
     @Override
     public void validate(Certificate certificate) {
         CertificateChainResponseDto certificateChainResponse = getCertificateChainInternal(certificate, true);
@@ -824,9 +831,6 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.save(entity);
             certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
 
-            certificateComplianceCheck(entity);
-            validate(entity);
-
             return entity;
         }
     }
@@ -896,9 +900,9 @@ public class CertificateServiceImpl implements CertificateService {
 
         CertificateDetailDto dto = entity.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
-        certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
 
-        validate(entity);
+        certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(entity.getUuid()));
 
         return dto;
     }
