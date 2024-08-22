@@ -521,7 +521,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response, DiscoveryStatus status) throws AttributeException {
         modal.setStatus(status);
-        modal.setTotalCertificatesDiscovered((int) discoveryCertificateRepository.countByDiscovery(modal));
+        modal.setTotalCertificatesDiscovered(status == DiscoveryStatus.FAILED ? response.getTotalCertificatesDiscovered() : (int) discoveryCertificateRepository.countByDiscovery(modal));
         attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.DISCOVERY, modal.getUuid()));
         discoveryRepository.save(modal);
     }
