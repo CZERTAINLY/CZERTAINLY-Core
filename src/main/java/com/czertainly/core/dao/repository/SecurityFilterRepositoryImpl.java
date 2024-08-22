@@ -239,8 +239,9 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             if (filter.getResourceFilter().getResource().hasOwner()) {
                 try {
                     NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
-                    String ownerAttributeName = root.getJavaType().equals(CryptographicKeyItem.class) ? "cryptographicKey.owner.ownerUsername" : "owner.ownerUsername";
-                    combinedObjectAccessPredicates.add(cb.equal(Sql2PredicateConverter.prepareExpression(root, ownerAttributeName), userInformation.getName()));
+                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "cryptographicKey.owner" : "owner";
+                    Join fromOwner = Sql2PredicateConverter.prepareJoin(root, ownerAttributePath);
+                    combinedObjectAccessPredicates.add(cb.equal(Sql2PredicateConverter.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
                 } catch (ValidationException e) {
                     // cannot apply filter predicate for anonymous user
                 }
