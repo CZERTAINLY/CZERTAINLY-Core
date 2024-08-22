@@ -279,10 +279,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
+    @Async
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
         for (SecuredUUID uuid : discoveryUuids) {
             deleteDiscovery(uuid);
         }
+        notificationProducer.produceNotificationText(Resource.DISCOVERY, null, NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Discovery histories have been deleted.", null);
     }
 
     @Override
