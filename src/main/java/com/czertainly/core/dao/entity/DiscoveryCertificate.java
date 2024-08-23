@@ -83,6 +83,8 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
         dto.setCertificateContent(certificateContent.getContent());
         dto.setFingerprint(certificateContent.getFingerprint());
         dto.setNewlyDiscovered(newlyDiscovered);
+        dto.setProcessed(processed);
+        dto.setProcessedError(processedError);
         // Certificate Inventory UUID can be obtained from the content table since it has relation to the certificate.
         // If the certificate is deleted from the inventory and the history is not deleted, then the content remains and
         // the certificate becomes null. Also, the Certificate Content is unique for each certificate and the certificate
