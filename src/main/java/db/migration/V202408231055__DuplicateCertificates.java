@@ -3,85 +3,159 @@ package db.migration;
 
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.*;
 
+
 public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
+
+    private static final Logger logger = LoggerFactory.getLogger(V202408231055__DuplicateCertificates.class);
+
     @Override
     public void migrate(Context context) throws Exception {
+
         mergeDuplicateCertificates(context);
-//        addUniqueFingerprintConstraint(context);
+        context.getConnection().createStatement().execute("ALTER TABLE certificate ADD UNIQUE (fingerprint);");
+
+        deleteDuplicateCrls(context);
+        context.getConnection().createStatement().execute("ALTER TABLE crl ADD UNIQUE (issuer_dn, serial_number);");
+
     }
 
-    private void addUniqueFingerprintConstraint(Context context) throws SQLException {
-        String uniqueFingerprintConstraint = "ALTER TABLE certificate ADD UNIQUE (fingerprint);";
-        try (final Statement statement = context.getConnection().createStatement()) {
-            statement.execute(uniqueFingerprintConstraint);
+    private void deleteDuplicateCrls(Context context) throws SQLException {
+        Statement select = context.getConnection().createStatement();
+        List<String> uuidsToDelete = new ArrayList<>();
+
+        ResultSet duplicateCrls = select.executeQuery( "SELECT STRING_AGG(quote_literal(uuid::text),',') AS uuids FROM crl  GROUP BY issuer_dn, serial_number HAVING COUNT(*) > 1");
+        while (duplicateCrls.next()) {
+            List<String> duplicateUuids = new ArrayList<>(List.of(duplicateCrls.getString("uuids").split(",")));
+            String crlToKeepUuid = duplicateUuids.getFirst();
+            for (String uuid : duplicateUuids) {
+                ResultSet crl = context.getConnection().createStatement().executeQuery("SELECT ca_certificate_uuid FROM crl WHERE uuid = " + uuid + ";");
+                crl.next();
+                if (crl.getString("ca_certificate_uuid") != null) {
+                    crlToKeepUuid = uuid;
+                    break;
+                }
+            }
+            duplicateUuids.remove(crlToKeepUuid);
+            uuidsToDelete.addAll(duplicateUuids);
         }
 
+        select.execute("DELETE FROM crl WHERE uuid IN ( " + String.join(",", uuidsToDelete) + ");");
     }
 
     private void mergeDuplicateCertificates(Context context) throws SQLException {
         Statement select = context.getConnection().createStatement();
-        ResultSet duplicateCertificatesGrouped = select.executeQuery("SELECT STRING_AGG(quote_literal(uuid::text), ',') AS uuids FROM certificate GROUP BY fingerprint HAVING COUNT(uuid) > 1;");
-        List<String> commands = new ArrayList<>();
+        Statement executeStatement = context.getConnection().createStatement();
+
+        ResultSet duplicateCertificatesGrouped = select.executeQuery("SELECT STRING_AGG(quote_literal(uuid::text), ',' ORDER BY i_cre ASC) AS uuids FROM certificate GROUP BY fingerprint HAVING COUNT(uuid) > 1;");
         while (duplicateCertificatesGrouped.next()) {
+
             String duplicateCertificatesUuids = duplicateCertificatesGrouped.getString("uuids");
-            List<String> uuidsOfDuplicates = List.of(duplicateCertificatesUuids.split(","));
-            String certificateToKeepUuid = uuidsOfDuplicates.getFirst();
+            String certificateToKeepUuid = List.of(duplicateCertificatesUuids.split(",")).getFirst();
+            logger.info("Processing duplicate certificates with UUIDs " + duplicateCertificatesUuids + ". Keeping certificate with UUID " + certificateToKeepUuid + ".");
+
             // Merge groups
-            ResultSet groups = context.getConnection().createStatement().executeQuery("SELECT group_uuid FROM group_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") GROUP BY group_uuid;");
-            ResultSet certificateToKeepGroups = context.getConnection().createStatement().executeQuery("SELECT group_uuid FROM group_association WHERE resource = 'CERTIFICATE' AND object_uuid = " + certificateToKeepUuid + ";");
-            Set<String> certificateToKeepGroupSet = new HashSet<>();
-            while (certificateToKeepGroups.next()) {
-                certificateToKeepGroupSet.add(certificateToKeepGroups.getString("group_uuid"));
-            }
-            while (groups.next()) {
-                if (!certificateToKeepGroupSet.contains(groups.getString("group_uuid"))) {
-                    commands.add("INSERT INTO group_association (uuid, resource, object_uuid, group_uuid) VALUES (gen_random_uuid(), 'CERTIFICATE'," + certificateToKeepUuid + ",'" + groups.getString("group_uuid") + "');");
-                }
-            }
+            executeStatement.execute("UPDATE group_association SET object_uuid = " + certificateToKeepUuid + " WHERE resource = 'CERTIFICATE' AND object_uuid IN (" + duplicateCertificatesUuids + ") AND group_uuid " +
+                    "NOT IN (SELECT group_uuid FROM group_association WHERE object_uuid = " + certificateToKeepUuid + ");");
+            executeStatement.execute("DELETE FROM group_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
 
-            // Delete old group associations
-            commands.add("DELETE FROM group_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
+            logger.info("Groups of duplicate certificates have been merged.");
+
+
             // Find first certificate with owner and set that owner for certificate being kept
-            ResultSet owners = context.getConnection().createStatement().executeQuery("SELECT owner_uuid, owner_username, object_uuid FROM owner_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ");");
-            if (owners.next() && !Objects.equals(owners.getString("object_uuid"), certificateToKeepUuid)) {
-                commands.add("INSERT INTO owner_association (uuid, resource, object_uuid, owner_uuid, owner_username) VALUES (gen_random_uuid(), 'CERTIFICATE'," + certificateToKeepUuid + ",'" + owners.getString("owner_uuid") + "', '" + owners.getString("owner_username") + "');");
-            }
-            // Delete old owner associations
-            commands.add("DELETE FROM owner_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
-            // Find first certificate with RA Profile and set that RA Profile for certificate being kept
-            ResultSet raProfiles = context.getConnection().createStatement().executeQuery("SELECT ra_profile_uuid, uuid FROM certificate WHERE uuid in (" + duplicateCertificatesUuids + ");");
-            if (owners.next() && !Objects.equals(raProfiles.getString("uuid"), certificateToKeepUuid)) {
-                commands.add("UPDATE certificate SET ra_profile_uuid = '" + raProfiles.getString("ra_profile_uuid") + "WHERE uuid = " + certificateToKeepUuid + ";");
-            }
+            executeStatement.execute("UPDATE owner_association SET object_uuid = " + certificateToKeepUuid + " WHERE uuid = (" +
+                    "SELECT oa.uuid FROM owner_association oa JOIN certificate c ON c.uuid = oa.object_uuid  WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids +
+                    ") ORDER BY c.i_cre ASC LIMIT 1) and resource = 'CERTIFICATE';");
+            executeStatement.execute("DELETE FROM owner_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
 
-            // Merge custom attributes
+            logger.info("Owner has been set for merged certificate.");
+
+
+            // Find first certificate with RA Profile and set that RA Profile for certificate being kept
+            executeStatement.execute("UPDATE certificate SET ra_profile_uuid = ( SELECT ra_profile_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
+                    ") ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
+
+            logger.info("RA Profile has been set for merged certificate.");
+
+
+            // Merge attributes
 
             ResultSet attributeContentItems = context.getConnection().createStatement().executeQuery("SELECT ac2o.uuid, object_uuid, attribute_content_item_uuid, aci.attribute_definition_uuid FROM attribute_content_2_object ac2o JOIN attribute_content_item aci ON aci.uuid = ac2o.attribute_content_item_uuid  WHERE ac2o.object_type = 'CERTIFICATE' AND ac2o.object_uuid in (" + duplicateCertificatesUuids + ");");
             ResultSet certificateToKeepAttributes = context.getConnection().createStatement().executeQuery("SELECT aci.attribute_definition_uuid FROM attribute_content_2_object ac2o JOIN attribute_content_item aci ON aci.uuid = ac2o.attribute_content_item_uuid  WHERE ac2o.object_type = 'CERTIFICATE' AND ac2o.object_uuid = " + certificateToKeepUuid + ";");
             Set<String> certificateToKeepAttributesSet = new HashSet<>();
+            List<String> attributeContentItemsToDeleteCommands = new ArrayList<>();
+
             while (certificateToKeepAttributes.next()) {
                 certificateToKeepAttributesSet.add(certificateToKeepAttributes.getString("attribute_definition_uuid"));
             }
             while (attributeContentItems.next()) {
                 String attributeDefinitionUuid = attributeContentItems.getString("attribute_definition_uuid");
-                if (!Objects.equals(attributeContentItems.getString("object_uuid"), certificateToKeepUuid) & !certificateToKeepAttributesSet.contains(attributeDefinitionUuid)) {
+                // If there is no attribute with this definition yet set for kept certificate, set the content of duplicate for kept certificate
+                if (!certificateToKeepAttributesSet.contains(attributeDefinitionUuid)) {
                     certificateToKeepAttributesSet.add(attributeDefinitionUuid);
-                    commands.add("UPDATE attribute_content_2_object SET object_uuid = " + certificateToKeepUuid + " WHERE uuid = '" + attributeContentItems.getString("uuid") + "';");
+                    executeStatement.execute("UPDATE attribute_content_2_object SET object_uuid = " + certificateToKeepUuid + " WHERE uuid = '" + attributeContentItems.getString("uuid") + "';");
+                } else if (!Objects.equals(attributeContentItems.getString("object_uuid"), certificateToKeepUuid.replace("'", ""))) {
+                    attributeContentItemsToDeleteCommands.add("DELETE FROM attribute_content_item WHERE uuid = '" + attributeContentItems.getString("attribute_content_item_uuid") + "';");
                 }
             }
 
+            executeStatement.execute("DELETE FROM attribute_content_2_object WHERE object_type = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
+
+
+            for (String command : attributeContentItemsToDeleteCommands) {
+                executeStatement.execute(command);
+            }
+
+
+
+            logger.info("Attributes of duplicate certificates have been merged.");
+
+
+            // Merge protocols
+            executeStatement.execute("UPDATE certificate_protocol_association SET certificate_uuid = " + certificateToKeepUuid + " WHERE certificate_uuid IN (" + duplicateCertificatesUuids + ") " +
+                    "AND protocol_profile_uuid NOT IN (SELECT protocol_profile_uuid FROM certificate_protocol_association " +
+                    "WHERE certificate_uuid = " + certificateToKeepUuid + ");");
+            executeStatement.execute("DELETE FROM certificate_protocol_association WHERE certificate_uuid in (" + duplicateCertificatesUuids + ") AND certificate_uuid != " + certificateToKeepUuid + ";");
+
+            logger.info("Protocol associations of duplicate certificates have been merged.");
+
+
+            // Crl
+            executeStatement.execute("DELETE FROM crl WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ") AND ca_certificate_uuid != " + certificateToKeepUuid + ";");
+
+            // Certificate History
+
+            executeStatement.execute("DELETE FROM certificate_event_history WHERE certificate_uuid in (" + duplicateCertificatesUuids + ") AND certificate_uuid != " + certificateToKeepUuid + ";");
+
+            logger.info("Certificate event history of duplicate certificates has been deleted.");
+
+
+            // Delete Approvals
+
+            executeStatement.execute("DELETE FROM approval WHERE object_uuid != " + certificateToKeepUuid + "AND resource = 'CERTIFICATE' AND object_uuid IN (" + duplicateCertificatesUuids + ");");
+
+            logger.info("Approvals of duplicate certificates have been deleted.");
+
+            // Delete duplicates
+            executeStatement.execute("DELETE FROM certificate WHERE uuid != " + certificateToKeepUuid + "AND uuid IN (" + duplicateCertificatesUuids + ");");
+            logger.info("Duplicate certificates have been deleted.");
+
+
+            // Keep only one certificate content
+            executeStatement.execute("DELETE FROM certificate_content WHERE id IN ( SELECT certificate_content_id FROM certificate " +
+                    "WHERE uuid IN (" + duplicateCertificatesUuids + ") AND uuid != " + certificateToKeepUuid + ");");
+
+            logger.info("Deleted certificate content of duplicate certificates.");
 
         }
 
-        for (String command : commands) {
-            select.execute(command);
-        }
     }
 
 
