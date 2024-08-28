@@ -79,7 +79,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
             // Find first certificate with RA Profile and set that RA Profile for certificate being kept
             executeStatement.execute("UPDATE certificate SET ra_profile_uuid = ( SELECT ra_profile_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
-                    ") ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
+                    ") AND ra_profile_uuid IS NOT NULL ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
 
             logger.info("RA Profile has been set for merged certificate.");
 
@@ -153,7 +153,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
             // Set user UUID
 
             executeStatement.execute("UPDATE certificate SET user_uuid = ( SELECT user_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
-                    ") AND user_uuid NOT EMPTY ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
+                    ") AND user_uuid IS NOT NULL ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
             logger.info("User has been set for merged certificate.");
 
 
