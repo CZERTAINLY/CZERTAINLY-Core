@@ -26,7 +26,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     private CredentialService credentialService;
 
     @Override
-    public List<ObjectAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException {
+    public List<ObjectAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws ValidationException {
         if (callback.getPathVariable() == null ||
                 callback.getPathVariable().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
             throw new ValidationException(ValidationError.create("Required path variable credentialKind not found in callback."));

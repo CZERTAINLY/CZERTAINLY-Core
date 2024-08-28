@@ -16,7 +16,7 @@ import java.util.List;
 public interface CredentialService extends ResourceExtensionService {
     List<CredentialDto> listCredentials(SecurityFilter filter);
 
-    List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) throws NotFoundException;
+    List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind);
 
     CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException;
 
