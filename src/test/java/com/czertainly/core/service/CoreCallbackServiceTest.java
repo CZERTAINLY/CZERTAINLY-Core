@@ -57,7 +57,7 @@ public class CoreCallbackServiceTest extends BaseSpringBootTest {
         RequestAttributeCallback callback = new RequestAttributeCallback();
         callback.setPathVariable(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, "unknown")));
 
-        Assertions.assertThrows(NotFoundException.class, () -> coreCallbackService.coreGetCredentials(callback));
+        Assertions.assertTrue(coreCallbackService.coreGetCredentials(callback).isEmpty());
     }
 
     @Test
@@ -70,6 +70,6 @@ public class CoreCallbackServiceTest extends BaseSpringBootTest {
         RequestAttributeCallback callback = new RequestAttributeCallback();
         callback.setPathVariable(Map.ofEntries(Map.entry(CoreCallbackServiceImpl.CREDENTIAL_KIND_PATH_VARIABLE, "")));
 
-        Assertions.assertThrows(NotFoundException.class, () -> coreCallbackService.coreGetCredentials(callback));
+        Assertions.assertTrue(coreCallbackService.coreGetCredentials(callback).isEmpty());
     }
 }

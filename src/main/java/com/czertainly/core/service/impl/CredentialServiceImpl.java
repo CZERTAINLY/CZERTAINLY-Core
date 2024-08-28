@@ -74,7 +74,7 @@ public class CredentialServiceImpl implements CredentialService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) throws NotFoundException {
+    public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) {
         List<Credential> credentials = credentialRepository.findUsingSecurityFilter(
                 filter, List.of(),
                 (root, cb) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
