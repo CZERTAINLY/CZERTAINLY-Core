@@ -129,6 +129,14 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
             // Crl
             executeStatement.execute("DELETE FROM crl WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ") AND ca_certificate_uuid != " + certificateToKeepUuid + ";");
+            logger.info("CRLs linked to duplicate certificates have been deleted.");
+
+
+
+            // SCEP Profile
+            executeStatement.execute("DELETE FROM scep_profile WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ") AND ca_certificate_uuid != " + certificateToKeepUuid + ";");
+            logger.info("SCEP Profiles linked to duplicate certificates have been deleted.");
+
 
             // Certificate History
 
@@ -142,6 +150,13 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
             executeStatement.execute("DELETE FROM approval WHERE object_uuid != " + certificateToKeepUuid + "AND resource = 'CERTIFICATE' AND object_uuid IN (" + duplicateCertificatesUuids + ");");
 
             logger.info("Approvals of duplicate certificates have been deleted.");
+
+            // Set user UUID
+
+            executeStatement.execute("UPDATE certificate SET user_uuid = ( SELECT user_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
+                    ") ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
+            logger.info("User has been set for merged certificate.");
+
 
             // Delete duplicates
             executeStatement.execute("DELETE FROM certificate WHERE uuid != " + certificateToKeepUuid + "AND uuid IN (" + duplicateCertificatesUuids + ");");
