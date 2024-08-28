@@ -46,8 +46,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
             duplicateUuids.remove(crlToKeepUuid);
             uuidsToDelete.addAll(duplicateUuids);
         }
-
-        select.execute("DELETE FROM crl WHERE uuid IN ( " + String.join(",", uuidsToDelete) + ");");
+        if (!uuidsToDelete.isEmpty()) select.execute("DELETE FROM crl WHERE uuid IN (" + String.join(",", uuidsToDelete) + ");");
     }
 
     private void mergeDuplicateCertificates(Context context) throws SQLException {
@@ -134,8 +133,8 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
 
             // SCEP Profile
-            executeStatement.execute("DELETE FROM scep_profile WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ") AND ca_certificate_uuid != " + certificateToKeepUuid + ";");
-            logger.info("SCEP Profiles linked to duplicate certificates have been deleted.");
+            executeStatement.execute("UPDATE scep_profile SET ca_certificate_uuid = " + certificateToKeepUuid +  "WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ");");
+            logger.info("SCEP Profiles have been linked to merged certificates.");
 
 
             // Certificate History
@@ -154,7 +153,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
             // Set user UUID
 
             executeStatement.execute("UPDATE certificate SET user_uuid = ( SELECT user_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
-                    ") ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
+                    ") AND user_uuid NOT EMPTY ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
             logger.info("User has been set for merged certificate.");
 
 
