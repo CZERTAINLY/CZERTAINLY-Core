@@ -1328,17 +1328,13 @@ public class CertificateServiceImpl implements CertificateService {
             certificate.setKeyUuid(keyUuid);
         }
 
-        certificateRepository.save(certificate);
+        certificate = certificateRepository.save(certificate);
 
         // save metadata
         UUID connectorUuid = certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
 
         attributeEngine.updateMetadataAttributes(meta, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.SUCCESS, "Issued using RA Profile " + certificate.getRaProfile().getName(), "");
-
-        // check compliance and validity of certificate
-        certificateComplianceCheck(certificate);
-        validate(certificate);
 
         logger.info("Certificate was successfully issued. {}", certificate.getUuid());
 
@@ -1350,6 +1346,9 @@ public class CertificateServiceImpl implements CertificateService {
         dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid())));
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid()));
         dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(certificate.getUuid()).stream().map(Certificate::mapToListDto).toList());
+
+        // check validity of certificate async from queue
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(certificate.getUuid()));
 
         return dto;
     }

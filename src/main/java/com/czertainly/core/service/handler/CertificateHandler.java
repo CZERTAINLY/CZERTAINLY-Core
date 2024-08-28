@@ -1,6 +1,7 @@
 package com.czertainly.core.service.handler;
 
 import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
@@ -23,6 +24,7 @@ import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -57,6 +59,7 @@ public class CertificateHandler {
     private ValidationProducer validationProducer;
 
     private TriggerService triggerService;
+    private ComplianceService complianceService;
     private CertificateService certificateService;
     private CertificateEventHistoryService certificateEventHistoryService;
 
@@ -89,6 +92,11 @@ public class CertificateHandler {
     }
 
     @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
+    }
+
+    @Autowired
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;
     }
@@ -111,6 +119,13 @@ public class CertificateHandler {
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void validate(Certificate certificate) {
         certificateService.validate(certificate);
+        try {
+            if(certificate.getRaProfileUuid() != null) {
+                complianceService.checkComplianceOfCertificate(certificate);
+            }
+        } catch (ConnectorException e) {
+            logger.error("Error when checking compliance of certificate {}: {}", certificate.toStringShort(), e.getMessage());
+        }
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
