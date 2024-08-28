@@ -435,9 +435,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             discovery.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
             discovery.setConnectorTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
             discovery.setConnectorStatus(response.getStatus());
-            if (response.getTotalCertificatesDiscovered() == 0 & response.getStatus() == DiscoveryStatus.FAILED) {
+            discoveryRepository.save(discovery);
+            if (response.getTotalCertificatesDiscovered() == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
                 discovery.setStatus(DiscoveryStatus.FAILED);
-                discoveryRepository.save(discovery);
                 notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
                 return discovery.mapToDto();
 

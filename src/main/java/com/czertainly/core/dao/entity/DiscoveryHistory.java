@@ -39,7 +39,7 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     @Enumerated(EnumType.STRING)
     private DiscoveryStatus status;
 
-    @Column(name = "connector_status")
+    @Column(name = "connector_status", nullable = false)
     @Enumerated(EnumType.STRING)
     private DiscoveryStatus connectorStatus;
 
