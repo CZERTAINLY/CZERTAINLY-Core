@@ -314,6 +314,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discovery.setConnectorName(connector.getName());
         discovery.setStartTime(new Date());
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
+        discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorUuid(connector.getUuid());
         discovery.setKind(request.getKind());
 

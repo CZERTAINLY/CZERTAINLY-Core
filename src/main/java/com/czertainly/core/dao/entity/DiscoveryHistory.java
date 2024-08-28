@@ -93,6 +93,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
         dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
+        dto.setConnectorStatus(connectorStatus);
+        dto.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
         return dto;
     }
 
@@ -107,8 +109,6 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setConnectorUuid(connectorUuid.toString());
         dto.setKind(kind);
         dto.setConnectorName(connectorName);
-        dto.setConnectorStatus(connectorStatus);
-        dto.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
         return dto;
     }
 
