@@ -58,14 +58,14 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
             String duplicateCertificatesUuids = duplicateCertificatesGrouped.getString("uuids");
             String certificateToKeepUuid = List.of(duplicateCertificatesUuids.split(",")).getFirst();
-            logger.info("Processing duplicate certificates with UUIDs " + duplicateCertificatesUuids + ". Keeping certificate with UUID " + certificateToKeepUuid + ".");
+            logger.debug("Processing duplicate certificates with UUIDs " + duplicateCertificatesUuids + ". Keeping certificate with UUID " + certificateToKeepUuid + ".");
 
             // Merge groups
             executeStatement.execute("UPDATE group_association SET object_uuid = " + certificateToKeepUuid + " WHERE resource = 'CERTIFICATE' AND object_uuid IN (" + duplicateCertificatesUuids + ") AND group_uuid " +
                     "NOT IN (SELECT group_uuid FROM group_association WHERE object_uuid = " + certificateToKeepUuid + ");");
             executeStatement.execute("DELETE FROM group_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
 
-            logger.info("Groups of duplicate certificates have been merged.");
+            logger.debug("Groups of duplicate certificates have been merged.");
 
 
             // Find first certificate with owner and set that owner for certificate being kept
@@ -74,14 +74,14 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
                     ") ORDER BY c.i_cre ASC LIMIT 1) and resource = 'CERTIFICATE';");
             executeStatement.execute("DELETE FROM owner_association WHERE resource = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
 
-            logger.info("Owner has been set for merged certificate.");
+            logger.debug("Owner has been set for merged certificate.");
 
 
             // Find first certificate with RA Profile and set that RA Profile for certificate being kept
             executeStatement.execute("UPDATE certificate SET ra_profile_uuid = ( SELECT ra_profile_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
                     ") AND ra_profile_uuid IS NOT NULL ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
 
-            logger.info("RA Profile has been set for merged certificate.");
+            logger.debug("RA Profile has been set for merged certificate.");
 
 
             // Merge attributes
@@ -120,7 +120,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
 
 
-            logger.info("Attributes of duplicate certificates have been merged.");
+            logger.debug("Attributes of duplicate certificates have been merged.");
 
 
             // Merge protocols
@@ -129,50 +129,50 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
                     "WHERE certificate_uuid = " + certificateToKeepUuid + ");");
             executeStatement.execute("DELETE FROM certificate_protocol_association WHERE certificate_uuid in (" + duplicateCertificatesUuids + ") AND certificate_uuid != " + certificateToKeepUuid + ";");
 
-            logger.info("Protocol associations of duplicate certificates have been merged.");
+            logger.debug("Protocol associations of duplicate certificates have been merged.");
 
 
             // Crl
             executeStatement.execute("DELETE FROM crl WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ") AND ca_certificate_uuid != " + certificateToKeepUuid + ";");
-            logger.info("CRLs linked to duplicate certificates have been deleted.");
+            logger.debug("CRLs linked to duplicate certificates have been deleted.");
 
 
 
             // SCEP Profile
             executeStatement.execute("UPDATE scep_profile SET ca_certificate_uuid = " + certificateToKeepUuid +  "WHERE ca_certificate_uuid in (" + duplicateCertificatesUuids + ");");
-            logger.info("SCEP Profiles have been linked to merged certificates.");
+            logger.debug("SCEP Profiles have been linked to merged certificates.");
 
 
             // Certificate History
 
             executeStatement.execute("DELETE FROM certificate_event_history WHERE certificate_uuid in (" + duplicateCertificatesUuids + ") AND certificate_uuid != " + certificateToKeepUuid + ";");
 
-            logger.info("Certificate event history of duplicate certificates has been deleted.");
+            logger.debug("Certificate event history of duplicate certificates has been deleted.");
 
 
             // Delete Approvals
 
             executeStatement.execute("DELETE FROM approval WHERE object_uuid != " + certificateToKeepUuid + "AND resource = 'CERTIFICATE' AND object_uuid IN (" + duplicateCertificatesUuids + ");");
 
-            logger.info("Approvals of duplicate certificates have been deleted.");
+            logger.debug("Approvals of duplicate certificates have been deleted.");
 
             // Set user UUID
 
             executeStatement.execute("UPDATE certificate SET user_uuid = ( SELECT user_uuid FROM certificate c WHERE uuid in (" + duplicateCertificatesUuids +
                     ") AND user_uuid IS NOT NULL ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = " + certificateToKeepUuid + ";");
-            logger.info("User has been set for merged certificate.");
+            logger.debug("User has been set for merged certificate.");
 
 
             // Delete duplicates
             executeStatement.execute("DELETE FROM certificate WHERE uuid != " + certificateToKeepUuid + "AND uuid IN (" + duplicateCertificatesUuids + ");");
-            logger.info("Duplicate certificates have been deleted.");
+            logger.debug("Duplicate certificates have been deleted.");
 
 
             // Keep only one certificate content
             executeStatement.execute("DELETE FROM certificate_content WHERE id IN ( SELECT certificate_content_id FROM certificate " +
                     "WHERE uuid IN (" + duplicateCertificatesUuids + ") AND uuid != " + certificateToKeepUuid + ");");
 
-            logger.info("Deleted certificate content of duplicate certificates.");
+            logger.debug("Deleted certificate content of duplicate certificates.");
 
         }
 
