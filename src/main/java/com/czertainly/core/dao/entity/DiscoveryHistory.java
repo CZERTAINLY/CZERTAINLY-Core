@@ -39,6 +39,10 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
     @Enumerated(EnumType.STRING)
     private DiscoveryStatus status;
 
+    @Column(name = "connector_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private DiscoveryStatus connectorStatus;
+
     @Column(name = "message")
     private String message;
 
@@ -50,6 +54,9 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
 
     @Column(name = "total_certificates_discovered")
     private Integer totalCertificatesDiscovered;
+
+    @Column(name = "connector_total_certificates_discovered")
+    private Integer connectorTotalCertificatesDiscovered;
 
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
@@ -86,6 +93,8 @@ public class DiscoveryHistory extends UniquelyIdentifiedAndAudited implements Se
         dto.setMessage(message);
         dto.setConnectorName(connectorName);
         dto.setTriggers(triggers.stream().map(Trigger::mapToDto).toList());
+        dto.setConnectorStatus(connectorStatus);
+        dto.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
         return dto;
     }
 

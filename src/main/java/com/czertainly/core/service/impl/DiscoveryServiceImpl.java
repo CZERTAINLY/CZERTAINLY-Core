@@ -314,6 +314,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discovery.setConnectorName(connector.getName());
         discovery.setStartTime(new Date());
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
+        discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorUuid(connector.getUuid());
         discovery.setKind(request.getKind());
 
@@ -425,6 +426,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
+
             int currentPage = 1;
             int currentTotal = 0;
             Set<String> uniqueCertificateContents = new HashSet<>();
@@ -432,6 +434,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             List<Future<?>> futures = new ArrayList<>();
             discovery.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+            discovery.setConnectorTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+            discovery.setConnectorStatus(response.getStatus());
+            discoveryRepository.save(discovery);
+
+            if (response.getTotalCertificatesDiscovered() == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
+                discovery.setStatus(DiscoveryStatus.FAILED);
+                discovery.setMessage("Discovery has failed on connector side without any certificates found.");
+                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+                return discovery.mapToDto();
+            }
             try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 while (currentTotal < response.getTotalCertificatesDiscovered()) {
                     getRequest.setPageNumber(currentPage);
@@ -505,6 +517,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                     Thread.currentThread().interrupt();
                 }
             }
+
+            if (discoveryCertificateRepository.countByDiscovery(discovery) == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
+                discovery.setStatus(DiscoveryStatus.FAILED);
+                discovery.setMessage("Discovery has failed on connector side with some certificates found, but none of them has been downloaded.");
+                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+                return discovery.mapToDto();
+            }
+
 
             // process duplicates
             for (DiscoveryProviderCertificateDataDto certificate : duplicateCertificates) {
