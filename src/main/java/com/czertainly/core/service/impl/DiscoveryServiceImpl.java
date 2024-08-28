@@ -425,6 +425,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
+
             int currentPage = 1;
             int currentTotal = 0;
             Set<String> uniqueCertificateContents = new HashSet<>();
@@ -432,6 +433,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             List<Future<?>> futures = new ArrayList<>();
             discovery.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+            discovery.setConnectorTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+            discovery.setConnectorStatus(response.getStatus());
+            if (response.getTotalCertificatesDiscovered() == 0 & response.getStatus() == DiscoveryStatus.FAILED) {
+                discovery.setStatus(DiscoveryStatus.FAILED);
+                discoveryRepository.save(discovery);
+                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+                return discovery.mapToDto();
+
+            }
             try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 while (currentTotal < response.getTotalCertificatesDiscovered()) {
                     getRequest.setPageNumber(currentPage);
@@ -478,6 +488,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 }
+                discovery.setStatus(DiscoveryStatus.FAILED);
             }
 
             // process duplicates
