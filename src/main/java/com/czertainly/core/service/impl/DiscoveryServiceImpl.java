@@ -436,11 +436,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             discovery.setConnectorTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
             discovery.setConnectorStatus(response.getStatus());
             discoveryRepository.save(discovery);
+
             if (response.getTotalCertificatesDiscovered() == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
                 discovery.setStatus(DiscoveryStatus.FAILED);
+                discovery.setMessage("Discovery has failed on connector side without any certificates found.");
                 notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
                 return discovery.mapToDto();
-
             }
             try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 while (currentTotal < response.getTotalCertificatesDiscovered()) {
@@ -514,8 +515,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 }
-                discovery.setStatus(DiscoveryStatus.FAILED);
             }
+
+            if (discoveryCertificateRepository.countByDiscovery(discovery) == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
+                discovery.setStatus(DiscoveryStatus.FAILED);
+                discovery.setMessage("Discovery has failed on connector side with some certificates found, but none of them has been downloaded.");
+                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+                return discovery.mapToDto();
+            }
+
 
             // process duplicates
             for (DiscoveryProviderCertificateDataDto certificate : duplicateCertificates) {
