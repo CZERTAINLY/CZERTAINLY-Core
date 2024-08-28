@@ -80,7 +80,7 @@ public class CredentialServiceImpl implements CredentialService {
                 (root, cb) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
 
         if (credentials == null || credentials.isEmpty()) {
-            throw new NotFoundException(Credential.class, kind);
+            return List.of();
         }
 
         return credentials.stream().map(c -> new NameAndUuidDto(c.getUuid().toString(), c.getName())).collect(Collectors.toList());
