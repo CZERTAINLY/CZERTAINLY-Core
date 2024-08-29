@@ -52,6 +52,7 @@ import com.czertainly.core.util.*;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.*;
+import org.apache.commons.lang3.function.TriFunction;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
@@ -125,6 +126,9 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private GroupRepository groupRepository;
+
+    @Autowired
+    private LocationRepository locationRepository;
 
     @Autowired
     private CertificateContentRepository certificateContentRepository;
@@ -227,7 +231,8 @@ public class CertificateServiceImpl implements CertificateService {
         // filter certificates based on attribute filters
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
 
-        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+//        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
@@ -447,6 +452,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION, locationRepository.findAll().stream().map(Location::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
@@ -912,7 +918,7 @@ public class CertificateServiceImpl implements CertificateService {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
-            throw new AlreadyExistException("Certificate already exists with serial number " + fingerprint);
+            throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
         entity = certificateRepository.save(entity);
@@ -1358,7 +1364,7 @@ public class CertificateServiceImpl implements CertificateService {
     public List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled) {
         setupSecurityFilter(filter);
 
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), (root, cb) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), (root, cb, cr) -> cb.and(cb.isNotNull(root.get("keyUuid")), cb.equal(root.get("state"), CertificateState.ISSUED), cb.or(cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID), cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING))));
         return certificates.stream().filter(c -> CertificateUtil.isCertificateScepCaCertAcceptable(c, intuneEnabled)).map(Certificate::mapToListDto).toList();
     }
 
@@ -1370,7 +1376,7 @@ public class CertificateServiceImpl implements CertificateService {
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(
                 filter,
                 List.of("groups", "owner"),
-                (root, cb) -> cb.and(
+                (root, cb, cr) -> cb.and(
                         cb.isNotNull(root.get("keyUuid")),
                         cb.equal(root.get("state"), CertificateState.ISSUED),
                         cb.or(

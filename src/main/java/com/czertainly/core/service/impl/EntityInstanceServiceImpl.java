@@ -19,6 +19,7 @@ import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.enums.SearchFieldNameEnum;
@@ -34,8 +35,10 @@ import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -95,7 +98,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         // filter entities based on attribute filters
         final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.ENTITY, filter, request.getFilters());
 
-        final BiFunction<Root<EntityInstanceReference>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(EntityInstanceReference::mapToDto).toList();

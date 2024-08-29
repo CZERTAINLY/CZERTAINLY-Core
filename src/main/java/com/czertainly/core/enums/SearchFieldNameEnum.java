@@ -15,6 +15,7 @@ public enum SearchFieldNameEnum {
     CERTIFICATE_STATE(SearchableFields.CERTIFICATE_STATE, "State", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     CERTIFICATE_VALIDATION_STATUS(SearchableFields.CERTIFICATE_VALIDATION_STATUS, "Validation status", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     GROUP(SearchableFields.GROUP_NAME, "Groups", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.GROUP),
+    LOCATION(SearchableFields.LOCATION_NAME, "Locations", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, Resource.LOCATION),
     OWNER(SearchableFields.OWNER, "Owner", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.USER),
     ISSUER_COMMON_NAME(SearchableFields.ISSUER_COMMON_NAME, "Issuer Common Name", SearchFieldTypeEnum.STRING, false, Resource.CERTIFICATE, null),
     SIGNATURE_ALGORITHM(SearchableFields.SIGNATURE_ALGORITHM, "Signature Algorithm", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),

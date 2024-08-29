@@ -16,6 +16,7 @@ import jakarta.persistence.NoResultException;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.SingularAttribute;
+import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.support.JpaEntityInformation;
 import org.springframework.data.jpa.repository.support.SimpleJpaRepository;
@@ -67,17 +68,17 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<T> findUsingSecurityFilter(SecurityFilter filter, boolean enabled) {
-        return findUsingSecurityFilter(filter, List.of(), (root, cb) -> cb.equal(root.get("enabled"), enabled));
+        return findUsingSecurityFilter(filter, List.of(), (root, cb, cr) -> cb.equal(root.get("enabled"), enabled));
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+    public List<T> findUsingSecurityFilter(SecurityFilter filter, List<String> fetchAssociations, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, null);
         return entityManager.createQuery(cr).getResultList();
     }
 
     @Override
-    public List<T> findUsingSecurityFilter(final SecurityFilter filter, List<String> fetchAssociations, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    public List<T> findUsingSecurityFilter(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final CriteriaQuery<T> cr = createCriteriaBuilder(filter, fetchAssociations, additionalWhereClause, order);
         if (p != null) {
             return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
@@ -103,7 +104,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         cr.multiselect(groupBySelection, cb.countDistinct(root));
         cr.groupBy(groupBySelection);
 
-        final List<Predicate> predicates = getPredicates(filter, null, root, cb);
+        final List<Predicate> predicates = getPredicates(filter, null, root, cb, cr);
         cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
 
         return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), i -> i.aggregation().longValue()));
@@ -115,7 +116,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+    public Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
         List<Long> crlist = entityManager.createQuery(cr).getResultList();
         return crlist.get(0);
@@ -139,7 +140,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return entityManager.createQuery(criteriaQuery).getResultList();
     }
 
-    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+    private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final CriteriaQuery<T> cr = cb.createQuery(entity);
@@ -153,17 +154,17 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             cr.orderBy(order.apply(root, cb));
         }
 
-        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
-    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause) {
+    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
         final Root<T> root = cr.from(entity);
         cr.select(cb.countDistinct(root));
-        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb);
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
@@ -209,10 +210,10 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return joinedAssociationsMap;
     }
 
-    private List<Predicate> getPredicates(SecurityFilter filter, BiFunction<Root<T>, CriteriaBuilder, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
+    private List<Predicate> getPredicates(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb, CriteriaQuery cr) {
         List<Predicate> predicates = new ArrayList<>();
         if (additionalWhereClause != null) {
-            predicates.add(additionalWhereClause.apply(root, cb));
+            predicates.add(additionalWhereClause.apply(root, cb, cr));
         }
 
         if (filter.getParentResourceFilter() != null && filter.getParentRefProperty() == null) {
