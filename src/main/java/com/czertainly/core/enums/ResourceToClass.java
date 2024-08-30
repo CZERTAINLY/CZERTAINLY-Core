@@ -1,12 +1,9 @@
 package com.czertainly.core.enums;
 
-import com.czertainly.api.model.client.connector.ConnectDto;
-import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.UserDto;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -59,27 +56,41 @@ public enum ResourceToClass {
     APPROVAL(Resource.APPROVAL, Approval.class),
     ;
 
+    private static final ResourceToClass[] VALUES;
+
+    static {
+        VALUES = values();
+    }
 
     private final Resource resource;
-    private final Class aClass;
+    private final Class<?> entityClass;
 
-    ResourceToClass(final Resource resource, final Class aClass) {
+    ResourceToClass(final Resource resource, final Class<?> entityClass) {
         this.resource = resource;
-        this.aClass = aClass;
+        this.entityClass = entityClass;
     }
 
     public Resource getResource() {
         return resource;
     }
 
-    public Class getaClass() {
-        return aClass;
+    public Class<?> getEntityClass() {
+        return entityClass;
     }
 
-    public static Class getClassByResource(final Resource resource) {
-        for (ResourceToClass resourceToClass : ResourceToClass.values()) {
+    public static Class<?> getClassByResource(final Resource resource) {
+        for (ResourceToClass resourceToClass : VALUES) {
             if (resourceToClass.getResource().equals(resource)) {
-                return resourceToClass.getaClass();
+                return resourceToClass.getEntityClass();
+            }
+        }
+        return null;
+    }
+
+    public static Resource getResourceByClass(final Class<?> entityClass) {
+        for (ResourceToClass resourceToClass : VALUES) {
+            if (resourceToClass.getEntityClass() != null && resourceToClass.getEntityClass().equals(entityClass)) {
+                return resourceToClass.getResource();
             }
         }
         return null;

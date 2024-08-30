@@ -52,14 +52,17 @@ import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -161,10 +164,7 @@ public class LocationServiceImpl implements LocationService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        // filter locations based on attribute filters
-        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.LOCATION, filter, request.getFilters());
-
-        final BiFunction<Root<Location>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, List.of("certificates", "certificates.certificate"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(Location::mapToDto).toList();
@@ -1135,7 +1135,7 @@ public class LocationServiceImpl implements LocationService {
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_INSTANCE_NAME, locationRepository.findDistinctEntityInstanceName()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENTITY_INSTANCE, locationRepository.findDistinctEntityInstanceName()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENABLED),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_KEY_MANAGEMENT)
