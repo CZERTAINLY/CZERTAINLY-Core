@@ -67,8 +67,8 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Fetching custom attributes");
 
         List<AttributeDefinition> customAttributes = attributeContentType == null
-                ? attributeDefinitionRepository.findUsingSecurityFilter(filter, List.of("relations"), (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM))
-                : attributeDefinitionRepository.findUsingSecurityFilter(filter, List.of("relations"), (root, cb) -> cb.and(cb.equal(root.get("type"), AttributeType.CUSTOM), cb.equal(root.get("contentType"), attributeContentType)));
+                ? attributeDefinitionRepository.findUsingSecurityFilter(filter, List.of("relations"), (root, cb, cr) -> cb.equal(root.get("type"), AttributeType.CUSTOM))
+                : attributeDefinitionRepository.findUsingSecurityFilter(filter, List.of("relations"), (root, cb, cr) -> cb.and(cb.equal(root.get("type"), AttributeType.CUSTOM), cb.equal(root.get("contentType"), attributeContentType)));
 
         return customAttributes.stream().map(AttributeDefinition::mapToCustomAttributeDefinitionDto).toList();
     }
@@ -317,7 +317,7 @@ public class AttributeServiceImpl implements AttributeService {
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         List<AttributeDefinition> customAttributes = attributeDefinitionRepository.findUsingSecurityFilter(
                 filter, List.of(),
-                (root, cb) -> cb.equal(root.get("type"), AttributeType.CUSTOM));
+                (root, cb, cr) -> cb.equal(root.get("type"), AttributeType.CUSTOM));
 
         return customAttributes.stream().map(AttributeDefinition::mapToAccessControlObjects).collect(Collectors.toList());
     }

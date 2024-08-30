@@ -77,7 +77,7 @@ public class CredentialServiceImpl implements CredentialService {
     public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) {
         List<Credential> credentials = credentialRepository.findUsingSecurityFilter(
                 filter, List.of(),
-                (root, cb) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
+                (root, cb, cr) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
 
         if (credentials == null || credentials.isEmpty()) {
             return List.of();
