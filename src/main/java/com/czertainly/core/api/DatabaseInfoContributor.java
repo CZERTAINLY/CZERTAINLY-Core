@@ -13,21 +13,28 @@ import java.util.Map;
 @Component
 public class DatabaseInfoContributor implements InfoContributor {
 
+    private final Map<String, Object> cachedDatabaseInfo = new HashMap<>();
+
+    public DatabaseInfoContributor() {
+        precomputeDatabaseInfo();
+    }
+
     @Override
     public void contribute(Info.Builder builder) {
+        builder.withDetail("db", cachedDatabaseInfo);
+    }
+
+    private void precomputeDatabaseInfo() {
         String url = System.getenv("JDBC_URL");
         String username = System.getenv("JDBC_USERNAME");
         String password = System.getenv("JDBC_PASSWORD");
-        try {
-            Connection connection = DriverManager.getConnection(url, username, password);
+
+        try (Connection connection = DriverManager.getConnection(url, username, password)) {
             DatabaseMetaData metaData = connection.getMetaData();
-            Map<String, String> databaseDetails = new HashMap<>();
-            databaseDetails.put("system", metaData.getDatabaseProductName());
-            databaseDetails.put("version", metaData.getDatabaseProductVersion());
-            builder.withDetail("db", databaseDetails);
+            cachedDatabaseInfo.put("system", metaData.getDatabaseProductName());
+            cachedDatabaseInfo.put("version", metaData.getDatabaseProductVersion());
         } catch (Exception e) {
             throw new RuntimeException("Unable to retrieve database information.", e);
         }
     }
-
 }
