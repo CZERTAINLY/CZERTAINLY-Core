@@ -1,6 +1,7 @@
 package db.migration;
 
 
+import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 import org.slf4j.Logger;
@@ -15,6 +16,11 @@ import java.util.*;
 public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(V202408231055__DuplicateCertificates.class);
+
+    @Override
+    public Integer getChecksum() {
+        return DatabaseMigration.JavaMigrationChecksums.V202408231055__DuplicateCertificates.getChecksum();
+    }
 
     @Override
     public void migrate(Context context) throws Exception {
@@ -86,41 +92,9 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
             // Merge attributes
 
-            ResultSet attributeContentItems = context.getConnection().createStatement().executeQuery("SELECT ac2o.uuid, object_uuid, attribute_content_item_uuid, aci.attribute_definition_uuid FROM attribute_content_2_object ac2o JOIN attribute_content_item aci ON aci.uuid = ac2o.attribute_content_item_uuid  WHERE ac2o.object_type = 'CERTIFICATE' AND ac2o.object_uuid in (" + duplicateCertificatesUuids + ");");
-            ResultSet certificateToKeepAttributes = context.getConnection().createStatement().executeQuery("SELECT aci.attribute_definition_uuid, aci.uuid FROM attribute_content_2_object ac2o JOIN attribute_content_item aci ON aci.uuid = ac2o.attribute_content_item_uuid  WHERE ac2o.object_type = 'CERTIFICATE' AND ac2o.object_uuid = " + certificateToKeepUuid + ";");
-            Set<String> certificateToKeepAttributesSet = new HashSet<>();
-            Set<String> certificateToKeepAttributeContentItems = new HashSet<>();
-
-            List<String> attributeContentItemsToDeleteCommands = new ArrayList<>();
-
-            while (certificateToKeepAttributes.next()) {
-                certificateToKeepAttributesSet.add(certificateToKeepAttributes.getString("attribute_definition_uuid"));
-                certificateToKeepAttributeContentItems.add(certificateToKeepAttributes.getString("uuid"));
-            }
-            while (attributeContentItems.next()) {
-                String attributeDefinitionUuid = attributeContentItems.getString("attribute_definition_uuid");
-                String attributeContentItemUuid = attributeContentItems.getString("attribute_content_item_uuid");
-
-                // If there is no attribute with this definition yet set for kept certificate, set the content of duplicate for kept certificate
-                if (!certificateToKeepAttributesSet.contains(attributeDefinitionUuid)) {
-                    certificateToKeepAttributesSet.add(attributeDefinitionUuid);
-                    certificateToKeepAttributeContentItems.add(attributeContentItemUuid);
-                    executeStatement.execute("UPDATE attribute_content_2_object SET object_uuid = " + certificateToKeepUuid + " WHERE uuid = '" + attributeContentItems.getString("uuid") + "';");
-                } else if (!Objects.equals(attributeContentItems.getString("object_uuid"), certificateToKeepUuid.replace("'", "")) && !certificateToKeepAttributeContentItems.contains(attributeContentItemUuid)) {
-                    attributeContentItemsToDeleteCommands.add("DELETE FROM attribute_content_item WHERE uuid = '" + attributeContentItemUuid + "';");
-                }
-            }
-
             executeStatement.execute("DELETE FROM attribute_content_2_object WHERE object_type = 'CERTIFICATE' AND object_uuid in (" + duplicateCertificatesUuids + ") AND object_uuid != " + certificateToKeepUuid + ";");
 
-
-            for (String command : attributeContentItemsToDeleteCommands) {
-                executeStatement.execute(command);
-            }
-
-
-
-            logger.debug("Attributes of duplicate certificates have been merged.");
+            logger.debug("Attributes of duplicate certificates have been deleted.");
 
 
             // Merge protocols
