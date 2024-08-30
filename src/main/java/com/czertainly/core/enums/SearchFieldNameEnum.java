@@ -15,7 +15,7 @@ public enum SearchFieldNameEnum {
     CERTIFICATE_STATE(SearchableFields.CERTIFICATE_STATE, "State", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     CERTIFICATE_VALIDATION_STATUS(SearchableFields.CERTIFICATE_VALIDATION_STATUS, "Validation status", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
     GROUP(SearchableFields.GROUP_NAME, "Groups", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.GROUP),
-    LOCATION(SearchableFields.LOCATION_NAME, "Locations", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, Resource.LOCATION),
+    CERT_LOCATION_NAME(SearchableFields.CERT_LOCATION_NAME, "Locations", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, Resource.LOCATION),
     OWNER(SearchableFields.OWNER, "Owner", SearchFieldTypeEnum.LIST, true, Resource.CERTIFICATE, Resource.USER),
     ISSUER_COMMON_NAME(SearchableFields.ISSUER_COMMON_NAME, "Issuer Common Name", SearchFieldTypeEnum.STRING, false, Resource.CERTIFICATE, null),
     SIGNATURE_ALGORITHM(SearchableFields.SIGNATURE_ALGORITHM, "Signature Algorithm", SearchFieldTypeEnum.LIST, false, Resource.CERTIFICATE, null),
@@ -38,7 +38,7 @@ public enum SearchFieldNameEnum {
     TRUSTED_CA(SearchableFields.TRUSTED_CA, "Trusted CA", SearchFieldTypeEnum.BOOLEAN, false, Resource.CERTIFICATE, null),
 
     // Cryptographic Key
-    NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.CRYPTOGRAPHIC_KEY, null),
+    CKI_NAME(SearchableFields.CKI_NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.CRYPTOGRAPHIC_KEY, null),
     KEY_TYPE(SearchableFields.CKI_TYPE, "Key type", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, null),
     KEY_FORMAT(SearchableFields.CKI_FORMAT, "Key format", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, null),
     KEY_STATE(SearchableFields.CKI_STATE, "State", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, null),
@@ -51,26 +51,26 @@ public enum SearchFieldNameEnum {
     CK_KEY_USAGE(SearchableFields.CKI_USAGE, "Key Usage", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, null),
 
     // Discovery
-    START_TIME(SearchableFields.START_TIME, "Start time", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
-    END_TIME(SearchableFields.END_TIME, "End time", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
-    TOTAL_CERT_DISCOVERED(SearchableFields.TOTAL_CERT_DISCOVERED, "Total certificate discovered", SearchFieldTypeEnum.NUMBER, false, Resource.DISCOVERY, null),
-    CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Discovery provider",SearchFieldTypeEnum.LIST, false, Resource.DISCOVERY, null),
-    KIND(SearchableFields.KIND, "Kind",SearchFieldTypeEnum.STRING, false, Resource.DISCOVERY, null),
+    DISCOVERY_NAME(SearchableFields.DISCOVERY_NAME, "Name", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
+    DISCOVERY_START_TIME(SearchableFields.DISCOVERY_START_TIME, "Start time", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
+    DISCOVERY_END_TIME(SearchableFields.DISCOVERY_END_TIME, "End time", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
+    DISCOVERY_TOTAL_CERT_DISCOVERED(SearchableFields.DISCOVERY_TOTAL_CERT_DISCOVERED, "Total certificate discovered", SearchFieldTypeEnum.NUMBER, false, Resource.DISCOVERY, null),
+    DISCOVERY_CONNECTOR_NAME(SearchableFields.DISCOVERY_CONNECTOR_NAME, "Discovery provider",SearchFieldTypeEnum.LIST, false, Resource.DISCOVERY, null),
+    DISCOVERY_KIND(SearchableFields.DISCOVERY_KIND, "Kind",SearchFieldTypeEnum.STRING, false, Resource.DISCOVERY, null),
     DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST, false, Resource.DISCOVERY, null),
 
     // Entity
-    ENTITY_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.ENTITY, null),
-    ENTITY_CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Entity provider", SearchFieldTypeEnum.LIST, false, Resource.ENTITY, null),
-    ENTITY_KIND(SearchableFields.KIND, "Kind", SearchFieldTypeEnum.LIST, false, Resource.ENTITY, null),
+    ENTITY_NAME(SearchableFields.ENTITY_NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.ENTITY, null),
+    ENTITY_CONNECTOR_NAME(SearchableFields.ENTITY_CONNECTOR_NAME, "Entity provider", SearchFieldTypeEnum.LIST, false, Resource.ENTITY, null),
+    ENTITY_KIND(SearchableFields.ENTITY_KIND, "Kind", SearchFieldTypeEnum.LIST, false, Resource.ENTITY, null),
 
     // Location
-    LOCATION_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.LOCATION, null),
-    LOCATION_INSTANCE_NAME(SearchableFields.ENTITY_INSTANCE_NAME, "Entity instance", SearchFieldTypeEnum.LIST, false, Resource.LOCATION, Resource.ENTITY),
-    LOCATION_ENABLED(SearchableFields.ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN, true, Resource.LOCATION, null),
-    LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
-    LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
+    LOCATION_NAME(SearchableFields.LOCATION_NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.LOCATION, null),
+    LOCATION_INSTANCE_NAME(SearchableFields.LOCATION_ENTITY_INSTANCE, "Entity instance", SearchFieldTypeEnum.LIST, false, Resource.LOCATION, Resource.ENTITY),
+    LOCATION_ENABLED(SearchableFields.LOCATION_ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN, true, Resource.LOCATION, null),
+    LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.LOCATION_SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
+    LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.LOCATION_SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
     ;
-
 
     private final SearchableFields fieldProperty;
 

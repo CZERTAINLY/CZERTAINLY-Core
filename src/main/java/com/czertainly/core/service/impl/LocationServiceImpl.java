@@ -52,6 +52,7 @@ import com.czertainly.core.service.LocationService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.czertainly.core.util.converter.Sql2PredicateConverter;
@@ -163,10 +164,7 @@ public class LocationServiceImpl implements LocationService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        // filter locations based on attribute filters
-        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.LOCATION, filter, request.getFilters());
-
-        final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final TriFunction<Root<Location>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, List.of("certificates", "certificates.certificate"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(Location::mapToDto).toList();

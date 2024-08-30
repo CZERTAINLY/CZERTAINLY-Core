@@ -228,11 +228,7 @@ public class CertificateServiceImpl implements CertificateService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        // filter certificates based on attribute filters
-        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CERTIFICATE, filter, request.getFilters());
-
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-//        final BiFunction<Root<Certificate>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
@@ -452,7 +448,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION, locationRepository.findAll().stream().map(Location::getName).toList()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CERT_LOCATION_NAME, locationRepository.findAll().stream().map(Location::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),

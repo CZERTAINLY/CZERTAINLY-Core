@@ -46,7 +46,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.util.*;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.pivovarit.collectors.ParallelCollectors;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -74,7 +73,6 @@ import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BiFunction;
 import java.util.stream.Stream;
 
 @Service
@@ -185,10 +183,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        // filter discoveries based on attribute filters
-        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.DISCOVERY, filter, request.getFilters());
-
-        final TriFunction<Root<DiscoveryHistory>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final TriFunction<Root<DiscoveryHistory>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto).toList();
@@ -606,13 +601,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.DISCOVERY, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CKI_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_STATUS, Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.START_TIME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.END_TIME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.TOTAL_CERT_DISCOVERED),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CONNECTOR_NAME, discoveryRepository.findDistinctConnectorName()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KIND)
+                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_START_TIME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_END_TIME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_TOTAL_CERT_DISCOVERED),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_CONNECTOR_NAME, discoveryRepository.findDistinctConnectorName()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_KIND)
         );
 
         fields = new ArrayList<>(fields);

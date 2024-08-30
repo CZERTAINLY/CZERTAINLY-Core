@@ -56,9 +56,10 @@ public class SearchFieldObject {
                 }
             } else {
                 DataAttribute dataAttribute = (DataAttribute) attributeDefinition;
-                list = dataAttribute.getProperties().isList();
+                // data attributes that are list can have content provided later by callback so do not mark it as list if content is empty
+                list = dataAttribute.getProperties().isList() && dataAttribute.getContent() != null && !dataAttribute.getContent().isEmpty();
                 multiSelect = dataAttribute.getProperties().isMultiSelect();
-                if (list && dataAttribute.getContent() != null) {
+                if (list) {
                     contentItems = dataAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
                 }
             }

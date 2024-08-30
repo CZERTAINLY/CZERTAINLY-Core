@@ -1,11 +1,16 @@
 package com.czertainly.core.enums;
 
 import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.dao.entity.*;
 import jakarta.persistence.metamodel.Attribute;
 
@@ -22,7 +27,7 @@ public enum FilterField {
     CERTIFICATE_VALIDATION_STATUS(Resource.CERTIFICATE, null, null, Certificate_.validationStatus, "Validation status", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     COMPLIANCE_STATUS(Resource.CERTIFICATE, null, null, Certificate_.complianceStatus, "Compliance Status", SearchFieldTypeEnum.LIST, ComplianceStatus.class),
     GROUP_NAME(Resource.CERTIFICATE, Resource.GROUP, List.of(Certificate_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true),
-    LOCATION_NAME(Resource.CERTIFICATE, Resource.LOCATION, List.of(Certificate_.locations, CertificateLocation_.location), Location_.name, "Locations", SearchFieldTypeEnum.LIST),
+    CERT_LOCATION_NAME(Resource.CERTIFICATE, Resource.LOCATION, List.of(Certificate_.locations, CertificateLocation_.location), Location_.name, "Locations", SearchFieldTypeEnum.LIST),
     OWNER(Resource.CERTIFICATE, Resource.USER, List.of(Certificate_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true),
     ISSUER_COMMON_NAME(Resource.CERTIFICATE, null, null, Certificate_.issuerCommonName, "Issuer Common Name", SearchFieldTypeEnum.STRING),
     SIGNATURE_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.signatureAlgorithm, "Signature Algorithm", SearchFieldTypeEnum.LIST),
@@ -41,41 +46,42 @@ public enum FilterField {
     CRL_VALIDATION(Resource.CERTIFICATE, null, null, Certificate_.certificateValidationResult, "CRL Validation", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     SIGNATURE_VALIDATION(Resource.CERTIFICATE, null, null, Certificate_.certificateValidationResult, "Signature Validation", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     PRIVATE_KEY(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, List.of(Certificate_.key, CryptographicKey_.items), CryptographicKeyItem_.type, "Has private key", SearchFieldTypeEnum.BOOLEAN, null, KeyType.PRIVATE_KEY, false),
-    TRUSTED_CA(Resource.CERTIFICATE, null, null, Certificate_.trustedCa, "Trusted CA", SearchFieldTypeEnum.BOOLEAN);
-//
-//    // Cryptographic Key
-//    NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.CRYPTOGRAPHIC_KEY, null),
-//    KEY_TYPE(SearchableFields.CKI_TYPE, "Key type", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, null),
-//    KEY_FORMAT(SearchableFields.CKI_FORMAT, "Key format", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, null),
-//    KEY_STATE(SearchableFields.CKI_STATE, "State", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, null),
-//    KEY_CRYPTOGRAPHIC_ALGORITHM(SearchableFields.CKI_CRYPTOGRAPHIC_ALGORITHM, "Cryptographic algorithm", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, null),
-//    KEY_TOKEN_PROFILE(SearchableFields.CK_TOKEN_PROFILE, "Token profile", SearchFieldTypeEnum.LIST, false, Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN_PROFILE),
-//    KEY_TOKEN_INSTANCE_LABEL(SearchableFields.CK_TOKEN_INSTANCE, "Token instance", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN),
-//    KEY_LENGTH(SearchableFields.CKI_LENGTH, "Key Size", SearchFieldTypeEnum.NUMBER, false, Resource.CRYPTOGRAPHIC_KEY, null),
-//    CK_GROUP(SearchableFields.CK_GROUP, "Groups", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, Resource.GROUP),
-//    CK_OWNER(SearchableFields.CK_OWNER, "Owner", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, Resource.USER),
-//    CK_KEY_USAGE(SearchableFields.CKI_USAGE, "Key Usage", SearchFieldTypeEnum.LIST, true, Resource.CRYPTOGRAPHIC_KEY, null),
-//
-//    // Discovery
-//    START_TIME(SearchableFields.START_TIME, "Start time", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
-//    END_TIME(SearchableFields.END_TIME, "End time", SearchFieldTypeEnum.DATETIME, false, Resource.DISCOVERY, null),
-//    TOTAL_CERT_DISCOVERED(SearchableFields.TOTAL_CERT_DISCOVERED, "Total certificate discovered", SearchFieldTypeEnum.NUMBER, false, Resource.DISCOVERY, null),
-//    CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Discovery provider",SearchFieldTypeEnum.LIST, false, Resource.DISCOVERY, null),
-//    KIND(SearchableFields.KIND, "Kind",SearchFieldTypeEnum.STRING, false, Resource.DISCOVERY, null),
-//    DISCOVERY_STATUS(SearchableFields.DISCOVERY_STATUS, "Status", SearchFieldTypeEnum.LIST, false, Resource.DISCOVERY, null),
-//
-//    // Entity
-//    ENTITY_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.ENTITY, null),
-//    ENTITY_CONNECTOR_NAME(SearchableFields.CONNECTOR_NAME, "Entity provider", SearchFieldTypeEnum.LIST, false, Resource.ENTITY, null),
-//    ENTITY_KIND(SearchableFields.KIND, "Kind", SearchFieldTypeEnum.LIST, false, Resource.ENTITY, null),
-//
-//    // Location
-//    LOCATION_NAME(SearchableFields.NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.LOCATION, null),
-//    LOCATION_INSTANCE_NAME(SearchableFields.ENTITY_INSTANCE_NAME, "Entity instance", SearchFieldTypeEnum.LIST, false, Resource.LOCATION, Resource.ENTITY),
-//    LOCATION_ENABLED(SearchableFields.ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN, true, Resource.LOCATION, null),
-//    LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
-//    LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
-//    ;
+    TRUSTED_CA(Resource.CERTIFICATE, null, null, Certificate_.trustedCa, "Trusted CA", SearchFieldTypeEnum.BOOLEAN),
+
+    // Cryptographic Key
+    CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),
+    CKI_TYPE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.type, "Key type", SearchFieldTypeEnum.LIST, KeyType.class, null, false),
+    CKI_FORMAT(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.format, "Key format", SearchFieldTypeEnum.LIST, KeyFormat.class, null, false),
+    CKI_STATE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.state, "State", SearchFieldTypeEnum.LIST, KeyState.class, null, false),
+    CKI_CRYPTOGRAPHIC_ALGORITHM(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.keyAlgorithm, "Cryptographic algorithm", SearchFieldTypeEnum.LIST, KeyAlgorithm.class, null, false),
+    CKI_USAGE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.usage, "Key Usage", SearchFieldTypeEnum.LIST, KeyUsage.class, null, false),
+    CKI_LENGTH(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.length, "Key Size", SearchFieldTypeEnum.NUMBER),
+    CK_TOKEN_PROFILE(Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN_PROFILE, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.tokenProfile), TokenProfile_.name, "Token profile", SearchFieldTypeEnum.LIST),
+    CK_TOKEN_INSTANCE(Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.tokenInstanceReference), TokenInstanceReference_.name, "Token instance", SearchFieldTypeEnum.LIST),
+    CK_GROUP(Resource.CRYPTOGRAPHIC_KEY, Resource.GROUP, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true),
+    CK_OWNER(Resource.CRYPTOGRAPHIC_KEY, Resource.USER, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true),
+
+    // Discovery
+    DISCOVERY_NAME(Resource.DISCOVERY, null, null, DiscoveryHistory_.name, "Name", SearchFieldTypeEnum.STRING),
+    DISCOVERY_START_TIME(Resource.DISCOVERY, null, null, DiscoveryHistory_.startTime, "Start time", SearchFieldTypeEnum.DATETIME),
+    DISCOVERY_END_TIME(Resource.DISCOVERY, null, null, DiscoveryHistory_.endTime, "End time", SearchFieldTypeEnum.DATETIME),
+    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, DiscoveryHistory_.status, "Status", SearchFieldTypeEnum.LIST, DiscoveryStatus.class, null, false),
+    DISCOVERY_TOTAL_CERT_DISCOVERED(Resource.DISCOVERY, null, null, DiscoveryHistory_.totalCertificatesDiscovered, "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
+    DISCOVERY_CONNECTOR_NAME(Resource.DISCOVERY, null, null, DiscoveryHistory_.connectorName, "Discovery provider", SearchFieldTypeEnum.LIST),
+    DISCOVERY_KIND(Resource.DISCOVERY, null, null, DiscoveryHistory_.kind, "Kind", SearchFieldTypeEnum.STRING),
+
+    // Entity
+    ENTITY_NAME(Resource.ENTITY, null, null, EntityInstanceReference_.name, "Name", SearchFieldTypeEnum.STRING),
+    ENTITY_CONNECTOR_NAME(Resource.ENTITY, null, null, EntityInstanceReference_.connectorName, "Entity provider", SearchFieldTypeEnum.LIST),
+    ENTITY_KIND(Resource.ENTITY, null, null, EntityInstanceReference_.kind, "Kind", SearchFieldTypeEnum.LIST),
+
+    // Location
+    LOCATION_NAME(Resource.LOCATION, null, null, Location_.name, "Name", SearchFieldTypeEnum.STRING),
+    LOCATION_INSTANCE_NAME(Resource.LOCATION, null, null, Location_.entityInstanceName, "Entity instance", SearchFieldTypeEnum.LIST),
+    LOCATION_ENABLED(Resource.LOCATION, null, null, Location_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
+    LOCATION_SUPPORT_MULTIPLE_ENTRIES(Resource.LOCATION, null, null, Location_.supportMultipleEntries, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
+    LOCATION_SUPPORT_KEY_MANAGEMENT(Resource.LOCATION, null, null, Location_.supportKeyManagement, "Support key management", SearchFieldTypeEnum.BOOLEAN),
+    ;
 
     private static final FilterField[] VALUES;
 
@@ -162,4 +168,4 @@ public enum FilterField {
         return Arrays.stream(VALUES).filter(filterField -> filterField.rootResource == resource).toList();
     }
 
-}
+    }

@@ -39,9 +39,14 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -176,18 +181,15 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
-        // filter keys based on attribute filters
-        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.CRYPTOGRAPHIC_KEY, filter, request.getFilters());
-
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter,
-                        List.of(),
-                        (root, cb, cr) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs), p, (root, cb) -> cb.desc(root.get("createdAt")))
+                        List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("createdAt")))
                 .stream()
                 .map(CryptographicKeyItem::mapToSummaryDto)
                 .toList();
 
-        final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, (root, cb, cr) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root));
+        final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();
         responseDto.setCryptographicKeys(listedKeyDtos);
         responseDto.setItemsPerPage(request.getItemsPerPage());
@@ -212,8 +214,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         List<KeyDto> response = cryptographicKeyRepository.findUsingSecurityFilter(filter, List.of("groups", "owner"), null, null, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(CryptographicKey::mapToDto)
-                .collect(Collectors.toList()
-                );
+                .toList();
         if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
             response = response.stream().filter(e -> e.getTokenProfileUuid() != null && e.getTokenProfileUuid().equals(tokenProfileUuid.get())).collect(Collectors.toList());
         }
@@ -230,7 +231,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             keyTypes.removeAll(List.of(KeyType.PUBLIC_KEY, KeyType.PRIVATE_KEY));
                             return keyTypes.isEmpty();
                         }
-                ).collect(Collectors.toList());
+                ).toList();
         return response;
     }
 
@@ -1198,7 +1199,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CRYPTOGRAPHIC_KEY, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.NAME),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.CKI_NAME),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).toList()),
