@@ -32,7 +32,8 @@ jobs:
       - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-        run: mvn -B -U verify
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+        run: mvn -B -U verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
   build:
     if: github.event_name != 'pull_request'
     name: Build
