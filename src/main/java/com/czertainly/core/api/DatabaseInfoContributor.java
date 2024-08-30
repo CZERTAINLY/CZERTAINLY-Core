@@ -28,8 +28,6 @@ public class DatabaseInfoContributor implements InfoContributor {
         } catch (Exception e) {
             throw new RuntimeException("Unable to retrieve database information.", e);
         }
-
-
     }
 
 }
