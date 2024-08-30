@@ -12,5 +12,5 @@ public interface CrlEntryRepository extends SecurityFilterRepository<CrlEntry, L
 
     Optional<CrlEntry> findById(CrlEntryId id);
 
-    void deleteAllByCrlUuid(UUID crlUuuid);
+    void deleteAllByCrlUuid(UUID crlUuid);
 }
