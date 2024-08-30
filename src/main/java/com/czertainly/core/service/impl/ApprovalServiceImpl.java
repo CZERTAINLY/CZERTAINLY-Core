@@ -34,6 +34,7 @@ import com.czertainly.core.util.ApprovalRecipientHelper;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.RequestValidatorHelper;
 import jakarta.persistence.criteria.*;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -76,7 +77,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REQUEST)
     public ApprovalResponseDto listApprovalsByObject(final SecurityFilter securityFilter, final Resource resource, final UUID objectUuid, final PaginationRequestDto paginationRequestDto) {
-        final BiFunction<Root<Approval>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+        final TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Predicate resourcePredicate = cb.equal(root.get("resource"), resource);
             final Predicate objectPredicate = cb.equal(root.get("objectUuid"), objectUuid);
             return cb.and(resourcePredicate, objectPredicate);
@@ -87,7 +88,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Override
     public ApprovalResponseDto listUserApprovals(final SecurityFilter securityFilter, final boolean withHistory, final PaginationRequestDto paginationRequestDto) {
         final UserProfileDto userProfileDto = AuthHelper.getUserProfile();
-        final BiFunction<Root<Approval>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+        final TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Join joinApprovalRecipient = root.join("approvalRecipients", JoinType.LEFT);
             final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
             final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
@@ -355,7 +356,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         throw new NotFoundException("Unable to find approval with UUID: {}", uuid);
     }
 
-    private ApprovalResponseDto listOfApprovals(final SecurityFilter securityFilter, final BiFunction<Root<Approval>, CriteriaBuilder, Predicate> additionalWhereClause, final PaginationRequestDto paginationRequestDto) {
+    private ApprovalResponseDto listOfApprovals(final SecurityFilter securityFilter, final TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final PaginationRequestDto paginationRequestDto) {
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
         final List<Approval> approvalList = approvalRepository.findUsingSecurityFilter(securityFilter, List.of("approvalProfileVersion"), additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("createdAt")));

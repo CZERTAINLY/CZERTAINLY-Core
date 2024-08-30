@@ -180,11 +180,11 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
     @Test
     public void testFilterMetaOnly() {
         final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
-        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.COMMON_NAME.name(), AttributeContentType.STRING, AttributeType.META));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.NAME, FilterConditionOperator.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.META, SearchableFields.NAME, AttributeContentType.STRING, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.META, SearchableFields.COMMON_NAME, AttributeContentType.STRING, FilterConditionOperator.EQUALS, "test"));
 
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
                     = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(testSearchableFieldsList, testFilters,  criteriaBuilder, Resource.CERTIFICATE);
@@ -197,13 +197,13 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
     public void testFilterCustomAttrOnly() {
 
         final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
-        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.COMMON_NAME.name(), AttributeContentType.STRING, AttributeType.META));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NOT_AFTER.name(), AttributeContentType.DATE, AttributeType.META));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.SERIAL_NUMBER.name(), AttributeContentType.STRING, AttributeType.CUSTOM));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.CUSTOM));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.NAME, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, FilterConditionOperator.EQUALS, "test"));
 
@@ -213,7 +213,7 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
 
 
         List<SearchFilterRequestDto> testFilters2 = new ArrayList<>();
-        testFilters2.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.NAME, FilterConditionOperator.EQUALS, "test"));
+        testFilters2.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
         testFilters2.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, SearchableFields.CKI_LENGTH, AttributeContentType.INTEGER, FilterConditionOperator.EQUALS, 1));
         testFilters2.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.STRING, FilterConditionOperator.EQUALS, "test"));
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject2
@@ -226,13 +226,13 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
     public void testFilterNoMetaOrCustomAttr() {
 
         final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
-        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.COMMON_NAME.name(), AttributeContentType.STRING, AttributeType.META));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NOT_AFTER.name(), AttributeContentType.DATE, AttributeType.META));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.SERIAL_NUMBER.name(), AttributeContentType.STRING, AttributeType.CUSTOM));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.META));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.NAME, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
 
         final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject
@@ -244,13 +244,13 @@ public class Sql2PredicateConverterTest extends BaseSpringBootTest {
     public void testFilterNoMetaOrCustomAttrWithCorrectAttrContentType() {
 
         final List<SearchFieldObject> testSearchableFieldsList = new ArrayList<>();
-        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NAME.name(), AttributeContentType.STRING, AttributeType.META));
+        testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.COMMON_NAME.name(), AttributeContentType.STRING, AttributeType.META));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.NOT_AFTER.name(), AttributeContentType.DATE, AttributeType.META));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.SERIAL_NUMBER.name(), AttributeContentType.STRING, AttributeType.CUSTOM));
         testSearchableFieldsList.add(new SearchFieldObject(SearchableFields.CKI_LENGTH.name(), AttributeContentType.INTEGER, AttributeType.META));
 
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.NAME, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.META, SearchableFields.CKI_LENGTH, AttributeContentType.STRING, FilterConditionOperator.EQUALS, 1));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.INTEGER, FilterConditionOperator.EQUALS, "test"));

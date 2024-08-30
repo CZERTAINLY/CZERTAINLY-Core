@@ -205,7 +205,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
-        condition.setFieldIdentifier(SearchableFields.START_TIME.toString());
+        condition.setFieldIdentifier(SearchableFields.DISCOVERY_START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
         Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
 
@@ -218,7 +218,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         cryptographicKey.setName("Key");
         ConditionItem condition = new ConditionItem();
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier(SearchableFields.NAME.toString());
+        condition.setFieldIdentifier(SearchableFields.CKI_NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         cryptographicKey.setLength(256);
