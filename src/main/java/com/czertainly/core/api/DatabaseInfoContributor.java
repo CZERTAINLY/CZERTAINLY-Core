@@ -2,6 +2,7 @@ package com.czertainly.core.api;
 
 import org.springframework.boot.actuate.info.Info;
 import org.springframework.boot.actuate.info.InfoContributor;
+import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Component;
 
 import java.sql.Connection;
@@ -11,6 +12,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
+@Profile("!test")
 public class DatabaseInfoContributor implements InfoContributor {
 
     private final Map<String, Object> cachedDatabaseInfo = new HashMap<>();
