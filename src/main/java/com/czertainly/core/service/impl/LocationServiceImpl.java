@@ -1135,7 +1135,7 @@ public class LocationServiceImpl implements LocationService {
 
         List<SearchFieldDataDto> fields = List.of(
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_INSTANCE_NAME, locationRepository.findDistinctEntityInstanceName()),
+                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENTITY_INSTANCE, locationRepository.findDistinctEntityInstanceName()),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENABLED),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
                 SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_KEY_MANAGEMENT)

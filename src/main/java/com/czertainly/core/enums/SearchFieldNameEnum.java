@@ -66,7 +66,7 @@ public enum SearchFieldNameEnum {
 
     // Location
     LOCATION_NAME(SearchableFields.LOCATION_NAME, "Name", SearchFieldTypeEnum.STRING, false, Resource.LOCATION, null),
-    LOCATION_INSTANCE_NAME(SearchableFields.LOCATION_ENTITY_INSTANCE, "Entity instance", SearchFieldTypeEnum.LIST, false, Resource.LOCATION, Resource.ENTITY),
+    LOCATION_ENTITY_INSTANCE(SearchableFields.LOCATION_ENTITY_INSTANCE, "Entity instance", SearchFieldTypeEnum.LIST, false, Resource.LOCATION, Resource.ENTITY),
     LOCATION_ENABLED(SearchableFields.LOCATION_ENABLED, "Enabled", SearchFieldTypeEnum.BOOLEAN, true, Resource.LOCATION, null),
     LOCATION_SUPPORT_MULTIPLE_ENTRIES(SearchableFields.LOCATION_SUPPORT_MULTIPLE_ENTRIES, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),
     LOCATION_SUPPORT_KEY_MANAGEMENT(SearchableFields.LOCATION_SUPPORT_KEY_MANAGEMENT, "Support key management", SearchFieldTypeEnum.BOOLEAN, false, Resource.LOCATION, null),

@@ -77,7 +77,7 @@ public enum FilterField {
 
     // Location
     LOCATION_NAME(Resource.LOCATION, null, null, Location_.name, "Name", SearchFieldTypeEnum.STRING),
-    LOCATION_INSTANCE_NAME(Resource.LOCATION, null, null, Location_.entityInstanceName, "Entity instance", SearchFieldTypeEnum.LIST),
+    LOCATION_ENTITY_INSTANCE(Resource.LOCATION, null, null, Location_.entityInstanceName, "Entity instance", SearchFieldTypeEnum.LIST),
     LOCATION_ENABLED(Resource.LOCATION, null, null, Location_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_MULTIPLE_ENTRIES(Resource.LOCATION, null, null, Location_.supportMultipleEntries, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_KEY_MANAGEMENT(Resource.LOCATION, null, null, Location_.supportKeyManagement, "Support key management", SearchFieldTypeEnum.BOOLEAN),
@@ -118,15 +118,6 @@ public enum FilterField {
         this.settable = settable;
         this.expectedValue = expectedValue;
     }
-
-//    FilterFields(final SearchableFields fieldProperty, final String fieldLabel, final SearchFieldTypeEnum fieldTypeEnum, final boolean settable, final Resource resource, final Resource fieldResource) {
-//        this.fieldProperty = fieldProperty;
-//        this.fieldLabel = fieldLabel;
-//        this.fieldTypeEnum = fieldTypeEnum;
-//        this.settable = settable;
-//        this.resource = resource;
-//        this.fieldResource = fieldResource;
-//    }
 
     public Resource getRootResource() {
         return rootResource;

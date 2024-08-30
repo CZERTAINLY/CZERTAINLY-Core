@@ -218,7 +218,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         cryptographicKey.setName("Key");
         ConditionItem condition = new ConditionItem();
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier(SearchableFields.COMMON_NAME.toString());
+        condition.setFieldIdentifier(SearchableFields.CKI_NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         cryptographicKey.setLength(256);
