@@ -1,6 +1,7 @@
 package db.migration;
 
 
+import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 import org.slf4j.Logger;
@@ -15,6 +16,11 @@ import java.util.*;
 public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(V202408231055__DuplicateCertificates.class);
+
+    @Override
+    public Integer getChecksum() {
+        return DatabaseMigration.JavaMigrationChecksums.V202408231055__DuplicateCertificates.getChecksum();
+    }
 
     @Override
     public void migrate(Context context) throws Exception {
