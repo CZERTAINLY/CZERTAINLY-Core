@@ -9,5 +9,5 @@ import java.util.List;
 
 public interface CoreCallbackService {
 
-    List<ObjectAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws NotFoundException, ValidationException;
+    List<ObjectAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws ValidationException;
 }

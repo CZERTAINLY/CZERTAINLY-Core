@@ -70,10 +70,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.security.cert.X509Certificate;
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.BiFunction;
 import java.util.stream.Stream;
@@ -83,10 +80,13 @@ import java.util.stream.Stream;
 public class DiscoveryServiceImpl implements DiscoveryService {
 
     private static final Logger logger = LoggerFactory.getLogger(DiscoveryServiceImpl.class);
-    private static final Integer MAXIMUM_PARALLELISM = 10;
+    private static final Integer MAXIMUM_PARALLELISM = 5;
     private static final Integer MAXIMUM_CERTIFICATES_PER_PAGE = 100;
     private static final Integer SLEEP_TIME = 5 * 1000; // Seconds * Milliseconds - Retry of discovery for every 5 Seconds
     private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds
+
+    public static final Semaphore downloadCertSemaphore = new Semaphore(10);
+    public static final Semaphore processCertSemaphore = new Semaphore(10);
 
     private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
@@ -314,6 +314,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discovery.setConnectorName(connector.getName());
         discovery.setStartTime(new Date());
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
+        discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorUuid(connector.getUuid());
         discovery.setKind(request.getKind());
 
@@ -425,6 +426,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 waitForCompletion = checkForCompletion(response);
             }
 
+
             int currentPage = 1;
             int currentTotal = 0;
             Set<String> uniqueCertificateContents = new HashSet<>();
@@ -432,6 +434,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
             List<Future<?>> futures = new ArrayList<>();
             discovery.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+            discovery.setConnectorTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+            discovery.setConnectorStatus(response.getStatus());
+            discoveryRepository.save(discovery);
+
+            if (response.getTotalCertificatesDiscovered() == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
+                discovery.setStatus(DiscoveryStatus.FAILED);
+                discovery.setMessage("Discovery has failed on connector side without any certificates found.");
+                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+                return discovery.mapToDto();
+            }
             try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
                 while (currentTotal < response.getTotalCertificatesDiscovered()) {
                     getRequest.setPageNumber(currentPage);
@@ -462,23 +474,57 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
                     // run in separate virtual thread and continue
                     final int finalCurrentPage = currentPage;
-                    futures.add(executor.submit(() -> certificateHandler.createDiscoveredCertificate(String.valueOf(finalCurrentPage), discovery, discoveredCertificates)));
+                    futures.add(executor.submit(() -> {
+                        try {
+                            logger.trace("Waiting to download batch {} of discovered certificates for discovery {}.", finalCurrentPage, discovery.getName());
+                            downloadCertSemaphore.acquire();
+                            logger.trace("Downloading batch {} of discovered certificates for discovery {}.", finalCurrentPage, discovery.getName());
+
+                            certificateHandler.createDiscoveredCertificate(String.valueOf(finalCurrentPage), discovery, discoveredCertificates);
+                        } catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            logger.error("Downloading batch {} of discovered certificates for discovery {} interrupted.", finalCurrentPage, discovery.getName());
+                        } catch (Exception e) {
+                            logger.error("Downloading batch {} of discovered certificates for discovery {} failed.", finalCurrentPage, discovery.getName());
+                        } finally {
+                            logger.trace("Downloading batch {} of discovered certificates for discovery {} finalized. Released semaphore.", finalCurrentPage, discovery.getName());
+                            downloadCertSemaphore.release();
+                        }
+                    }));
 
                     ++currentPage;
                     currentTotal += response.getCertificateData().size();
+
+                    if (futures.size() >= MAXIMUM_PARALLELISM) {
+                        logger.debug("Waiting for {} download tasks for discovery {}", futures.size(), discovery.getName());
+                        for (Future<?> future : futures) {
+                            future.get();
+                        }
+                        logger.debug("{} download tasks for discovery {} finished", futures.size(), discovery.getName());
+                        futures.clear();
+                    }
                 }
 
                 // Wait for all tasks to complete
+                logger.debug("Waiting for {} download tasks for discovery {}", futures.size(), discovery.getName());
                 for (Future<?> future : futures) {
                     future.get();
                 }
-
+                logger.debug("{} download tasks for discovery {} finished", futures.size(), discovery.getName());
             } catch (Exception e) {
                 logger.error("An error occurred during downloading discovered certificate of discovery {}: {}", discovery.getName(), e.getMessage(), e);
                 if (e instanceof InterruptedException) {
                     Thread.currentThread().interrupt();
                 }
             }
+
+            if (discoveryCertificateRepository.countByDiscovery(discovery) == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
+                discovery.setStatus(DiscoveryStatus.FAILED);
+                discovery.setMessage("Discovery has failed on connector side with some certificates found, but none of them has been downloaded.");
+                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+                return discovery.mapToDto();
+            }
+
 
             // process duplicates
             for (DiscoveryProviderCertificateDataDto certificate : duplicateCertificates) {
@@ -610,10 +656,22 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
                         ParallelCollectors.parallel(
                                 discoveryCertificate -> {
+                                    int certIndex;
                                     try {
-                                        certificateHandler.processDiscoveredCertificate(index.incrementAndGet(), discoveredCertificates.size(), discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
+                                        certIndex = index.incrementAndGet();
+                                        logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
+                                        processCertSemaphore.acquire();
+                                        logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
+
+                                        certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
+                                    } catch (InterruptedException e) {
+                                        Thread.currentThread().interrupt();
+                                        logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
                                     } catch (Exception e) {
                                         logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
+                                    } finally {
+                                        logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), index.get());
+                                        processCertSemaphore.release();
                                     }
                                     return null; // Return null to satisfy the return type
                                 },
