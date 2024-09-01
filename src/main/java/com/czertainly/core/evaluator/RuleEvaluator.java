@@ -58,6 +58,11 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
     @Override
     public boolean evaluateRules(List<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException {
+        // if trigger has no rules, return true as it is trigger that should perform actions on all objects
+        if (rules.isEmpty()) {
+            return true;
+        }
+
         // Rule evaluated is check if any rule has been evaluated, no rules will be evaluated if all rules in the list have incompatible resource
         boolean ruleEvaluated = false;
         for (Rule rule : rules) {
