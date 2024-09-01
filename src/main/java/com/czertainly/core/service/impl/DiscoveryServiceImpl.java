@@ -628,23 +628,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
 
         if (!discoveredCertificates.isEmpty()) {
-            // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
-            List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discoveryUuid);
-            List<Trigger> orderedTriggers = new ArrayList<>();
-            List<Trigger> ignoreTriggers = new ArrayList<>();
-            for (TriggerAssociation triggerAssociation : triggerAssociations) {
-                try {
-                    Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
-                    if (triggerAssociation.getTriggerOrder() == -1) {
-                        ignoreTriggers.add(trigger);
-                    } else {
-                        orderedTriggers.add(trigger);
-                    }
-                } catch (NotFoundException e) {
-                    logger.error(e.getMessage());
-                }
-            }
-
             // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
             AtomicInteger index = new AtomicInteger(0);
             try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
@@ -660,7 +643,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                                         processCertSemaphore.acquire();
                                         logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
 
-                                        certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, ignoreTriggers, orderedTriggers);
+                                        certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate);
                                     } catch (InterruptedException e) {
                                         Thread.currentThread().interrupt();
                                         logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
