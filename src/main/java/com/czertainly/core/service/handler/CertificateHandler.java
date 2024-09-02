@@ -2,6 +2,7 @@ package com.czertainly.core.service.handler;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
@@ -14,9 +15,11 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.workflows.Trigger;
+import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
+import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.event.transaction.DiscoveryProgressEvent;
@@ -65,6 +68,7 @@ public class CertificateHandler {
 
     private CertificateRepository certificateRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+    private TriggerAssociationRepository triggerAssociationRepository;
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -116,6 +120,11 @@ public class CertificateHandler {
         this.discoveryCertificateRepository = discoveryCertificateRepository;
     }
 
+    @Autowired
+    public void setTriggerAssociationRepository(TriggerAssociationRepository triggerAssociationRepository) {
+        this.triggerAssociationRepository = triggerAssociationRepository;
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void validate(Certificate certificate) {
         certificateService.validate(certificate);
@@ -159,7 +168,7 @@ public class CertificateHandler {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void processDiscoveredCertificate(int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, List<Trigger> ignoreTriggers, List<Trigger> orderedTriggers) {
+    public void processDiscoveredCertificate(int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate) {
         // Get X509 from discovered certificate and create certificate entity, do not save in database yet
         Certificate entry;
         X509Certificate x509Cert;
@@ -172,6 +181,23 @@ public class CertificateHandler {
             discoveryCertificate.setProcessedError("Unable to create certificate entity: " + e.getMessage());
             discoveryCertificateRepository.save(discoveryCertificate);
             return;
+        }
+
+        // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discovery.getUuid());
+        List<Trigger> orderedTriggers = new ArrayList<>();
+        List<Trigger> ignoreTriggers = new ArrayList<>();
+        for (TriggerAssociation triggerAssociation : triggerAssociations) {
+            try {
+                Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
+                if (triggerAssociation.getTriggerOrder() == -1) {
+                    ignoreTriggers.add(trigger);
+                } else {
+                    orderedTriggers.add(trigger);
+                }
+            } catch (NotFoundException e) {
+                logger.error(e.getMessage());
+            }
         }
 
         try {
