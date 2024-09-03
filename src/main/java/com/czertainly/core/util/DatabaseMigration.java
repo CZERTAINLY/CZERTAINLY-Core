@@ -59,7 +59,7 @@ public class DatabaseMigration {
         V202402171510__UpdateAndOptimizeAttributesModelMigration(-1671016899, true),
         V202404021100__CreateCmpUserAndPermissions(-264892945),
         V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276),
-        V202408231055__DuplicateCertificates(2030273545);
+        V202408231055__DuplicateCertificates(1067920748);
 
       
         private final int checksum;
