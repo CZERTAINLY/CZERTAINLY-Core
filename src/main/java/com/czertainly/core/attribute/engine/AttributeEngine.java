@@ -364,6 +364,7 @@ public class AttributeEngine {
                 throw new AttributeException(String.format("Connector attribute content type changed to %s while stored attribute definition have content type %s", dataAttribute.getContentType().getLabel(), attributeDefinition.getContentType().getLabel()), dataAttribute.getUuid(), dataAttribute.getName(), dataAttribute.getType(), connectorUuid.toString());
             }
         } else {
+            logger.debug("Registering new data attribute with UUID {} and name {} for connector {}", dataAttribute.getUuid(), dataAttribute.getName(), connectorUuid);
             attributeDefinition = new AttributeDefinition();
             attributeDefinition.setConnectorUuid(connectorUuid);
             attributeDefinition.setAttributeUuid(UUID.fromString(dataAttribute.getUuid()));
@@ -404,6 +405,7 @@ public class AttributeEngine {
                 throw new AttributeException(String.format("Metadata attribute content type changed to %s while stored attribute definition have content type %s", metadataAttribute.getContentType().getLabel(), attributeDefinition.getContentType().getLabel()), metadataAttribute.getUuid(), metadataAttribute.getName(), metadataAttribute.getType(), connectorUuid == null ? null : connectorUuid.toString());
             }
         } else {
+            logger.debug("Registering new {} metadata attribute with UUID {} and name {} for connector {}", isGlobal ? "global" : "connector", metadataAttribute.getUuid(), metadataAttribute.getName(), connectorUuid);
             attributeDefinition = new AttributeDefinition();
             attributeDefinition.setConnectorUuid(connectorUuid);
             attributeDefinition.setAttributeUuid(UUID.fromString(metadataAttribute.getUuid()));
