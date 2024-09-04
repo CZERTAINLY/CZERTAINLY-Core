@@ -17,7 +17,7 @@
                 </repository>
                 <repository>
                     <id>github</id>
-                    <url>https://maven.pkg.github.com/3keycompany/*</url>
+                    <url>https://maven.pkg.github.com/czertainly/*</url>
                     <snapshots>
                         <enabled>true</enabled>
                     </snapshots>
