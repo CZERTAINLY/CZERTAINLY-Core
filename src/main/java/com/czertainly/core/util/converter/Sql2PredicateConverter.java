@@ -105,7 +105,7 @@ public class Sql2PredicateConverter {
             if (searchFieldObject == null) {
                 searchFieldObject = new SearchFieldObject(AttributeContentType.DATE);
             }
-            return prepareDateTimePredicate(criteriaBuilder, filterConditionOperator, expression, expressionValue.toString(), searchFieldObject);
+            return prepareDateTimePredicate(criteriaBuilder, filterConditionOperator, expression, expressionValue != null ? expressionValue.toString() : null, searchFieldObject);
         }
 
         Predicate predicate = null;
@@ -113,13 +113,13 @@ public class Sql2PredicateConverter {
             if (searchableFields == null || searchableFields.getExpectedValue() == null) {
                 switch (filterConditionOperator) {
                     case EQUALS ->
-                            predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                            predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue != null ? expressionValue.toString() : null));
                     case NOT_EQUALS ->
-                            predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                            predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue != null ? expressionValue.toString() : null));
                 }
                 return predicate;
             } else {
-                final Boolean booleanValue = Boolean.parseBoolean(expressionValue.toString());
+                final Boolean booleanValue = Boolean.parseBoolean(expressionValue != null ? expressionValue.toString() : null);
                 expressionValue = searchableFields.getExpectedValue();
                 if (FilterConditionOperator.EQUALS.equals(filterConditionOperator) && !booleanValue) {
                     filterConditionOperator = FilterConditionOperator.NOT_EQUALS;
