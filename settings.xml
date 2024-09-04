@@ -15,13 +15,6 @@
                     <id>ossrh-releases</id>
                     <url>https://s01.oss.sonatype.org/content/repositories/releases</url>
                 </repository>
-                <repository>
-                    <id>github</id>
-                    <url>https://maven.pkg.github.com/3keycompany/*</url>
-                    <snapshots>
-                        <enabled>true</enabled>
-                    </snapshots>
-                </repository>
             </repositories>
         </profile>
     </profiles>
