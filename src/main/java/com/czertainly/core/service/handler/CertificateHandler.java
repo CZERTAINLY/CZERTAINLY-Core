@@ -45,10 +45,7 @@ import org.springframework.transaction.event.TransactionalEventListener;
 
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 @Service
 @Transactional
@@ -134,6 +131,18 @@ public class CertificateHandler {
             }
         } catch (ConnectorException e) {
             logger.error("Error when checking compliance of certificate {}: {}", certificate.toStringShort(), e.getMessage());
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    public void updateMetadataDefinition(List<MetadataAttribute> metadataAttributes, UUID connectorUuid, String connectorName) {
+        logger.debug("Updating {} discovery certificate metadata definitions for connector {}", metadataAttributes.size(), connectorName);
+        for (MetadataAttribute metadataAttribute : metadataAttributes) {
+            try {
+                attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorUuid);
+            } catch (AttributeException e) {
+                logger.error("Unable to update discovery certificate metadata definition with UUID {} and name {} for discovery connector {}. Message: {}", metadataAttribute.getUuid(), metadataAttribute.getName(), connectorName, e.getMessage(), e);
+            }
         }
     }
 
