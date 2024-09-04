@@ -5,9 +5,6 @@ COPY src /home/app/src
 COPY pom.xml /home/app
 COPY settings.xml /root/.m2/settings.xml
 
-ARG SERVER_USERNAME
-ARG SERVER_PASSWORD
-
 RUN apt-get update && \
     apt-get install ca-certificates curl gnupg -y && \
     mkdir -m 0755 -p /etc/apt/keyrings && \

@@ -20,9 +20,6 @@ jobs:
         with:
           java-version: 21
           distribution: 'temurin'
-          server-id: github # value of repository/id field of the pom.xml
-          server-username: GITHUB_USER_REF
-          server-password: GITHUB_TOKEN_REF
       - name: Cache Maven packages
         uses: actions/cache@v4
         with:
@@ -46,9 +43,6 @@ jobs:
         with:
           java-version: 21
           distribution: 'temurin'
-          server-id: github # value of repository/id field of the pom.xml
-          server-username: GITHUB_USER_REF
-          server-password: GITHUB_TOKEN_REF
       - name: Cache SonarQube packages
         uses: actions/cache@v4
         with:
