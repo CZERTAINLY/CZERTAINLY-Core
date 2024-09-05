@@ -17,10 +17,12 @@ import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.workflows.*;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import jakarta.persistence.metamodel.Attribute;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,6 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -116,37 +119,37 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         // First, check where from to get object value based on Field Source
         if (fieldSource == FilterFieldSource.PROPERTY) {
             Object objectValue;
-            SearchableFields field;
+            FilterField field;
             try {
-                field = Enum.valueOf(SearchableFields.class, fieldIdentifier);
+                field = Enum.valueOf(FilterField.class, fieldIdentifier);
             } catch (IllegalArgumentException e) {
                 throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
             }
             // Get value of property from the object
             try {
-                objectValue = getPropertyValue(object, field.getCode(), false);
+                objectValue = getPropertyValueN(object, field, false);
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
-            // Determine field type from field identifier using Searchable field enum
-            SearchFieldNameEnum propertyEnum;
-            try {
-                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(field);
-            } catch (Exception e) {
-                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
-            }
-            if (propertyEnum == null) {
-                throw new RuleException("Unknown property field identifier: " + fieldIdentifier);
-            }
+//            // Determine field type from field identifier using Searchable field enum
+//            SearchFieldNameEnum propertyEnum;
+//            try {
+//                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(field);
+//            } catch (Exception e) {
+//                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
+//            }
+//            if (propertyEnum == null) {
+//                throw new RuleException("Unknown property field identifier: " + fieldIdentifier);
+//            }
 
-            FilterFieldType fieldType = propertyEnum.getFieldTypeEnum().getFieldType();
+            FilterFieldType fieldType = field.getType().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
             try {
                 if (!(objectValue instanceof Collection<?> objectValues)) {
                     return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
                 }
                 for (Object item : objectValues) {
-                    Object o = getPropertyValue(item, field.getCode(), true);
+                    Object o = getPropertyValueN(item, field, true);
                     if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
                         return false;
                     }
@@ -290,6 +293,34 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             throw e;
         }
     }
+
+    private Object getPropertyValueN(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        boolean isNested = filterField.getJoinAttributes() != null;
+        StringBuilder pathToPropertyBuilder = new StringBuilder();
+        if (filterField.getJoinAttributes() != null) {
+            for (String property : filterField.getJoinAttributes().stream().map(Attribute::getName).toList()) {
+                pathToPropertyBuilder.append(property).append(".");
+            }
+        }
+
+        pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
+
+        try {
+            if (alreadyNested) {
+                return PropertyUtils.getProperty(object, pathToPropertyBuilder.toString());
+            }
+            return PropertyUtils.getProperty(object, pathToPropertyBuilder.toString());
+        } catch (NoSuchMethodException e) {
+            if (!isNested || alreadyNested) {
+                throw e;
+            }
+
+
+        }
+
+        return object;
+    }
+
 
     private boolean getConditionEvaluationResult(ConditionItem conditionItem, T object, TriggerHistory triggerHistory, Rule rule) {
         try {
