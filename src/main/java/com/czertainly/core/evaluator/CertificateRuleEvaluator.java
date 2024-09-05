@@ -9,6 +9,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.workflows.ExecutionItem;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,9 +38,9 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
 
         SecuredUUID certificateUuid = object.getSecuredUuid();
 
-        SearchableFields searchableField;
+        FilterField searchableField;
         try {
-            searchableField = Enum.valueOf(SearchableFields.class, executionItem.getFieldIdentifier());
+            searchableField = Enum.valueOf(FilterField.class, executionItem.getFieldIdentifier());
         } catch (IllegalArgumentException e) {
             throw new RuleException("Field identifier '" + executionItem.getFieldIdentifier() + "' is not supported.");
         }

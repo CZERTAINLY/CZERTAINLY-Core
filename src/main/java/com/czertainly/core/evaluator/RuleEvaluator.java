@@ -13,13 +13,11 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.ResourceToClass;
-import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.persistence.metamodel.Attribute;
@@ -30,7 +28,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.File;
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -127,7 +124,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             }
             // Get value of property from the object
             try {
-                objectValue = getPropertyValueN(object, field, false);
+                objectValue = getPropertyValue(object, field, false);
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
@@ -149,7 +146,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                     return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
                 }
                 for (Object item : objectValues) {
-                    Object o = getPropertyValueN(item, field, true);
+                    Object o = getPropertyValue(item, field, true);
                     if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
                         return false;
                     }
@@ -241,14 +238,14 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
         // Set a property of the object using setter, the property must be set as settable
         if (fieldSource == FilterFieldSource.PROPERTY) {
-            SearchFieldNameEnum propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(SearchableFields.fromCode(fieldIdentifier));
+            FilterField propertyEnum = Enum.valueOf(FilterField.class, fieldIdentifier);
             if (propertyEnum == null) {
                 throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
             }
             if (!propertyEnum.isSettable())
                 throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
             try {
-                PropertyUtils.setProperty(object, propertyEnum.getFieldProperty().getCode(), actionData);
+                PropertyUtils.setProperty(object, propertyEnum.getFieldAttribute().getName(), actionData);
             } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
                      NoSuchMethodException e) {
                 throw new RuleException(e.getMessage());
@@ -271,33 +268,10 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         }
     }
 
-    private Object getPropertyValue(Object object, String fieldIdentifier, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        final int indexOfDot = fieldIdentifier.lastIndexOf(".");
-        boolean isNested = indexOfDot != -1;
-        try {
-            if (alreadyNested) {
-                return PropertyUtils.getProperty(object, fieldIdentifier.substring(indexOfDot + 1));
-            }
-            return PropertyUtils.getProperty(object, fieldIdentifier);
-        } catch (NoSuchMethodException e) {
-            if (!isNested || alreadyNested) {
-                throw e;
-            }
-
-            final String parentPropertyIdentifier = fieldIdentifier.substring(0, indexOfDot);
-            Object tmpValue = PropertyUtils.getProperty(object, parentPropertyIdentifier);
-            if (tmpValue instanceof Collection<?>) {
-                return tmpValue;
-            }
-
-            throw e;
-        }
-    }
-
-    private Object getPropertyValueN(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+    private Object getPropertyValue(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
         boolean isNested = filterField.getJoinAttributes() != null;
         StringBuilder pathToPropertyBuilder = new StringBuilder();
-        if (filterField.getJoinAttributes() != null) {
+        if (filterField.getJoinAttributes() != null && !alreadyNested) {
             for (String property : filterField.getJoinAttributes().stream().map(Attribute::getName).toList()) {
                 pathToPropertyBuilder.append(property).append(".");
             }
@@ -315,10 +289,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 throw e;
             }
 
+            Object tmpValue = PropertyUtils.getProperty(object, filterField.getJoinAttributes().getFirst().getName());
+            if (tmpValue instanceof Collection<?>) {
+                return tmpValue;
+            }
+
+            throw e;
 
         }
 
-        return object;
     }
 
 
