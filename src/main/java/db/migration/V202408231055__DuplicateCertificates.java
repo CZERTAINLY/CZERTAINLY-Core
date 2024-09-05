@@ -75,7 +75,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
     private void mergeDuplicateCertificates(Context context) throws SQLException {
         ResultSet duplicateCertificatesGrouped;
         try (final Statement select = context.getConnection().createStatement()) {
-            duplicateCertificatesGrouped = select.executeQuery("SELECT STRING_AGG((uuid::text), ',' ORDER BY i_cre ASC) AS uuids FROM certificate GROUP BY fingerprint HAVING COUNT(uuid) > 1;");
+            duplicateCertificatesGrouped = select.executeQuery("SELECT STRING_AGG((uuid::text), ',' ORDER BY i_cre ASC) AS uuids FROM certificate WHERE fingerprint != NULL GROUP BY fingerprint HAVING COUNT(uuid) > 1;");
 
             String updateGroupsQuery = "UPDATE group_association SET object_uuid = ? WHERE resource = 'CERTIFICATE' AND object_uuid::text = ANY (string_to_array(?, ',')) AND group_uuid " +
                     "NOT IN (SELECT group_uuid FROM group_association WHERE object_uuid = ? );";
