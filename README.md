@@ -1,6 +1,6 @@
 # CZERTAINLY Core
 
-> This repository is part of the open source project CZERTAINLY. You can find more information about the project at [CZERTAINLY](https://github.com/3KeyCompany/CZERTAINLY) repository, including the contribution guide.
+> This repository is part of the open source project CZERTAINLY. You can find more information about the project at [CZERTAINLY](https://github.com/CZERTAINLY/CZERTAINLY) repository, including the contribution guide.
 
 `Core` provides the basic functionality for the CZERTAINLY platform. It implements the logic for the certificate lifecycle management and handles all related tasks. You can think about it as a brain of the CZERTAINLY platform.
 
@@ -18,9 +18,9 @@ For more information, refer to the [CZERTAINLY documentation](https://docs.czert
 ## Access Control
 
 `Core` access control requires the following to run:
-- [CZERTAINLY-Auth](https://github.com/3KeyCompany/CZERTAINLY-Auth) service to manage users, roles, permission. The URL of the `Auth` service can be configured using `AUTH_SERVICE_BASE_URL` environment variable.
+- [CZERTAINLY-Auth](https://github.com/CZERTAINLY/CZERTAINLY-Auth) service to manage users, roles, permission. The URL of the `Auth` service can be configured using `AUTH_SERVICE_BASE_URL` environment variable.
 - OPA (Open Policy Agent) evaluating policies and providing decisions about authorization. The OPA service URL can be confgiured using `OPA_BASE_URL` environment variable.
-- OPA policies bundles that are loaded into OPA service and define the rules to be evaluated. The policies are defined in [CZERTAINLY-Auth-OPA-Policies](https://github.com/3KeyCompany/CZERTAINLY-Auth-OPA-Policies)
+- OPA policies bundles that are loaded into OPA service and define the rules to be evaluated. The policies are defined in [CZERTAINLY-Auth-OPA-Policies](https://github.com/CZERTAINLY/CZERTAINLY-Auth-OPA-Policies)
 
 > **Warning**
 > The `Core` will fail to run when `Auth` or OPA is missing.
@@ -56,10 +56,11 @@ Operations can be automated by the `Core`, but also can be performed manually by
 `Core` support the following protocols for certificate management:
 - ACME
 - SCEP (with optional Intune support)
+- CMP
 
 ## Docker container
 
-`Core` is provided as a Docker container. Use the `3keycompany/czertainly-core:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
+`Core` is provided as a Docker container. Use the `czertainly/czertainly-core:tagname` to pull the required image from the repository. It can be configured using the following environment variables:
 
 | Variable                  | Description                                                         | Required                                           | Default value       |
 |---------------------------|---------------------------------------------------------------------|----------------------------------------------------|---------------------|
