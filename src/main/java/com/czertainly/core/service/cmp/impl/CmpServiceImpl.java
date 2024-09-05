@@ -307,7 +307,7 @@ public class CmpServiceImpl implements CmpService {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    protected void handleTrxError(ASN1OctetString tid, Exception e) {
+    public void handleTrxError(ASN1OctetString tid, Exception e) {
         List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
         if (!trx.isEmpty()) {
             for (CmpTransaction updatedTransaction : trx) {
