@@ -11,12 +11,13 @@ import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.io.IOException;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -74,6 +75,8 @@ public interface CertificateService extends ResourceExtensionService  {
     Certificate createCertificate(String certificateData, CertificateType certificateType) throws com.czertainly.api.exception.CertificateException;
 
     Certificate checkCreateCertificate(String certificate) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException;
+
+    CertificateContent checkAddCertificateContent(String fingerprint, String content);
 
     CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException;
 
@@ -260,7 +263,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param sourceCertificateUuid UUID of the source certificate specified in case of renew/rekey operation
      * return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException;
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate
@@ -278,4 +281,12 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of available CA certificates
      */
     List<CertificateDto> listScepCaCertificates(SecurityFilter filter, boolean intuneEnabled);
+
+    /**
+     * List certificates eligible for signing CMP responses
+     * @param filter Security Filter
+     * @return List of available signing certificates
+     */
+    List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter);
+
 }

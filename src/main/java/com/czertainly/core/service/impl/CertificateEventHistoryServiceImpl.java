@@ -73,14 +73,14 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     }
 
     @Override
-    @Async("threadPoolTaskExecutor")
+    @Async
     public void asyncSaveAllInBatch(List<CertificateEventHistory> certificateEventHistories) {
         certificateEventHistoryRepository.saveAll(certificateEventHistories);
         logger.info("Inserted {} record into the database", certificateEventHistories.size());
     }
 
     @Override
-    @Async("threadPoolTaskExecutor")
+    @Async
     public void addEventHistoryForRequest(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson, CertificateEvent event, CertificateEventStatus status, String message) {
         List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
         for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(filters, "Certificate", originalJson)) {

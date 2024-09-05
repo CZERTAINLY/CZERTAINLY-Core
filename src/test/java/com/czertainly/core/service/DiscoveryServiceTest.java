@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
@@ -79,6 +80,8 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
         discovery.setName(DISCOVERY_NAME);
         discovery.setConnectorUuid(connector.getUuid());
         discovery.setConnectorName(connector.getName());
+        discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
+        discovery.setConnectorStatus(DiscoveryStatus.IN_PROGRESS);
         discovery = discoveryRepository.save(discovery);
     }
 

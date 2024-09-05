@@ -30,12 +30,14 @@ import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -46,8 +48,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.UUID;
-import java.util.function.BiFunction;
 
 @Service
 @Transactional
@@ -92,10 +92,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        // filter entities based on attribute filters
-        final List<UUID> objectUUIDs = attributeEngine.getResourceObjectUuidsByFilters(Resource.ENTITY, filter, request.getFilters());
-
-        final BiFunction<Root<EntityInstanceReference>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> Sql2PredicateConverter.mapSearchFilter2Predicates(request.getFilters(), cb, root, objectUUIDs);
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(EntityInstanceReference::mapToDto).toList();

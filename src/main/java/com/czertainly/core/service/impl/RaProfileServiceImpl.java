@@ -22,8 +22,10 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -37,12 +39,15 @@ import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.ValidatorUtil;
 import com.czertainly.core.util.X509ObjectToString;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.aop.framework.AopContext;
@@ -76,6 +81,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     private PermissionEvaluator permissionEvaluator;
     private RaProfileProtocolAttributeRepository raProfileProtocolAttributeRepository;
     private ScepProfileRepository scepProfileRepository;
+    private CmpProfileRepository cmpProfileRepository;
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
@@ -287,6 +293,9 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException {
         RaProfile raProfile = getRaProfileEntity(uuid);
+        if (ValidatorUtil.containsUnreservedCharacters(raProfile.getName())) {
+            throw new ValidationException(ValidationError.create("RA Profile name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
+        }
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(acmeProfileUuid).orElseThrow(() -> new NotFoundException(AcmeProfile.class, acmeProfileUuid));
 
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
@@ -346,6 +355,104 @@ public class RaProfileServiceImpl implements RaProfileService {
         raProfileProtocolAttribute.setScepIssueCertificateAttributes(null);
         raProfile.setProtocolAttribute(raProfileProtocolAttribute);
         raProfileRepository.save(raProfile);
+    }
+
+    // -----------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------
+    // CMP protocol
+    // -----------------------------------------------------------------------------------------------------------------
+    // -----------------------------------------------------------------------------------------------------------------
+
+    @Override
+    @ExternalAuthorization(
+            resource = Resource.RA_PROFILE,
+            action = ResourceAction.DETAIL,
+            parentResource = Resource.AUTHORITY,
+            parentAction = ResourceAction.DETAIL
+    )
+    public RaProfileCmpDetailResponseDto getCmpForRaProfile(
+            SecuredParentUUID authorityInstanceUuid,
+            SecuredUUID raProfileUuid
+    ) throws NotFoundException {
+        return getRaProfileEntity(raProfileUuid).mapToCmpDto();
+    }
+
+    @Override
+    @ExternalAuthorization(
+            resource = Resource.RA_PROFILE,
+            action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY,
+            parentAction = ResourceAction.DETAIL
+    )
+    public RaProfileCmpDetailResponseDto activateCmpForRaProfile(
+            SecuredParentUUID authorityUuid,
+            SecuredUUID uuid,
+            SecuredUUID cmpProfileUuid,
+            ActivateCmpForRaProfileRequestDto request
+    ) throws ConnectorException, ValidationException, AttributeException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        CmpProfile cmpProfile = cmpProfileRepository.findByUuid(cmpProfileUuid)
+                .orElseThrow(() -> new NotFoundException(CmpProfile.class, cmpProfileUuid));
+
+        extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
+        extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
+
+        RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
+        raProfileProtocolAttribute.setCmpIssueCertificateAttributes(
+                AttributeDefinitionUtils.serialize(
+                        attributeEngine.getDataAttributesByContent(
+                                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                                request.getIssueCertificateAttributes())
+                )
+        );
+        raProfileProtocolAttribute.setCmpRevokeCertificateAttributes(
+                AttributeDefinitionUtils.serialize(
+                        attributeEngine.getDataAttributesByContent(
+                                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                                request.getRevokeCertificateAttributes())
+                )
+        );
+        raProfileProtocolAttribute.setRaProfile(raProfile);
+        raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
+
+        raProfile.setCmpProfile(cmpProfile);
+        raProfile.setProtocolAttribute(raProfileProtocolAttribute);
+        raProfileRepository.save(raProfile);
+
+        return raProfile.mapToCmpDto();
+    }
+
+    @Override
+    @ExternalAuthorization(
+            resource = Resource.RA_PROFILE,
+            action = ResourceAction.UPDATE,
+            parentResource = Resource.AUTHORITY,
+            parentAction = ResourceAction.DETAIL
+    )
+    public void deactivateCmpForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
+        RaProfile raProfile = getRaProfileEntity(uuid);
+        raProfile.setCmpProfile(null);
+        RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
+        raProfileProtocolAttribute.setCmpRevokeCertificateAttributes(null);
+        raProfileProtocolAttribute.setCmpIssueCertificateAttributes(null);
+        raProfile.setProtocolAttribute(raProfileProtocolAttribute);
+        raProfileRepository.save(raProfile);
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
+    public SecuredList<RaProfile> listRaProfilesAssociatedWithCmpProfile(String cmpProfileUuid, SecurityFilter filter) {
+        List<RaProfile> raProfiles = raProfileRepository.findAllByCmpProfileUuid(UUID.fromString(cmpProfileUuid));
+        return SecuredList.fromFilter(filter, raProfiles);
+    }
+
+    @Override
+    public void bulkRemoveAssociatedCmpProfile(List<SecuredUUID> uuids) {
+        List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
+                uuids.stream().map(SecuredUUID::getValue).toList());
+        raProfiles.forEach(raProfile -> raProfile.setCmpProfile(null));
+        raProfileRepository.saveAll(raProfiles);
     }
 
     @Override
@@ -448,7 +555,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
 
-        final BiFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
             final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
             return cb.and(resourcePredicate, resourceUuidPredicate);
@@ -492,7 +599,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
 
-        final BiFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, Predicate> additionalWhereClause = (root, cb) -> {
+        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
             final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
             final Predicate approvalProfileUuidPredicate = cb.equal(root.get("approvalProfileUuid"), approvalProfileUuid.getValue());
@@ -690,6 +797,11 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Autowired
     public void setScepProfileRepository(ScepProfileRepository scepProfileRepository) {
         this.scepProfileRepository = scepProfileRepository;
+    }
+
+    @Autowired
+    public void setCmpProfileRepository(CmpProfileRepository cmpProfileRepository) {
+        this.cmpProfileRepository = cmpProfileRepository;
     }
 
     @Autowired

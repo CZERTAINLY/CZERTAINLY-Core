@@ -3,55 +3,63 @@ package com.czertainly.core.enums;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldType;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
 import java.util.List;
 
 public enum SearchFieldTypeEnum {
 
     STRING(FilterFieldType.STRING,
             List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH)
-            , false),
+            , false, null),
     DATE(FilterFieldType.DATE,
-            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
-            , false),
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.GREATER_OR_EQUAL, FilterConditionOperator.LESSER, FilterConditionOperator.LESSER_OR_EQUAL, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
+            , false, LocalDate.class),
     DATETIME(FilterFieldType.DATETIME,
-            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
-            , false),
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.GREATER_OR_EQUAL, FilterConditionOperator.LESSER, FilterConditionOperator.LESSER_OR_EQUAL, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
+            , false, LocalDateTime.class),
     NUMBER(FilterFieldType.NUMBER,
-            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.LESSER)
-            , false),
+            List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.GREATER_OR_EQUAL, FilterConditionOperator.LESSER, FilterConditionOperator.LESSER_OR_EQUAL, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
+            , false, Integer.class),
     LIST(FilterFieldType.LIST,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
-            , true),
-
+            , true, null),
     BOOLEAN(FilterFieldType.BOOLEAN,
-         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS)
-            , false),
+         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
+            , false, Boolean.class),
     OTHERS_AS_STRING(FilterFieldType.STRING,
             List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH)
-            , false);
+            , false, null);
 
 
     private FilterFieldType fieldType;
 
-    private List<FilterConditionOperator> contitions;
+    private List<FilterConditionOperator> conditions;
 
     private boolean multiValue;
 
-    SearchFieldTypeEnum(final FilterFieldType fieldType, final List<FilterConditionOperator> contitions, final boolean multiValue) {
+    private Class<?> expressionClass;
+
+    SearchFieldTypeEnum(final FilterFieldType fieldType, final List<FilterConditionOperator> conditions, final boolean multiValue, Class<?> expressionClass) {
         this.fieldType = fieldType;
-        this.contitions = contitions;
+        this.conditions = conditions;
         this.multiValue = multiValue;
+        this.expressionClass = expressionClass;
     }
 
     public FilterFieldType getFieldType() {
         return fieldType;
     }
 
-    public List<FilterConditionOperator> getContitions() {
-        return contitions;
+    public List<FilterConditionOperator> getConditions() {
+        return conditions;
     }
 
     public boolean isMultiValue() {
         return multiValue;
+    }
+
+    public Class<?> getExpressionClass() {
+        return expressionClass;
     }
 }

@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.PlatformEnum;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
@@ -25,7 +26,7 @@ public class SearchHelper {
         fieldDataDto.setFieldIdentifier(fieldNameEnum.getFieldProperty().name());
         fieldDataDto.setFieldLabel(fieldNameEnum.getFieldLabel());
         fieldDataDto.setMultiValue(fieldNameEnum.getFieldTypeEnum().isMultiValue());
-        fieldDataDto.setConditions(fieldNameEnum.getFieldTypeEnum().getContitions());
+        fieldDataDto.setConditions(fieldNameEnum.getFieldTypeEnum().getFieldType() == FilterFieldType.BOOLEAN && fieldNameEnum.getFieldProperty().getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : fieldNameEnum.getFieldTypeEnum().getConditions());
         fieldDataDto.setType(fieldNameEnum.getFieldTypeEnum().getFieldType());
         fieldDataDto.setValue(values);
         if (fieldNameEnum.getFieldProperty().getEnumClass() != null) {
@@ -41,7 +42,7 @@ public class SearchHelper {
         fieldDataDto.setFieldIdentifier(attributeSearchInfo.getAttributeName() + "|" + attributeSearchInfo.getAttributeContentType().name());
         fieldDataDto.setFieldLabel(hasDupliciteInList ? String.format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(), attributeSearchInfo.getAttributeContentType().getCode()) : attributeSearchInfo.getLabel());
         fieldDataDto.setMultiValue(attributeSearchInfo.isMultiSelect());
-        fieldDataDto.setConditions(searchFieldTypeEnum.getContitions());
+        fieldDataDto.setConditions(searchFieldTypeEnum.getConditions());
         fieldDataDto.setType(searchFieldTypeEnum.getFieldType());
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());
         fieldDataDto.setAttributeContentType(attributeSearchInfo.getAttributeContentType());

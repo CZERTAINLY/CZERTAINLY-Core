@@ -3,6 +3,7 @@ package com.czertainly.core.util.converter;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -17,6 +18,7 @@ import com.czertainly.core.model.SearchFieldObject;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
+import org.apache.commons.lang3.StringUtils;
 import org.hibernate.query.sqm.tree.domain.SqmPluralValuedSimplePath;
 
 import java.util.*;
@@ -103,7 +105,7 @@ public class Sql2PredicateConverter {
             if (searchFieldObject == null) {
                 searchFieldObject = new SearchFieldObject(AttributeContentType.DATE);
             }
-            return prepareDateTimePredicate(criteriaBuilder, filterConditionOperator, expression, expressionValue.toString(), searchFieldObject);
+            return prepareDateTimePredicate(criteriaBuilder, filterConditionOperator, expression, expressionValue != null ? expressionValue.toString() : null, searchFieldObject);
         }
 
         Predicate predicate = null;
@@ -111,13 +113,13 @@ public class Sql2PredicateConverter {
             if (searchableFields == null || searchableFields.getExpectedValue() == null) {
                 switch (filterConditionOperator) {
                     case EQUALS ->
-                            predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                            predicate = criteriaBuilder.equal(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue != null ? expressionValue.toString() : null));
                     case NOT_EQUALS ->
-                            predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue.toString()));
+                            predicate = criteriaBuilder.notEqual(expression.as(Boolean.class), Boolean.parseBoolean(expressionValue != null ? expressionValue.toString() : null));
                 }
                 return predicate;
             } else {
-                final Boolean booleanValue = Boolean.parseBoolean(expressionValue.toString());
+                final Boolean booleanValue = Boolean.parseBoolean(expressionValue != null ? expressionValue.toString() : null);
                 expressionValue = searchableFields.getExpectedValue();
                 if (FilterConditionOperator.EQUALS.equals(filterConditionOperator) && !booleanValue) {
                     filterConditionOperator = FilterConditionOperator.NOT_EQUALS;
@@ -297,6 +299,48 @@ public class Sql2PredicateConverter {
 
     private static String formatCertificateVerificationResultByStatus(final String textToBeFormatted, final String statusCode) {
         return textToBeFormatted.replace("%STATUS%", statusCode);
+    }
+
+    public static CriteriaDelete<AuditLog> prepareQueryForAuditLog(AuditLogFilter filter, CriteriaBuilder criteriaBuilder) {
+        CriteriaDelete<AuditLog> criteriaQuery = criteriaBuilder.createCriteriaDelete(AuditLog.class);
+        final Root<AuditLog> root = criteriaQuery.from(AuditLog.class);
+        List<Predicate> rootPredicates = new ArrayList<>();
+
+        if (StringUtils.isNotBlank(filter.getAuthor())) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("author"), filter.getAuthor()));
+        }
+
+        if (filter.getCreatedFrom() != null) {
+            rootPredicates.add(criteriaBuilder.greaterThan(root.get("created"), filter.getCreatedFrom()));
+        }
+        if (filter.getCreatedTo() != null) {
+            rootPredicates.add(criteriaBuilder.lessThan(root.get("created"), filter.getCreatedFrom()));
+
+        }
+
+        if (filter.getOperation() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("operation"), filter.getOperation()));
+        }
+
+        if (filter.getOperationStatus() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("operationStatus"), filter.getOperationStatus()));
+        }
+
+        if (filter.getAffected() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("affected"), filter.getAffected()));
+        }
+
+        if (filter.getOrigination() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("origination"), filter.getOrigination()));
+        }
+
+        if (StringUtils.isNotBlank(filter.getObjectIdentifier())) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("objectIdentifier"), filter.getObjectIdentifier()));
+        }
+
+        criteriaQuery.where(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
+        return criteriaQuery;
+
     }
 
     public static CriteriaQueryDataObject prepareQueryToSearchIntoAttributes(final List<SearchFieldObject> searchableFields, final List<SearchFilterRequestDto> dtos, final CriteriaBuilder criteriaBuilder, final Resource resource) {

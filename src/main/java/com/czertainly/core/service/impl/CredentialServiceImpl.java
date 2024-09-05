@@ -67,20 +67,20 @@ public class CredentialServiceImpl implements CredentialService {
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<CredentialDto> listCredentials(SecurityFilter filter) {
         return credentialRepository.findUsingSecurityFilter(filter).stream()
-                .map(Credential::mapToDtoSimple)
+                .map(Credential::mapToDto)
                 .collect(Collectors.toList());
     }
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) throws NotFoundException {
+    public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) {
         List<Credential> credentials = credentialRepository.findUsingSecurityFilter(
                 filter, List.of(),
-                (root, cb) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
+                (root, cb, cr) -> cb.and(cb.equal(root.get("enabled"), true), cb.equal(root.get("kind"), kind)));
 
         if (credentials == null || credentials.isEmpty()) {
-            throw new NotFoundException(Credential.class, kind);
+            return List.of();
         }
 
         return credentials.stream().map(c -> new NameAndUuidDto(c.getUuid().toString(), c.getName())).collect(Collectors.toList());
@@ -249,13 +249,13 @@ public class CredentialServiceImpl implements CredentialService {
                                 } else if (bodyKeyValue instanceof CredentialAttributeContent) {
                                     credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
                                     referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
-                                } else if (bodyKeyValue instanceof List && ((List<?>) bodyKeyValue).get(0) instanceof CredentialAttributeContent) {
+                                } else if (bodyKeyValue instanceof List<?> list && list.get(0) instanceof CredentialAttributeContent) {
                                     credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
                                     referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
-                                } else if (bodyKeyValue instanceof Map) {
-                                    if(((Map) bodyKeyValue).containsKey("uuid")) {
-                                        credentialUuid = (String) ((Map) bodyKeyValue).get("uuid");
-                                        referenceName = (String) ((Map) bodyKeyValue).get("name");
+                                } else if (bodyKeyValue instanceof Map<?,?> map) {
+                                    if(map.containsKey("uuid")) {
+                                        credentialUuid = (String) map.get("uuid");
+                                        referenceName = (String) map.get("name");
                                     } else {
                                         try {
                                             credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("uuid");

@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.BeautificationUtil;
+import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
@@ -14,6 +15,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
+import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestValueException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -102,6 +104,44 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleMethodArgumentTypeMismatchException(MethodArgumentTypeMismatchException ex) {
         LOG.info("HTTP 400: {}", ex.getMessage());
         return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
+     * Handler for {@link MethodArgumentNotValidException}.
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(MethodArgumentNotValidException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("Validation error: ");
+        ex.getBindingResult().getFieldErrors().forEach(
+                err -> messageBuilder.append(err.getField()).append(" ").append(err.getDefaultMessage()).append(", ")
+        );
+        // remote trailing comma and space
+        messageBuilder.delete(messageBuilder.length() - 2, messageBuilder.length());
+
+        LOG.info("HTTP 400: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
+
+    /**
+     * Handler for {@link ConstraintViolationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(ConstraintViolationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleConstraintViolationException(ConstraintViolationException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append("Validation error: ");
+        ex.getConstraintViolations().forEach(err -> messageBuilder.append(err.getMessage()).append(", "));
+        // remote trailing comma and space
+        messageBuilder.delete(messageBuilder.length() - 2, messageBuilder.length());
+
+        LOG.info("HTTP 400: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
     }
 
     /**

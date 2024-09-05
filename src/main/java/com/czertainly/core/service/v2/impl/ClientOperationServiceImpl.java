@@ -31,6 +31,7 @@ import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
@@ -172,7 +173,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException {
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException {
         // validate custom Attributes
         boolean createCustomAttributes = !AuthHelper.isLoggedProtocolUser();
         if (createCustomAttributes) {
@@ -183,7 +184,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
-        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid());
+        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
+        protocolInfo);
 
         // create custom Attributes
         if (createCustomAttributes) {
@@ -197,7 +199,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException, CertificateRequestException {
+    public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request, final CertificateProtocolInfo protocolInfo) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException, CertificateRequestException {
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
         certificateRequestDto.setCsrAttributes(request.getCsrAttributes());
@@ -212,7 +214,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto certificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            certificate = submitCertificateRequest(certificateRequestDto);
+            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -248,7 +250,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateService.checkIssuePermissions();
         }
 
-        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        final Certificate certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         if (certificate.getState() != CertificateState.REQUESTED && certificate.getState() != CertificateState.PENDING_APPROVAL) {
             throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate with state %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
         }
@@ -381,7 +383,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            newCertificate = submitCertificateRequest(certificateRequestDto);
+            newCertificate = submitCertificateRequest(certificateRequestDto, null);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -548,7 +550,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            newCertificate = submitCertificateRequest(certificateRequestDto);
+            newCertificate = submitCertificateRequest(certificateRequestDto, null);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -681,7 +683,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         if (!isApproved) {
             certificateService.checkRevokePermissions();
         }
-        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        final Certificate certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         if (certificate.getState() != CertificateState.ISSUED && certificate.getState() != CertificateState.PENDING_APPROVAL) {
             throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate in state %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
         }
@@ -755,7 +757,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     private Certificate validateNewCertificateForOperation(UUID certificateUuid) throws NotFoundException {
-        final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        final Certificate certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
         if (certificate.getState() != CertificateState.REQUESTED && certificate.getState() != CertificateState.PENDING_APPROVAL) {
             throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate in state %s. Certificate: %s", certificate.getState().getLabel(), certificate)));
         }

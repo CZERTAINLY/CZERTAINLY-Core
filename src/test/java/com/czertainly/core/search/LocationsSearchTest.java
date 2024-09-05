@@ -146,7 +146,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.NAME.name(), FilterConditionOperator.EQUALS, "location1"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_NAME.name(), FilterConditionOperator.EQUALS, "location1"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(2, responseDto.getLocations().size());
     }
@@ -154,7 +154,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationByInstanceName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.ENTITY_INSTANCE_NAME.name(), FilterConditionOperator.ENDS_WITH, "instance-name-3"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_ENTITY_INSTANCE.name(), FilterConditionOperator.ENDS_WITH, "instance-name-3"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -162,7 +162,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationByEnabled() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.ENABLED.name(), FilterConditionOperator.EQUALS, true));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_ENABLED.name(), FilterConditionOperator.EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -170,7 +170,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationBySupportMultipleEntries() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.SUPPORT_MULTIPLE_ENTRIES.name(), FilterConditionOperator.NOT_EQUALS, true));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_SUPPORT_MULTIPLE_ENTRIES.name(), FilterConditionOperator.NOT_EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -178,7 +178,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationBySupportKeyManagement() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.SUPPORT_KEY_MANAGEMENT.name(), FilterConditionOperator.EQUALS, false));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_SUPPORT_KEY_MANAGEMENT.name(), FilterConditionOperator.EQUALS, false));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }

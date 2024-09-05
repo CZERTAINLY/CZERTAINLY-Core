@@ -21,6 +21,7 @@ import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -65,8 +66,10 @@ public class NotificationProducer {
         logger.debug("Sending notification of certificate status change. Certificate: {}", certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_STATUS_CHANGED,
                 Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
-                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn())
-                        : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName())));
+                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(),
+                        certificateDto.getNotBefore().toInstant().atZone(ZoneId.systemDefault()), certificateDto.getNotAfter().toInstant().atZone(ZoneId.systemDefault()))
+                        : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName(),
+                        certificateDto.getNotBefore().toInstant().atZone(ZoneId.systemDefault()), certificateDto.getNotAfter().toInstant().atZone(ZoneId.systemDefault()))));
     }
 
     public void produceNotificationCertificateActionPerformed(CertificateDto certificateDto, ResourceAction action, String errorMessage) {

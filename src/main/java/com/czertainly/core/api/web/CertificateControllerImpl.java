@@ -31,9 +31,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
 import java.net.URI;
-import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
 import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.UUID;
@@ -148,7 +146,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException {
-        return clientOperationService.submitCertificateRequest(request);
+        return clientOperationService.submitCertificateRequest(request, null);
     }
 
     @Override

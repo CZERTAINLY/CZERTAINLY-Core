@@ -6,20 +6,24 @@
     <parent>
         <groupId>com.czertainly</groupId>
         <artifactId>dependencies</artifactId>
-        <version>1.1.0</version>
+        <version>1.2.0</version>
     </parent>
 
     <artifactId>core</artifactId>
-    <version>2.12.0</version>
+    <version>2.13.0</version>
     <name>CZERTAINLY-Core</name>
 
     <properties>
-        <querydsl.version>5.0.0</querydsl.version>
-        <hsqldb.version>2.7.1</hsqldb.version>
-        <nimbus-jose-jwt.version>9.37</nimbus-jose-jwt.version>
-        <okhttp.version>4.11.0</okhttp.version>
-        <mockwebserver.version>4.11.0</mockwebserver.version>
-        <sonar.projectKey>3KeyCompany_CZERTAINLY-Core</sonar.projectKey>
+        <querydsl.version>5.1.0</querydsl.version>
+        <hsqldb.version>2.7.3</hsqldb.version>
+        <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
+        <mockwebserver.version>4.12.0</mockwebserver.version>
+        <commons-beanutils.version>1.9.4</commons-beanutils.version>
+        <testcontainers-postgresql.version>1.20.1</testcontainers-postgresql.version>
+        <java.version>21</java.version>
+        <sonar.organization>czertainly</sonar.organization>
+        <sonar.host.url>https://sonarcloud.io</sonar.host.url>
+        <sonar.projectKey>CZERTAINLY_CZERTAINLY-Core</sonar.projectKey>
     </properties>
 
     <dependencyManagement>
@@ -27,14 +31,14 @@
             <dependency>
                 <groupId>io.opentelemetry</groupId>
                 <artifactId>opentelemetry-bom</artifactId>
-                <version>1.36.0</version>
+                <version>1.41.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
             <dependency>
                 <groupId>io.opentelemetry.instrumentation</groupId>
-                <artifactId>opentelemetry-instrumentation-bom-alpha</artifactId>
-                <version>2.2.0-alpha</version>
+                <artifactId>opentelemetry-instrumentation-bom</artifactId>
+                <version>2.7.0</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
@@ -45,7 +49,7 @@
         <dependency>
             <groupId>com.czertainly</groupId>
             <artifactId>interfaces</artifactId>
-            <version>2.12.0</version>
+            <version>2.13.0</version>
         </dependency>
 
         <!-- Spring  -->
@@ -116,10 +120,20 @@
             <artifactId>flyway-core</artifactId>
         </dependency>
 
+        <dependency>
+            <groupId>org.flywaydb</groupId>
+            <artifactId>flyway-database-postgresql</artifactId>
+        </dependency>
+
         <!-- DB -->
         <dependency>
             <groupId>org.postgresql</groupId>
             <artifactId>postgresql</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-jpamodelgen</artifactId>
+            <scope>provided</scope>
         </dependency>
 
         <!-- Utility -->
@@ -144,11 +158,16 @@
             <groupId>org.bouncycastle</groupId>
             <artifactId>bcpkix-jdk18on</artifactId>
         </dependency>
+        <dependency>
+            <groupId>com.pivovarit</groupId>
+            <artifactId>parallel-collectors</artifactId>
+            <version>3.2.0</version>
+        </dependency>
 
         <dependency>
             <groupId>commons-beanutils</groupId>
             <artifactId>commons-beanutils</artifactId>
-            <version>1.9.4</version>
+            <version>${commons-beanutils.version}</version>
         </dependency>
 
         <!-- Tests -->
@@ -156,15 +175,9 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
-            <exclusions>
-                <exclusion>
-                    <groupId>org.junit.vintage</groupId>
-                    <artifactId>junit-vintage-engine</artifactId>
-                </exclusion>
-            </exclusions>
         </dependency>
         <dependency>
-            <groupId>com.github.tomakehurst</groupId>
+            <groupId>org.wiremock</groupId>
             <artifactId>wiremock-standalone</artifactId>
             <scope>test</scope>
         </dependency>
@@ -173,17 +186,18 @@
             <artifactId>nimbus-jose-jwt</artifactId>
             <version>${nimbus-jose-jwt.version}</version>
         </dependency>
-        <dependency>
-            <groupId>com.squareup.okhttp3</groupId>
-            <artifactId>okhttp</artifactId>
-            <version>${okhttp.version}</version>
-            <scope>test</scope>
-        </dependency>
+
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>mockwebserver</artifactId>
             <version>${mockwebserver.version}</version>
             <scope>test</scope>
+            <exclusions>
+                <exclusion>
+                    <groupId>junit</groupId>
+                    <artifactId>junit</artifactId>
+                </exclusion>
+            </exclusions>
         </dependency>
         <dependency>
             <groupId>com.google.code.gson</groupId>
@@ -192,7 +206,7 @@
         <dependency>
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
-            <version>1.19.2</version>
+            <version>${testcontainers-postgresql.version}</version>
             <scope>test</scope>
         </dependency>
 
@@ -205,13 +219,24 @@
         <dependency>
             <groupId>com.microsoft.azure</groupId>
             <artifactId>msal4j</artifactId>
-            <version>1.14.2</version>
+            <version>1.17.1</version>
         </dependency>
         <dependency>
             <groupId>org.apache.httpcomponents</groupId>
             <artifactId>httpclient</artifactId>
             <version>4.5.14</version>
         </dependency>
+
+        <!-- this dependency is included to avoid warning -->
+        <!-- Compilation warning: "unknown enum constant When.MAYBE" -->
+        <!-- Caused by @Nullable annotations -->
+        <dependency>
+            <groupId>com.google.code.findbugs</groupId>
+            <artifactId>jsr305</artifactId>
+            <version>3.0.2</version>
+            <scope>provided</scope>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -234,6 +259,9 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine}</argLine>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.springframework.boot</groupId>
@@ -255,13 +283,6 @@
     </build>
 
     <repositories>
-        <repository>
-            <id>github</id>
-            <url>https://maven.pkg.github.com/3keycompany/*</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
-        </repository>
         <repository>
             <id>ossrh</id>
             <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>

@@ -6,7 +6,6 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -30,11 +29,9 @@ import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
@@ -116,17 +113,6 @@ public class AttributeEngine {
         }
 
         return searchFieldDataByGroupDtos;
-    }
-
-    public List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters) {
-        List<SearchFilterRequestDto> attributesFilters;
-        if (searchFilters == null || searchFilters.isEmpty() || (attributesFilters = searchFilters.stream().filter(f -> f.getFieldSource() == FilterFieldSource.CUSTOM || f.getFieldSource() == FilterFieldSource.META || f.getFieldSource() == FilterFieldSource.DATA).toList()).isEmpty()) {
-            return null;
-        }
-
-        final List<SearchFieldObject> searchFieldObjects = attributeDefinitionRepository.findDistinctAttributeSearchFieldsByResourceAndAttrType(resource, List.of(AttributeType.CUSTOM, AttributeType.META, AttributeType.DATA));
-        final Sql2PredicateConverter.CriteriaQueryDataObject criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryToSearchIntoAttributes(searchFieldObjects, attributesFilters, entityManager.getCriteriaBuilder(), resource);
-        return attributeContent2ObjectRepository.findUsingSecurityFilterByCustomCriteriaQuery(securityFilter, criteriaQueryDataObject.getRoot(), criteriaQueryDataObject.getCriteriaQuery(), criteriaQueryDataObject.getPredicate());
     }
 
     //endregion
@@ -262,7 +248,7 @@ public class AttributeEngine {
         boolean newCustomAttribute = attributeDefinition == null;
         if (newCustomAttribute) {
             attributeDefinition = new AttributeDefinition();
-            attributeDefinition.setUuid(customAttribute.getUuid());
+            attributeDefinition.setUuid(UUID.fromString(customAttribute.getUuid()));
             attributeDefinition.setName(customAttribute.getName());
             attributeDefinition.setType(AttributeType.CUSTOM);
             attributeDefinition.setAttributeUuid(attributeDefinition.getUuid());
@@ -378,6 +364,7 @@ public class AttributeEngine {
                 throw new AttributeException(String.format("Connector attribute content type changed to %s while stored attribute definition have content type %s", dataAttribute.getContentType().getLabel(), attributeDefinition.getContentType().getLabel()), dataAttribute.getUuid(), dataAttribute.getName(), dataAttribute.getType(), connectorUuid.toString());
             }
         } else {
+            logger.debug("Registering new data attribute with UUID {} and name {} for connector {}", dataAttribute.getUuid(), dataAttribute.getName(), connectorUuid);
             attributeDefinition = new AttributeDefinition();
             attributeDefinition.setConnectorUuid(connectorUuid);
             attributeDefinition.setAttributeUuid(UUID.fromString(dataAttribute.getUuid()));
@@ -418,6 +405,7 @@ public class AttributeEngine {
                 throw new AttributeException(String.format("Metadata attribute content type changed to %s while stored attribute definition have content type %s", metadataAttribute.getContentType().getLabel(), attributeDefinition.getContentType().getLabel()), metadataAttribute.getUuid(), metadataAttribute.getName(), metadataAttribute.getType(), connectorUuid == null ? null : connectorUuid.toString());
             }
         } else {
+            logger.debug("Registering new {} metadata attribute with UUID {} and name {} for connector {}", isGlobal ? "global" : "connector", metadataAttribute.getUuid(), metadataAttribute.getName(), connectorUuid);
             attributeDefinition = new AttributeDefinition();
             attributeDefinition.setConnectorUuid(connectorUuid);
             attributeDefinition.setAttributeUuid(UUID.fromString(metadataAttribute.getUuid()));

@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -8,24 +9,28 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.service.acme.AcmeConstants;
+import com.czertainly.core.service.cmp.CmpConstants;
 import com.czertainly.core.service.model.Securable;
 import com.czertainly.core.service.scep.impl.ScepServiceImpl;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
+import lombok.*;
+import org.hibernate.proxy.HibernateProxy;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
+@Getter
+@Setter
+@ToString
+@RequiredArgsConstructor
 @Entity
 @Table(name = "ra_profile")
 public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<RaProfileDto>, Securable, ObjectAccessControlMapper<NameAndUuidDto> {
@@ -41,6 +46,8 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "authority_instance_ref_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    @JsonBackReference
     private AuthorityInstanceReference authorityInstanceReference;
 
     @Column(name = "authority_instance_ref_uuid")
@@ -52,14 +59,16 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "authority_certificate_uuid")
     private UUID authorityCertificateUuid;
 
-    @ManyToMany(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @ManyToMany(cascade = {CascadeType.DETACH, CascadeType.MERGE, CascadeType.PERSIST, CascadeType.REFRESH})
     @JoinTable(
             name = "ra_profile_2_compliance_profile",
             joinColumns = @JoinColumn(name = "ra_profile_uuid"),
             inverseJoinColumns = @JoinColumn(name = "compliance_profile_uuid"))
+    @ToString.Exclude
     private Set<ComplianceProfile> complianceProfiles;
 
     @OneToOne(mappedBy = "raProfile", fetch = FetchType.LAZY)
+    @ToString.Exclude
     private RaProfileProtocolAttribute protocolAttribute;
 
     /**
@@ -67,6 +76,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
      */
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "acme_profile_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
     private AcmeProfile acmeProfile;
 
     @Column(name = "acme_profile_uuid")
@@ -74,10 +84,22 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "scep_profile_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
     private ScepProfile scepProfile;
 
     @Column(name = "scep_profile_uuid")
     private UUID scepProfileUuid;
+
+    /**
+     * CMP protocol related objects for RA Profile
+     */
+    @OneToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cmp_profile_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private CmpProfile cmpProfile;
+
+    @Column(name = "cmp_profile_uuid")
+    private UUID cmpProfileUuid;
 
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
@@ -110,6 +132,34 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         return dto;
     }
 
+    public RaProfileCmpDetailResponseDto mapToCmpDto() {
+        RaProfileCmpDetailResponseDto dto = new RaProfileCmpDetailResponseDto();
+        if (cmpProfile == null) {
+            dto.setCmpAvailable(false);
+            return dto;
+        }
+        dto.setName(cmpProfile.getName());
+        dto.setUuid(cmpProfile.getUuid().toString());
+        dto.setIssueCertificateAttributes(
+                AttributeDefinitionUtils.getResponseAttributes(
+                        AttributeDefinitionUtils.deserialize(
+                                protocolAttribute.getCmpIssueCertificateAttributes(),
+                                DataAttribute.class)
+                )
+        );
+        dto.setRevokeCertificateAttributes(
+                AttributeDefinitionUtils.getResponseAttributes(
+                        AttributeDefinitionUtils.deserialize(
+                                protocolAttribute.getCmpRevokeCertificateAttributes(),
+                                DataAttribute.class)
+                )
+        );
+        dto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
+                + CmpConstants.CMP_BASE_CONTEXT + "/raProfile/" + name);
+        dto.setCmpAvailable(true);
+        return dto;
+    }
+
     public RaProfileDto mapToDtoSimple() {
         RaProfileDto dto = new RaProfileDto();
         dto.setUuid(this.uuid.toString());
@@ -120,6 +170,9 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         if (scepProfile != null) {
             enabledProtocols.add("SCEP");
+        }
+        if (cmpProfile != null) {
+            enabledProtocols.add("CMP");
         }
         dto.setEnabledProtocols(enabledProtocols);
         dto.setDescription(this.description);
@@ -170,63 +223,11 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         return new NameAndUuidDto(uuid.toString(), name);
     }
 
-    public String getName() {
-        return name;
-    }
-
-    public void setName(String name) {
-        this.name = name;
-    }
-
-    public String getDescription() {
-        return description;
-    }
-
-    public void setDescription(String description) {
-        this.description = description;
-    }
-
-    public Boolean getEnabled() {
-        return enabled;
-    }
-
-    public void setEnabled(Boolean enabled) {
-        this.enabled = enabled;
-    }
-
-    public String getAuthorityInstanceName() {
-        return authorityInstanceName;
-    }
-
-    public void setAuthorityInstanceName(String authorityInstanceName) {
-        this.authorityInstanceName = authorityInstanceName;
-    }
-
-    public AuthorityInstanceReference getAuthorityInstanceReference() {
-        return authorityInstanceReference;
-    }
-
     public void setAuthorityInstanceReference(AuthorityInstanceReference authorityInstanceReference) {
         this.authorityInstanceReference = authorityInstanceReference;
         if (authorityInstanceReference != null)
             this.authorityInstanceReferenceUuid = authorityInstanceReference.getUuid();
         else this.authorityInstanceReferenceUuid = null;
-    }
-
-    public UUID getAuthorityInstanceReferenceUuid() {
-        return authorityInstanceReferenceUuid;
-    }
-
-    public void setAuthorityInstanceReferenceUuid(UUID authorityInstanceReferenceUuid) {
-        this.authorityInstanceReferenceUuid = authorityInstanceReferenceUuid;
-    }
-
-    public void setAuthorityInstanceReferenceUuid(String authorityInstanceReferenceUuid) {
-        this.authorityInstanceReferenceUuid = UUID.fromString(authorityInstanceReferenceUuid);
-    }
-
-    public AcmeProfile getAcmeProfile() {
-        return acmeProfile;
     }
 
     public void setAcmeProfile(AcmeProfile acmeProfile) {
@@ -235,22 +236,16 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         else this.acmeProfileUuid = null;
     }
 
-    public ScepProfile getScepProfile() {
-        return scepProfile;
-    }
-
     public void setScepProfile(ScepProfile scepProfile) {
         this.scepProfile = scepProfile;
         if (scepProfile != null) this.scepProfileUuid = scepProfile.getUuid();
         else this.scepProfileUuid = null;
     }
 
-    public Set<ComplianceProfile> getComplianceProfiles() {
-        return complianceProfiles;
-    }
-
-    public void setComplianceProfiles(Set<ComplianceProfile> complianceProfiles) {
-        this.complianceProfiles = complianceProfiles;
+    public void setCmpProfile(CmpProfile cmpProfile) {
+        this.cmpProfile = cmpProfile;
+        if (cmpProfile != null) this.cmpProfileUuid = cmpProfile.getUuid();
+        else this.cmpProfileUuid = null;
     }
 
     public RaProfileProtocolAttribute getProtocolAttribute() {
@@ -260,24 +255,19 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         return protocolAttribute;
     }
 
-    public void setProtocolAttribute(RaProfileProtocolAttribute protocolAttribute) {
-        this.protocolAttribute = protocolAttribute;
-    }
-
-    public UUID getAuthorityCertificateUuid() {
-        return authorityCertificateUuid;
-    }
-
-    public void setAuthorityCertificateUuid(UUID authorityCertificateUuid) {
-        this.authorityCertificateUuid = authorityCertificateUuid;
+    @Override
+    public final boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null) return false;
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        if (thisEffectiveClass != oEffectiveClass) return false;
+        RaProfile raProfile = (RaProfile) o;
+        return getUuid() != null && Objects.equals(getUuid(), raProfile.getUuid());
     }
 
     @Override
-    public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("uuid", uuid)
-                .append("name", name)
-                .append("enabled", enabled)
-                .toString();
+    public final int hashCode() {
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }
