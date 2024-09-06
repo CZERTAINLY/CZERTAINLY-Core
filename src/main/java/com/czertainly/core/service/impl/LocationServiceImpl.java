@@ -25,9 +25,9 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
@@ -55,7 +55,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -75,7 +74,6 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.function.BiFunction;
 
 @Service
 @Transactional

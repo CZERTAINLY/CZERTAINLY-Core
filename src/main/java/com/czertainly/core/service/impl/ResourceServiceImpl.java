@@ -18,8 +18,8 @@ import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -299,7 +299,7 @@ public class ResourceServiceImpl implements ResourceService {
                     fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
                     // Filter field has values of all possible values of a property
                 else {
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, Sql2PredicateConverter.getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource, entityManager).getResultList()));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, FilterPredicatesBuilder.getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource, entityManager).getResultList()));
                 }
             }
         }

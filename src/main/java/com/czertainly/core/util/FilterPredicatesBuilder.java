@@ -3,6 +3,7 @@ package com.czertainly.core.util;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -11,9 +12,12 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -282,5 +286,73 @@ public class FilterPredicatesBuilder {
     private static Object findEnumByCustomValue(Object valueObject, final Class<? extends IPlatformEnum> enumClass) {
         Optional<? extends IPlatformEnum> enumItem = Arrays.stream(enumClass.getEnumConstants()).filter(enumValue -> enumValue.getCode().equals(valueObject.toString())).findFirst();
         return enumItem.orElse(null);
+    }
+
+    public static Join prepareJoin(final Root root, final String joinPath) {
+        final StringTokenizer stz = new StringTokenizer(joinPath, ".");
+        Join join = root.join(stz.nextToken(), JoinType.LEFT);
+        while (stz.hasMoreTokens()) {
+            join = join.join(stz.nextToken(), JoinType.LEFT);
+        }
+        return join;
+    }
+
+    public static Expression<?> prepareExpression(final From from, final String attributeName) {
+        final StringTokenizer stz = new StringTokenizer(attributeName, ".");
+        Path path = from.get(stz.nextToken());
+        while (stz.hasMoreTokens()) {
+            path = path.get(stz.nextToken());
+        }
+        return path;
+    }
+
+    public static CriteriaDelete<AuditLog> prepareQueryForAuditLog(AuditLogFilter filter, CriteriaBuilder criteriaBuilder) {
+        CriteriaDelete<AuditLog> criteriaQuery = criteriaBuilder.createCriteriaDelete(AuditLog.class);
+        final Root<AuditLog> root = criteriaQuery.from(AuditLog.class);
+        List<Predicate> rootPredicates = new ArrayList<>();
+
+        if (StringUtils.isNotBlank(filter.getAuthor())) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("author"), filter.getAuthor()));
+        }
+
+        if (filter.getCreatedFrom() != null) {
+            rootPredicates.add(criteriaBuilder.greaterThan(root.get("created"), filter.getCreatedFrom()));
+        }
+        if (filter.getCreatedTo() != null) {
+            rootPredicates.add(criteriaBuilder.lessThan(root.get("created"), filter.getCreatedFrom()));
+        }
+
+        if (filter.getOperation() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("operation"), filter.getOperation()));
+        }
+
+        if (filter.getOperationStatus() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("operationStatus"), filter.getOperationStatus()));
+        }
+
+        if (filter.getAffected() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("affected"), filter.getAffected()));
+        }
+
+        if (filter.getOrigination() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("origination"), filter.getOrigination()));
+        }
+
+        if (StringUtils.isNotBlank(filter.getObjectIdentifier())) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("objectIdentifier"), filter.getObjectIdentifier()));
+        }
+
+        criteriaQuery.where(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
+        return criteriaQuery;
+    }
+
+    public static Query getAllValuesOfProperty(String property, Resource resource, EntityManager entityManager) {
+        Class resourceClass = ResourceToClass.getClassByResource(resource);
+        return entityManager.createQuery("SELECT DISTINCT " + property + " FROM " + resourceClass.getName());
+    }
+
+    public static Predicate constructFilterForJobHistory(final CriteriaBuilder cb, final Root<ScheduledJobHistory> root, final UUID scheduledJobUuid) {
+        final Expression<?> expressionPath = prepareExpression(root, "scheduledJobUuid");
+        return cb.equal(expressionPath, scheduledJobUuid);
     }
 }
