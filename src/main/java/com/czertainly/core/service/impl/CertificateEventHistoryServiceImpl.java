@@ -1,17 +1,14 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateEventHistory;
 import com.czertainly.core.dao.repository.CertificateEventHistoryRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.SearchService;
 import com.czertainly.core.util.MetaDefinitions;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,7 +17,6 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
@@ -36,8 +32,6 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     private CertificateRepository certificateRepository;
     @Autowired
     private CertificateEventHistoryRepository certificateEventHistoryRepository;
-    @Autowired
-    private SearchService searchService;
 
     @Override
     public void addEventHistory(UUID certificateUuid, CertificateEvent event, CertificateEventStatus status, String message, HashMap<String, Object> additionalInformation) {
@@ -79,14 +73,5 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
         logger.info("Inserted {} record into the database", certificateEventHistories.size());
     }
 
-    @Override
-    @Async
-    public void addEventHistoryForRequest(List<SearchFilterRequestDto> filters, String entity, List<SearchFieldDataDto> originalJson, CertificateEvent event, CertificateEventStatus status, String message) {
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        for (Certificate certificate : (List<Certificate>) searchService.completeSearchQueryExecutor(filters, "Certificate", originalJson)) {
-            batchHistoryOperationList.add(getEventHistory(event, status, message, "", certificate));
-        }
-        asyncSaveAllInBatch(batchHistoryOperationList);
-    }
 
 }
