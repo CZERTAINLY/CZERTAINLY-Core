@@ -33,6 +33,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -423,32 +424,32 @@ public class CertificateServiceImpl implements CertificateService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CERT_LOCATION_NAME, locationRepository.findAll().stream().map(Location::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.EXPIRES),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.NOT_BEFORE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.TRUSTED_CA)
+                SearchHelper.prepareSearch(FilterField.COMMON_NAME),
+                SearchHelper.prepareSearch(FilterField.SERIAL_NUMBER),
+                SearchHelper.prepareSearch(FilterField.ISSUER_SERIAL_NUMBER),
+                SearchHelper.prepareSearch(FilterField.RA_PROFILE_NAME, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.GROUP_NAME, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.CERT_LOCATION_NAME, locationRepository.findAll().stream().map(Location::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
+                SearchHelper.prepareSearch(FilterField.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.ISSUER_COMMON_NAME),
+                SearchHelper.prepareSearch(FilterField.FINGERPRINT),
+                SearchHelper.prepareSearch(FilterField.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
+                SearchHelper.prepareSearch(FilterField.NOT_AFTER),
+                SearchHelper.prepareSearch(FilterField.NOT_BEFORE),
+                SearchHelper.prepareSearch(FilterField.SUBJECTDN),
+                SearchHelper.prepareSearch(FilterField.ISSUERDN),
+                SearchHelper.prepareSearch(FilterField.SUBJECT_ALTERNATIVE_NAMES),
+                SearchHelper.prepareSearch(FilterField.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
+                SearchHelper.prepareSearch(FilterField.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
+                SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
+                SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
+                SearchHelper.prepareSearch(FilterField.TRUSTED_CA)
         );
 
         fields = new ArrayList<>(fields);

@@ -21,6 +21,7 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -288,9 +289,9 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.ENTITY, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_CONNECTOR_NAME, entityInstanceReferenceRepository.findDistinctConnectorName()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ENTITY_KIND, entityInstanceReferenceRepository.findDistinctKind())
+                SearchHelper.prepareSearch(FilterField.ENTITY_NAME),
+                SearchHelper.prepareSearch(FilterField.ENTITY_CONNECTOR_NAME, entityInstanceReferenceRepository.findDistinctConnectorName()),
+                SearchHelper.prepareSearch(FilterField.ENTITY_KIND, entityInstanceReferenceRepository.findDistinctKind())
         );
 
         fields = new ArrayList<>(fields);

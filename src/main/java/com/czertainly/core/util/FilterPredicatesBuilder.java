@@ -355,4 +355,16 @@ public class FilterPredicatesBuilder {
         final Expression<?> expressionPath = prepareExpression(root, "scheduledJobUuid");
         return cb.equal(expressionPath, scheduledJobUuid);
     }
+
+    public static String buildPathToProperty(FilterField filterField, boolean alreadyNested) {
+        StringBuilder pathToPropertyBuilder = new StringBuilder();
+        if (filterField.getJoinAttributes() != null && !alreadyNested) {
+            for (String property : filterField.getJoinAttributes().stream().map(Attribute::getName).toList()) {
+                pathToPropertyBuilder.append(property).append(".");
+            }
+        }
+
+        pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
+        return pathToPropertyBuilder.toString();
+    }
 }

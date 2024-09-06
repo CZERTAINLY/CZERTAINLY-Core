@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -22,6 +23,7 @@ import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
+import jakarta.persistence.metamodel.Attribute;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -282,24 +284,24 @@ public class ResourceServiceImpl implements ResourceService {
 
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource, settable);
 
-        List<SearchFieldNameEnum> enums = SearchFieldNameEnum.getEnumsForResource(resource);
+        List<FilterField> enums = FilterField.getEnumsForResource(resource);
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
-        for (SearchFieldNameEnum fieldEnum : enums) {
+        for (FilterField fieldEnum : enums) {
             // If getting only settable fields, skip not settable fields
             if (settable && !fieldEnum.isSettable()) continue;
             // Filter field has a single value, don't need to provide list
-            if (fieldEnum.getFieldTypeEnum() != SearchFieldTypeEnum.LIST)
+            if (fieldEnum.getType() != SearchFieldTypeEnum.LIST)
                 fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum));
             else {
                 // Filter field has values of an Enum
-                if (fieldEnum.getFieldProperty().getEnumClass() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getFieldProperty().getEnumClass().getEnumConstants()));
+                if (fieldEnum.getEnumClass() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
                 else if (fieldEnum.getFieldResource() != null)
                     fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
                     // Filter field has values of all possible values of a property
                 else {
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, FilterPredicatesBuilder.getAllValuesOfProperty(fieldEnum.getFieldProperty().getCode(), resource, entityManager).getResultList()));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(fieldEnum, false), resource, entityManager).getResultList()));
                 }
             }
         }

@@ -39,6 +39,7 @@ import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -1132,11 +1133,11 @@ public class LocationServiceImpl implements LocationService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.LOCATION, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENTITY_INSTANCE, locationRepository.findDistinctEntityInstanceName()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENABLED),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_KEY_MANAGEMENT)
+                SearchHelper.prepareSearch(FilterField.LOCATION_NAME),
+                SearchHelper.prepareSearch(FilterField.LOCATION_ENTITY_INSTANCE, locationRepository.findDistinctEntityInstanceName()),
+                SearchHelper.prepareSearch(FilterField.LOCATION_ENABLED),
+                SearchHelper.prepareSearch(FilterField.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
+                SearchHelper.prepareSearch(FilterField.LOCATION_SUPPORT_KEY_MANAGEMENT)
         );
 
         fields = new ArrayList<>(fields);

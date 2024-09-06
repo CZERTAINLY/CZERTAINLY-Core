@@ -33,6 +33,7 @@ import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.event.transaction.DiscoveryFinishedEvent;
@@ -615,13 +616,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.DISCOVERY, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CKI_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_STATUS, Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_START_TIME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_END_TIME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_TOTAL_CERT_DISCOVERED),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_CONNECTOR_NAME, discoveryRepository.findDistinctConnectorName()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.DISCOVERY_KIND)
+                SearchHelper.prepareSearch(FilterField.CKI_NAME),
+                SearchHelper.prepareSearch(FilterField.DISCOVERY_STATUS, Arrays.stream(DiscoveryStatus.values()).map(DiscoveryStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.DISCOVERY_START_TIME),
+                SearchHelper.prepareSearch(FilterField.DISCOVERY_END_TIME),
+                SearchHelper.prepareSearch(FilterField.DISCOVERY_TOTAL_CERT_DISCOVERED),
+                SearchHelper.prepareSearch(FilterField.DISCOVERY_CONNECTOR_NAME, discoveryRepository.findDistinctConnectorName()),
+                SearchHelper.prepareSearch(FilterField.DISCOVERY_KIND)
+
         );
 
         fields = new ArrayList<>(fields);

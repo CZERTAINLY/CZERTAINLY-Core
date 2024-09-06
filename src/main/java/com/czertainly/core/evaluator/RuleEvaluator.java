@@ -20,6 +20,7 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.metamodel.Attribute;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
@@ -270,20 +271,13 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
     private Object getPropertyValue(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
         boolean isNested = filterField.getJoinAttributes() != null;
-        StringBuilder pathToPropertyBuilder = new StringBuilder();
-        if (filterField.getJoinAttributes() != null && !alreadyNested) {
-            for (String property : filterField.getJoinAttributes().stream().map(Attribute::getName).toList()) {
-                pathToPropertyBuilder.append(property).append(".");
-            }
-        }
-
-        pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
+        String pathToProperty = FilterPredicatesBuilder.buildPathToProperty(filterField, alreadyNested);
 
         try {
             if (alreadyNested) {
-                return PropertyUtils.getProperty(object, pathToPropertyBuilder.toString());
+                return PropertyUtils.getProperty(object, pathToProperty);
             }
-            return PropertyUtils.getProperty(object, pathToPropertyBuilder.toString());
+            return PropertyUtils.getProperty(object, pathToProperty);
         } catch (NoSuchMethodException e) {
             if (!isNested || alreadyNested) {
                 throw e;

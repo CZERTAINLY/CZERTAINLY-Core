@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
@@ -17,20 +18,20 @@ public class SearchHelper {
 
     private static final String SEARCH_LABEL_TEMPLATE = "%s (%s)";
 
-    public static SearchFieldDataDto prepareSearch(final SearchFieldNameEnum fieldNameEnum) {
+    public static SearchFieldDataDto prepareSearch(final FilterField fieldNameEnum) {
         return prepareSearch(fieldNameEnum, null);
     }
 
-    public static SearchFieldDataDto prepareSearch(final SearchFieldNameEnum fieldNameEnum, final Object values) {
+    public static SearchFieldDataDto prepareSearch(final FilterField fieldNameEnum, final Object values) {
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
-        fieldDataDto.setFieldIdentifier(fieldNameEnum.getFieldProperty().name());
-        fieldDataDto.setFieldLabel(fieldNameEnum.getFieldLabel());
-        fieldDataDto.setMultiValue(fieldNameEnum.getFieldTypeEnum().isMultiValue());
-        fieldDataDto.setConditions(fieldNameEnum.getFieldTypeEnum().getFieldType() == FilterFieldType.BOOLEAN && fieldNameEnum.getFieldProperty().getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : fieldNameEnum.getFieldTypeEnum().getConditions());
-        fieldDataDto.setType(fieldNameEnum.getFieldTypeEnum().getFieldType());
+        fieldDataDto.setFieldIdentifier(fieldNameEnum.name());
+        fieldDataDto.setFieldLabel(fieldNameEnum.getLabel());
+        fieldDataDto.setMultiValue(fieldNameEnum.getType().isMultiValue());
+        fieldDataDto.setConditions(fieldNameEnum.getType().getFieldType() == FilterFieldType.BOOLEAN && fieldNameEnum.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : fieldNameEnum.getType().getConditions());
+        fieldDataDto.setType(fieldNameEnum.getType().getFieldType());
         fieldDataDto.setValue(values);
-        if (fieldNameEnum.getFieldProperty().getEnumClass() != null) {
-            fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(fieldNameEnum.getFieldProperty().getEnumClass()));
+        if (fieldNameEnum.getEnumClass() != null) {
+            fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(fieldNameEnum.getEnumClass()));
         }
 
         return fieldDataDto;
