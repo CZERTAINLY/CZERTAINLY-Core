@@ -18,7 +18,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Connector;
@@ -27,6 +26,7 @@ import com.czertainly.core.dao.entity.Location;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.EntityInstanceService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -144,7 +144,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testEntityByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.ENTITY_NAME.name(), FilterConditionOperator.EQUALS, "entity-ref-2"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_NAME.name(), FilterConditionOperator.EQUALS, "entity-ref-2"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(1, responseDto.getEntities().size());
     }
@@ -152,7 +152,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testEntityByConnectorName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.ENTITY_CONNECTOR_NAME.name(), FilterConditionOperator.CONTAINS, "Connector"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_CONNECTOR_NAME.name(), FilterConditionOperator.CONTAINS, "Connector"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(3, responseDto.getEntities().size());
     }
@@ -160,7 +160,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     @Test
     public void testEntityByKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.ENTITY_KIND.name(), FilterConditionOperator.CONTAINS, "test-kind"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_KIND.name(), FilterConditionOperator.CONTAINS, "test-kind"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(2, responseDto.getEntities().size());
     }

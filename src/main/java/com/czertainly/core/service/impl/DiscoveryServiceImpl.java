@@ -34,7 +34,6 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.event.transaction.DiscoveryFinishedEvent;
 import com.czertainly.core.event.transaction.DiscoveryProgressEvent;

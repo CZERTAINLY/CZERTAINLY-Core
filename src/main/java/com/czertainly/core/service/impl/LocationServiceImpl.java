@@ -40,7 +40,6 @@ import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;

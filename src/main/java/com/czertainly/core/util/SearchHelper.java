@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
 

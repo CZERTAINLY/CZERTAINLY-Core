@@ -34,7 +34,6 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.enums.SearchFieldNameEnum;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;

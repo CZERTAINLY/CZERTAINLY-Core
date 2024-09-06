@@ -4,8 +4,8 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.enums.FilterField;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -149,10 +149,10 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     @Test
     public void testCombinedFilters() {
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.META, SearchableFields.CKI_LENGTH, AttributeContentType.STRING, FilterConditionOperator.EQUALS, 1));
-        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, SearchableFields.SERIAL_NUMBER, AttributeContentType.INTEGER, FilterConditionOperator.NOT_EQUALS, "123"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, FilterField.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.META, FilterField.CKI_LENGTH, AttributeContentType.STRING, FilterConditionOperator.EQUALS, 1));
+        testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, FilterField.SERIAL_NUMBER, AttributeContentType.INTEGER, FilterConditionOperator.NOT_EQUALS, "123"));
 
         final SqmJunctionPredicate filterPredicate = (SqmJunctionPredicate) FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, testFilters);
         Assertions.assertEquals(4,(filterPredicate.getPredicates().size()));
@@ -172,25 +172,25 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         SearchFilterRequestDTODummy dummy = null;
         switch (condition) {
             case EQUALS ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.EQUALS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.EQUALS, TEST_VALUE);
             case NOT_EQUALS ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.NOT_EQUALS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_EQUALS, TEST_VALUE);
             case CONTAINS ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.CONTAINS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.CONTAINS, TEST_VALUE);
             case NOT_CONTAINS ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.NOT_CONTAINS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_CONTAINS, TEST_VALUE);
             case STARTS_WITH ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.STARTS_WITH, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.STARTS_WITH, TEST_VALUE);
             case ENDS_WITH ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.ENDS_WITH, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.ENDS_WITH, TEST_VALUE);
             case EMPTY ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.EMPTY, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.EMPTY, TEST_VALUE);
             case NOT_EMPTY ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.COMMON_NAME, FilterConditionOperator.NOT_EMPTY, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_EMPTY, TEST_VALUE);
             case GREATER ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.NOT_AFTER, FilterConditionOperator.GREATER, TEST_DATE_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_AFTER, FilterConditionOperator.GREATER, TEST_DATE_VALUE);
             case LESSER ->
-                    dummy = new SearchFilterRequestDTODummy(SearchableFields.NOT_BEFORE, FilterConditionOperator.LESSER, TEST_DATE_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_BEFORE, FilterConditionOperator.LESSER, TEST_DATE_VALUE);
         }
         return dummy;
     }
@@ -200,13 +200,13 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
 class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
 
-    private SearchableFields fieldTest;
+    private FilterField fieldTest;
     private FilterConditionOperator conditionTest;
     private Serializable valueTest;
     private FilterFieldSource filterFieldSource;
     private String fieldIdentifier;
 
-    public SearchFilterRequestDTODummy(SearchableFields fieldTest, FilterConditionOperator conditionTest, Serializable valueTest) {
+    public SearchFilterRequestDTODummy(FilterField fieldTest, FilterConditionOperator conditionTest, Serializable valueTest) {
         this.fieldTest = fieldTest;
         this.conditionTest = conditionTest;
         this.valueTest = valueTest;
@@ -214,7 +214,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         this.filterFieldSource = FilterFieldSource.PROPERTY;
     }
 
-    public SearchFilterRequestDTODummy(FilterFieldSource filterFieldSource, SearchableFields fieldTest, FilterConditionOperator conditionTest, Serializable valueTest) {
+    public SearchFilterRequestDTODummy(FilterFieldSource filterFieldSource, FilterField fieldTest, FilterConditionOperator conditionTest, Serializable valueTest) {
         this.filterFieldSource = filterFieldSource;
         this.fieldTest = fieldTest;
         this.conditionTest = conditionTest;
@@ -222,7 +222,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         this.fieldIdentifier = fieldTest.name();
     }
 
-    public SearchFilterRequestDTODummy(FilterFieldSource filterFieldSource, SearchableFields fieldTest, AttributeContentType attributeContentType, FilterConditionOperator conditionTest, Serializable valueTest) {
+    public SearchFilterRequestDTODummy(FilterFieldSource filterFieldSource, FilterField fieldTest, AttributeContentType attributeContentType, FilterConditionOperator conditionTest, Serializable valueTest) {
         this.filterFieldSource = filterFieldSource;
         this.fieldTest = fieldTest;
         this.conditionTest = conditionTest;
@@ -230,7 +230,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         this.fieldIdentifier = fieldTest.name() + "|" + attributeContentType.name();
     }
 
-    public SearchableFields getField() {
+    public FilterField getField() {
         return fieldTest;
     }
 
@@ -242,7 +242,7 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         return valueTest;
     }
 
-    public void setFieldTest(SearchableFields fieldTest) {
+    public void setFieldTest(FilterField fieldTest) {
         this.fieldTest = fieldTest;
         this.fieldIdentifier = fieldTest.name();
     }

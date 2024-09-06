@@ -6,7 +6,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.workflows.ExecutionItem;
 import com.czertainly.core.enums.FilterField;
