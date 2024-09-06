@@ -20,6 +20,7 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.converter.CertificateFormatConverter;
 import com.czertainly.core.util.converter.CertificateFormatEncodingConverter;
+import jakarta.transaction.NotSupportedException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;
@@ -81,7 +82,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
         certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
     }
 
@@ -100,9 +101,14 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
+    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException, NotSupportedException {
         BulkOperationResponse response = new BulkOperationResponse();
+        if (!request.getFilters().isEmpty() && (request.getUuids() == null || request.getUuids().isEmpty())) {
+            response.setMessage("Bulk delete of certificates by filters is not supported.");
+            response.setStatus(BulkOperationStatus.FAILED);
+            return response;
+        }
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
         response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
         response.setStatus(BulkOperationStatus.SUCCESS);
         return response;
