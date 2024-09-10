@@ -1,11 +1,30 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.certificate.CertificateResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.Group;
+import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.CertificateService;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -15,24 +34,46 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.predicate.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.io.Serializable;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.*;
+import java.util.stream.Collectors;
 
 /**
  * Tests for class {@link FilterPredicatesBuilder}
  */
 @SpringBootTest
-public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
+class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     @Autowired
     private EntityManager entityManager;
 
+    @Autowired
+    private AttributeService attributeService;
+
+    @Autowired
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    private CertificateService certificateService;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+
+    @Autowired
+    private GroupRepository groupRepository;
+
     private CriteriaBuilder criteriaBuilder;
+
+    private Certificate certificate1;
+    private Certificate certificate2;
+    private Certificate certificate3;
 
     private CriteriaQuery<Certificate> criteriaQuery;
 
@@ -41,15 +82,31 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     private final String TEST_VALUE = "test";
     private final String TEST_DATE_VALUE = "2022-01-01";
 
+    @DynamicPropertySource
+    static void authServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+    }
+
+
     @BeforeEach
-    public void prepare() {
+    public void prepare() throws AlreadyExistException, AttributeException, NotFoundException {
+
+        certificate1 = new Certificate();
+        certificate2 = new Certificate();
+        certificate3 = new Certificate();
+        certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3));
+
+        CustomAttributeDefinitionDetailDto booleanAttribute = createCustomAttribute("boolean", AttributeContentType.BOOLEAN);
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, booleanAttribute.getName(), List.of(new BooleanAttributeContent("ref", true)));
+
+
         criteriaBuilder = entityManager.getCriteriaBuilder();
         criteriaQuery = criteriaBuilder.createQuery(Certificate.class);
         root = criteriaQuery.from(Certificate.class);
     }
 
     @Test
-    public void testEqualsPredicate() {
+    void testEqualsPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.EQUALS)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmComparisonPredicate.class, predicateTest);
@@ -58,7 +115,7 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNotEqualsPredicate() {
+    void testNotEqualsPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.NOT_EQUALS)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmJunctionPredicate.class, predicateTest);
@@ -76,14 +133,14 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testContainsPredicate() {
+    void testContainsPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.CONTAINS)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         testLikePredicate(predicateTest, "%" + TEST_VALUE + "%");
     }
 
     @Test
-    public void testNotContainsPredicate() {
+    void testNotContainsPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.NOT_CONTAINS)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmJunctionPredicate.class, predicateTest);
@@ -101,21 +158,21 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testStartWithPredicate() {
+    void testStartWithPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.STARTS_WITH)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         testLikePredicate(predicateTest, TEST_VALUE + "%");
     }
 
     @Test
-    public void testEndWithPredicate() {
+    void testEndWithPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.ENDS_WITH)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         testLikePredicate(predicateTest, "%" + TEST_VALUE);
     }
 
     @Test
-    public void testEmptyPredicate() {
+    void testEmptyPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.EMPTY)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmNullnessPredicate.class, predicateTest);
@@ -123,7 +180,7 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNotEmptyPredicate() {
+    void testNotEmptyPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.NOT_EMPTY)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmNullnessPredicate.class, predicateTest);
@@ -131,7 +188,7 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGreaterPredicate() {
+    void testGreaterPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.GREATER)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertEquals(ComparisonOperator.GREATER_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
@@ -139,7 +196,7 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLesserPredicate() {
+    void testLesserPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.LESSER)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertEquals(ComparisonOperator.LESS_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
@@ -147,7 +204,7 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCombinedFilters() {
+    void testCombinedFilters() {
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, FilterField.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
@@ -155,7 +212,7 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.CUSTOM, FilterField.SERIAL_NUMBER, AttributeContentType.INTEGER, FilterConditionOperator.NOT_EQUALS, "123"));
 
         final SqmJunctionPredicate filterPredicate = (SqmJunctionPredicate) FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, testFilters);
-        Assertions.assertEquals(4,(filterPredicate.getPredicates().size()));
+        Assertions.assertEquals(4, (filterPredicate.getPredicates().size()));
 
         Assertions.assertInstanceOf(SqmExistsPredicate.class, filterPredicate.getPredicates().get(2));
         Assertions.assertInstanceOf(SqmExistsPredicate.class, filterPredicate.getPredicates().get(3));
@@ -163,10 +220,206 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
 
+    @Test
+    @Disabled("In process of being fixed")
+    void testBooleanAttribute() {
+        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.CUSTOM, "boolean|BOOLEAN", FilterConditionOperator.EQUALS, true);
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        searchRequestDto.setFilters(List.of(filterRequestDto));
+        CertificateResponseDto certificates = certificateService.listCertificates(new SecurityFilter(), searchRequestDto);
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), new HashSet<>(getUuidsFromListCertificatesResponse(certificates)));
+    }
+
+    @Test
+    void testFiltersOnGroups() throws NotFoundException {
+        Group group1 = new Group();
+        group1.setName("group 1");
+        Group group2 = new Group();
+        group2.setName("group 2");
+        groupRepository.saveAll(List.of(group1, group2));
+        certificateService.updateCertificateGroups(certificate1.getSecuredUuid(), Set.of(group1.getUuid()));
+        certificateService.updateCertificateGroups(certificate2.getSecuredUuid(), Set.of(group1.getUuid(), group2.getUuid()));
+
+        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.GROUP_NAME.name(), FilterConditionOperator.EQUALS, (Serializable) List.of("group 1"));
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        searchRequestDto.setFilters(List.of(filterRequestDto));
+        CertificateResponseDto certificates = certificateService.listCertificates(new SecurityFilter(), searchRequestDto);
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()),new HashSet<>(getUuidsFromListCertificatesResponse(certificates)));
+    }
+
+    @Test
+    void testFiltersOnOwners() throws NotFoundException {
+        WireMockServer mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"owner1\"}")
+        ));
+
+        certificateService.updateOwner(certificate1.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"owner2\"}")
+        ));
+
+        certificateService.updateOwner(certificate2.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
+
+        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OWNER.name(), FilterConditionOperator.EQUALS, (Serializable) List.of("owner1"));
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        searchRequestDto.setFilters(List.of(filterRequestDto));
+        CertificateResponseDto certificates = certificateService.listCertificates(new SecurityFilter(), searchRequestDto);
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificates));
+
+        SearchFilterRequestDto filterRequestDto2 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OWNER.name(), FilterConditionOperator.EQUALS, (Serializable) List.of("owner1", "owner2"));
+        SearchRequestDto searchRequestDto2 = new SearchRequestDto();
+        searchRequestDto2.setFilters(List.of(filterRequestDto2));
+        CertificateResponseDto certificates2 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto2);
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()),getUuidsFromListCertificatesResponse(certificates2));
+
+        SearchFilterRequestDto filterRequestDto3 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OWNER.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of("owner1"));
+        SearchRequestDto searchRequestDto3 = new SearchRequestDto();
+        searchRequestDto3.setFilters(List.of(filterRequestDto3));
+        CertificateResponseDto certificates3 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto3);
+        Assertions.assertEquals(Set.of(certificate3.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates3));
+
+        SearchFilterRequestDto filterRequestDto6 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OWNER.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of("owner1", "owner2"));
+        SearchRequestDto searchRequestDto6 = new SearchRequestDto();
+        searchRequestDto6.setFilters(List.of(filterRequestDto6));
+        CertificateResponseDto certificates6 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto6);
+        Assertions.assertEquals(Set.of(certificate3.getUuid()),getUuidsFromListCertificatesResponse(certificates6));
+
+        SearchFilterRequestDto filterRequestDto4 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OWNER.name(), FilterConditionOperator.EMPTY, null);
+        SearchRequestDto searchRequestDto4 = new SearchRequestDto();
+        searchRequestDto4.setFilters(List.of(filterRequestDto4));
+        CertificateResponseDto certificates4 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto4);
+        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificates4));
+
+        SearchFilterRequestDto filterRequestDto5 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OWNER.name(), FilterConditionOperator.NOT_EMPTY, null);
+        SearchRequestDto searchRequestDto5 = new SearchRequestDto();
+        searchRequestDto5.setFilters(List.of(filterRequestDto5));
+        CertificateResponseDto certificates5 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto5);
+        Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificates5));
+    }
+
+    @Test
+    void testStringProperty() {
+        certificate1.setCommonName("name1");
+        certificate2.setCommonName("name2");
+
+        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.EQUALS, "name1");
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        searchRequestDto.setFilters(List.of(filterRequestDto));
+        CertificateResponseDto certificates = certificateService.listCertificates(new SecurityFilter(), searchRequestDto);
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificates));
+
+        SearchFilterRequestDto filterRequestDto2 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.CONTAINS, "name");
+        SearchRequestDto searchRequestDto2 = new SearchRequestDto();
+        searchRequestDto2.setFilters(List.of(filterRequestDto2));
+        CertificateResponseDto certificates2 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto2);
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates2));
+
+        SearchFilterRequestDto filterRequestDto3 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.NOT_CONTAINS, "1");
+        SearchRequestDto searchRequestDto3 = new SearchRequestDto();
+        searchRequestDto3.setFilters(List.of(filterRequestDto3));
+        CertificateResponseDto certificates3 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto3);
+        Assertions.assertEquals(Set.of(certificate3.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates3));
+
+        SearchFilterRequestDto filterRequestDto4 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.NOT_EQUALS, "name1");
+        SearchRequestDto searchRequestDto4 = new SearchRequestDto();
+        searchRequestDto4.setFilters(List.of(filterRequestDto4));
+        CertificateResponseDto certificates4 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto4);
+        Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificates4));
+
+        SearchFilterRequestDto filterRequestDto5 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.EMPTY, null);
+        SearchRequestDto searchRequestDto5 = new SearchRequestDto();
+        searchRequestDto5.setFilters(List.of(filterRequestDto5));
+        CertificateResponseDto certificates5 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto5);
+        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificates5));
+
+        SearchFilterRequestDto filterRequestDto6 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.NOT_EMPTY, null);
+        SearchRequestDto searchRequestDto6 = new SearchRequestDto();
+        searchRequestDto6.setFilters(List.of(filterRequestDto6));
+        CertificateResponseDto certificates6 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto6);
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates6));
+
+        SearchFilterRequestDto filterRequestDto7 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.STARTS_WITH, "n");
+        SearchRequestDto searchRequestDto7 = new SearchRequestDto();
+        searchRequestDto7.setFilters(List.of(filterRequestDto7));
+        CertificateResponseDto certificates7 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto7);
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates7));
+
+        SearchFilterRequestDto filterRequestDto8 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.ENDS_WITH, "2");
+        SearchRequestDto searchRequestDto8 = new SearchRequestDto();
+        searchRequestDto8.setFilters(List.of(filterRequestDto8));
+        CertificateResponseDto certificates8 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto8);
+        Assertions.assertEquals(Set.of(certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates8));
+
+    }
+
+    @Test
+    void testEnumProperty() {
+        certificate1.setState(CertificateState.FAILED);
+        certificate2.setState(CertificateState.REVOKED);
+
+        SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateState.FAILED.getCode()));
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        searchRequestDto.setFilters(List.of(filterRequestDto));
+        CertificateResponseDto certificates = certificateService.listCertificates(new SecurityFilter(), searchRequestDto);
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificates));
+
+        SearchFilterRequestDto filterRequestDto2 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateState.FAILED.getCode(), CertificateState.REVOKED.getCode()));
+        SearchRequestDto searchRequestDto2 = new SearchRequestDto();
+        searchRequestDto2.setFilters(List.of(filterRequestDto2));
+        CertificateResponseDto certificates2 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto2);
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()),getUuidsFromListCertificatesResponse(certificates2));
+
+        SearchFilterRequestDto filterRequestDto3 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(CertificateState.FAILED.getCode()));
+        SearchRequestDto searchRequestDto3 = new SearchRequestDto();
+        searchRequestDto3.setFilters(List.of(filterRequestDto3));
+        CertificateResponseDto certificates3 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto3);
+        Assertions.assertEquals(Set.of(certificate3.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificates3));
+
+        SearchFilterRequestDto filterRequestDto6 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(CertificateState.FAILED.getCode(), CertificateState.REVOKED.getCode()));
+        SearchRequestDto searchRequestDto6 = new SearchRequestDto();
+        searchRequestDto6.setFilters(List.of(filterRequestDto6));
+        CertificateResponseDto certificates6 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto6);
+        Assertions.assertEquals(Set.of(certificate3.getUuid()),getUuidsFromListCertificatesResponse(certificates6));
+
+        SearchFilterRequestDto filterRequestDto4 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.EMPTY, null);
+        SearchRequestDto searchRequestDto4 = new SearchRequestDto();
+        searchRequestDto4.setFilters(List.of(filterRequestDto4));
+        CertificateResponseDto certificates4 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto4);
+        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificates4));
+
+        SearchFilterRequestDto filterRequestDto5 = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.NOT_EMPTY, null);
+        SearchRequestDto searchRequestDto5 = new SearchRequestDto();
+        searchRequestDto5.setFilters(List.of(filterRequestDto5));
+        CertificateResponseDto certificates5 = certificateService.listCertificates(new SecurityFilter(), searchRequestDto5);
+        Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificates5));
+
+    }
+
+    @Test
+    void testDateProperty() {
+        certificate1.setNotAfter(new Date());
+
+
+
+
+    }
+
+
+    private Set<UUID> getUuidsFromListCertificatesResponse(CertificateResponseDto certificateResponseDto) {
+        return certificateResponseDto.getCertificates().stream().map(c -> UUID.fromString(c.getUuid())).collect(Collectors.toSet());
+    }
+
+
     private void testLikePredicate(final Predicate predicate, final String value) {
         Assertions.assertInstanceOf(SqmLikePredicate.class, predicate);
         Assertions.assertEquals(value, ((SqmLikePredicate) predicate).getPattern().toHqlString());
     }
+
 
     private SearchFilterRequestDTODummy prepareDummyFilterRequest(final FilterConditionOperator condition) {
         SearchFilterRequestDTODummy dummy = null;
@@ -193,6 +446,16 @@ public class FilterPredicatesBuilderTest extends BaseSpringBootTest {
                     dummy = new SearchFilterRequestDTODummy(FilterField.NOT_BEFORE, FilterConditionOperator.LESSER, TEST_DATE_VALUE);
         }
         return dummy;
+    }
+
+    private CustomAttributeDefinitionDetailDto createCustomAttribute(String name, AttributeContentType contentType) throws AlreadyExistException, AttributeException {
+        CustomAttributeCreateRequestDto customAttributeRequest = new CustomAttributeCreateRequestDto();
+        customAttributeRequest.setName(name);
+        customAttributeRequest.setLabel(name);
+        customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
+        customAttributeRequest.setContentType(contentType);
+
+        return attributeService.createCustomAttribute(customAttributeRequest);
     }
 
 
