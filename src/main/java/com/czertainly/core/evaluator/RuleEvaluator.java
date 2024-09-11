@@ -129,16 +129,6 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
                 throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
             }
-//            // Determine field type from field identifier using Searchable field enum
-//            SearchFieldNameEnum propertyEnum;
-//            try {
-//                propertyEnum = SearchFieldNameEnum.getEnumBySearchableFields(field);
-//            } catch (Exception e) {
-//                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
-//            }
-//            if (propertyEnum == null) {
-//                throw new RuleException("Unknown property field identifier: " + fieldIdentifier);
-//            }
 
             FilterFieldType fieldType = field.getType().getFieldType();
             // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied

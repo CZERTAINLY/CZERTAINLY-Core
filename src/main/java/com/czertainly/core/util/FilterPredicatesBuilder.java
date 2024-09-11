@@ -358,12 +358,15 @@ public class FilterPredicatesBuilder {
 
     public static String buildPathToProperty(FilterField filterField, boolean alreadyNested) {
         StringBuilder pathToPropertyBuilder = new StringBuilder();
-        if (filterField.getJoinAttributes() != null && !alreadyNested) {
-            for (String property : filterField.getJoinAttributes().stream().map(Attribute::getName).toList()) {
-                pathToPropertyBuilder.append(property).append(".");
+        if (filterField.getJoinAttributes() != null) {
+            List<String> joinAttributes = new ArrayList<>(filterField.getJoinAttributes().stream().map(Attribute::getName).toList());
+            if (alreadyNested) joinAttributes.removeFirst();
+            if (!joinAttributes.isEmpty()) {
+                for (String property : joinAttributes) {
+                    pathToPropertyBuilder.append(property).append(".");
+                }
             }
         }
-
         pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
         return pathToPropertyBuilder.toString();
     }

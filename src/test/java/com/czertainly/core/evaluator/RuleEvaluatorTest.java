@@ -83,6 +83,12 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private ResourceObjectAssociationService associationService;
 
+    @Autowired
+    private LocationRepository locationRepository;
+
+    @Autowired
+    private CertificateLocationRepository certificateLocationRepository;
+
     private Certificate certificate;
 
     private ConditionItem condition;
@@ -164,6 +170,21 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(true);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        Location location = new Location();
+        location.setName("loc");
+        locationRepository.save(location);
+        CertificateLocation certificateLocation = new CertificateLocation();
+        certificateLocation.setLocation(location);
+        certificateLocation.setCertificate(certificate);
+        certificateLocationRepository.save(certificateLocation);
+        certificate.setLocations(new HashSet<>(List.of(certificateLocation)));
+        condition.setFieldIdentifier(FilterField.CERT_LOCATION_NAME.name());
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue("loc");
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+
     }
 
     @Test
