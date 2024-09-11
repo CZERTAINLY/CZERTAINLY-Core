@@ -1,11 +1,9 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateEventHistory;
 

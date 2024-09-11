@@ -20,7 +20,6 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.converter.CertificateFormatConverter;
 import com.czertainly.core.util.converter.CertificateFormatEncodingConverter;
-import jakarta.transaction.NotSupportedException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.WebDataBinder;

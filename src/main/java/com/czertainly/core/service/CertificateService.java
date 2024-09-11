@@ -16,7 +16,6 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import jakarta.transaction.NotSupportedException;
 
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
