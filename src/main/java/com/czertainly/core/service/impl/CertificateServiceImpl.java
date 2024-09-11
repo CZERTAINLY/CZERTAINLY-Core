@@ -1570,7 +1570,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
 
         // if there is no change, do not update and save request to Auth service
-        if ((ownerUuid == null && certificate.getOwner() == null) || (ownerUuid != null && certificate.getOwner() != null) && certificate.getOwner().getUuid().equals(ownerUuid)) {
+        if ((ownerUuid == null && certificate.getOwner() == null) || (ownerUuid != null && certificate.getOwner() != null) && certificate.getOwner().getUuid().equals(UUID.fromString(ownerUuid))) {
             return;
         }
 

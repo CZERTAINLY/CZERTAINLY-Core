@@ -75,7 +75,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
     private void mergeDuplicateCertificates(Context context) throws SQLException {
         ResultSet duplicateCertificatesGrouped;
         try (final Statement select = context.getConnection().createStatement()) {
-            duplicateCertificatesGrouped = select.executeQuery("SELECT STRING_AGG((uuid::text), ',' ORDER BY i_cre ASC) AS uuids FROM certificate GROUP BY fingerprint HAVING COUNT(uuid) > 1;");
+            duplicateCertificatesGrouped = select.executeQuery("SELECT STRING_AGG((uuid::text), ',' ORDER BY i_cre ASC) AS uuids FROM certificate WHERE fingerprint IS NOT NULL GROUP BY fingerprint HAVING COUNT(uuid) > 1;");
 
             String updateGroupsQuery = "UPDATE group_association SET object_uuid = ? WHERE resource = 'CERTIFICATE' AND object_uuid::text = ANY (string_to_array(?, ',')) AND group_uuid " +
                     "NOT IN (SELECT group_uuid FROM group_association WHERE object_uuid = ? );";
@@ -92,6 +92,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
             String deleteCrlsQuery = "DELETE FROM crl WHERE ca_certificate_uuid::text = ANY (string_to_array(?, ',')) AND ca_certificate_uuid != ?;";
             String updateScepProfilesQuery = "UPDATE scep_profile SET ca_certificate_uuid = ? WHERE ca_certificate_uuid::text = ANY (string_to_array(?, ','));";
             String deleteHistoryQuery = "DELETE FROM certificate_event_history WHERE certificate_uuid::text = ANY (string_to_array(?, ',')) AND certificate_uuid != ?;";
+            String deleteApprovalRecipientsQuery = "DELETE FROM approval_recipient WHERE approval_uuid IN (SELECT uuid FROM approval WHERE object_uuid != ? AND resource = 'CERTIFICATE' AND object_uuid::text = ANY (string_to_array(?, ',')));";
             String deleteApprovalsQuery = "DELETE FROM approval WHERE object_uuid != ? AND resource = 'CERTIFICATE' AND object_uuid::text = ANY (string_to_array(?, ','));";
             String updateUserUuidQuery = "UPDATE certificate SET user_uuid = ( SELECT user_uuid FROM certificate c WHERE uuid::text = ANY (string_to_array(?, ',')) " +
                     "AND user_uuid IS NOT NULL ORDER BY c.i_cre ASC LIMIT 1) WHERE uuid = ?;";
@@ -110,10 +111,11 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
                  PreparedStatement deleteCrlsPs = createPreparedStatement(context, deleteCrlsQuery);
                  PreparedStatement updateScepProfiles = createPreparedStatement(context, updateScepProfilesQuery);
                  PreparedStatement deleteHistoryPs = createPreparedStatement(context, deleteHistoryQuery);
+                 PreparedStatement deleteApprovalRecipientsPs = createPreparedStatement(context, deleteApprovalRecipientsQuery);
                  PreparedStatement deleteApprovalsPs = createPreparedStatement(context, deleteApprovalsQuery);
                  PreparedStatement updateUserUuidPs = createPreparedStatement(context, updateUserUuidQuery);
                  PreparedStatement deleteDuplicatesPs = createPreparedStatement(context, deleteDuplicatesQuery);
-                 PreparedStatement deleteCertificateContentsPs = createPreparedStatement(context, deleteCertificateContentsQuery);
+                 PreparedStatement deleteCertificateContentsPs = createPreparedStatement(context, deleteCertificateContentsQuery)
             ) {
 
                 while (duplicateCertificatesGrouped.next()) {
@@ -155,6 +157,9 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
 
                     handlePreparedStatement(duplicateCertificatesGroupedString, certificateToKeepUuid, deleteHistoryPs);
 
+                    deleteApprovalRecipientsPs.setObject(1, certificateToKeepUuid, Types.OTHER);
+                    deleteApprovalRecipientsPs.setString(2, duplicateCertificatesGroupedString);
+                    deleteApprovalRecipientsPs.addBatch();
                     deleteApprovalsPs.setObject(1, certificateToKeepUuid, Types.OTHER);
                     deleteApprovalsPs.setString(2, duplicateCertificatesGroupedString);
                     deleteApprovalsPs.addBatch();
@@ -193,6 +198,7 @@ public class V202408231055__DuplicateCertificates extends BaseJavaMigration {
                 deleteHistoryPs.executeBatch();
                 logger.debug("Certificate event history of duplicate certificates has been deleted.");
 
+                deleteApprovalRecipientsPs.executeBatch();
                 deleteApprovalsPs.executeBatch();
                 logger.debug("Approvals of duplicate certificates have been deleted.");
 
