@@ -72,8 +72,8 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(UniquelyIdentified_.uuid.getName())));
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
-            Expression attributeContentExpression = criteriaBuilder.function("jsonb_extract_path_text", String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
-            CriteriaBuilder.SimpleCase contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
+            Expression<String> attributeContentExpression = criteriaBuilder.function("jsonb_extract_path_text", String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
+            CriteriaBuilder.SimpleCase<AttributeContentType, Object> contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
 
             if (castedAttributeContentData.contains(contentType)) {
                 contentTypeCaseExpression.when(contentType, attributeContentExpression.as(contentType.getContentDataClass())).otherwise(criteriaBuilder.nullLiteral(contentType.getContentDataClass()));
