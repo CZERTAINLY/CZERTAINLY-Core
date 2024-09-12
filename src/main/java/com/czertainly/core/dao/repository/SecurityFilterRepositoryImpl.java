@@ -3,14 +3,14 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.AggregateResultDto;
+import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
 import jakarta.persistence.criteria.*;
@@ -241,8 +241,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 try {
                     NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
                     String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "cryptographicKey.owner" : "owner";
-                    Join fromOwner = Sql2PredicateConverter.prepareJoin(root, ownerAttributePath);
-                    combinedObjectAccessPredicates.add(cb.equal(Sql2PredicateConverter.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
+                    Join fromOwner = FilterPredicatesBuilder.prepareJoin(root, ownerAttributePath);
+                    combinedObjectAccessPredicates.add(cb.equal(FilterPredicatesBuilder.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
                 } catch (ValidationException e) {
                     // cannot apply filter predicate for anonymous user
                 }
@@ -266,14 +266,14 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         if (resourceFilter != null) {
             From from = root;
             if (attributeName.contains(".")) {
-                from = Sql2PredicateConverter.prepareJoin(root, attributeName.substring(0, attributeName.lastIndexOf(".")));
+                from = FilterPredicatesBuilder.prepareJoin(root, attributeName.substring(0, attributeName.lastIndexOf(".")));
                 attributeName = attributeName.substring(attributeName.lastIndexOf(".") + 1);
             }
             if (resourceFilter.areOnlySpecificObjectsAllowed()) {
-                predicate = Sql2PredicateConverter.prepareExpression(from, attributeName).in(resourceFilter.getAllowedObjects());
+                predicate = FilterPredicatesBuilder.prepareExpression(from, attributeName).in(resourceFilter.getAllowedObjects());
             } else {
                 if (!resourceFilter.getForbiddenObjects().isEmpty()) {
-                    predicate = Sql2PredicateConverter.prepareExpression(from, attributeName).in(resourceFilter.getForbiddenObjects()).not();
+                    predicate = FilterPredicatesBuilder.prepareExpression(from, attributeName).in(resourceFilter.getForbiddenObjects()).not();
                 }
             }
         }

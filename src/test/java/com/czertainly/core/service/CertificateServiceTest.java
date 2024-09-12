@@ -26,6 +26,7 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import jakarta.transaction.NotSupportedException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -384,7 +385,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     @Disabled("Necessary to resolve handling non transactional method inside transactional test. Objects stored in setUp method are not available since transaction will be suspended in bulk delete.")
-    public void testBulkRemove() throws NotFoundException {
+    public void testBulkRemove() throws NotFoundException, NotSupportedException {
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(certificate.getUuid().toString()));
 

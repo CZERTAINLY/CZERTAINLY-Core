@@ -458,6 +458,17 @@ public class ExceptionHandlingAdvice {
         return ErrorMessageDto.getInstance(ex.getMessage() + cause);
     }
 
+    /**
+     * Handler for {@link NotSupportedException}.
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(NotSupportedException.class)
+    @ResponseStatus(HttpStatus.NOT_IMPLEMENTED)
+    public ErrorMessageDto handleTokenInstanceException(NotSupportedException ex) {
+        LOG.debug("HTTP 501: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
 
     /**
      * Handler for {@link Exception}.
