@@ -21,7 +21,6 @@ import jakarta.persistence.metamodel.PluralAttribute;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
-import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
@@ -30,6 +29,10 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class FilterPredicatesBuilder {
+
+    private FilterPredicatesBuilder() {
+        throw new IllegalStateException("Static utility class");
+    }
 
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
 
@@ -87,12 +90,7 @@ public class FilterPredicatesBuilder {
     }
 
     private static Predicate getAttributeFilterConditionPredicate(final CriteriaBuilder criteriaBuilder, final SearchFilterRequestDto filterDto, final Expression expression, final AttributeContentType contentType) {
-        List<Object> filterValues = null;
-        try {
-            filterValues = prepareAttributeFilterValues(filterDto, contentType);
-        } catch (ParseException e) {
-            throw new ValidationException("HAHA");
-        }
+        List<Object> filterValues = prepareAttributeFilterValues(filterDto, contentType);
         boolean multipleValues = filterValues.size() > 1;
 
         Object filterValue = filterValues.isEmpty() ? null : filterValues.getFirst();
@@ -113,7 +111,7 @@ public class FilterPredicatesBuilder {
         };
     }
 
-    private static List<Object> prepareAttributeFilterValues(final SearchFilterRequestDto filterDto, final AttributeContentType contentType) throws ParseException {
+    private static List<Object> prepareAttributeFilterValues(final SearchFilterRequestDto filterDto, final AttributeContentType contentType) {
         Serializable filterValue = filterDto.getValue();
 
         if (filterValue == null) {
@@ -210,6 +208,7 @@ public class FilterPredicatesBuilder {
                     predicate = criteriaBuilder.lessThan(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
             case LESSER_OR_EQUAL ->
                     predicate = criteriaBuilder.lessThanOrEqualTo(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
+            default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
     }
