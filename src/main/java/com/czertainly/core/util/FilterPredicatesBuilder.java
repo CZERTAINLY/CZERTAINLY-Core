@@ -1,5 +1,6 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
@@ -20,13 +21,18 @@ import jakarta.persistence.metamodel.PluralAttribute;
 import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
+import java.text.ParseException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
 public class FilterPredicatesBuilder {
+
+    private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
+
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
 
@@ -55,11 +61,6 @@ public class FilterPredicatesBuilder {
         final String attributeName = fieldIdentifier[0];
         final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY).contains(filterDto.getCondition());
 
-        Expression expression = criteriaBuilder.function("jsonb_extract_path_text", String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
-        if (contentType.getDataJavaClass() != null && contentType.getDataJavaClass() != String.class) {
-            expression = expression.as(contentType.getDataJavaClass());
-        }
-
         List<Predicate> predicates = new ArrayList<>();
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), filterDto.getFieldSource().getAttributeType()));
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.contentType), contentType));
@@ -67,8 +68,17 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(UniquelyIdentified_.uuid.getName())));
 
-        Predicate conditionPredicate = getAttributeFilterConditionPredicate(criteriaBuilder, filterDto, expression, contentType);
-        if (conditionPredicate != null) {
+        if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
+            Expression attributeContentExpression = criteriaBuilder.function("jsonb_extract_path_text", String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
+            CriteriaBuilder.SimpleCase contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
+
+            if (castedAttributeContentData.contains(contentType)) {
+                contentTypeCaseExpression.when(contentType, attributeContentExpression.as(contentType.getContentDataClass())).otherwise(criteriaBuilder.nullLiteral(contentType.getContentDataClass()));
+            } else {
+                contentTypeCaseExpression.when(contentType, attributeContentExpression).otherwise(criteriaBuilder.nullLiteral(String.class));
+            }
+
+            Predicate conditionPredicate = getAttributeFilterConditionPredicate(criteriaBuilder, filterDto, contentTypeCaseExpression, contentType);
             predicates.add(conditionPredicate);
         }
 
@@ -77,7 +87,12 @@ public class FilterPredicatesBuilder {
     }
 
     private static Predicate getAttributeFilterConditionPredicate(final CriteriaBuilder criteriaBuilder, final SearchFilterRequestDto filterDto, final Expression expression, final AttributeContentType contentType) {
-        List<Object> filterValues = prepareAttributeFilterValues(filterDto, contentType);
+        List<Object> filterValues = null;
+        try {
+            filterValues = prepareAttributeFilterValues(filterDto, contentType);
+        } catch (ParseException e) {
+            throw new ValidationException("HAHA");
+        }
         boolean multipleValues = filterValues.size() > 1;
 
         Object filterValue = filterValues.isEmpty() ? null : filterValues.getFirst();
@@ -98,7 +113,7 @@ public class FilterPredicatesBuilder {
         };
     }
 
-    private static List<Object> prepareAttributeFilterValues(final SearchFilterRequestDto filterDto, final AttributeContentType contentType) {
+    private static List<Object> prepareAttributeFilterValues(final SearchFilterRequestDto filterDto, final AttributeContentType contentType) throws ParseException {
         Serializable filterValue = filterDto.getValue();
 
         if (filterValue == null) {
@@ -110,13 +125,17 @@ public class FilterPredicatesBuilder {
         for (Object value : filterValues) {
             String stringValue = value.toString();
             Object preparedValue = switch (contentType) {
-                case BOOLEAN -> Boolean.parseBoolean(stringValue);
+                case BOOLEAN -> Boolean.parseBoolean(stringValue) ? "true" : "false";
                 case INTEGER -> Integer.parseInt(stringValue);
                 case FLOAT -> Float.parseFloat(stringValue);
                 case DATE -> LocalDate.parse(stringValue);
                 case TIME -> LocalTime.parse(stringValue);
-                case DATETIME ->
-                        LocalDateTime.parse(stringValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"));
+                case DATETIME -> {
+                    if (!stringValue.contains("+") && !stringValue.endsWith("Z")) {
+                        stringValue += "Z";
+                    }
+                    yield ZonedDateTime.parse(stringValue, DateTimeFormatter.ofPattern("[yyyy-MM-dd'T'HH:mm:ss.SSSXXX][yyyy-MM-dd'T'HH:mm:ssXXX][yyyy-MM-dd'T'HH:mmXXX]"));
+                }
                 case null, default -> stringValue;
             };
 
@@ -196,7 +215,6 @@ public class FilterPredicatesBuilder {
     }
 
     private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField) {
-        // join associations
         From from = root;
         From joinedAssociation;
         String associationFullPath = null;
@@ -248,7 +266,7 @@ public class FilterPredicatesBuilder {
                 } else if (filterField.getType() == SearchFieldTypeEnum.DATE) {
                     preparedFilterValue = LocalDate.parse(stringValue);
                 } else if (filterField.getType() == SearchFieldTypeEnum.DATETIME) {
-                    preparedFilterValue = LocalDateTime.parse(stringValue, DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm:ss.SSSXXX"));
+                    preparedFilterValue = LocalDateTime.parse(stringValue, DateTimeFormatter.ofPattern("[yyyy-MM-dd'T'HH:mm:ss.SSSXXX][yyyy-MM-dd'T'HH:mm:ssXXX][yyyy-MM-dd'T'HH:mmXXX]"));
                 } else {
                     preparedFilterValue = stringValue;
                 }
