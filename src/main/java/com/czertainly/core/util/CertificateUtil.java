@@ -400,8 +400,15 @@ public class CertificateUtil {
         }
         modal.setKeyUsage(
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
-
-        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate.getBasicConstraints(), modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
+        boolean signatureVerified = true;
+        try {
+            certificate.verify(certificate.getPublicKey());
+        } catch (CertificateException | NoSuchAlgorithmException | InvalidKeyException | NoSuchProviderException |
+                 SignatureException e) {
+            signatureVerified = false;
+        }
+        boolean isSelfSigned = modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()) && signatureVerified;
+        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate.getBasicConstraints(), isSelfSigned);
         modal.setSubjectType(subjectType);
 
         // Set trusted certificate mark either for CA or for self-signed certificate

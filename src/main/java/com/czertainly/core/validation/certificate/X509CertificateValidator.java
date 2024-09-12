@@ -281,7 +281,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private CertificateValidationCheckDto checkBasicConstraints(X509Certificate certificate, X509Certificate issuerCertificate, boolean isEndCertificate, CertificateSubjectType subjectType) {
         int pathLenConstraint = certificate.getBasicConstraints();
-        boolean isCa = pathLenConstraint >= 0;
+        boolean isCa = subjectType.isCa();
 
         if (!isCa) {
             if (certificate.getVersion() == 3 && !isEndCertificate) {
