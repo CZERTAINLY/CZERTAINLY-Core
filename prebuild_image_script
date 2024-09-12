@@ -16,9 +16,9 @@ docker build -f Dockerfile-pre -t prebuild .
 echo "MVN Build"
 if [[ "$OSTYPE" == "darwin"* ]]; then
   echo "MacOS detected, using TESTCONTAINERS_HOST_OVERRIDE"
-  docker run -e TESTCONTAINERS_HOST_OVERRIDE=docker.for.mac.host.internal -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+  docker run -e TESTCONTAINERS_HOST_OVERRIDE=docker.for.mac.host.internal -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml -U clean package
 else
-  docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+  docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml -U clean package
 fi
 
 echo "Starting czertainlycont"
