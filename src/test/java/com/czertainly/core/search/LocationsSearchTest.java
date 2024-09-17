@@ -18,7 +18,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Connector;
@@ -27,6 +26,7 @@ import com.czertainly.core.dao.entity.Location;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.LocationService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -146,7 +146,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_NAME.name(), FilterConditionOperator.EQUALS, "location1"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_NAME.name(), FilterConditionOperator.EQUALS, "location1"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(2, responseDto.getLocations().size());
     }
@@ -154,7 +154,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationByInstanceName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_ENTITY_INSTANCE.name(), FilterConditionOperator.ENDS_WITH, "instance-name-3"));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_ENTITY_INSTANCE.name(), FilterConditionOperator.ENDS_WITH, "instance-name-3"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -162,7 +162,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationByEnabled() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_ENABLED.name(), FilterConditionOperator.EQUALS, true));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_ENABLED.name(), FilterConditionOperator.EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -170,7 +170,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationBySupportMultipleEntries() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_SUPPORT_MULTIPLE_ENTRIES.name(), FilterConditionOperator.NOT_EQUALS, true));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_SUPPORT_MULTIPLE_ENTRIES.name(), FilterConditionOperator.NOT_EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }
@@ -178,7 +178,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     @Test
     public void testLocationBySupportKeyManagement() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
-        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, SearchableFields.LOCATION_SUPPORT_KEY_MANAGEMENT.name(), FilterConditionOperator.EQUALS, false));
+        filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_SUPPORT_KEY_MANAGEMENT.name(), FilterConditionOperator.EQUALS, false));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(1, responseDto.getLocations().size());
     }

@@ -30,7 +30,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -1199,17 +1199,18 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CRYPTOGRAPHIC_KEY, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CKI_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CK_KEY_USAGE, Arrays.stream((KeyUsage.values())).map(KeyUsage::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_LENGTH),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_STATE, Arrays.stream((KeyState.values())).map(KeyState::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_FORMAT, Arrays.stream((KeyFormat.values())).map(KeyFormat::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TYPE, Arrays.stream((KeyType.values())).map(KeyType::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream((KeyAlgorithm.values())).map(KeyAlgorithm::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_TOKEN_INSTANCE_LABEL, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).toList())
+                SearchHelper.prepareSearch(FilterField.CKI_NAME),
+                SearchHelper.prepareSearch(FilterField.CK_GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.CK_OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
+                SearchHelper.prepareSearch(FilterField.CKI_USAGE, Arrays.stream(KeyUsage.values()).map(KeyUsage::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CKI_LENGTH),
+                SearchHelper.prepareSearch(FilterField.CKI_STATE, Arrays.stream(KeyState.values()).map(KeyState::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CKI_FORMAT, Arrays.stream(KeyFormat.values()).map(KeyFormat::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CKI_TYPE, Arrays.stream(KeyType.values()).map(KeyType::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CKI_CRYPTOGRAPHIC_ALGORITHM, Arrays.stream(KeyAlgorithm.values()).map(KeyAlgorithm::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CK_TOKEN_PROFILE, tokenProfileRepository.findAll().stream().map(TokenProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.CK_TOKEN_INSTANCE, tokenInstanceReferenceRepository.findAll().stream().map(TokenInstanceReference::getName).toList())
+
         );
         fields = new ArrayList<>(fields);
         fields.sort(new SearchFieldDataComparator());

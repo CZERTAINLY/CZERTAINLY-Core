@@ -6,7 +6,10 @@ import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.scheduler.*;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.czertainly.api.model.scheduler.SchedulerJobDto;
 import com.czertainly.api.model.scheduler.SchedulerRequestDto;
 import com.czertainly.api.model.scheduler.UpdateScheduledJob;
@@ -19,22 +22,23 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SchedulerService;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
-import jakarta.persistence.criteria.*;
+import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaQuery;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
 import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
 @Service
@@ -103,7 +107,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DETAIL)
     public ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, final String uuid) {
-        final TriFunction<Root<ScheduledJobHistory>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> Sql2PredicateConverter.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
+        final TriFunction<Root<ScheduledJobHistory>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
 
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());

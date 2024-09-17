@@ -85,7 +85,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException;
+    void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException, NotSupportedException;
 
     /**
      * List all locations associated with the certificate
@@ -164,7 +164,7 @@ public interface CertificateService extends ResourceExtensionService  {
          *
          * @param request Request to update multiple objects
          */
-    void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException;
+    void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException;
 
     /**
      * Function to update status of certificates by scheduled event
