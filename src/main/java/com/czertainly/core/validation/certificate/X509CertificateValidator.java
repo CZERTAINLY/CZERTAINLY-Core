@@ -50,7 +50,6 @@ public class X509CertificateValidator implements ICertificateValidator {
         logger.debug("Initiating the certificate validation: {}", certificate.toStringShort());
 
         ArrayList<Certificate> certificateChain = new ArrayList<>();
-        CertificateSubjectType subjectType = certificate.getSubjectType();
         Certificate lastCertificate = certificate;
         do {
             certificateChain.add(lastCertificate);
@@ -66,7 +65,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             x509Certificate = CertificateUtil.getX509Certificate(certificateChain.get(i).getCertificateContent().getContent());
 
             boolean isEndCertificate = i == 0;
-            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, subjectType);
+            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getSubjectType());
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 

@@ -90,9 +90,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "key_usage")
     private String keyUsage;
 
-    @Column(name = "subject_type")
+    @Column(name = "subject_type", nullable = false)
     @Enumerated(EnumType.STRING)
-    private CertificateSubjectType subjectType;
+    private CertificateSubjectType subjectType = CertificateSubjectType.END_ENTITY;
 
     @Column(name = "state")
     @Enumerated(EnumType.STRING)

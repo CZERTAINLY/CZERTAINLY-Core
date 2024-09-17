@@ -145,7 +145,19 @@ public class CertificateUtil {
         return keyUsageIndex != -1 && keyUsage[keyUsageIndex];
     }
 
-    public static CertificateSubjectType getCertificateSubjectType(int bcValue, boolean selfSigned) {
+    public static CertificateSubjectType getCertificateSubjectType(X509Certificate certificate, boolean subjectDnEqualsIssuerDn) {
+        boolean selfSigned = false;
+        if (subjectDnEqualsIssuerDn) {
+            try {
+                certificate.verify(certificate.getPublicKey());
+                // Certificate is self-signed only if the signature of self has been successfully verified
+                selfSigned = true;
+            } catch (CertificateException | NoSuchAlgorithmException | InvalidKeyException | NoSuchProviderException |
+                     SignatureException ignored) {
+            }
+        }
+
+        int bcValue = certificate.getBasicConstraints();
         // Certificate is Certificate Authority if Basic Constraint Value is positive, otherwise it is End Entity
         if (bcValue >= 0) {
             return selfSigned ? CertificateSubjectType.ROOT_CA : CertificateSubjectType.INTERMEDIATE_CA;
@@ -400,15 +412,8 @@ public class CertificateUtil {
         }
         modal.setKeyUsage(
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
-        boolean signatureVerified = true;
-        try {
-            certificate.verify(certificate.getPublicKey());
-        } catch (CertificateException | NoSuchAlgorithmException | InvalidKeyException | NoSuchProviderException |
-                 SignatureException e) {
-            signatureVerified = false;
-        }
-        boolean isSelfSigned = modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()) && signatureVerified;
-        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate.getBasicConstraints(), isSelfSigned);
+
+        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
         modal.setSubjectType(subjectType);
 
         // Set trusted certificate mark either for CA or for self-signed certificate

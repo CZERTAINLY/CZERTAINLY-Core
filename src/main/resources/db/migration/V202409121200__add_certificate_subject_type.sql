@@ -1,4 +1,4 @@
-ALTER TABLE certificate ADD COLUMN subject_type TEXT;
+ALTER TABLE certificate ADD COLUMN subject_type TEXT NOT NULL;
 
 UPDATE certificate SET subject_type = 'END_ENTITY' WHERE basic_constraints = 'Subject Type=End Entity' AND (subject_dn_normalized != issuer_dn_normalized);
 UPDATE certificate SET subject_type = 'SELF_SIGNED_END_ENTITY' WHERE basic_constraints = 'Subject Type=End Entity' AND (subject_dn_normalized = issuer_dn_normalized);
