@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -110,8 +111,11 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     public void prepare() throws AlreadyExistException, AttributeException, NotFoundException {
 
         certificate1 = new Certificate();
+        certificate1.setSubjectType(CertificateSubjectType.ROOT_CA);
         certificate2 = new Certificate();
+        certificate2.setSubjectType(CertificateSubjectType.END_ENTITY);
         certificate3 = new Certificate();
+        certificate3.setSubjectType(CertificateSubjectType.END_ENTITY);
         certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3));
 
         CustomAttributeDefinitionDetailDto intAttribute = createCustomAttribute("integer", AttributeContentType.INTEGER);
@@ -119,8 +123,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, intAttribute.getName(), List.of(new IntegerAttributeContent("ref", 2)));
 
         CustomAttributeDefinitionDetailDto decimalAttribute = createCustomAttribute("decimal", AttributeContentType.FLOAT);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContent("ref", 1.3f)));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContent("ref", 1.33f)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContent("ref", 0.5f)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContent("ref", 1.5f)));
 
 
         CustomAttributeDefinitionDetailDto booleanAttribute = createCustomAttribute("boolean", AttributeContentType.BOOLEAN);
@@ -247,7 +251,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCombinedFilters() {
+    void testCombinedFiltersPredicate() {
         List<SearchFilterRequestDto> testFilters = new ArrayList<>();
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, FilterField.SUBJECTDN, FilterConditionOperator.EQUALS, "test"));
         testFilters.add(new SearchFilterRequestDTODummy(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME, FilterConditionOperator.EQUALS, "test"));
@@ -263,7 +267,16 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("In process of being fixed")
+    void testEnumPropertyFilter() {
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SUBJECT_TYPE.name(), FilterConditionOperator.EQUALS, CertificateSubjectType.ROOT_CA.getCode())));
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SUBJECT_TYPE.name(), FilterConditionOperator.NOT_EQUALS, CertificateSubjectType.ROOT_CA.getCode())));
+        Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+    }
+
+    @Test
     void testIntegerAttribute() {
 
         final String ATTR_IDENTIFIER = "integer|INTEGER";
@@ -301,32 +314,30 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("In process of being fixed, greater/lesser or equal not working")
     void testDecimalAttribute() {
-
         final String ATTR_IDENTIFIER = "decimal|FLOAT";
         SearchRequestDto searchRequestDto = new SearchRequestDto();
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.EQUALS, 1.3f)));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.EQUALS, 0.5f)));
         Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
         SearchRequestDto searchRequestDto2 = new SearchRequestDto();
-        searchRequestDto2.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.NOT_EQUALS, 1.3f)));
+        searchRequestDto2.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.NOT_EQUALS, 0.5f)));
         Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto2)));
 
         SearchRequestDto searchRequestDto3 = new SearchRequestDto();
-        searchRequestDto3.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.GREATER, 1.3f)));
+        searchRequestDto3.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.GREATER, 0.5f)));
         Assertions.assertEquals(Set.of(certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto3)));
 
         SearchRequestDto searchRequestDto4 = new SearchRequestDto();
-        searchRequestDto4.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.GREATER_OR_EQUAL, 1.3f)));
+        searchRequestDto4.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.GREATER_OR_EQUAL, 0.5f)));
         Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto4)));
 
         SearchRequestDto searchRequestDto5 = new SearchRequestDto();
-        searchRequestDto5.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.LESSER, 1.33f)));
+        searchRequestDto5.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.LESSER, 1.5f)));
         Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto5)));
 
         SearchRequestDto searchRequestDto6 = new SearchRequestDto();
-        searchRequestDto6.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.LESSER_OR_EQUAL, 1.33f)));
+        searchRequestDto6.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.LESSER_OR_EQUAL, 1.5f)));
         Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto6)));
 
         SearchRequestDto searchRequestDto7 = new SearchRequestDto();
@@ -339,7 +350,6 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("In process of being fixed")
     void testBooleanAttribute() throws AlreadyExistException, AttributeException, NotFoundException {
         final String ATTR_IDENTIFIER = "boolean|BOOLEAN";
         SearchRequestDto searchRequestDto = new SearchRequestDto();
@@ -398,7 +408,6 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("In process of being fixed")
     void testDateAttribute() {
 
         final String ATTR_IDENTIFIER = "date|DATE";
@@ -437,7 +446,6 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("In process of being fixed")
     void testDateTimeAttribute() {
 
         final String ATTR_IDENTIFIER = "datetime|DATETIME";
@@ -476,7 +484,6 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("In process of being fixed")
     void testTimeAttribute() {
 
         final String ATTR_IDENTIFIER = "time|TIME";

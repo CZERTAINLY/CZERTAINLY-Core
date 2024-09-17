@@ -90,8 +90,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "key_usage")
     private String keyUsage;
 
-    @Column(name = "basic_constraints")
-    private String basicConstraints;
+    @Column(name = "subject_type", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private CertificateSubjectType subjectType = CertificateSubjectType.END_ENTITY;
 
     @Column(name = "state")
     @Enumerated(EnumType.STRING)
@@ -211,7 +212,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setIssuerDn(issuerDn);
             dto.setNotBefore(notBefore);
             dto.setNotAfter(notAfter);
-            dto.setBasicConstraints(basicConstraints);
+            dto.setSubjectType(subjectType);
             dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
             dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
             dto.setFingerprint(fingerprint);

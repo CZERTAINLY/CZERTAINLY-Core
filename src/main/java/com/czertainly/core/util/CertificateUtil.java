@@ -5,10 +5,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
-import com.czertainly.api.model.core.certificate.CertificateState;
-import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.api.model.core.certificate.X500RdnType;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
@@ -22,7 +19,6 @@ import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
-import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
@@ -149,11 +145,24 @@ public class CertificateUtil {
         return keyUsageIndex != -1 && keyUsage[keyUsageIndex];
     }
 
-    public static String getBasicConstraint(int bcValue) {
+    public static CertificateSubjectType getCertificateSubjectType(X509Certificate certificate, boolean subjectDnEqualsIssuerDn) {
+        boolean selfSigned = false;
+        if (subjectDnEqualsIssuerDn) {
+            try {
+                certificate.verify(certificate.getPublicKey());
+                // Certificate is self-signed only if the signature of self has been successfully verified
+                selfSigned = true;
+            } catch (CertificateException | NoSuchAlgorithmException | InvalidKeyException | NoSuchProviderException |
+                     SignatureException ignored) {
+            }
+        }
+
+        int bcValue = certificate.getBasicConstraints();
+        // Certificate is Certificate Authority if Basic Constraint Value is positive, otherwise it is End Entity
         if (bcValue >= 0) {
-            return "Subject Type=CA";
+            return selfSigned ? CertificateSubjectType.ROOT_CA : CertificateSubjectType.INTERMEDIATE_CA;
         } else {
-            return "Subject Type=End Entity";
+            return selfSigned ? CertificateSubjectType.SELF_SIGNED_END_ENTITY : CertificateSubjectType.END_ENTITY;
         }
     }
 
@@ -404,10 +413,11 @@ public class CertificateUtil {
         modal.setKeyUsage(
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
 
-        String basicConstraints = CertificateUtil.getBasicConstraint(certificate.getBasicConstraints());
-        modal.setBasicConstraints(basicConstraints);
+        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
+        modal.setSubjectType(subjectType);
+
         // Set trusted certificate mark either for CA or for self-signed certificate
-        if (basicConstraints.equals("Subject Type=CA") || Objects.equals(modal.getSubjectDnNormalized(), modal.getIssuerDnNormalized()))
+        if (subjectType != CertificateSubjectType.END_ENTITY)
             modal.setTrustedCa(false);
     }
 

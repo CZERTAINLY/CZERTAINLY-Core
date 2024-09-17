@@ -447,6 +447,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
+                SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.TRUSTED_CA)
         );
 
@@ -1061,7 +1062,7 @@ public class CertificateServiceImpl implements CertificateService {
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByBasicConstraints(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.basicConstraints, null));
+                        dto.setCertificateStatBySubjectType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.subjectType, null));
                         return null;
                     },
                     () -> {
