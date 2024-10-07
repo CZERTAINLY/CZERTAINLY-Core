@@ -9,27 +9,27 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.convert.converter.Converter;
+import org.springframework.core.annotation.Order;
 import org.springframework.core.env.Environment;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
+import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
-
 
 import java.util.List;
 
@@ -45,56 +45,98 @@ public class SecurityConfig {
 
     private Environment environment;
 
+    @Autowired
+    private ClientRegistrationRepository clientRegistrationRepository;
+
+    @Autowired
+    private JwtTokenFilter jwtTokenFilter;
+
 
     @Bean
-    protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter
-    ) throws Exception {
+    public CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
+        return new CustomAuthenticationSuccessHandler();
+    }
+
+
+//    @Bean
+////    @Order(1)
+//    protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
+//
 //        http
+//                .securityMatcher("/v1/**")
 //                .authorizeRequests()
 //                .anyRequest().authenticated()
 //                .accessDecisionManager(accessDecisionManager())
 //                .and()
 //                .exceptionHandling(exceptionHandling -> exceptionHandling
-//                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-//                            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-//                        })
-//                        .authenticationEntryPoint((request, response, authException) -> {
-//                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-//                        })
+//                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
+//                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
 //                )
-//                .oauth2ResourceServer(oauth2 -> oauth2.authenticationEntryPoint(entryPoint).jwt(Customizer.withDefaults()))
+//
 //                .csrf(AbstractHttpConfigurer::disable)
 //                .cors(AbstractHttpConfigurer::disable)
 //                .httpBasic(AbstractHttpConfigurer::disable)
-
 //                .formLogin(AbstractHttpConfigurer::disable)
 //                .x509(AbstractHttpConfigurer::disable)
+//
 //                .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
-//                .addFilterBefore(createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
+//                .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
+//                .oauth2ResourceServer(oauth2 -> oauth2
+//                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter))
+//                )
 //                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+//
+//        return http.build();
+//    }
 
+    @Bean
+//    @Order(2)
+    protected SecurityFilterChain configure(HttpSecurity http) throws Exception {
         http
                 .authorizeRequests()
-                .anyRequest().authenticated()
+                .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
+                .anyRequest().authenticated() // All other requests require authentication
                 .accessDecisionManager(accessDecisionManager())
                 .and()
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
                         .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                 )
-                .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter))
-                )
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessUrl("http://localhost:3000/#/dashboard") // Redirect to home after logout
+                        .invalidateHttpSession(true) // Invalidate the session
+                        .clearAuthentication(true) // Clear the authentication
+                        .logoutSuccessHandler(customLogoutSuccessHandler())
+                        .deleteCookies("JSESSIONID") // Optionally delete cookies
+                )
+                .oauth2Login()
+                .successHandler(customAuthenticationSuccessHandler())
+                .and().addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class);
+
         return http.build();
-
-
     }
+
+    @Bean
+    public CustomLogoutSuccessHandler customLogoutSuccessHandler() {
+        return new CustomLogoutSuccessHandler();
+    }
+
+    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
+        OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
+                new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
+
+        // Sets the location that the End-User's User Agent will be redirected to
+        // after the logout has been performed at the Provider
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}/main.html");
+        return oidcLogoutSuccessHandler;
+    }
+
 
     @Bean
     public CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter() {

@@ -47,7 +47,6 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
             try {
                 Authentication authResult = this.authenticationManager.authenticate(authRequest);
-
                 logger.trace("Authentication result: %s".formatted(authResult.isAuthenticated() ? "authenticated" : "unauthenticated"));
 
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
@@ -61,8 +60,7 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
         } else {
             logger.trace("The user is already authenticated. Will not re-authenticate");
         }
-
-        filterChain.doFilter(request, response);
+            filterChain.doFilter(request, response);
     }
 
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
