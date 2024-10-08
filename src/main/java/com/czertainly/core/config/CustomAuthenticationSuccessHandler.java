@@ -20,6 +20,7 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -71,7 +72,12 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
         OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
         OAuth2User oauthUser = oauthToken.getPrincipal();
         String userName = oauthUser.getAttribute("name");
-
+        if (oauthToken.getPrincipal() instanceof OidcUser) {
+            OidcUser oidcUser = (OidcUser) oauthToken.getPrincipal();
+            String idToken = oidcUser.getIdToken().getTokenValue();
+            // Store the ID token in the session
+            request.getSession().setAttribute("id_token", idToken);
+        }
 
 
 //

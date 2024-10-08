@@ -14,6 +14,8 @@ public class CzertainlyAuthenticationToken extends AbstractAuthenticationToken {
 
     private boolean isAuthenticated;
 
+    private String idToken;
+
     public CzertainlyAuthenticationToken(CzertainlyUserDetails principal) {
         this(principal, "", principal.getAuthorities(), true);
     }
@@ -54,5 +56,13 @@ public class CzertainlyAuthenticationToken extends AbstractAuthenticationToken {
     @Override
     public String getName() {
         return "";
+    }
+
+    public String getIdToken() {
+        return idToken;
+    }
+
+    public void setIdToken(String idToken) {
+        this.idToken = idToken;
     }
 }

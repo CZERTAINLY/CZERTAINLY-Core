@@ -19,6 +19,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -66,7 +67,9 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             HttpHeaders headers = new HttpHeaders();
             headers.add(authTokenHeaderName, encodedPayload);
             AuthenticationInfo authInfo = authenticationClient.authenticate(headers);
-            SecurityContextHolder.getContext().setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo)));
+            CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
+            authenticationToken.setIdToken(((OidcUser)authentication.getPrincipal()).getIdToken().getTokenValue());
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
 
             // Load the OAuth2AuthorizedClient to access tokens

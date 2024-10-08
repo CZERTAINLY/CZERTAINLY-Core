@@ -122,20 +122,23 @@ public class SecurityConfig {
         return http.build();
     }
 
-    @Bean
-    public CustomLogoutSuccessHandler customLogoutSuccessHandler() {
-        return new CustomLogoutSuccessHandler();
-    }
-
     private LogoutSuccessHandler oidcLogoutSuccessHandler() {
         OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
                 new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
 
         // Sets the location that the End-User's User Agent will be redirected to
         // after the logout has been performed at the Provider
-        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}/main.html");
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}");
+
         return oidcLogoutSuccessHandler;
     }
+
+
+    @Bean
+    public CustomLogoutSuccessHandler customLogoutSuccessHandler() {
+        return new CustomLogoutSuccessHandler();
+    }
+
 
 
     @Bean
