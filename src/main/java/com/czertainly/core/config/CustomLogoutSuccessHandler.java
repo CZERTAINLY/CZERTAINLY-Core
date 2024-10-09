@@ -24,7 +24,7 @@ public class CustomLogoutSuccessHandler implements LogoutSuccessHandler {
 //        String redirectUri = URLEncoder.encode("http://localhost:3000", StandardCharsets.UTF_8.toString());
 
         String logoutUrl = "http://localhost:8080/realms/CZERTAINLY-realm/protocol/openid-connect/logout?post_logout_redirect_uri=http://localhost:3000/&id_token_hint=" +
-                ((CzertainlyAuthenticationToken) authentication).getIdToken(); // Update with your provider's URL and redirect URI
+                ((OidcUser)authentication.getPrincipal()).getIdToken().getTokenValue(); // Update with your provider's URL and redirect URI
 
         response.sendRedirect(logoutUrl); // Redirect to OAuth2 provider's logout
     }
