@@ -16,6 +16,7 @@ import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -23,6 +24,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
@@ -91,7 +93,7 @@ public class SecurityConfig {
 
     @Bean
 //    @Order(2)
-    protected SecurityFilterChain configure(HttpSecurity http) throws Exception {
+    protected SecurityFilterChain configure(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
         http
                 .authorizeRequests()
                 .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
@@ -109,15 +111,16 @@ public class SecurityConfig {
                 .x509(AbstractHttpConfigurer::disable)
                 .logout(logout -> logout
                         .logoutUrl("/logout")
-                        .logoutSuccessUrl("http://localhost:3000/#/dashboard") // Redirect to home after logout
                         .invalidateHttpSession(true) // Invalidate the session
                         .clearAuthentication(true) // Clear the authentication
-                        .logoutSuccessHandler(customLogoutSuccessHandler())
+                        .logoutSuccessHandler(oidcLogoutSuccessHandler())
                         .deleteCookies("JSESSIONID") // Optionally delete cookies
                 )
                 .oauth2Login()
                 .successHandler(customAuthenticationSuccessHandler())
-                .and().addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class);
+                .and()
+                .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
+                ;
 
         return http.build();
     }
@@ -128,7 +131,7 @@ public class SecurityConfig {
 
         // Sets the location that the End-User's User Agent will be redirected to
         // after the logout has been performed at the Provider
-        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("{baseUrl}");
+        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("http://localhost:3000/#/dashboard");
 
         return oidcLogoutSuccessHandler;
     }
