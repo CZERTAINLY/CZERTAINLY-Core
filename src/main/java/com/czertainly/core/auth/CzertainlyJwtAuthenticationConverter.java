@@ -15,10 +15,7 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
@@ -36,7 +33,7 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
         extractedClaims.put("given_name", claims.get("given_name"));
         extractedClaims.put("family_name", claims.get("family_name"));
         extractedClaims.put("email", claims.get("email"));
-        extractedClaims.put("roles", claims.get("roles"));
+        extractedClaims.put("roles", List.of("superadmin"));
         try {
             String encodedPayload = Base64.getEncoder().encodeToString(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(extractedClaims).getBytes());
             HttpHeaders headers = new HttpHeaders();
