@@ -28,6 +28,7 @@ import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
@@ -60,58 +61,15 @@ public class SecurityConfig {
     }
 
 
-//    @Bean
-//    @Order(2)
-//    protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
-//
-//        http
-////                .securityMatcher("/v1/**")
-//                .authorizeRequests()
-//                .anyRequest().authenticated()
-//                .accessDecisionManager(accessDecisionManager())
-//                .and()
-//                .exceptionHandling(exceptionHandling -> exceptionHandling
-//                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
-//                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-//                )
-//
-//
-//
-//                .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
-//                .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
-//                .oauth2ResourceServer(oauth2 -> oauth2
-//                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter))
-//                )
-//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-////                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-//                .logout(logout -> logout
-//                        .logoutUrl("/logout")
-//                        .invalidateHttpSession(true) // Invalidate the session
-//                        .clearAuthentication(true) // Clear the authentication
-//                        .logoutSuccessHandler(oidcLogoutSuccessHandler())
-//                        .deleteCookies("JSESSIONID") // Optionally delete cookies
-//                )
-//                .oauth2Login()
-//                .successHandler(customAuthenticationSuccessHandler())
-//                .and()
-//                .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
-//                .csrf(AbstractHttpConfigurer::disable)
-//                .cors(AbstractHttpConfigurer::disable)
-//                .httpBasic(AbstractHttpConfigurer::disable)
-//                .formLogin(AbstractHttpConfigurer::disable)
-//                .x509(AbstractHttpConfigurer::disable)
-//        ;
-//
-//        return http.build();
-//    }
-
     @Bean
-    @Order(1)
-    protected SecurityFilterChain configure(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
+    @Order(2)
+    protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
+
         http
+//                .securityMatcher("/v1/**")
                 .authorizeRequests()
                 .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
-                .anyRequest().authenticated() // All other requests require authentication
+                .anyRequest().authenticated()
                 .accessDecisionManager(accessDecisionManager())
                 .and()
                 .exceptionHandling(exceptionHandling -> exceptionHandling
@@ -123,6 +81,14 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
+
+                .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
+                .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter))
+                )
+//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
+//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .invalidateHttpSession(true) // Invalidate the session
@@ -132,10 +98,43 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2 -> oauth2.successHandler(customAuthenticationSuccessHandler()))
                 .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
-                ;
+
+        ;
 
         return http.build();
     }
+
+//    @Bean
+//    @Order(1)
+//    protected SecurityFilterChain configure(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
+//        http
+//                .authorizeRequests()
+//                .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
+//                .anyRequest().authenticated() // All other requests require authentication
+//                .accessDecisionManager(accessDecisionManager())
+//                .and()
+//                .exceptionHandling(exceptionHandling -> exceptionHandling
+//                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
+//                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
+//                )
+//                .csrf(AbstractHttpConfigurer::disable)
+//                .cors(AbstractHttpConfigurer::disable)
+//                .httpBasic(AbstractHttpConfigurer::disable)
+//                .formLogin(AbstractHttpConfigurer::disable)
+//                .x509(AbstractHttpConfigurer::disable)
+//                .logout(logout -> logout
+//                        .logoutUrl("/logout")
+//                        .invalidateHttpSession(true) // Invalidate the session
+//                        .clearAuthentication(true) // Clear the authentication
+//                        .logoutSuccessHandler(oidcLogoutSuccessHandler())
+//                        .deleteCookies("JSESSIONID") // Optionally delete cookies
+//                )
+//                .oauth2Login(oauth2 -> oauth2.successHandler(customAuthenticationSuccessHandler()))
+//                .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
+//                ;
+//
+//        return http.build();
+//    }
 
     private LogoutSuccessHandler oidcLogoutSuccessHandler() {
         OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
