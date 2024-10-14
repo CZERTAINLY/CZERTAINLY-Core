@@ -54,76 +54,15 @@ public class CustomAuthenticationSuccessHandler implements AuthenticationSuccess
     private CzertainlyAuthenticationClient authenticationClient;
 
 
-    private void createSessionForUser(HttpServletRequest request, HttpServletResponse response, String userName) {
-        // Generate session and bind user info to session
-        request.getSession().setAttribute("username", userName);
-
-        // You can configure the session settings (timeout, HttpOnly, Secure, etc.)
-        request.getSession().setMaxInactiveInterval(30 * 60); // Session timeout (30 minutes)
-
-        // Add session cookie (if not already done by Spring)
-        // Optionally customize session cookie security attributes here
-
-    }
-
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
-        // Cast authentication to OAuth2AuthenticationToken
-        OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
-        OAuth2User oauthUser = oauthToken.getPrincipal();
-        String userName = oauthUser.getAttribute("name");
-        if (oauthToken.getPrincipal() instanceof OidcUser) {
-            OidcUser oidcUser = (OidcUser) oauthToken.getPrincipal();
-            String idToken = oidcUser.getIdToken().getTokenValue();
-            // Store the ID token in the session
-            request.getSession().setAttribute("id_token", idToken);
-        }
-
-
-//
-
-
-        // Retrieve the OAuth2AuthorizedClient, which contains the tokens
-        OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(
-                oauthToken.getAuthorizedClientRegistrationId(), oauthToken.getName());
-
-        if (authorizedClient != null) {
-            // Access the access token
-            OAuth2AccessToken accessToken = authorizedClient.getAccessToken();
-            String tokenValue = accessToken.getTokenValue();
-            Instant expiresAt = accessToken.getExpiresAt();
-
-            // Optionally access the refresh token if needed
-            // OAuth2RefreshToken refreshToken = authorizedClient.getRefreshToken();
-
-            // Store token securely in session or backend
-            request.getSession().setAttribute("oauth2AccessToken", tokenValue);
-
-            // (Optional) Store the token in the database or an in-memory store
-//             saveTokenInDb(userName, tokenValue, expiresAt);
-
-            // Log the access token (for debugging purposes)
-            System.out.println("Access Token: " + tokenValue);
-            System.out.println("Expires At: " + expiresAt);
-        }
-
-        // Create session cookie for the user
-        createSessionForUser(request, response, userName);
-
-        // Redirect to a post-login page (e.g., the home page)
-//
-//        SavedRequest savedRequest = requestCache.getRequest(request, response);
-//        if (savedRequest != null) {
-//            // Redirect to the original URL that triggered the login
-//            response.sendRedirect(savedRequest.getRedirectUrl());
-//        } else {
-//            // If no saved request, redirect to a default page (optional fallback)
-//            response.sendRedirect("http://localhost:3000/#/dashboard");
-//        }
-        String redirectUrl = request.getParameter("redirectUrl");
+        String redirectUrl = (String) request.getSession().getAttribute("redirectUrl");
 
         if (redirectUrl != null && !redirectUrl.isEmpty()) {
-            // Redirect to the original frontend URL
+            // Remove it from the session after retrieval
+            request.getSession().removeAttribute("redirectUrl");
+
+            // Redirect to the original URL
             response.sendRedirect(redirectUrl);
         } else {
             // If no redirect URL is found, redirect to a default page

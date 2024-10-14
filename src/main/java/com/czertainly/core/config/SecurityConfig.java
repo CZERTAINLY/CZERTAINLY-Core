@@ -24,7 +24,8 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
-import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
+import org.springframework.security.oauth2.core.*;
+import org.springframework.security.oauth2.jwt.*;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
@@ -34,6 +35,9 @@ import org.springframework.security.web.authentication.preauth.x509.X509Authenti
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import java.time.Duration;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Configuration
@@ -62,7 +66,6 @@ public class SecurityConfig {
 
 
     @Bean
-    @Order(2)
     protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
 
         http
@@ -93,10 +96,13 @@ public class SecurityConfig {
                         .logoutUrl("/logout")
                         .invalidateHttpSession(true) // Invalidate the session
                         .clearAuthentication(true) // Clear the authentication
-                        .logoutSuccessHandler(oidcLogoutSuccessHandler())
+                        .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
                         .deleteCookies("JSESSIONID") // Optionally delete cookies
                 )
-                .oauth2Login(oauth2 -> oauth2.successHandler(customAuthenticationSuccessHandler()))
+                .oauth2Login(oauth2
+                        ->
+                        oauth2.successHandler(customAuthenticationSuccessHandler())
+                )
                 .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
 
         ;
@@ -104,54 +110,56 @@ public class SecurityConfig {
         return http.build();
     }
 
-//    @Bean
-//    @Order(1)
-//    protected SecurityFilterChain configure(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
-//        http
-//                .authorizeRequests()
-//                .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
-//                .anyRequest().authenticated() // All other requests require authentication
-//                .accessDecisionManager(accessDecisionManager())
-//                .and()
-//                .exceptionHandling(exceptionHandling -> exceptionHandling
-//                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
-//                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
-//                )
-//                .csrf(AbstractHttpConfigurer::disable)
-//                .cors(AbstractHttpConfigurer::disable)
-//                .httpBasic(AbstractHttpConfigurer::disable)
-//                .formLogin(AbstractHttpConfigurer::disable)
-//                .x509(AbstractHttpConfigurer::disable)
-//                .logout(logout -> logout
-//                        .logoutUrl("/logout")
-//                        .invalidateHttpSession(true) // Invalidate the session
-//                        .clearAuthentication(true) // Clear the authentication
-//                        .logoutSuccessHandler(oidcLogoutSuccessHandler())
-//                        .deleteCookies("JSESSIONID") // Optionally delete cookies
-//                )
-//                .oauth2Login(oauth2 -> oauth2.successHandler(customAuthenticationSuccessHandler()))
-//                .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
-//                ;
+    @Bean
+    public JwtDecoder jwtDecoder() {
+        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation("http://localhost:8080/realms/CZERTAINLY-realm");
+
+        OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> {
+            Instant now = Instant.now();
+            Instant issuedAt = jwt.getIssuedAt();
+            Instant expiresAt = jwt.getExpiresAt();
+
+            if (issuedAt != null && issuedAt.isAfter(now.plus(60, ChronoUnit.SECONDS))) {
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is used before its time.", null));
+            }
+
+            if (expiresAt != null && expiresAt.isBefore(now.minus(60, ChronoUnit.SECONDS))) {
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is expired.", null));
+            }
+
+            return OAuth2TokenValidatorResult.success();
+        };
+
+        // Add audience validation
+        OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.contains("account"));
+        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer("http://localhost:8080/realms/CZERTAINLY-realm");
+        OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
+
+        jwtDecoder.setJwtValidator(combinedValidator);
+        return jwtDecoder;
+    }
+
+
+//    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
+//        OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
+//                new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
 //
-//        return http.build();
+//        // Sets the location that the End-User's User Agent will be redirected to
+//        // after the logout has been performed at the Provider
+//        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("/the");
+//
+//        return oidcLogoutSuccessHandler;
 //    }
 
-    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
-        OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
-                new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
-
-        // Sets the location that the End-User's User Agent will be redirected to
-        // after the logout has been performed at the Provider
-        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("http://localhost:3000/#/dashboard");
-
-        return oidcLogoutSuccessHandler;
-    }
-
-
     @Bean
-    public CustomLogoutSuccessHandler customLogoutSuccessHandler() {
-        return new CustomLogoutSuccessHandler();
+    public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
+        return new CustomLogoutSuccessHandler(clientRegistrationRepository);
     }
+
+
+
+
+
 
 
 

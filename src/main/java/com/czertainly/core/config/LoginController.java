@@ -1,5 +1,6 @@
 package com.czertainly.core.config;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,7 +15,19 @@ import java.nio.charset.StandardCharsets;
 public class LoginController {
 
     @GetMapping("/login")
-    public void loginPage(@RequestParam(value = "redirectUrl", required = false) String redirectUrl, HttpServletResponse response) throws IOException {
+    public void loginPage(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletResponse response,
+                          HttpServletRequest request) throws IOException {
+
+
+        String originalUrl = request.getHeader("referer");
+        if (originalUrl != null) {
+            if (redirectUrl != null) {
+                originalUrl += redirectUrl.replaceFirst("/", "");
+            }
+            request.getSession().setAttribute("redirectUrl", originalUrl);
+        }
+
+
 
 //        response.sendRedirect("oauth2/authorization/keycloak?redirectUrl=" + URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8));
         response.sendRedirect("oauth2/authorization/keycloak");

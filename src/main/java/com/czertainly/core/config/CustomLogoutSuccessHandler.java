@@ -2,6 +2,7 @@ package com.czertainly.core.config;
 
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.util.AuthHelper;
+import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
@@ -13,20 +14,29 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 
-public class CustomLogoutSuccessHandler implements LogoutSuccessHandler {
+public class CustomLogoutSuccessHandler extends OidcClientInitiatedLogoutSuccessHandler {
 
+
+    public CustomLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
+        super(clientRegistrationRepository);
+    }
 
     @Override
-    public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
-        // Redirect to OAuth2 provider's logout URL
+    public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response,
+                                Authentication authentication) throws IOException, ServletException {
+        // Get the frontend redirect URI from the request parameter
+        String redirectUri = request.getHeader("referer");
 
+        // If the parameter is not present, use a default URI
+        if (redirectUri == null || redirectUri.isEmpty()) {
+            redirectUri = "/";
+        }
 
-//        String redirectUri = URLEncoder.encode("http://localhost:3000", StandardCharsets.UTF_8.toString());
+        // Set the post logout redirect URI dynamically
+        this.setPostLogoutRedirectUri(redirectUri);
 
-        String logoutUrl = "http://localhost:8080/realms/CZERTAINLY-realm/protocol/openid-connect/logout?post_logout_redirect_uri=http://localhost:3000/&id_token_hint=" +
-                ((OidcUser)authentication.getPrincipal()).getIdToken().getTokenValue(); // Update with your provider's URL and redirect URI
-
-        response.sendRedirect(logoutUrl); // Redirect to OAuth2 provider's logout
+        // Call the parent method to complete the logout process
+        super.onLogoutSuccess(request, response, authentication);
     }
 
 }
