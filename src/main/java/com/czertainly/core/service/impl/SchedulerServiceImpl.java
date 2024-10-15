@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.czertainly.api.model.scheduler.SchedulerJobDto;
 import com.czertainly.api.model.scheduler.SchedulerRequestDto;
 import com.czertainly.api.model.scheduler.UpdateScheduledJob;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
@@ -90,7 +91,7 @@ public class SchedulerServiceImpl implements SchedulerService {
                 throw new ValidationException(ValidationError.create("Unable to delete system job."));
             }
 
-            if(scheduledJobHistoryRepository.existsByScheduledJobUuid(UUID.fromString(uuid))) {
+            if (scheduledJobHistoryRepository.existsByScheduledJobUuid(UUID.fromString(uuid))) {
                 logger.warn("Unable to delete job with existing history.");
                 throw new ValidationException(ValidationError.create("Unable to delete job with existing history."));
             }
@@ -138,22 +139,17 @@ public class SchedulerServiceImpl implements SchedulerService {
 
     @Override
     public ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException {
-        Optional<ScheduledJob> scheduledJobOptional = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid));
-        if (scheduledJobOptional.isPresent()) {
-            ScheduledJob scheduledJob = scheduledJobOptional.get();
-            scheduledJob.setCronExpression(request.getCronExpression());
-            scheduledJobsRepository.save(scheduledJob);
-            if (scheduledJob.isSystem()) throw  new ValidationException("Cannot updated system job.");
-            SchedulerRequestDto schedulerRequestDto = new SchedulerRequestDto(
-                    new SchedulerJobDto(scheduledJob.getUuid(), scheduledJob.getJobName(), request.getCronExpression(), scheduledJob.getJobClassName())
-            );
-            schedulerApiClient.updateScheduledJob(schedulerRequestDto);
+        ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromString(uuid)).orElseThrow(() -> new NotFoundException(ScheduledJob.class, uuid));
+        if (scheduledJob.isSystem()) throw new ValidationException("Cannot updated system job.");
+        SchedulerRequestDto schedulerRequestDto = new SchedulerRequestDto(
+                new SchedulerJobDto(scheduledJob.getUuid(), scheduledJob.getJobName(), request.getCronExpression(), scheduledJob.getJobClassName())
+        );
+        schedulerApiClient.updateScheduledJob(schedulerRequestDto);
 
-        } else {
-            throw new NotFoundException(ScheduledJob.class, uuid);
-        }
+        scheduledJob.setCronExpression(request.getCronExpression());
+        scheduledJobsRepository.save(scheduledJob);
 
-        return null;
+        return scheduledJob.mapToDetailDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(UUID.fromString(uuid)));
     }
 
     private void changeScheduledJobState(final String uuid, final boolean enabled) throws SchedulerException, NotFoundException {
