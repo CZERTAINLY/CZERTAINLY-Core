@@ -9,12 +9,12 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.ScheduledJob;
-import com.czertainly.core.dao.repository.ScheduledJobsRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,9 +36,17 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     private DiscoveryService discoveryService;
 
-    private ScheduledJobsRepository scheduledJobsRepository;
+    private SchedulerService schedulerService;
 
-    private DiscoveryCertificateTask discoveryCertificateTask;
+    @Autowired
+    public void setSchedulerService(SchedulerService schedulerService) {
+        this.schedulerService = schedulerService;
+    }
+
+    @Autowired
+    public void setDiscoveryService(DiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
+    }
 
     @Override
     public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
@@ -91,7 +99,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
             jobName = scheduleDiscoveryDto.getJobName();
         }
 
-        ScheduledJob scheduledJob = discoveryCertificateTask.registerScheduler(jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.isOneTime(), scheduleDiscoveryDto.getRequest());
+        ScheduledJobDetailDto scheduledJob = schedulerService.registerScheduledJob(DiscoveryCertificateTask.class, jobName, scheduleDiscoveryDto.getCronExpression(), scheduleDiscoveryDto.isOneTime(), scheduleDiscoveryDto.getRequest());
         logger.info("Job {} was registered.", jobName);
 
         // TODO: construct location URI differently without hardcoded path
@@ -120,20 +128,4 @@ public class DiscoveryControllerImpl implements DiscoveryController {
         return discoveryService.getSearchableFieldInformationByGroup();
     }
 
-    // SETTERs
-
-    @Autowired
-    public void setDiscoveryService(DiscoveryService discoveryService) {
-        this.discoveryService = discoveryService;
-    }
-
-    @Autowired
-    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
-        this.scheduledJobsRepository = scheduledJobsRepository;
-    }
-
-    @Autowired
-    public void setDiscoveryCertificateTask(DiscoveryCertificateTask discoveryCertificateTask) {
-        this.discoveryCertificateTask = discoveryCertificateTask;
-    }
 }

@@ -24,6 +24,7 @@ import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -37,15 +38,18 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.event.transaction.DiscoveryFinishedEvent;
 import com.czertainly.core.event.transaction.DiscoveryProgressEvent;
+import com.czertainly.core.event.transaction.ScheduledJobFinishedEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.handler.CertificateHandler;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.*;
 import com.pivovarit.collectors.ParallelCollectors;
 import jakarta.persistence.criteria.CriteriaBuilder;
@@ -294,6 +298,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
+    @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
@@ -349,12 +354,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public void runDiscoveryAsync(UUID discoveryUuid) {
-        runDiscovery(discoveryUuid);
+        runDiscovery(discoveryUuid, null);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    public DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid) {
+    public DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
 
         // reload discovery modal with all association since it could be in separate transaction/session due to async
@@ -558,7 +563,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             logger.debug("Going to process {} certificates", response.getTotalCertificatesDiscovered());
 
             // Publish the custom event after transaction completion
-            applicationEventPublisher.publishEvent(new DiscoveryFinishedEvent(discovery.getUuid(), loggedUserUuid));
+            applicationEventPublisher.publishEvent(new DiscoveryFinishedEvent(discovery.getUuid(), loggedUserUuid, scheduledJobInfo));
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
             discovery.setStatus(DiscoveryStatus.FAILED);
@@ -574,6 +579,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
             notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+            if (scheduledJobInfo != null) {
+                applicationEventPublisher.publishEvent(new ScheduledJobFinishedEvent(scheduledJobInfo, new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString())));
+            }
         }
 
         return discovery.mapToDto();
@@ -591,7 +599,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         eventProducer.produceDiscoveryFinishedEventMessage(
                 event.discoveryUuid(),
                 event.loggedUserUuid(),
-                ResourceEvent.DISCOVERY_FINISHED
+                ResourceEvent.DISCOVERY_FINISHED,
+                event.scheduledJobInfo()
         );
     }
 
@@ -635,7 +644,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) {
+    public void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) {
         // Get newly discovered certificates
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
@@ -685,7 +694,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
 
         notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(userUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+        if (scheduledJobInfo != null) {
+            applicationEventPublisher.publishEvent(new ScheduledJobFinishedEvent(scheduledJobInfo, new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString())));
+        }
         applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discoveryUuid, discovery.getName(), null, null));
+
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)

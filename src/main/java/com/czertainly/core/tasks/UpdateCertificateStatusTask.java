@@ -15,7 +15,7 @@ import org.springframework.stereotype.Component;
 @Component
 @NoArgsConstructor
 @Transactional
-public class UpdateCertificateStatusTask extends SchedulerJobProcessor {
+public class UpdateCertificateStatusTask implements ScheduledJobTask {
 
     private static final String JOB_NAME = "updateCertificateStatusJob";
     private static final String CRON_EXPRESSION = "0 0 * ? * *";
@@ -23,34 +23,28 @@ public class UpdateCertificateStatusTask extends SchedulerJobProcessor {
     private ApprovalService approvalService;
     private CertificateService certificateService;
 
-    @Override
-    String getDefaultJobName() {
+    public String getDefaultJobName() {
         return JOB_NAME;
     }
 
-    @Override
-    String getDefaultCronExpression() {
+    public String getDefaultCronExpression() {
         return CRON_EXPRESSION;
     }
 
-    @Override
-    boolean isDefaultOneTimeJob() {
+    public boolean isDefaultOneTimeJob() {
         return false;
     }
 
-    @Override
-    String getJobClassName() {
+    public String getJobClassName() {
         return this.getClass().getName();
     }
 
-    @Override
-    boolean systemJob() {
+    public boolean isSystemJob() {
         return true;
     }
 
-    @Override
     @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.CERTIFICATE, operation = OperationType.UPDATE)
-    public ScheduledTaskResult performJob(final String jobName) {
+    public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
         int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
         int expiredApprovals = approvalService.checkApprovalsExpiration();
 
