@@ -25,4 +25,8 @@ public interface SettingService {
     NotificationSettingsDto getNotificationSettings();
 
     void updateNotificationSettings(NotificationSettingsDto notificationSettings);
+
+    Oauth2SettingsDto getOauth2ProviderSettings();
+
+    void updateOauth2ProviderSettings(Oauth2SettingsDto notificationSettingsDto);
 }

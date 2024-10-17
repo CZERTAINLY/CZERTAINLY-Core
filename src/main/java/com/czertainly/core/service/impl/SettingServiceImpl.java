@@ -3,10 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.settings.NotificationSettingsDto;
-import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
-import com.czertainly.api.model.core.settings.UtilsSettingsDto;
+import com.czertainly.api.model.core.settings.*;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -131,6 +128,20 @@ public class SettingServiceImpl implements SettingService {
         } catch (JsonProcessingException e) {
             throw new RuntimeException(e);
         }
+        settingRepository.save(setting);
+    }
+
+    @Override
+    public Oauth2SettingsDto getOauth2ProviderSettings() {
+        return null;
+    }
+
+    @Override
+    public void updateOauth2ProviderSettings(Oauth2SettingsDto oauth2SettingsDto) {
+        Setting setting = new Setting();
+        setting.setName(oauth2SettingsDto.getName());
+        setting.setValue(oauth2SettingsDto.getJson());
+        setting.setSection(SettingsSection.OAUTH2_PROVIDER);
         settingRepository.save(setting);
     }
 

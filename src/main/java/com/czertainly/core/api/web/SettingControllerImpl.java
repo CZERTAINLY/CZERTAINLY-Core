@@ -2,6 +2,7 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
+import com.czertainly.api.model.core.settings.Oauth2SettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.service.SettingService;
@@ -44,5 +45,15 @@ public class SettingControllerImpl implements SettingController {
     @Override
     public void updateNotificationsSettings(NotificationSettingsDto notificationSettingsDto) {
         settingService.updateNotificationSettings(notificationSettingsDto);
+    }
+
+    @Override
+    public Oauth2SettingsDto getOauth2ProviderSettings() {
+        return null;
+    }
+
+    @Override
+    public void updateOauth2ProviderSettings(Oauth2SettingsDto oauth2SettingsDto) {
+        settingService.updateOauth2ProviderSettings(oauth2SettingsDto);
     }
 }
