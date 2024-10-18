@@ -1,4 +1,4 @@
-package com.czertainly.core.auth;
+package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
@@ -6,12 +6,10 @@ import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpHeaders;
-import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -19,7 +17,10 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.util.*;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 

@@ -1,9 +1,8 @@
-package com.czertainly.core.config;
+package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.api.model.core.settings.Oauth2ClientSettings;
 import com.czertainly.api.model.core.settings.Oauth2SettingsDto;
 import com.czertainly.core.service.SettingService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;

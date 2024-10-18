@@ -1,23 +1,18 @@
-package com.czertainly.core.config;
+package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
-import com.czertainly.core.util.AuthHelper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
-import org.springframework.security.oauth2.core.oidc.user.OidcUser;
-import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
-public class CustomLogoutSuccessHandler extends OidcClientInitiatedLogoutSuccessHandler {
+public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuccessHandler {
 
 
-    public CustomLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
+    public CzertainlyLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
         super(clientRegistrationRepository);
     }
 

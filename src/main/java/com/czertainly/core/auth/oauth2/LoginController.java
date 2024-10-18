@@ -1,4 +1,4 @@
-package com.czertainly.core.config;
+package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletRequest;

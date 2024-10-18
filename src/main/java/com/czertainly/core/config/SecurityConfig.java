@@ -1,7 +1,7 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.model.core.settings.Oauth2ResourceServerSettingsDto;
-import com.czertainly.core.auth.CzertainlyJwtAuthenticationConverter;
+import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
@@ -53,7 +53,7 @@ public class SecurityConfig {
 
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
-    private JwtTokenFilter jwtTokenFilter;
+    private Oauth2LoginFilter oauth2LoginFilter;
 
     private SettingService settingService;
 
@@ -63,14 +63,14 @@ public class SecurityConfig {
     }
 
     @Autowired
-    public void setJwtTokenFilter(JwtTokenFilter jwtTokenFilter) {
-        this.jwtTokenFilter = jwtTokenFilter;
+    public void setJwtTokenFilter(Oauth2LoginFilter oauth2LoginFilter) {
+        this.oauth2LoginFilter = oauth2LoginFilter;
     }
 
 
     @Bean
-    public CustomAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
-        return new CustomAuthenticationSuccessHandler();
+    public CzertainlyAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
+        return new CzertainlyAuthenticationSuccessHandler();
     }
 
 
@@ -110,7 +110,7 @@ public class SecurityConfig {
                         oauth2.successHandler(customAuthenticationSuccessHandler())
                 )
                 .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
-                .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
+                .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
         ;
 
         return http.build();
@@ -164,7 +164,7 @@ public class SecurityConfig {
 
     @Bean
     public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
-        return new CustomLogoutSuccessHandler(clientRegistrationRepository);
+        return new CzertainlyLogoutSuccessHandler(clientRegistrationRepository);
     }
 
     @Bean

@@ -1,10 +1,9 @@
-package com.czertainly.core.config;
+package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
-import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -21,14 +20,12 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.text.ParseException;
 import java.util.Base64;
 import java.util.HashMap;
-import java.util.List;
 import java.util.Map;
 
 @Component
-public class JwtTokenFilter extends OncePerRequestFilter {
+public class Oauth2LoginFilter extends OncePerRequestFilter {
 
     @Value("${auth.token.header-name}")
     private String authTokenHeaderName;
