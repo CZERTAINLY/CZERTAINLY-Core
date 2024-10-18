@@ -1,10 +1,12 @@
 package com.czertainly.core.config;
 
+import com.czertainly.api.model.core.settings.Oauth2ResourceServerSettingsDto;
 import com.czertainly.core.auth.CzertainlyJwtAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
+import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -51,18 +53,19 @@ public class SecurityConfig {
 
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
-    @Autowired
     private JwtTokenFilter jwtTokenFilter;
+
+    private SettingService settingService;
 
     @Autowired
     public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
         this.clientRegistrationRepository = clientRegistrationRepository;
     }
 
-//    @Autowired
-//    private ClientRegistrationRepository clientRegistrationRepository;
-
-
+    @Autowired
+    public void setJwtTokenFilter(JwtTokenFilter jwtTokenFilter) {
+        this.jwtTokenFilter = jwtTokenFilter;
+    }
 
 
     @Bean
@@ -75,7 +78,6 @@ public class SecurityConfig {
     protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
 
         http
-//                .securityMatcher("/v1/**")
                 .authorizeRequests()
                 .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
                 .anyRequest().authenticated()
@@ -90,14 +92,12 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
-
                 .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
                 .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter))
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter)
+                        )
                 )
-//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.IF_REQUIRED))
-//                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .logout(logout -> logout
                         .logoutUrl("/logout")
                         .invalidateHttpSession(true) // Invalidate the session
@@ -111,7 +111,6 @@ public class SecurityConfig {
                 )
                 .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
                 .addFilterAfter(jwtTokenFilter, OAuth2LoginAuthenticationFilter.class)
-
         ;
 
         return http.build();
@@ -119,27 +118,43 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
-        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation("http://localhost:8080/realms/CZERTAINLY-realm");
+
+        Oauth2ResourceServerSettingsDto resourceServerSettings = settingService.getOauth2ResourceServerSettings();
+        String issuerUri = resourceServerSettings.getIssuerUri();
+        if (issuerUri == null || issuerUri.isEmpty()) {
+            return token -> {
+                throw new UnsupportedOperationException("JWT decoding is not available as no issuer URI is configured.");
+            };
+        }
+        int skew = resourceServerSettings.getSkew();
+        List<String> audiences = resourceServerSettings.getAudiences();
+
+
+        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
 
         OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> {
             Instant now = Instant.now();
             Instant issuedAt = jwt.getIssuedAt();
             Instant expiresAt = jwt.getExpiresAt();
 
-            if (issuedAt != null && issuedAt.isAfter(now.plus(60, ChronoUnit.SECONDS))) {
+            if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
                 return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is used before its time.", null));
             }
 
-            if (expiresAt != null && expiresAt.isBefore(now.minus(60, ChronoUnit.SECONDS))) {
+            if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
                 return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is expired.", null));
             }
 
             return OAuth2TokenValidatorResult.success();
         };
 
+
+        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
         // Add audience validation
-        OAuth2TokenValidator<Jwt> audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.contains("account"));
-        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer("http://localhost:8080/realms/CZERTAINLY-realm");
+        if (!audiences.isEmpty()) {
+            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
+        }
+        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
         OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
 
         jwtDecoder.setJwtValidator(combinedValidator);
@@ -147,32 +162,14 @@ public class SecurityConfig {
     }
 
 
-//    private LogoutSuccessHandler oidcLogoutSuccessHandler() {
-//        OidcClientInitiatedLogoutSuccessHandler oidcLogoutSuccessHandler =
-//                new OidcClientInitiatedLogoutSuccessHandler(this.clientRegistrationRepository);
-//
-//        // Sets the location that the End-User's User Agent will be redirected to
-//        // after the logout has been performed at the Provider
-//        oidcLogoutSuccessHandler.setPostLogoutRedirectUri("/the");
-//
-//        return oidcLogoutSuccessHandler;
-//    }
-
     @Bean
     public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
         return new CustomLogoutSuccessHandler(clientRegistrationRepository);
     }
 
-
-
-
-
-
-
-
     @Bean
     public CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter() {
-        return new CzertainlyJwtAuthenticationConverter();  // Your custom converter
+        return new CzertainlyJwtAuthenticationConverter();
     }
 
 
@@ -235,5 +232,10 @@ public class SecurityConfig {
     @Autowired
     public void setProtocolValidationFilter(ProtocolValidationFilter protocolValidationFilter) {
         this.protocolValidationFilter = protocolValidationFilter;
+    }
+
+    @Autowired
+    public void setSettingService(SettingService settingService) {
+        this.settingService = settingService;
     }
 }

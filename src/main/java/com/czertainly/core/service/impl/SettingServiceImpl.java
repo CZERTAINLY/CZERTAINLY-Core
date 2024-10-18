@@ -18,10 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -48,7 +45,8 @@ public class SettingServiceImpl implements SettingService {
         // utils
         Map<String, Setting> utilsSettings = mappedSettings.get("utils");
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
-        if(utilsSettings != null) utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
+        if (utilsSettings != null)
+            utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
         platformSettings.setUtils(utilsSettingsDto);
 
         return platformSettings;
@@ -80,7 +78,7 @@ public class SettingServiceImpl implements SettingService {
         Map<NotificationType, String> valueMapped = new HashMap<>();
         if (!settings.isEmpty()) {
             String valueJson = settings.get(0).getValue();
-            if(valueJson != null) {
+            if (valueJson != null) {
                 ObjectMapper mapper = new ObjectMapper();
                 TypeReference<Map<NotificationType, String>> typeReference = new TypeReference<>() {
                 };
@@ -118,8 +116,7 @@ public class SettingServiceImpl implements SettingService {
         for (String uuid : notificationTypeStringMap.values()) {
             try {
                 UUID.fromString(uuid);
-            }
-            catch (IllegalArgumentException e) {
+            } catch (IllegalArgumentException e) {
                 throw new ValidationException("Invalid UUID of a notification instance reference.");
             }
         }
@@ -132,25 +129,92 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public Oauth2SettingsDto getOauth2ProviderSettings() {
-        return null;
+    public List<Oauth2SettingsDto> getOauth2ProviderSettings() {
+        List<Oauth2SettingsDto> oauth2SettingsDtos = new ArrayList<>();
+        List<Setting> settings = settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER);
+        if (!settings.isEmpty()) {
+            for (Setting setting : settings) {
+                ObjectMapper objectMapper = new ObjectMapper();
+                try {
+                    Oauth2SettingsDto settingsDto = new Oauth2SettingsDto();
+                    settingsDto.setClientSettings(objectMapper.readValue(setting.getValue(), Oauth2ClientSettings.class));
+                    settingsDto.setRegistrationId(setting.getName());
+                    oauth2SettingsDtos.add(settingsDto);
+                } catch (JsonProcessingException e) {
+                    throw new ValidationException("Unable to convert JSON value to Client Settings object.");
+                }
+            }
+         }
+        return oauth2SettingsDtos;
     }
 
     @Override
-    public void updateOauth2ProviderSettings(Oauth2SettingsDto oauth2SettingsDto) {
-        Setting setting = new Setting();
-        setting.setName(oauth2SettingsDto.getName());
-        setting.setValue(oauth2SettingsDto.getJson());
-        setting.setSection(SettingsSection.OAUTH2_PROVIDER);
-        settingRepository.save(setting);
+    public void updateOauth2ProviderSettings(List<Oauth2SettingsDto> oauth2SettingsDto) {
+        for (Oauth2SettingsDto settingsDto : oauth2SettingsDto) {
+            if (settingsDto.getRegistrationId() == null) {
+                throw new ValidationException("Registration ID cannot be null."); // checks for other properties too
+            }
+            List<Setting> settingForRegistrationId = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, settingsDto.getRegistrationId());
+            Setting setting = settingForRegistrationId.isEmpty() ? new Setting() : settingForRegistrationId.getFirst();
+            setting.setName(settingsDto.getRegistrationId());
+            ObjectMapper mapper = new ObjectMapper();
+            try {
+                setting.setValue(mapper.writeValueAsString(settingsDto.getClientSettings()));
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Unable to convert settings to JSON.");
+            }
+            setting.setSection(SettingsSection.OAUTH2_PROVIDER);
+            settingRepository.save(setting);
+        }
+    }
+
+    @Override
+    public List<String> getListOfOauth2Clients() {
+        return settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream().map(Setting::getName).toList();
+    }
+
+    @Override
+    public Oauth2ResourceServerSettingsDto getOauth2ResourceServerSettings() {
+        Oauth2ResourceServerSettingsDto resourceServerSettingsDto = new Oauth2ResourceServerSettingsDto();
+        List<Setting> settings = settingRepository.findBySection(SettingsSection.OAUTH2_RESOURCE_SERVER);
+        if (!settings.isEmpty()) {
+            ObjectMapper objectMapper = new ObjectMapper();
+            try {
+                resourceServerSettingsDto = objectMapper.readValue(settings.getFirst().getValue(), Oauth2ResourceServerSettingsDto.class);
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Unable to convert JSON value to Resource Server object.");
+            }
+        }
+
+        return resourceServerSettingsDto;
+    }
+
+    @Override
+    public void updateOauth2ResourceServerSettings(Oauth2ResourceServerSettingsDto oauth2ResourceServerSettingsDto) {
+        if (oauth2ResourceServerSettingsDto.getIssuerUri() == null) {
+            throw new ValidationException("Issuer URI cannot be null");
+        }
+        List<Setting> settings = settingRepository.findBySection(SettingsSection.OAUTH2_RESOURCE_SERVER);
+        Setting setting = settings.isEmpty() ? new Setting() : settings.getFirst();
+
+        setting.setSection(SettingsSection.OAUTH2_RESOURCE_SERVER);
+        ObjectMapper mapper = new ObjectMapper();
+        try {
+            setting.setValue(mapper.writeValueAsString(oauth2ResourceServerSettingsDto));
+            setting.setName("name");
+            settingRepository.save(setting);
+        } catch (JsonProcessingException e) {
+            throw new ValidationException("Unable to convert settings to json.");
+        }
     }
 
     private Map<String, Map<String, Setting>> mapSettingsByCategory(List<Setting> settings) {
         var mapping = new HashMap<String, Map<String, Setting>>();
 
-        for (Setting setting: settings) {
+        for (Setting setting : settings) {
             Map<String, Setting> categorySettings;
-            if((categorySettings = mapping.get(setting.getCategory())) == null) mapping.put(setting.getCategory(), categorySettings = new HashMap<>());
+            if ((categorySettings = mapping.get(setting.getCategory())) == null)
+                mapping.put(setting.getCategory(), categorySettings = new HashMap<>());
             categorySettings.put(setting.getName(), setting);
         }
 

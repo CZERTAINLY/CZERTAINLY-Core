@@ -1,16 +1,15 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.SettingController;
-import com.czertainly.api.model.core.settings.NotificationSettingsDto;
-import com.czertainly.api.model.core.settings.Oauth2SettingsDto;
-import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.*;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.converter.SettingsSectionCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
 
 @RestController
 public class SettingControllerImpl implements SettingController {
@@ -48,12 +47,22 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    public Oauth2SettingsDto getOauth2ProviderSettings() {
-        return null;
+    public List<Oauth2SettingsDto> getOauth2ProviderSettings() {
+        return settingService.getOauth2ProviderSettings();
     }
 
     @Override
-    public void updateOauth2ProviderSettings(Oauth2SettingsDto oauth2SettingsDto) {
+    public void updateOauth2ProviderSettings(List<Oauth2SettingsDto> oauth2SettingsDto) {
         settingService.updateOauth2ProviderSettings(oauth2SettingsDto);
+    }
+
+    @Override
+    public Oauth2ResourceServerSettingsDto getOauth2ResourceServerSettings() {
+        return settingService.getOauth2ResourceServerSettings();
+    }
+
+    @Override
+    public void updateOauth2ResourceServerSettings(Oauth2ResourceServerSettingsDto oauth2ResourceServerSettingsDto) {
+        settingService.updateOauth2ResourceServerSettings(oauth2ResourceServerSettingsDto);
     }
 }

@@ -37,37 +37,11 @@ import java.util.*;
 @Component
 public class CustomAuthenticationSuccessHandler implements AuthenticationSuccessHandler {
 
-    @Autowired
-    public void setAuthorizedClientService(OAuth2AuthorizedClientService authorizedClientService) {
-        this.authorizedClientService = authorizedClientService;
-    }
-
-    @Value("${auth.token.header-name}")
-    private String authTokenHeaderName;
-
-    private OAuth2AuthorizedClientService authorizedClientService;
-
-    private final HttpSessionRequestCache requestCache = new HttpSessionRequestCache();
-
-
-    @Autowired
-    private CzertainlyAuthenticationClient authenticationClient;
-
-
     @Override
-    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException, ServletException {
+    public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) throws IOException {
         String redirectUrl = (String) request.getSession().getAttribute("redirectUrl");
-
-        if (redirectUrl != null && !redirectUrl.isEmpty()) {
-            // Remove it from the session after retrieval
-            request.getSession().removeAttribute("redirectUrl");
-
-            // Redirect to the original URL
-            response.sendRedirect(redirectUrl);
-        } else {
-            // If no redirect URL is found, redirect to a default page
-            response.sendRedirect("http://localhost:3000/#/default");
-        }
+        request.getSession().removeAttribute("redirectUrl");
+        response.sendRedirect(redirectUrl);
     }
 }
 
