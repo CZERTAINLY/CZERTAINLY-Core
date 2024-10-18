@@ -579,9 +579,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
             notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
-            if (scheduledJobInfo != null) {
-                applicationEventPublisher.publishEvent(new ScheduledJobFinishedEvent(scheduledJobInfo, new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString())));
-            }
         }
 
         return discovery.mapToDto();

@@ -3,6 +3,7 @@ package com.czertainly.core.tasks;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.DiscoveryService;
@@ -17,8 +18,6 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
-import org.springframework.transaction.support.TransactionSynchronization;
-import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -79,23 +78,22 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
         DiscoveryHistoryDetailDto discovery = null;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            final DiscoveryHistoryDetailDto discoveryCreated = discoveryService.createDiscovery(discoveryDto, true);
-            discovery = discoveryCreated;
-
-            // Register an after-commit synchronization
-            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
-                @Override
-                public void afterCommit() {
-                    // After the transaction with new discovery persisting commits, run discovery
-                    discoveryService.runDiscovery(UUID.fromString(discoveryCreated.getUuid()), scheduledJobInfo); // Use the entity saved in the transaction
-                }
-            });
+            discovery = discoveryService.createDiscovery(discoveryDto, true);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
             final String errorMessage = String.format("Unable to create discovery %s for job %s. Error: %s", discoveryDto.getName(), scheduledJobInfo == null ? "" : scheduledJobInfo.jobName(), e.getMessage());
             logger.error(errorMessage);
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discovery != null ? Resource.DISCOVERY : null, discovery != null ? discovery.getUuid() : null);
+        }
+
+        // After the transaction with new discovery persisting commits, run discovery
+        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        discovery = discoveryService.runDiscovery(UUID.fromString(discovery.getUuid()), scheduledJobInfo);
+        transactionManager.commit(status);
+
+        if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
+            return new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid());
         }
 
         return null;
