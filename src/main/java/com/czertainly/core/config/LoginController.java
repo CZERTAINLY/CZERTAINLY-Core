@@ -9,11 +9,8 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
-import java.net.URLEncoder;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 
 @Controller
@@ -38,6 +35,8 @@ public class LoginController {
             request.getSession().setAttribute("redirectUrl", originalUrl);
         }
         List<String> oauth2Providers = settingService.getListOfOauth2Clients();
+
+        if (oauth2Providers.isEmpty()) return "no-login-options";
 
         if (oauth2Providers.size() == 1) response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
 

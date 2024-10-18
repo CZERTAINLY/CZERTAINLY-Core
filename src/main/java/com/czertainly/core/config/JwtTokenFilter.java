@@ -42,8 +42,7 @@ public class JwtTokenFilter extends OncePerRequestFilter {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
-        if (authentication instanceof OAuth2AuthenticationToken) {
-            OAuth2AuthenticationToken oauthToken = (OAuth2AuthenticationToken) authentication;
+        if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
 
             OAuth2User oauthUser = oauthToken.getPrincipal();
 
@@ -53,7 +52,6 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             extractedClaims.put("given_name", oauthUser.getAttribute("given_name"));
             extractedClaims.put("family_name", oauthUser.getAttribute("family_name"));
             extractedClaims.put("email", oauthUser.getAttribute("email"));
-//            List<String> roles = List.of("superadmin");
             extractedClaims.put("roles", oauthUser.getAttribute("roles"));
 
             String encodedPayload = Base64.getEncoder().encodeToString(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(extractedClaims).getBytes());
@@ -64,7 +62,6 @@ public class JwtTokenFilter extends OncePerRequestFilter {
             authenticationToken.setIdToken(((OidcUser) authentication.getPrincipal()).getIdToken().getTokenValue());
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
 
-            // Perform any additional processing or validation here
         }
 
         // Proceed with the next filter

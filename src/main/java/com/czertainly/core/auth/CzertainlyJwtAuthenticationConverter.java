@@ -1,5 +1,6 @@
 package com.czertainly.core.auth;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -47,7 +48,7 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
                 return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
 
             } catch (JsonProcessingException e) {
-                throw new RuntimeException(e);
+                throw new ValidationException("Unable to convert JWT token to authentication.");
             }
         } else {
             return (CzertainlyAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
