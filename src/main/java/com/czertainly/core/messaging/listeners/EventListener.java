@@ -10,7 +10,9 @@ import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.DiscoveryService;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.AuthHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -31,13 +33,15 @@ public class EventListener {
     private CertificateEventHistoryService certificateEventHistoryService;
     private DiscoveryService discoveryService;
     private AuthHelper authHelper;
+    private final ObjectMapper mapper = new ObjectMapper();
 
     @Autowired
     public void setAuthHelper(AuthHelper authHelper) {
         this.authHelper = authHelper;
     }
+
     @Autowired
-    public void setDiscoveryService(DiscoveryService discoveryService){
+    public void setDiscoveryService(DiscoveryService discoveryService) {
         this.discoveryService = discoveryService;
     }
 
@@ -49,11 +53,13 @@ public class EventListener {
     @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter", concurrency = "3")
     public void processMessage(EventMessage eventMessage) throws NotFoundException, CertificateException, NoSuchAlgorithmException, RuleException, AttributeException {
         switch (eventMessage.getResource()) {
-            case CERTIFICATE -> certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
-            case DISCOVERY ->
-            {
+            case CERTIFICATE ->
+                    certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
+            case DISCOVERY -> {
                 authHelper.authenticateAsUser(eventMessage.getUserUuid());
-                if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID(), eventMessage.getUserUuid());
+                if (Objects.equals(eventMessage.getEventName(), ResourceEvent.DISCOVERY_FINISHED.getCode())) {
+                    discoveryService.evaluateDiscoveryTriggers(eventMessage.getResourceUUID(), eventMessage.getUserUuid(), mapper.convertValue(eventMessage.getEventData(), ScheduledJobInfo.class));
+                }
             }
             default -> logger.warn("Event handling is supported only for certificates for now");
         }

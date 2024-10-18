@@ -20,7 +20,6 @@ import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CzertainlyX500NameStyle;
-import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
@@ -29,6 +28,7 @@ import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.auth.x500.X500Principal;
 import java.util.ArrayList;
@@ -39,7 +39,7 @@ import java.util.UUID;
 @Component
 @NoArgsConstructor
 @Transactional
-public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
+public class UpdateIntuneRevocationRequestsTask implements ScheduledJobTask {
 
     private static final Logger logger = LoggerFactory.getLogger(UpdateIntuneRevocationRequestsTask.class);
 
@@ -53,13 +53,10 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
 
     private static final int MAX_CA_REQUESTS_TO_DOWNLOAD = 500;
 
-    @Autowired
     private ScepProfileRepository scepProfileRepository;
 
-    @Autowired
     private CertificateService certificateService;
 
-    @Autowired
     private ClientOperationService clientOperationService;
 
     private AuthHelper authHelper;
@@ -69,33 +66,42 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
         this.authHelper = authHelper;
     }
 
-    @Override
-    String getDefaultJobName() {
+    @Autowired
+    public void setScepProfileRepository(ScepProfileRepository scepProfileRepository) {
+        this.scepProfileRepository = scepProfileRepository;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
+
+    public String getDefaultJobName() {
         return JOB_NAME;
     }
 
-    @Override
-    String getDefaultCronExpression() {
+    public String getDefaultCronExpression() {
         return CRON_EXPRESSION;
     }
 
-    @Override
-    boolean isDefaultOneTimeJob() {
+    public boolean isDefaultOneTimeJob() {
         return false;
     }
 
-    @Override
-    String getJobClassName() {
+    public String getJobClassName() {
         return this.getClass().getName();
     }
 
-    @Override
-    boolean systemJob() {
+    public boolean isSystemJob() {
         return true;
     }
 
-    @Override
-    public ScheduledTaskResult performJob(String jobName) {
+    public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Executing Intune revocation requests update task");
         authHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
 
@@ -237,7 +243,7 @@ public class UpdateIntuneRevocationRequestsTask extends SchedulerJobProcessor {
 
     private void uploadRevocationResults(IntuneRevocationClient intuneRevocationClient, List<CARevocationResult> revocationResults) throws Exception {
         // we upload only when there are some results
-        if (revocationResults.size() > 0) {
+        if (!revocationResults.isEmpty()) {
             String uploadTransactionId = UUID.randomUUID().toString();
 
             if (logger.isDebugEnabled()) {

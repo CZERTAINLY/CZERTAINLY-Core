@@ -21,7 +21,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "scheduled_job")
-public class ScheduledJob extends UniquelyIdentified{
+public class ScheduledJob extends UniquelyIdentified {
 
     @Column(name = "job_name")
     private String jobName;
@@ -61,7 +61,7 @@ public class ScheduledJob extends UniquelyIdentified{
         dto.setEnabled(this.enabled);
         dto.setSystem(this.system);
         dto.setOneTime(this.oneTime);
-        if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+        if (latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
 
         return dto;
     }
@@ -75,7 +75,7 @@ public class ScheduledJob extends UniquelyIdentified{
         dto.setEnabled(this.enabled);
         dto.setOneTime(this.oneTime);
         dto.setSystem(this.system);
-        if(latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
+        if (latestHistory != null) dto.setLastExecutionStatus(latestHistory.getSchedulerExecutionStatus());
 
         return dto;
     }

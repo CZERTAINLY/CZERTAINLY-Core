@@ -8,6 +8,7 @@ import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.tasks.ScheduledJobTask;
 
 public interface SchedulerService {
 
@@ -25,4 +26,9 @@ public interface SchedulerService {
 
     ScheduledJobDetailDto updateScheduledJob(String uuid, UpdateScheduledJob request) throws NotFoundException, SchedulerException;
 
+    ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass) throws SchedulerException;
+
+    ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass, String jobName, String cronExpression, boolean oneTime, Object taskData) throws SchedulerException;
+
+    void runScheduledJob(String jobName) throws SchedulerException, NotFoundException;
 }
