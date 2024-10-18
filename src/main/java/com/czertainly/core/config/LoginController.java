@@ -1,24 +1,35 @@
 package com.czertainly.core.config;
 
+import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
+import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.io.IOException;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 @Controller
 public class LoginController {
 
+    private SettingService settingService;
+
+    @Autowired
+    public void setSettingService(SettingService settingService) {
+        this.settingService = settingService;
+    }
+
+
     @GetMapping("/login")
-    public void loginPage(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletResponse response,
-                          HttpServletRequest request) throws IOException {
-
-
+    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl,
+                            HttpServletRequest request, HttpServletResponse response) throws IOException {
         String originalUrl = request.getHeader("referer");
         if (originalUrl != null) {
             if (redirectUrl != null) {
@@ -26,12 +37,17 @@ public class LoginController {
             }
             request.getSession().setAttribute("redirectUrl", originalUrl);
         }
+        List<String> oauth2Providers = settingService.getListOfOauth2Clients();
 
+        if (oauth2Providers.size() == 1) response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
 
+        model.addAttribute("providers", oauth2Providers);
+        return "login-options";
+    }
 
-//        response.sendRedirect("oauth2/authorization/keycloak?redirectUrl=" + URLEncoder.encode(redirectUrl, StandardCharsets.UTF_8));
-        response.sendRedirect("oauth2/authorization/keycloak");
-
+    @GetMapping("/oauth2/authorization/{provider}")
+    public void loginWithProvider(@PathVariable String provider, HttpServletResponse response) throws IOException {
+        response.sendRedirect("/oauth2/authorization/" + provider);
     }
 
 }
