@@ -234,14 +234,17 @@ public class SchedulerServiceImpl implements SchedulerService {
     public void runScheduledJob(final String jobName) throws SchedulerException, NotFoundException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, jobName));
 
-        ScheduledJobTask scheduledJobTask = null;
+        ScheduledJobTask scheduledJobTask;
         try {
             final Class<?> clazz = Class.forName(scheduledJob.getJobClassName());
             final Object clazzObject = applicationContext.getBean(clazz);
             if (clazzObject instanceof ScheduledJobTask task) {
                 scheduledJobTask = task;
+            } else {
+                scheduledJobTask = null;
             }
         } catch (ClassNotFoundException ignored) {
+            scheduledJobTask = null;
         }
 
         if (scheduledJobTask == null) {
@@ -300,7 +303,9 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         try {
             scheduledJobEntity.setUserUuid(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
-        } catch (ValidationException ignored) {}
+        } catch (ValidationException ignored) {
+            scheduledJobEntity.setUserUuid(null);
+        }
 
         scheduledJobsRepository.save(scheduledJobEntity);
 
