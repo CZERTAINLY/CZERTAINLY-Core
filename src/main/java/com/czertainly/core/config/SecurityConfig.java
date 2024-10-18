@@ -1,12 +1,14 @@
 package com.czertainly.core.config;
 
+import com.czertainly.api.model.core.settings.Oauth2ResourceServerSettingsDto;
+import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
+import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -17,19 +19,29 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
+import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2Error;
+import org.springframework.security.oauth2.core.OAuth2TokenValidator;
+import org.springframework.security.oauth2.core.OAuth2TokenValidatorResult;
+import org.springframework.security.oauth2.jwt.*;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig  {
+public class SecurityConfig {
 
     CzertainlyAuthenticationProvider czertainlyAuthenticationProvider;
 
@@ -39,22 +51,41 @@ public class SecurityConfig  {
 
     private Environment environment;
 
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
+
+    private Oauth2LoginFilter oauth2LoginFilter;
+
+    private SettingService settingService;
+
+    @Autowired
+    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
+
+    @Autowired
+    public void setJwtTokenFilter(Oauth2LoginFilter oauth2LoginFilter) {
+        this.oauth2LoginFilter = oauth2LoginFilter;
+    }
+
 
     @Bean
-    protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
+    public CzertainlyAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
+        return new CzertainlyAuthenticationSuccessHandler();
+    }
+
+
+    @Bean
+    protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
 
         http
                 .authorizeRequests()
+                .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
                 .anyRequest().authenticated()
                 .accessDecisionManager(accessDecisionManager())
                 .and()
                 .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                        })
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
+                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                 )
                 .csrf(AbstractHttpConfigurer::disable)
                 .cors(AbstractHttpConfigurer::disable)
@@ -62,11 +93,85 @@ public class SecurityConfig  {
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
                 .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
-                .addFilterBefore(createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter)
+                        )
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .invalidateHttpSession(true) // Invalidate the session
+                        .clearAuthentication(true) // Clear the authentication
+                        .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
+                        .deleteCookies("JSESSIONID") // Optionally delete cookies
+                )
+                .oauth2Login(oauth2
+                        ->
+                        oauth2.successHandler(customAuthenticationSuccessHandler())
+                )
+                .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
+                .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
+        ;
 
         return http.build();
     }
+
+    @Bean
+    public JwtDecoder jwtDecoder() {
+
+        Oauth2ResourceServerSettingsDto resourceServerSettings = settingService.getOauth2ResourceServerSettings();
+        String issuerUri = resourceServerSettings.getIssuerUri();
+        if (issuerUri == null || issuerUri.isEmpty()) {
+            return token -> {
+                throw new UnsupportedOperationException("JWT decoding is not available as no issuer URI is configured.");
+            };
+        }
+        int skew = resourceServerSettings.getSkew();
+        List<String> audiences = resourceServerSettings.getAudiences();
+
+
+        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+
+        OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> {
+            Instant now = Instant.now();
+            Instant issuedAt = jwt.getIssuedAt();
+            Instant expiresAt = jwt.getExpiresAt();
+
+            if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is used before its time.", null));
+            }
+
+            if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
+                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is expired.", null));
+            }
+
+            return OAuth2TokenValidatorResult.success();
+        };
+
+
+        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
+        // Add audience validation
+        if (!audiences.isEmpty()) {
+            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
+        }
+        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
+        OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
+
+        jwtDecoder.setJwtValidator(combinedValidator);
+        return jwtDecoder;
+    }
+
+
+    @Bean
+    public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
+        return new CzertainlyLogoutSuccessHandler(clientRegistrationRepository);
+    }
+
+    @Bean
+    public CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter() {
+        return new CzertainlyJwtAuthenticationConverter();
+    }
+
 
     @Bean
     public AuthenticationManager authenticationManager() {
@@ -127,5 +232,10 @@ public class SecurityConfig  {
     @Autowired
     public void setProtocolValidationFilter(ProtocolValidationFilter protocolValidationFilter) {
         this.protocolValidationFilter = protocolValidationFilter;
+    }
+
+    @Autowired
+    public void setSettingService(SettingService settingService) {
+        this.settingService = settingService;
     }
 }
