@@ -47,22 +47,12 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    public List<Oauth2SettingsDto> getOauth2ProviderSettings() {
-        return settingService.getOauth2ProviderSettings();
+    public Oauth2SettingsDto getOauth2ProviderSettings(String providerName) {
+        return settingService.getOauth2ProviderSettings(providerName);
     }
 
     @Override
-    public void updateOauth2ProviderSettings(List<Oauth2SettingsDto> oauth2SettingsDto) {
+    public void updateOauth2ProviderSettings(Oauth2SettingsDto oauth2SettingsDto) {
         settingService.updateOauth2ProviderSettings(oauth2SettingsDto);
-    }
-
-    @Override
-    public Oauth2ResourceServerSettingsDto getOauth2ResourceServerSettings() {
-        return settingService.getOauth2ResourceServerSettings();
-    }
-
-    @Override
-    public void updateOauth2ResourceServerSettings(Oauth2ResourceServerSettingsDto oauth2ResourceServerSettingsDto) {
-        settingService.updateOauth2ResourceServerSettings(oauth2ResourceServerSettingsDto);
     }
 }

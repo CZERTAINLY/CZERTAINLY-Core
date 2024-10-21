@@ -1,11 +1,8 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.settings.*;
-import com.czertainly.core.dao.entity.Notification;
 
 import java.util.List;
-import java.util.Map;
 
 public interface SettingService {
 
@@ -26,12 +23,12 @@ public interface SettingService {
 
     void updateNotificationSettings(NotificationSettingsDto notificationSettings);
 
-    List<Oauth2SettingsDto> getOauth2ProviderSettings();
+    Oauth2SettingsDto getOauth2ProviderSettings(String providerName);
 
-    void updateOauth2ProviderSettings(List<Oauth2SettingsDto> notificationSettingsDto);
+    void updateOauth2ProviderSettings(Oauth2SettingsDto notificationSettingsDto);
 
     List<String> getListOfOauth2Clients();
 
-    Oauth2ResourceServerSettingsDto getOauth2ResourceServerSettings();
-    void updateOauth2ResourceServerSettings(Oauth2ResourceServerSettingsDto oauth2ResourceServerSettingsDto);
+    Oauth2ProviderSettings findOauth2ProviderByIssuerUri(String issuerUri);
+
 }

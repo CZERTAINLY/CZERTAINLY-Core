@@ -1,8 +1,12 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.settings.Oauth2ClientSettings;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.core.settings.Oauth2ProviderSettings;
 import com.czertainly.api.model.core.settings.Oauth2SettingsDto;
 import com.czertainly.core.service.SettingService;
+import com.czertainly.core.util.SecretEncodingVersion;
+import com.czertainly.core.util.SecretsUtil;
+import org.springframework.beans.NotReadablePropertyException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -25,30 +29,29 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
 
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
-        Optional<Oauth2ClientSettings> clientSettings = settingService.getOauth2ProviderSettings().stream().filter(setting -> setting.getRegistrationId().equals(registrationId)).map(Oauth2SettingsDto::getClientSettings).findFirst();
-        return clientSettings.map(oauth2ClientSettings -> convertJsonToClientRegistration(oauth2ClientSettings, registrationId)).orElse(null);
+        Oauth2ProviderSettings clientSettings = settingService.getOauth2ProviderSettings(registrationId).getClientSettings();
+        return convertJsonToClientRegistration(clientSettings, registrationId);
     }
 
-    private ClientRegistration convertJsonToClientRegistration(Oauth2ClientSettings clientSettings, String registrationId) {
+    private ClientRegistration convertJsonToClientRegistration(Oauth2ProviderSettings clientSettings, String registrationId) {
+        if (clientSettings == null) {
+            return null;
+        }
         Map<String, Object> configMetadata = new HashMap<>();
-        configMetadata.put("end_session_endpoint", clientSettings.getEndSessionEndpoint());
+        configMetadata.put("end_session_endpoint", clientSettings.getLogoutUri());
 
         return ClientRegistration.withRegistrationId(registrationId)
                 .clientId(clientSettings.getClientId())
-                .clientSecret(clientSettings.getClientSecret())
-                .clientName(clientSettings.getIssuerUri())
-                .authorizationGrantType(new AuthorizationGrantType(clientSettings.getAuthorizationGrantType()))
-                .redirectUri(clientSettings.getRedirectUri())
+                .clientSecret(SecretsUtil.decodeAndDecryptSecretString(clientSettings.getClientSecret(), SecretEncodingVersion.V1))
+                .authorizationGrantType(new AuthorizationGrantType("authorization_code"))
+//                .redirectUri("{baseUrl}/login/oauth2/code/" + registrationId)
+                .redirectUri("https://127.0.0.1:8443/api/login/oauth2/code/keycloak")
                 .scope(clientSettings.getScope())
                 .authorizationUri(clientSettings.getAuthorizationUri())
                 .tokenUri(clientSettings.getTokenUri())
                 .jwkSetUri(clientSettings.getJwkSetUri())
-                .issuerUri(clientSettings.getIssuerUri())
                 .providerConfigurationMetadata(configMetadata)
                 .build();
     }
-
-
-
 
 }

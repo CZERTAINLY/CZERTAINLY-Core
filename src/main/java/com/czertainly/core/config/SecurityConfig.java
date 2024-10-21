@@ -1,12 +1,16 @@
 package com.czertainly.core.config;
 
-import com.czertainly.api.model.core.settings.Oauth2ResourceServerSettingsDto;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.core.settings.Oauth2ProviderSettings;
+import com.czertainly.api.model.core.settings.Oauth2SettingsDto;
 import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import com.czertainly.core.service.SettingService;
+import com.nimbusds.jose.jwk.SecretJWK;
+import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -35,6 +39,7 @@ import org.springframework.security.web.authentication.preauth.x509.X509Authenti
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
+import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -95,7 +100,8 @@ public class SecurityConfig {
                 .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
                 .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt.jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter)
+                        .jwt(jwt -> jwt.decoder(jwtDecoder())
+                                .jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter)
                         )
                 )
                 .logout(logout -> logout
@@ -118,47 +124,50 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
+        return token -> {
+            String issuerUri;
+            try {
+                issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
+            } catch (ParseException e) {
+                throw new ValidationException("Could not extract issuer from JWT.");
+            }
+            if (issuerUri == null) throw new ValidationException("Issuer uri is not present in JWT.");
 
-        Oauth2ResourceServerSettingsDto resourceServerSettings = settingService.getOauth2ResourceServerSettings();
-        String issuerUri = resourceServerSettings.getIssuerUri();
-        if (issuerUri == null || issuerUri.isEmpty()) {
-            return token -> {
-                throw new UnsupportedOperationException("JWT decoding is not available as no issuer URI is configured.");
+            Oauth2ProviderSettings providerSettings = settingService.findOauth2ProviderByIssuerUri(issuerUri);
+            if (providerSettings == null)
+                throw new ValidationException("No Oauth2 Provider with issuer URI " + issuerUri + "configured.");
+            int skew = providerSettings.getSkew();
+            List<String> audiences = providerSettings.getAudiences();
+
+            NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+
+            OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> {
+                Instant now = Instant.now();
+                Instant issuedAt = jwt.getIssuedAt();
+                Instant expiresAt = jwt.getExpiresAt();
+
+                if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
+                    return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is used before its time.", null));
+                }
+
+                if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
+                    return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is expired.", null));
+                }
+
+                return OAuth2TokenValidatorResult.success();
             };
-        }
-        int skew = resourceServerSettings.getSkew();
-        List<String> audiences = resourceServerSettings.getAudiences();
-
-
-        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
-
-        OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> {
-            Instant now = Instant.now();
-            Instant issuedAt = jwt.getIssuedAt();
-            Instant expiresAt = jwt.getExpiresAt();
-
-            if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
-                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is used before its time.", null));
+            
+            OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
+            // Add audience validation
+            if (!audiences.isEmpty()) {
+                audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
             }
+            OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefault();
+            OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
 
-            if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
-                return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is expired.", null));
-            }
-
-            return OAuth2TokenValidatorResult.success();
+            jwtDecoder.setJwtValidator(combinedValidator);
+            return jwtDecoder.decode(token);
         };
-
-
-        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
-        // Add audience validation
-        if (!audiences.isEmpty()) {
-            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
-        }
-        OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
-        OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
-
-        jwtDecoder.setJwtValidator(combinedValidator);
-        return jwtDecoder;
     }
 
 
