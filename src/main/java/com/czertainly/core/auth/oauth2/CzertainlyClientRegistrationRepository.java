@@ -35,7 +35,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
         }
         Map<String, Object> configMetadata = new HashMap<>();
         configMetadata.put("end_session_endpoint", clientSettings.getLogoutUrl());
-        configMetadata.put("post_logout_uri", clientSettings.getPostLogoutUri());
+        configMetadata.put("post_logout_uri", clientSettings.getPostLogoutUrl());
 
         return ClientRegistration.withRegistrationId(registrationId)
                 .clientId(clientSettings.getClientId())
