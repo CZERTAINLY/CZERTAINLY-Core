@@ -25,7 +25,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 @Component
-public class Oauth2LoginFilter extends OncePerRequestFilter {
+public class OAuth2LoginFilter extends OncePerRequestFilter {
 
     @Value("${auth.token.header-name}")
     private String authTokenHeaderName;
