@@ -131,18 +131,18 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public Oauth2SettingsDto getOauth2ProviderSettings(String providerName) {
+    public OAuth2SettingsDto getOAuth2ProviderSettings(String providerName) {
         List<Setting> settings = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
-        Oauth2SettingsDto settingsDto = null;
+        OAuth2SettingsDto settingsDto = null;
         if (!settings.isEmpty()) {
             Setting setting = settings.getFirst();
-            settingsDto = new Oauth2SettingsDto();
+            settingsDto = new OAuth2SettingsDto();
             ObjectMapper objectMapper = new ObjectMapper();
             try {
-                settingsDto.setClientSettings(objectMapper.readValue(setting.getValue(), Oauth2ProviderSettings.class));
+                settingsDto.setClientSettings(objectMapper.readValue(setting.getValue(), OAuth2ProviderSettings.class));
                 settingsDto.setProviderName(setting.getName());
             } catch (JsonProcessingException e) {
-                throw new ValidationException("Unable to convert JSON value to Oauth2 Provider Settings object.");
+                throw new ValidationException("Unable to convert JSON value to OAuth2 Provider Settings object.");
             }
         }
         return settingsDto;
@@ -150,7 +150,7 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
-    public void updateOauth2ProviderSettings(Oauth2SettingsDto settingsDto) {
+    public void updateOAuth2ProviderSettings(OAuth2SettingsDto settingsDto) {
         if (settingsDto.getProviderName() == null) {
             throw new ValidationException("Oauth2 Provider name cannot be null."); // checks for other properties too
         }
@@ -170,26 +170,26 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public List<String> getListOfOauth2Clients() {
+    public List<String> getListOfOAuth2Clients() {
         return settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream().map(Setting::getName).toList();
     }
 
     @Override
-    public Oauth2ProviderSettings findOauth2ProviderByIssuerUri(String issuerUri) {
+    public OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri) {
         ObjectMapper mapper = new ObjectMapper();
         Setting setting = settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream()
                 .filter(s -> {
                     try {
-                        return mapper.readValue(s.getValue(), Oauth2ProviderSettings.class).getIssuerUri().equals(issuerUri);
+                        return mapper.readValue(s.getValue(), OAuth2ProviderSettings.class).getIssuerUrl().equals(issuerUri);
                     } catch (JsonProcessingException e) {
                         return false;
                     }
                 }).findFirst().orElse(null);
         if (setting == null) return null;
         try {
-            return mapper.readValue(setting.getValue(), Oauth2ProviderSettings.class);
+            return mapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
         } catch (JsonProcessingException e) {
-            throw new ValidationException("Could not process JSON value of Oauth2 Provider.");
+            throw new ValidationException("Could not process JSON value of OAuth2 Provider.");
         }
     }
 

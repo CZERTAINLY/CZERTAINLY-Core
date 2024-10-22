@@ -1,15 +1,13 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.core.settings.Oauth2ProviderSettings;
-import com.czertainly.api.model.core.settings.Oauth2SettingsDto;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
 import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import com.czertainly.core.service.SettingService;
-import com.nimbusds.jose.jwk.SecretJWK;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -58,7 +56,7 @@ public class SecurityConfig {
 
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
-    private Oauth2LoginFilter oauth2LoginFilter;
+    private OAuth2LoginFilter oauth2LoginFilter;
 
     private SettingService settingService;
 
@@ -68,7 +66,7 @@ public class SecurityConfig {
     }
 
     @Autowired
-    public void setJwtTokenFilter(Oauth2LoginFilter oauth2LoginFilter) {
+    public void setJwtTokenFilter(OAuth2LoginFilter oauth2LoginFilter) {
         this.oauth2LoginFilter = oauth2LoginFilter;
     }
 
@@ -93,7 +91,6 @@ public class SecurityConfig {
                         .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                 )
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
@@ -133,7 +130,7 @@ public class SecurityConfig {
             }
             if (issuerUri == null) throw new ValidationException("Issuer uri is not present in JWT.");
 
-            Oauth2ProviderSettings providerSettings = settingService.findOauth2ProviderByIssuerUri(issuerUri);
+            OAuth2ProviderSettings providerSettings = settingService.findOAuth2ProviderByIssuerUri(issuerUri);
             if (providerSettings == null)
                 throw new ValidationException("No Oauth2 Provider with issuer URI " + issuerUri + "configured.");
             int skew = providerSettings.getSkew();
@@ -156,7 +153,7 @@ public class SecurityConfig {
 
                 return OAuth2TokenValidatorResult.success();
             };
-            
+
             OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
             // Add audience validation
             if (!audiences.isEmpty()) {
