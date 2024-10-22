@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
@@ -34,7 +35,7 @@ public interface DiscoveryService extends ResourceExtensionService {
     DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid, Boolean newlyDiscovered, int itemsPerPage, int pageNumber) throws NotFoundException;
 
     DiscoveryHistoryDetailDto createDiscovery(DiscoveryDto request, boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException;
-    DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid);
+    DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo);
     void runDiscoveryAsync(UUID discoveryUuid);
 
     void deleteDiscovery(SecuredUUID uuid) throws NotFoundException;
@@ -50,6 +51,6 @@ public interface DiscoveryService extends ResourceExtensionService {
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
+    void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
 
 }
