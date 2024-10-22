@@ -23,6 +23,7 @@ import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -33,7 +34,6 @@ import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.transaction.TestTransaction;
@@ -58,20 +58,26 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private RuleService ruleService;
-
     @Autowired
     private ActionService actionService;
-
     @Autowired
     private TriggerService triggerService;
+    @Autowired
+    private TriggerAssociationRepository triggerAssociationRepository;
 
     @Autowired
     private CertificateService certificateService;
+    @Autowired
+    private CertificateRepository certificateRepository;
+    @Autowired
+    private CertificateEventHistoryRepository certificateEventHistoryRepository;
 
     @Autowired
     private DiscoveryService discoveryService;
     @Autowired
     private DiscoveryRepository discoveryRepository;
+    @Autowired
+    private DiscoveryCertificateRepository discoveryCertificateRepository;
 
     @Autowired
     private ConnectorRepository connectorRepository;
@@ -83,15 +89,15 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
     @Test
     public void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, InterruptedException, CertificateException, NoSuchAlgorithmException, RuleException, IOException {
         // register custom attribute
-        CustomAttribute isCzechCertificate = new CustomAttribute();
-        isCzechCertificate.setUuid(UUID.randomUUID().toString());
-        isCzechCertificate.setName("domain");
-        isCzechCertificate.setType(AttributeType.CUSTOM);
-        isCzechCertificate.setContentType(AttributeContentType.STRING);
+        CustomAttribute certificateDomainAttr = new CustomAttribute();
+        certificateDomainAttr.setUuid(UUID.randomUUID().toString());
+        certificateDomainAttr.setName("domain");
+        certificateDomainAttr.setType(AttributeType.CUSTOM);
+        certificateDomainAttr.setContentType(AttributeContentType.STRING);
         CustomAttributeProperties customProps = new CustomAttributeProperties();
         customProps.setLabel("Domain of certificate");
-        isCzechCertificate.setProperties(customProps);
-        attributeEngine.updateCustomAttributeDefinition(isCzechCertificate, List.of(Resource.CERTIFICATE));
+        certificateDomainAttr.setProperties(customProps);
+        attributeEngine.updateCustomAttributeDefinition(certificateDomainAttr, List.of(Resource.CERTIFICATE));
 
         // create condition
         ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
@@ -117,7 +123,7 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
         // create execution
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
         executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
-        executionItemRequest.setFieldIdentifier("%s|%s".formatted(isCzechCertificate.getName(), isCzechCertificate.getContentType().name()));
+        executionItemRequest.setFieldIdentifier("%s|%s".formatted(certificateDomainAttr.getName(), certificateDomainAttr.getContentType().name()));
         executionItemRequest.setData("CZ");
 
         ExecutionRequestDto executionRequest = new ExecutionRequestDto();
@@ -262,14 +268,34 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
         DiscoveryCertificateResponseDto discoveredCertificates = discoveryService.getDiscoveryCertificates(discovery.getSecuredUuid(), null, 10, 1);
         Assertions.assertEquals(2, discoveredCertificates.getCertificates().size());
 
+        boolean matched = false;
         for (DiscoveryCertificateDto discoveryCertificate : discoveredCertificates.getCertificates()) {
             if (discoveryCertificate.getCommonName().endsWith(".cz")) {
                 CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromString(discoveryCertificate.getInventoryUuid()));
 
+                matched = true;
                 Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
                 Assertions.assertEquals("CZ", certificateDetailDto.getCustomAttributes().getFirst().getContent().getFirst().getData());
-
             }
         }
+        Assertions.assertTrue(matched);
+
+        // cleanup
+        TestTransaction.start();
+
+        triggerAssociationRepository.deleteAll();
+        discoveryCertificateRepository.deleteAll();
+        discoveryRepository.deleteAll();
+        certificateEventHistoryRepository.deleteAll();
+        certificateRepository.deleteAll();
+        attributeEngine.deleteAttributeDefinition(AttributeType.CUSTOM, UUID.fromString(certificateDomainAttr.getUuid()));
+        connector2FunctionGroupRepository.deleteAll();
+        functionGroupRepository.deleteAll();
+        connectorRepository.deleteAll();
+        scheduledJobHistoryRepository.deleteAll();
+        scheduledJobsRepository.deleteAll();
+
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
     }
 }
