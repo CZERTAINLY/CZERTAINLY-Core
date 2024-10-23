@@ -57,8 +57,8 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    public List<String> listOAuth2Providers() {
-        return settingService.getListOfOAuth2Providers();
+    public List<OAuth2SettingsDto> listOAuth2Providers() {
+        return settingService.listOAuth2Providers();
     }
 
     @Override

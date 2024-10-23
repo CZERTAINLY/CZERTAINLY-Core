@@ -165,7 +165,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public List<String> getListOfOAuth2Providers() {
+    public List<String> listNamesOfOAuth2Providers() {
         return settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream().map(Setting::getName).toList();
     }
 
@@ -193,6 +193,18 @@ public class SettingServiceImpl implements SettingService {
     public void removeOAuth2Provider(String providerName) {
         List<Setting> settings = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
         if (!settings.isEmpty()) settingRepository.delete(settings.getFirst());
+    }
+
+    @Override
+    public List<OAuth2SettingsDto> listOAuth2Providers() {
+        List<String> providerNames = listNamesOfOAuth2Providers();
+        List<OAuth2SettingsDto> settingsDtoList = new ArrayList<>();
+        for (String providerName: providerNames) {
+            OAuth2SettingsDto settingsDto = new OAuth2SettingsDto();
+            settingsDto.setProviderName(providerName);
+            settingsDto.setOAuth2ProviderSettings(getOAuth2ProviderSettings(providerName));
+        }
+        return settingsDtoList;
     }
 
     private Map<String, Map<String, Setting>> mapSettingsByCategory(List<Setting> settings) {

@@ -128,7 +128,7 @@ public class SecurityConfig {
             } catch (ParseException e) {
                 throw new ValidationException("Could not extract issuer from JWT.");
             }
-            if (issuerUri == null) throw new ValidationException("Issuer uri is not present in JWT.");
+            if (issuerUri == null) throw new ValidationException("Issuer URI is not present in JWT.");
 
             OAuth2ProviderSettings providerSettings = settingService.findOAuth2ProviderByIssuerUri(issuerUri);
             if (providerSettings == null)
@@ -159,7 +159,7 @@ public class SecurityConfig {
             if (!audiences.isEmpty()) {
                 audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
             }
-            OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefault();
+            OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
             OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
 
             jwtDecoder.setJwtValidator(combinedValidator);

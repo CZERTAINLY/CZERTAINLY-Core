@@ -34,7 +34,7 @@ public class LoginController {
             }
             request.getSession().setAttribute("redirectUrl", originalUrl);
         }
-        List<String> oauth2Providers = settingService.getListOfOAuth2Providers();
+        List<String> oauth2Providers = settingService.listNamesOfOAuth2Providers();
 
         if (oauth2Providers.isEmpty()) return "no-login-options";
 

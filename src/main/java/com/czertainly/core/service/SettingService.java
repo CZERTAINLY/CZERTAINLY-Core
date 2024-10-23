@@ -27,10 +27,12 @@ public interface SettingService {
 
     void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings providerSettings);
 
-    List<String> getListOfOAuth2Providers();
+    List<String> listNamesOfOAuth2Providers();
 
     OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri);
 
     void removeOAuth2Provider(String providerName);
+
+    List<OAuth2SettingsDto> listOAuth2Providers();
 
 }
