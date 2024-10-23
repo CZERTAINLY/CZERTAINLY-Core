@@ -20,6 +20,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.Map;
@@ -45,11 +46,11 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             Map<String, Object> extractedClaims = new HashMap<>();
             extractedClaims.put("sub", oauthUser.getAttribute("sub"));
-            extractedClaims.put("username", oauthUser.getAttribute("preferred_username"));
+            extractedClaims.put("username", oauthUser.getAttribute("username"));
             extractedClaims.put("given_name", oauthUser.getAttribute("given_name"));
             extractedClaims.put("family_name", oauthUser.getAttribute("family_name"));
             extractedClaims.put("email", oauthUser.getAttribute("email"));
-            extractedClaims.put("roles", oauthUser.getAttribute("roles"));
+            extractedClaims.put("roles", oauthUser.getAttribute("roles") == null ? new ArrayList<>() : oauthUser.getAttribute("roles"));
 
             String encodedPayload = Base64.getEncoder().encodeToString(new com.fasterxml.jackson.databind.ObjectMapper().writeValueAsString(extractedClaims).getBytes());
             HttpHeaders headers = new HttpHeaders();
