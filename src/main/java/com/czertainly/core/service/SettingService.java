@@ -23,12 +23,14 @@ public interface SettingService {
 
     void updateNotificationSettings(NotificationSettingsDto notificationSettings);
 
-    OAuth2SettingsDto getOAuth2ProviderSettings(String providerName);
+    OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName);
 
-    void updateOAuth2ProviderSettings(OAuth2SettingsDto notificationSettingsDto);
+    void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings providerSettings);
 
-    List<String> getListOfOAuth2Clients();
+    List<String> getListOfOAuth2Providers();
 
     OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri);
+
+    void removeOAuth2Provider(String providerName);
 
 }

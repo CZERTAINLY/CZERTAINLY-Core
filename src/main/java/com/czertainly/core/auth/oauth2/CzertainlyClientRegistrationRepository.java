@@ -25,7 +25,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
 
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
-        OAuth2ProviderSettings clientSettings = settingService.getOAuth2ProviderSettings(registrationId).getClientSettings();
+        OAuth2ProviderSettings clientSettings = settingService.getOAuth2ProviderSettings(registrationId);
         return convertJsonToClientRegistration(clientSettings, registrationId);
     }
 

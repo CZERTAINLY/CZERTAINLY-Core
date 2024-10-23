@@ -9,6 +9,8 @@ import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
+
 @RestController
 public class SettingControllerImpl implements SettingController {
 
@@ -45,12 +47,22 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    public OAuth2SettingsDto getOAuth2ProviderSettings(String providerName) {
+    public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName) {
         return settingService.getOAuth2ProviderSettings(providerName);
     }
 
     @Override
-    public void updateOAuth2ProviderSettings(OAuth2SettingsDto oauth2SettingsDto) {
-        settingService.updateOAuth2ProviderSettings(oauth2SettingsDto);
+    public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings oauth2SettingsDto) {
+        settingService.updateOAuth2ProviderSettings(providerName, oauth2SettingsDto);
+    }
+
+    @Override
+    public List<String> listOAuth2Providers() {
+        return settingService.getListOfOAuth2Providers();
+    }
+
+    @Override
+    public void removeOAuth2Provider(String providerName) {
+        settingService.removeOAuth2Provider(providerName);
     }
 }
