@@ -17,11 +17,14 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
+import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -122,6 +125,10 @@ public class SecurityConfig {
     @Bean
     public JwtDecoder jwtDecoder() {
         return token -> {
+            SecurityContext context = SecurityContextHolder.getContext();
+            if (!(context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken)) {
+                return null;
+            }
             String issuerUri;
             try {
                 issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
@@ -132,7 +139,7 @@ public class SecurityConfig {
 
             OAuth2ProviderSettings providerSettings = settingService.findOAuth2ProviderByIssuerUri(issuerUri);
             if (providerSettings == null)
-                throw new ValidationException("No Oauth2 Provider with issuer URI " + issuerUri + "configured.");
+                throw new ValidationException("No OAuth2 Provider with issuer URI " + issuerUri + "configured.");
             int skew = providerSettings.getSkew();
             List<String> audiences = providerSettings.getAudiences();
 
