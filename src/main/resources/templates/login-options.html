@@ -7,7 +7,7 @@
 <h1>Login Options</h1>
 <ul>
     <li th:each="provider : ${providers}">
-        <a th:href="@{/oauth2/authorization/{provider}(provider=${provider})}"
+        <a th:href="@{/oauth2/authorization/{provider}/prepare(provider=${provider})}"
            th:text="'Login with ' + ${#strings.capitalize(provider)}">Login with Provider</a>
     </li>
 </ul>

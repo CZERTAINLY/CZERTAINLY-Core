@@ -32,6 +32,8 @@ public class SettingServiceImpl implements SettingService {
 
     private SettingRepository settingRepository;
 
+    private final ObjectMapper objectMapper = new ObjectMapper();
+
     @Autowired
     public void setSettingRepository(SettingRepository settingRepository) {
         this.settingRepository = settingRepository;
@@ -81,12 +83,11 @@ public class SettingServiceImpl implements SettingService {
         if (!settings.isEmpty()) {
             String valueJson = settings.get(0).getValue();
             if (valueJson != null) {
-                ObjectMapper mapper = new ObjectMapper();
                 TypeReference<Map<NotificationType, String>> typeReference = new TypeReference<>() {
                 };
 
                 try {
-                    valueMapped = mapper.readValue(valueJson, typeReference);
+                    valueMapped = objectMapper.readValue(valueJson, typeReference);
                 } catch (JsonProcessingException e) {
                     throw new ValidationException("Could not convert JSON to value.");
                 }
@@ -113,7 +114,6 @@ public class SettingServiceImpl implements SettingService {
             setting = settings.get(0);
         }
 
-        ObjectMapper mapper = new ObjectMapper();
         Map<NotificationType, String> notificationTypeStringMap = notificationSettings.getNotificationsMapping();
         for (String uuid : notificationTypeStringMap.values()) {
             try {
@@ -123,7 +123,7 @@ public class SettingServiceImpl implements SettingService {
             }
         }
         try {
-            setting.setValue(mapper.writeValueAsString(notificationTypeStringMap));
+            setting.setValue(objectMapper.writeValueAsString(notificationTypeStringMap));
         } catch (JsonProcessingException e) {
             throw new ValidationException("Could not convert JSON to value.");
         }
@@ -136,7 +136,6 @@ public class SettingServiceImpl implements SettingService {
         OAuth2ProviderSettings settingsDto = null;
         if (!settings.isEmpty()) {
             Setting setting = settings.getFirst();
-            ObjectMapper objectMapper = new ObjectMapper();
             try {
                 settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
             } catch (JsonProcessingException e) {
@@ -154,9 +153,8 @@ public class SettingServiceImpl implements SettingService {
         Setting setting = settingForRegistrationId.isEmpty() ? new Setting() : settingForRegistrationId.getFirst();
         setting.setName(providerName);
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
-        ObjectMapper mapper = new ObjectMapper();
         try {
-            setting.setValue(mapper.writeValueAsString(settingsDto));
+            setting.setValue(objectMapper.writeValueAsString(settingsDto));
         } catch (JsonProcessingException e) {
             throw new ValidationException("Unable to convert settings to JSON.");
         }
@@ -171,18 +169,17 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     public OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri) {
-        ObjectMapper mapper = new ObjectMapper();
         Setting setting = settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream()
                 .filter(s -> {
                     try {
-                        return mapper.readValue(s.getValue(), OAuth2ProviderSettings.class).getIssuerUrl().equals(issuerUri);
+                        return objectMapper.readValue(s.getValue(), OAuth2ProviderSettings.class).getIssuerUrl().equals(issuerUri);
                     } catch (JsonProcessingException e) {
                         return false;
                     }
                 }).findFirst().orElse(null);
         if (setting == null) return null;
         try {
-            return mapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
+            return objectMapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
         } catch (JsonProcessingException e) {
             throw new ValidationException("Could not process JSON value of OAuth2 Provider.");
         }

@@ -3,7 +3,9 @@ package com.czertainly.core.auth.oauth2;
 import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -15,6 +17,9 @@ import java.util.List;
 
 @Controller
 public class LoginController {
+
+    @Value("${server.servlet.context-path}")
+    private String contextPath;
 
     private SettingService settingService;
 
@@ -38,15 +43,19 @@ public class LoginController {
 
         if (oauth2Providers.isEmpty()) return "no-login-options";
 
-        if (oauth2Providers.size() == 1) response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
+        if (oauth2Providers.size() == 1) {
+            request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(oauth2Providers.getFirst()).getSessionMaxInactiveInterval());
+            response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
+        }
 
         model.addAttribute("providers", oauth2Providers);
         return "login-options";
     }
 
-    @GetMapping("/oauth2/authorization/{provider}")
-    public void loginWithProvider(@PathVariable String provider, HttpServletResponse response) throws IOException {
-        response.sendRedirect("/oauth2/authorization/" + provider);
+    @GetMapping("/oauth2/authorization/{provider}/prepare")
+    public void loginWithProvider(@PathVariable String provider, HttpServletResponse response, HttpServletRequest request) throws IOException {
+        request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(provider).getSessionMaxInactiveInterval());
+        response.sendRedirect(contextPath + "/oauth2/authorization/" + provider);
     }
 
 }

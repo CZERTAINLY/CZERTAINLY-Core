@@ -34,5 +34,5 @@ public interface SettingService {
     void removeOAuth2Provider(String providerName);
 
     List<OAuth2SettingsDto> listOAuth2Providers();
-
+    
 }
