@@ -565,7 +565,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
         // categorize certs and collect metadata definitions
-        Set<String> certMetadataUuids = new HashSet<>();
         List<MetadataAttribute> metadataDefinitions = new ArrayList<>();
         Map<String, Set<BaseAttributeContent>> metadataContentsMapping = new HashMap<>();
         List<DiscoveryProviderCertificateDataDto> discoveredCertificates = new ArrayList<>();
