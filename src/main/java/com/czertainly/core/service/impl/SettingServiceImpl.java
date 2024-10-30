@@ -200,6 +200,7 @@ public class SettingServiceImpl implements SettingService {
             OAuth2SettingsDto settingsDto = new OAuth2SettingsDto();
             settingsDto.setProviderName(providerName);
             settingsDto.setOAuth2ProviderSettings(getOAuth2ProviderSettings(providerName));
+            settingsDtoList.add(settingsDto);
         }
         return settingsDtoList;
     }
