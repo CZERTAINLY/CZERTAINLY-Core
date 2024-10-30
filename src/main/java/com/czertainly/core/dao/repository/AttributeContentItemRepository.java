@@ -12,7 +12,7 @@ import java.util.UUID;
 @Repository
 public interface AttributeContentItemRepository extends JpaRepository<AttributeContentItem, String> {
 
-    Optional<AttributeContentItem> findByJsonAndAttributeDefinitionUuid(BaseAttributeContent<?> attributeContent, UUID definitionUuid);
+    AttributeContentItem findByJsonAndAttributeDefinitionUuid(BaseAttributeContent<?> attributeContent, UUID definitionUuid);
 
     long deleteByAttributeDefinitionUuid(UUID definitionUuid);
     long deleteByAttributeDefinitionTypeAndAttributeDefinitionConnectorUuid(AttributeType attributeType, UUID connectorUuid);
