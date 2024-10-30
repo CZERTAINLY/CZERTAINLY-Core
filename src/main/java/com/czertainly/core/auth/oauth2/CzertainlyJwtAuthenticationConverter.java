@@ -7,6 +7,8 @@ import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
@@ -17,12 +19,22 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
 
 public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
-    @Autowired
+    private static final Logger logger = LoggerFactory.getLogger(CzertainlyJwtAuthenticationConverter.class);
+
+
     private CzertainlyAuthenticationClient authenticationClient;
+
+    @Autowired
+    public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
+        this.authenticationClient = authenticationClient;
+    }
 
     @Value("${auth.token.header-name}")
     private String authTokenHeaderName;
@@ -44,9 +56,7 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
                 HttpHeaders headers = new HttpHeaders();
                 headers.add(authTokenHeaderName, encodedPayload);
                 AuthenticationInfo authInfo = authenticationClient.authenticate(headers);
-                if (authInfo.isAnonymous()) {
-                    return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
-                }
+                logger.debug("Authenticated user using JWT token.");
                 return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
 
             } catch (JsonProcessingException e) {

@@ -1,5 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.exception.AuthenticationException;
 import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -26,8 +27,8 @@ public class LoginController {
 
 
     @GetMapping("/login")
-    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl,
-                            HttpServletRequest request, HttpServletResponse response) throws IOException {
+    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
+
         String originalUrl = request.getHeader("referer");
         if (originalUrl != null) {
             if (redirectUrl != null) {
@@ -35,13 +36,21 @@ public class LoginController {
             }
             request.getSession().setAttribute("redirectUrl", originalUrl);
         }
+
+//        if (redirectUrl != null) {
+//            request.getSession().setAttribute("redirectUrl", redirectUrl);
+//        }
         List<String> oauth2Providers = settingService.listNamesOfOAuth2Providers();
 
         if (oauth2Providers.isEmpty()) return "no-login-options";
 
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(oauth2Providers.getFirst()).getSessionMaxInactiveInterval());
-            response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
+            try {
+                response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
+            } catch (IOException e) {
+                throw new AuthenticationException("Error when redirecting to OAuth2 Provider with name " + oauth2Providers.getFirst() + " : " + e.getMessage());
+            }
         }
 
         model.addAttribute("providers", oauth2Providers);
