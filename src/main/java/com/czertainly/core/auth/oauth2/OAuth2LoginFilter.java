@@ -1,9 +1,11 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.service.SettingService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -23,10 +25,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
 
 @Component
 public class OAuth2LoginFilter extends OncePerRequestFilter {
@@ -37,6 +36,13 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2LoginFilter.class);
 
     private CzertainlyAuthenticationClient authenticationClient;
+
+    private SettingService settingService;
+
+    @Autowired
+    public void setSettingService(SettingService settingService) {
+        this.settingService = settingService;
+    }
 
     @Autowired
     public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
@@ -49,8 +55,16 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
+            LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
 
             OAuth2User oauthUser = oauthToken.getPrincipal();
+
+            List<String> tokenAudiences = oauthUser.getAttribute("aud");
+            List<String> clientAudiences = settingService.getOAuth2ProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), false).getAudiences();
+
+            if (!(clientAudiences == null || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
+                throw new CzertainlyAuthenticationException("Audiences in access token issued by OAuth2 Provider do not match any of audiences set for the provider in settings.");
+            }
 
             Map<String, Object> extractedClaims = new HashMap<>();
             extractedClaims.put("sub", oauthUser.getAttribute("sub"));
@@ -71,8 +85,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             AuthenticationInfo authInfo = authenticationClient.authenticate(headers);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-            LOGGER.debug("User set to user {} logged in using OAuth2 Provider", authenticationToken.getName());
-
+            LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getName());
         }
 
         try {

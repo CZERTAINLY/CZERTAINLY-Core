@@ -14,9 +14,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.ArrayList;
@@ -27,7 +24,6 @@ import java.util.Map;
 public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, AbstractAuthenticationToken> {
 
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyJwtAuthenticationConverter.class);
-
 
     private CzertainlyAuthenticationClient authenticationClient;
 
@@ -41,7 +37,6 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
 
     @Override
     public AbstractAuthenticationToken convert(Jwt source) {
-        if (isAuthenticationNeeded()) {
             Map<String, Object> claims = source.getClaims();
             Map<String, Object> extractedClaims = new HashMap<>();
 
@@ -62,13 +57,5 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
             } catch (JsonProcessingException e) {
                 throw new ValidationException("Unable to convert JWT token to authentication.");
             }
-        } else {
-            return (CzertainlyAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
         }
-    }
-
-    private boolean isAuthenticationNeeded() {
-        SecurityContext context = SecurityContextHolder.getContext();
-        return context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken;
-    }
 }

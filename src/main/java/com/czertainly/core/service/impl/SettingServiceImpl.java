@@ -131,13 +131,14 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName) {
+    public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
         List<Setting> settings = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
         OAuth2ProviderSettings settingsDto = null;
         if (!settings.isEmpty()) {
             Setting setting = settings.getFirst();
             try {
                 settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
+                if (!withClientSecret) settingsDto.setClientSecret(null);
             } catch (JsonProcessingException e) {
                 throw new ValidationException("Unable to convert JSON value to OAuth2 Provider Settings object.");
             }
@@ -199,7 +200,7 @@ public class SettingServiceImpl implements SettingService {
         for (String providerName: providerNames) {
             OAuth2SettingsDto settingsDto = new OAuth2SettingsDto();
             settingsDto.setProviderName(providerName);
-            settingsDto.setOAuth2ProviderSettings(getOAuth2ProviderSettings(providerName));
+            settingsDto.setOAuth2ProviderSettings(getOAuth2ProviderSettings(providerName, false));
             settingsDtoList.add(settingsDto);
         }
         return settingsDtoList;

@@ -27,7 +27,11 @@ public class LoginController {
 
 
     @GetMapping("/login")
-    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response) throws AuthenticationException {
+    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) throws AuthenticationException {
+
+        if (error != null) {
+            model.addAttribute("error", "An error occurred: " + error);
+        }
 
         String originalUrl = request.getHeader("referer");
         if (originalUrl != null) {
@@ -37,15 +41,12 @@ public class LoginController {
             request.getSession().setAttribute("redirectUrl", originalUrl);
         }
 
-//        if (redirectUrl != null) {
-//            request.getSession().setAttribute("redirectUrl", redirectUrl);
-//        }
         List<String> oauth2Providers = settingService.listNamesOfOAuth2Providers();
 
         if (oauth2Providers.isEmpty()) return "no-login-options";
 
         if (oauth2Providers.size() == 1) {
-            request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(oauth2Providers.getFirst()).getSessionMaxInactiveInterval());
+            request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(oauth2Providers.getFirst(), false).getSessionMaxInactiveInterval());
             try {
                 response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
             } catch (IOException e) {
@@ -59,7 +60,7 @@ public class LoginController {
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(provider).getSessionMaxInactiveInterval());
+        request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(provider, false).getSessionMaxInactiveInterval());
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
     }
 

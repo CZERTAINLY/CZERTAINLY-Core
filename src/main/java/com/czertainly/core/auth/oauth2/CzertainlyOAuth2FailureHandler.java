@@ -8,6 +8,8 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 
 import java.io.IOException;
+import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 
 public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHandler {
 
@@ -15,9 +17,9 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) {
-        logger.debug("Error occurred when trying to authenticate using OAuth2 protocol :{}.", exception.getMessage());
+        logger.debug("Error occurred when trying to authenticate using OAuth2 protocol: {}", exception.getMessage());
         try {
-            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            response.sendRedirect("/api/login?error=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             logger.error("Error when redirecting to error page: {}", e.getMessage());
         }

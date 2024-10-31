@@ -11,5 +11,10 @@
            th:text="'Login with ' + ${#strings.capitalize(provider)}">Login with Provider</a>
     </li>
 </ul>
+
+<!-- Error message row -->
+<div th:if="${error != null}" style="color: red; margin-top: 10px;">
+    <p th:text="${error}">Error message will appear here</p>
+</div>
 </body>
 </html>

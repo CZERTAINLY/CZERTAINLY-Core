@@ -48,7 +48,7 @@ public class SettingControllerImpl implements SettingController {
 
     @Override
     public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName) {
-        return settingService.getOAuth2ProviderSettings(providerName);
+        return settingService.getOAuth2ProviderSettings(providerName, false);
     }
 
     @Override

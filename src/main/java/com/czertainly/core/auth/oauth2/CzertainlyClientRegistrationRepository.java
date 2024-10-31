@@ -25,7 +25,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
 
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
-        OAuth2ProviderSettings clientSettings = settingService.getOAuth2ProviderSettings(registrationId);
+        OAuth2ProviderSettings clientSettings = settingService.getOAuth2ProviderSettings(registrationId, true);
         return convertJsonToClientRegistration(clientSettings, registrationId);
     }
 
@@ -46,6 +46,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
                 .authorizationUri(clientSettings.getAuthorizationUrl())
                 .tokenUri(clientSettings.getTokenUrl())
                 .jwkSetUri(clientSettings.getJwkSetUrl())
+                .userInfoUri(clientSettings.getUserInfoUrl())
                 .providerConfigurationMetadata(configMetadata)
                 .build();
     }

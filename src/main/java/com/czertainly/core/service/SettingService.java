@@ -23,7 +23,7 @@ public interface SettingService {
 
     void updateNotificationSettings(NotificationSettingsDto notificationSettings);
 
-    OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName);
+    OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
 
     void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings providerSettings);
 
