@@ -100,12 +100,6 @@ import java.util.stream.Collectors;
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
 
-    // Default page size for the certificate search API when page size is not provided
-    public static final Integer DEFAULT_PAGE_SIZE = 10;
-    // Maximum page size for search API operation
-    public static final Integer MAX_PAGE_SIZE = 1000;
-    // Default batch size to perform bulk delete operation on Certificates
-    public static final Integer DELETE_BATCH_SIZE = 1000;
 
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
@@ -372,17 +366,38 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
         logger.info("Bulk updating certificate objects: RA {} groups {} owner {}", request.getRaProfileUuid(), request.getGroupUuids(), request.getOwnerUuid());
         setupSecurityFilter(filter);
-        if (request.getRaProfileUuid() != null) {
-            bulkUpdateRaProfile(filter, request);
+        Set<UUID> groupUuids = null;
+        if (request.getGroupUuids() != null) groupUuids = request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet());
+        String ownerUuid = null;
+        if (request.getOwnerUuid() != null && !request.getOwnerUuid().isEmpty()) {
+                ownerUuid = request.getOwnerUuid();
+            }
+
+        boolean removeRaProfile = false;
+        if (request.getRaProfileUuid() != null) removeRaProfile = request.getRaProfileUuid().isEmpty();
+
+        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
+            for (String certificateUuidString : request.getCertificateUuids()) {
+                TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+                try {
+                    SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
+                    permissionEvaluator.certificate(certificateUuid);
+                    if (groupUuids != null) updateCertificateGroups(certificateUuid, groupUuids);
+                    if (request.getOwnerUuid() != null) updateOwner(certificateUuid, ownerUuid);
+                    if (request.getRaProfileUuid() != null) switchRaProfile(certificateUuid, removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
+                    transactionManager.commit(status);
+                } catch (Exception e) {
+                    transactionManager.rollback(status);
+                    logger.error("Error occurred when updating certificate with UUID {}: {}", certificateUuidString, e.getMessage());
+                }
+            }
         }
-        if (request.getGroupUuids() != null) {
-            bulkUpdateCertificateGroup(filter, request);
-        }
-        if (request.getOwnerUuid() != null) {
-            bulkUpdateOwner(filter, request);
+        else {
+            throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
         }
     }
 
@@ -1586,77 +1601,9 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "%s -> %s".formatted(currentOwnerName, newOwnerName == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : newOwnerName), "");
     }
 
-    private void bulkUpdateRaProfile(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
-        boolean removeRaProfile = request.getRaProfileUuid().isEmpty();
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                try {
-                    SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                    permissionEvaluator.certificate(certificateUuid);
-                    switchRaProfile(certificateUuid, removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
-                } catch (CertificateOperationException e) {
-                    logger.warn(e.getMessage());
-                } catch (AttributeException e) {
-                    logger.warn("Certificate {} switched but there was issue with updating attributes: {}", certificateUuidString, e.getMessage());
-                }
-            }
-        } else {
-            throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
-        }
-    }
 
-    private void bulkUpdateCertificateGroup(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            Set<UUID> groupUuids = request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet());
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                permissionEvaluator.certificate(certificateUuid);
-                this.updateCertificateGroups(certificateUuid, groupUuids);
-            }
-        }
-        // updating group by filters not supported now
-//        else {
-//        }
-    }
 
-    private void bulkUpdateOwner(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
-        boolean removeOwner = request.getOwnerUuid().isEmpty();
-        String ownerUuid = null;
-        String ownerName = null;
-        if (!removeOwner) {
-            ownerUuid = request.getOwnerUuid();
-        }
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                permissionEvaluator.certificate(certificateUuid);
-                updateOwner(certificateUuid, ownerUuid);
-            }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-        } else {
-            throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");        }
-    }
 
-    private List<List<Certificate>> partitionList(List<Certificate> fullList) {
-        List<List<Certificate>> certificates = new ArrayList<>();
-
-        for (int i = 0; i < fullList.size(); i += DELETE_BATCH_SIZE) {
-            certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
-        }
-        return certificates;
-    }
-
-    private List<List<CertificateContent>> partitionContents(List<CertificateContent> fullList) {
-        List<List<CertificateContent>> certificates = new ArrayList<>();
-
-        for (int i = 0; i < fullList.size(); i += DELETE_BATCH_SIZE) {
-            certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
-        }
-        return certificates;
-    }
 
     private void setupSecurityFilter(SecurityFilter filter) {
         filter.setParentRefProperty("raProfileUuid");
