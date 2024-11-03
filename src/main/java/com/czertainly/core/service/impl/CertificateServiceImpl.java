@@ -295,7 +295,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
+    public boolean checkCertificateExistsByFingerprint(String fingerprint) {
         try {
             return certificateRepository.findByFingerprint(fingerprint).isPresent();
         } catch (Exception e) {
@@ -367,38 +367,48 @@ public class CertificateServiceImpl implements CertificateService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
+    public void bulkUpdateCertificatesObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
         logger.info("Bulk updating certificate objects: RA {} groups {} owner {}", request.getRaProfileUuid(), request.getGroupUuids(), request.getOwnerUuid());
         setupSecurityFilter(filter);
         Set<UUID> groupUuids = null;
-        if (request.getGroupUuids() != null) groupUuids = request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet());
+        if (request.getGroupUuids() != null)
+            groupUuids = request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet());
         String ownerUuid = null;
         if (request.getOwnerUuid() != null && !request.getOwnerUuid().isEmpty()) {
-                ownerUuid = request.getOwnerUuid();
-            }
+            ownerUuid = request.getOwnerUuid();
+        }
 
         boolean removeRaProfile = false;
         if (request.getRaProfileUuid() != null) removeRaProfile = request.getRaProfileUuid().isEmpty();
 
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-                try {
-                    SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                    permissionEvaluator.certificate(certificateUuid);
-                    if (groupUuids != null) updateCertificateGroups(certificateUuid, groupUuids);
-                    if (request.getOwnerUuid() != null) updateOwner(certificateUuid, ownerUuid);
-                    if (request.getRaProfileUuid() != null) switchRaProfile(certificateUuid, removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
-                    transactionManager.commit(status);
-                } catch (Exception e) {
-                    transactionManager.rollback(status);
-                    logger.error("Error occurred when updating certificate with UUID {}: {}", certificateUuidString, e.getMessage());
-                }
-            }
-        }
-        else {
+        if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getCertificateUuids() == null || request.getCertificateUuids().isEmpty())) {
             throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
         }
+
+        UUID loggedUserUuid = null;
+        for (String certificateUuidString : request.getCertificateUuids()) {
+            SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
+            TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+            try {
+                bulkUpdateCertificateObjects(request, certificateUuid, groupUuids, ownerUuid, removeRaProfile);
+                transactionManager.commit(status);
+            } catch (Exception e) {
+                transactionManager.rollback(status);
+                logger.error("Error occurred when updating certificate with UUID {}: {}", certificateUuidString, e.getMessage());
+                if (loggedUserUuid == null) {
+                    loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+                }
+                notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to update properties of the certificate " + certificateUuid, e.getMessage());
+            }
+        }
+    }
+
+    private void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request, SecuredUUID certificateUuid, Set<UUID> groupUuids, String ownerUuid, boolean removeRaProfile) throws NotFoundException, CertificateOperationException, AttributeException {
+        permissionEvaluator.certificate(certificateUuid);
+        if (groupUuids != null) updateCertificateGroups(certificateUuid, groupUuids);
+        if (request.getOwnerUuid() != null) updateOwner(certificateUuid, ownerUuid);
+        if (request.getRaProfileUuid() != null)
+            switchRaProfile(certificateUuid, removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
     }
 
     @Override
@@ -1528,11 +1538,11 @@ public class CertificateServiceImpl implements CertificateService {
             try {
                 response = certificateApiClient.identifyCertificate(newRaProfile.getAuthorityInstanceReference().getConnector().mapToDto(), newRaProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), requestDto);
             } catch (ConnectorException e) {
-                certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), "");
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate));
+                eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.UPDATE_RA_PROFILE.getCode(), CertificateEventStatus.FAILED.toString(), String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
             } catch (ValidationException e) {
-                certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate needs to be reissued.", newRaProfile.getName()), "");
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate: %s", newRaProfile.getName(), certificate));
+                eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.UPDATE_RA_PROFILE.getCode(), CertificateEventStatus.FAILED.toString(), String.format("Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate needs to be reissued.", newRaProfile.getName()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
             }
         }
 
@@ -1600,10 +1610,6 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "%s -> %s".formatted(currentOwnerName, newOwnerName == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : newOwnerName), "");
     }
-
-
-
-
 
     private void setupSecurityFilter(SecurityFilter filter) {
         filter.setParentRefProperty("raProfileUuid");

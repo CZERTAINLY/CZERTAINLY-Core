@@ -85,7 +85,7 @@ public class CertificateControllerImpl implements CertificateController {
         if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getCertificateUuids() == null || request.getCertificateUuids().isEmpty())) {
             throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
         }
-        certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
+        certificateService.bulkUpdateCertificatesObjects(SecurityFilter.create(), request);
     }
 
     @Override
