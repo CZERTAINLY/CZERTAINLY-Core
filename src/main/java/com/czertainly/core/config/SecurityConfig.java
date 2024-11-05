@@ -106,10 +106,9 @@ public class SecurityConfig {
                 )
                 .logout(logout -> logout
                         .logoutUrl("/logout")
+                        .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
                         .invalidateHttpSession(true) // Invalidate the session
                         .clearAuthentication(true) // Clear the authentication
-                        .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
-                        .deleteCookies("JSESSIONID") // Optionally delete cookies
                 )
                 .oauth2Login(oauth2
                         ->
