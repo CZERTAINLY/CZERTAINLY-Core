@@ -1,6 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.exception.AuthenticationException;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.SettingService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -27,7 +27,8 @@ public class LoginController {
 
 
     @GetMapping("/login")
-    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) throws AuthenticationException {
+    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error)
+    {
 
         if (error != null) {
             model.addAttribute("error", "An error occurred: " + error);
@@ -50,7 +51,7 @@ public class LoginController {
             try {
                 response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
             } catch (IOException e) {
-                throw new AuthenticationException("Error when redirecting to OAuth2 Provider with name " + oauth2Providers.getFirst() + " : " + e.getMessage());
+                throw new CzertainlyAuthenticationException("Error when redirecting to OAuth2 Provider with name " + oauth2Providers.getFirst() + " : " + e.getMessage());
             }
         }
 
