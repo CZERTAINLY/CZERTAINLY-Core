@@ -34,12 +34,15 @@ public class LoginController {
             model.addAttribute("error", "An error occurred: " + error);
         }
 
-        String originalUrl = request.getHeader("referer");
-        if (originalUrl != null) {
-            if (redirectUrl != null) {
-                originalUrl += redirectUrl.replaceFirst("/", "");
-            }
-            request.getSession().setAttribute("redirectUrl", originalUrl);
+        String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
+                .replacePath(null)
+                .build()
+                .toUriString();
+
+        if (redirectUrl != null) {
+            request.getSession().setAttribute("redirectUrl", baseUrl + redirectUrl);
+        } else {
+            model.addAttribute("error", "No redirect URL provided");
         }
 
         List<String> oauth2Providers = settingService.listNamesOfOAuth2Providers();
