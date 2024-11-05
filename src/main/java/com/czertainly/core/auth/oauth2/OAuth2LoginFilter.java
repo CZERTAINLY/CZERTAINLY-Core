@@ -62,7 +62,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             List<String> tokenAudiences = oauthUser.getAttribute("aud");
             List<String> clientAudiences = settingService.getOAuth2ProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), false).getAudiences();
 
-            if (!(clientAudiences == null || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
+            if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
                 throw new CzertainlyAuthenticationException("Audiences in access token issued by OAuth2 Provider do not match any of audiences set for the provider in settings.");
             }
 
