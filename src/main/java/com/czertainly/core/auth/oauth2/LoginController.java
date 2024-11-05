@@ -19,7 +19,6 @@ import java.util.List;
 public class LoginController {
 
     private SettingService settingService;
-
     @Autowired
     public void setSettingService(SettingService settingService) {
         this.settingService = settingService;
@@ -32,6 +31,7 @@ public class LoginController {
 
         if (error != null) {
             model.addAttribute("error", "An error occurred: " + error);
+            return "error";
         }
 
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
@@ -43,6 +43,7 @@ public class LoginController {
             request.getSession().setAttribute("redirectUrl", baseUrl + redirectUrl);
         } else {
             model.addAttribute("error", "No redirect URL provided");
+            return "error";
         }
 
         List<String> oauth2Providers = settingService.listNamesOfOAuth2Providers();
