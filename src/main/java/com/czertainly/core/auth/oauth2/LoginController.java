@@ -39,7 +39,7 @@ public class LoginController {
                 .build()
                 .toUriString();
 
-        if (redirectUrl != null) {
+        if (redirectUrl != null && !redirectUrl.isEmpty()) {
             request.getSession().setAttribute("redirectUrl", baseUrl + redirectUrl);
         } else {
             model.addAttribute("error", "No redirect URL provided");
