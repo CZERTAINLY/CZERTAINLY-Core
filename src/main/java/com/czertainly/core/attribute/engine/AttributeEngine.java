@@ -478,6 +478,20 @@ public class AttributeEngine {
         return mapping.values().stream().toList();
     }
 
+    public void registerAttributeContentItems(UUID attributeDefinitionUuid, Collection<BaseAttributeContent> attributeContentItems) {
+        for (BaseAttributeContent<?> attributeContentItem : attributeContentItems) {
+            AttributeContentItem contentItemEntity = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinitionUuid);
+
+            // check if content item for this attribute definition exists to don't create duplicate items
+            if (contentItemEntity == null) {
+                contentItemEntity = new AttributeContentItem();
+                contentItemEntity.setJson(attributeContentItem);
+                contentItemEntity.setAttributeDefinitionUuid(attributeDefinitionUuid);
+                attributeContentItemRepository.save(contentItemEntity);
+            }
+        }
+    }
+
     public List<ResponseAttributeDto> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid) {
         logger.debug("Getting the custom attributes for {} with UUID: {}", objectType.getLabel(), objectUuid);
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
@@ -839,14 +853,11 @@ public class AttributeEngine {
 
         validateAttributeContent(attributeDefinition, attributeContentItems);
         for (int i = 0; i < attributeContentItems.size(); i++) {
-            AttributeContentItem contentItemEntity;
             BaseAttributeContent<?> attributeContentItem = attributeContentItems.get(i);
-            Optional<AttributeContentItem> contentItemEntityResponse = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinition.getUuid());
+            AttributeContentItem contentItemEntity = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinition.getUuid());
 
             // check if content item for this attribute definition exists to don't create duplicate items
-            if (contentItemEntityResponse.isPresent()) {
-                contentItemEntity = contentItemEntityResponse.get();
-
+            if (contentItemEntity != null) {
                 // check if that content item is not already assigned to same object for meta attribute
                 // TODO: do we need to allow duplicate content items for one attribute definition? Maybe if attribute is list or do this check just for META attributes?
                 var aco = attributeContent2ObjectRepository.getByConnectorUuidAndAttributeContentItemUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(objectAttributeContentInfo.connectorUuid(), contentItemEntity.getUuid(), objectAttributeContentInfo.objectType(), objectAttributeContentInfo.objectUuid(), objectAttributeContentInfo.sourceObjectType(), objectAttributeContentInfo.sourceObjectUuid());
