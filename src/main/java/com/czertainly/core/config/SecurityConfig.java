@@ -122,11 +122,35 @@ public class SecurityConfig {
         return http.build();
     }
 
+    private boolean isAuthenticationNeeded() {
+        SecurityContext context = SecurityContextHolder.getContext();
+        return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken);
+    }
+
+    private OAuth2TokenValidatorResult validateClockSkew(Jwt jwt, int skew) {
+        Instant now = Instant.now();
+        Instant issuedAt = jwt.getIssuedAt();
+        Instant expiresAt = jwt.getExpiresAt();
+
+        if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
+            return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Token is used before its time.", null)
+            );
+        }
+
+        if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
+            return OAuth2TokenValidatorResult.failure(
+                    new OAuth2Error("invalid_token", "Token is expired.", null)
+            );
+        }
+
+        return OAuth2TokenValidatorResult.success();
+    }
+
     @Bean
     public JwtDecoder jwtDecoder() {
         return token -> {
-            SecurityContext context = SecurityContextHolder.getContext();
-            if (!(context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken)) {
+            if (!isAuthenticationNeeded()) {
                 return null;
             }
             String issuerUri;
@@ -145,21 +169,7 @@ public class SecurityConfig {
 
             NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
 
-            OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> {
-                Instant now = Instant.now();
-                Instant issuedAt = jwt.getIssuedAt();
-                Instant expiresAt = jwt.getExpiresAt();
-
-                if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
-                    return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is used before its time.", null));
-                }
-
-                if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
-                    return OAuth2TokenValidatorResult.failure(new OAuth2Error("invalid_token", "Token is expired.", null));
-                }
-
-                return OAuth2TokenValidatorResult.success();
-            };
+            OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> validateClockSkew(jwt, skew);
 
             OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
             // Add audience validation
