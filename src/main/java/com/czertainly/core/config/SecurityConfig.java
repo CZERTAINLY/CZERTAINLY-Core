@@ -79,7 +79,6 @@ public class SecurityConfig {
         return new CzertainlyAuthenticationSuccessHandler();
     }
 
-
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http, CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter) throws Exception {
 
@@ -109,6 +108,7 @@ public class SecurityConfig {
                         .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
                         .invalidateHttpSession(true) // Invalidate the session
                         .clearAuthentication(true) // Clear the authentication
+                        .deleteCookies(CookieConfig.COOKIE_NAME) // Delete the session cookie
                 )
                 .oauth2Login(oauth2
                         ->
