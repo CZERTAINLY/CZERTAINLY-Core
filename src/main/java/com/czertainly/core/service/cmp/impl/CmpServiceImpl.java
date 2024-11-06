@@ -10,7 +10,9 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
+import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.cmp.message.CertificateKeyServiceImpl;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
@@ -224,12 +226,15 @@ public class CmpServiceImpl implements CmpService {
                         throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
                                 String.format(" %s | general problem while handling crmf message", logPrefix));
                     }
+                    LoggingHelper.putAuditLogOperation(bodyType == PKIBody.TYPE_KEY_UPDATE_REQ ? Operation.REKEY : Operation.ISSUE);
                     break;
                 case PKIBody.TYPE_REVOCATION_REQ:                  // (11)       rr, Revocation Request; RevReqContent
                     pkiResponse = revocationMessageHandler.handle(pkiRequest, configuration);
+                    LoggingHelper.putAuditLogOperation(Operation.REVOKE);
                     break;
                 case PKIBody.TYPE_CERT_CONFIRM:                    // (24) certConf, Certificate confirm; CertConfirmContent
                     pkiResponse = certConfirmMessageHandler.handle(pkiRequest, configuration);
+                    LoggingHelper.putAuditLogOperation(Operation.CMP_CONFIRM);
                     break;
                 case PKIBody.TYPE_CROSS_CERT_REQ:
                 case PKIBody.TYPE_KEY_RECOVERY_REQ:
@@ -342,6 +347,11 @@ public class CmpServiceImpl implements CmpService {
                 return;
             }
             cmpProfile = raProfile.getCmpProfile();
+            if (cmpProfile == null) {
+                return;
+            }
+            LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid().toString(), cmpProfile.getName());
+
             String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpIssueCertificateAttributes() : null;
             issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
             String revokeAttributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpRevokeCertificateAttributes() : null;
@@ -351,6 +361,7 @@ public class CmpServiceImpl implements CmpService {
             if (cmpProfile == null) {
                 return;
             }
+            LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid().toString(), cmpProfile.getName());
             raProfile = cmpProfile.getRaProfile();
             if (raProfile == null) {
                 return;

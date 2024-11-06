@@ -11,8 +11,12 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -25,8 +29,6 @@ import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -42,7 +44,8 @@ import java.util.UUID;
 @Service
 @Transactional
 public class UserManagementServiceImpl implements UserManagementService {
-    private static final Logger logger = LoggerFactory.getLogger(UserManagementServiceImpl.class);
+//    private static final Logger logger = LoggerFactory.getLogger(UserManagementServiceImpl.class);
+    private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);
 
     private UserManagementApiClient userManagementApiClient;
 
@@ -125,6 +128,8 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
 
         response.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.USER, UUID.fromString(response.getUuid()), request.getCustomAttributes()));
+
+        logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, response.toLogData(), null);
         return response;
     }
 
@@ -233,7 +238,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     throw new ValidationException(ValidationError.create("Cannot create user for certificate with state " + certificate.getState().getLabel()));
                 }
             } catch (NotFoundException | NoSuchAlgorithmException e) {
-                logger.debug("New Certificate uploaded for the user");
+                logger.getLogger().debug("New Certificate uploaded for the user");
                 certificate = certificateService.createCertificateEntity(x509Cert);
                 certificateService.updateCertificateEntity(certificate);
             }
@@ -273,7 +278,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         try {
             certificateService.removeCertificateUser(UUID.fromString(response.getUuid()));
         } catch (Exception e) {
-            logger.info("Unable to remove user uuid. It may not exists {}", e.getMessage());
+            logger.getLogger().info("Unable to remove user uuid. It may not exists {}", e.getMessage());
         }
         if (certificate != null) {
             certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());

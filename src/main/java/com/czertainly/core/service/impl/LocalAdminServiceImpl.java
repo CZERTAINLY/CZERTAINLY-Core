@@ -2,10 +2,15 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -36,6 +41,8 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class LocalAdminServiceImpl implements LocalAdminService {
+
+    private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);
 
     private UserManagementApiClient userManagementApiClient;
     private RoleManagementApiClient roleManagementApiClient;
@@ -103,6 +110,7 @@ public class LocalAdminServiceImpl implements LocalAdminService {
         Certificate certificate = uploadCertificate(request.getCertificateUuid(), request.getCertificateData());
         certificateService.updateCertificateUser(certificate.getUuid(), response.getUuid());
 
+        logger.logEvent(Operation.CREATE, OperationResult.SUCCESS, response.toLogData(), null);
         return updateUser(request, fingerPrint, certificate.getUuid().toString(), response.getUuid());
     }
 
@@ -140,7 +148,6 @@ public class LocalAdminServiceImpl implements LocalAdminService {
     }
 
     private Certificate uploadCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {
-
         Certificate certificate;
         if (StringUtils.isNotBlank(certificateUuid)) {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));

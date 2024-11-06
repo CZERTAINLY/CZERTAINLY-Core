@@ -15,8 +15,12 @@ import java.util.Set;
 @RestController
 public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
-    @Autowired
     private ConnectorAuthService connectorAuthService;
+
+    @Autowired
+    public void setConnectorAuthService(ConnectorAuthService connectorAuthService) {
+        this.connectorAuthService = connectorAuthService;
+    }
 
     @Override
     public Set<AuthType> getAuthenticationTypes() {

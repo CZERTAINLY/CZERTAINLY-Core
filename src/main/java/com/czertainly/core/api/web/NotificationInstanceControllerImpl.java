@@ -8,10 +8,14 @@ import com.czertainly.api.interfaces.core.web.NotificationInstanceController;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.NotificationInstanceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -30,16 +34,19 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     private NotificationInstanceService notificationInstanceService;
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.LIST)
     public List<NotificationInstanceDto> listNotificationInstances() {
         return notificationInstanceService.listNotificationInstances();
     }
 
     @Override
-    public NotificationInstanceDto getNotificationInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
+    @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.DETAIL)
+    public NotificationInstanceDto getNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
         return notificationInstanceService.getNotificationInstance(UUID.fromString(uuid));
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.CREATE)
     public ResponseEntity<?> createNotificationInstance(
             @RequestBody NotificationInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         NotificationInstanceDto notificationInstance = notificationInstanceService.createNotificationInstance(request);
@@ -54,14 +61,16 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.UPDATE)
     public NotificationInstanceDto editNotificationInstance(
-            @PathVariable String uuid,
+            @LogResource(uuid = true) @PathVariable String uuid,
             @RequestBody NotificationInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         return notificationInstanceService.editNotificationInstance(UUID.fromString(uuid), request);
     }
 
     @Override
-    public void deleteNotificationInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
+    @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.DELETE)
+    public void deleteNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
         notificationInstanceService.deleteNotificationInstance(UUID.fromString(uuid));
     }
 

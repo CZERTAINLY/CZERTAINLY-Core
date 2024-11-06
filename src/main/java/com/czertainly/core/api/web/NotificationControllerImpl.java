@@ -14,8 +14,13 @@ import java.util.List;
 
 @RestController
 public class NotificationControllerImpl implements NotificationController {
-    @Autowired
+
     NotificationService notificationService;
+
+    @Autowired
+    public void setNotificationService(NotificationService notificationService) {
+        this.notificationService = notificationService;
+    }
 
     @Override
     public NotificationResponseDto listNotifications(NotificationRequestDto request) throws ValidationException {

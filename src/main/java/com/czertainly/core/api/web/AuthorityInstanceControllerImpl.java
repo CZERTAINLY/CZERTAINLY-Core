@@ -11,7 +11,11 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AuthorityInstanceService;
@@ -32,16 +36,19 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.LIST)
     public List<AuthorityInstanceDto> listAuthorityInstances() {
         return authorityInstanceService.listAuthorityInstances(SecurityFilter.create());
     }
 
     @Override
-    public AuthorityInstanceDto getAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.DETAIL)
+    public AuthorityInstanceDto getAuthorityInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
         return authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.CREATE)
     public ResponseEntity<?> createAuthorityInstance(@RequestBody AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         AuthorityInstanceDto authorityInstance = authorityInstanceService.createAuthorityInstance(request);
 
@@ -56,12 +63,14 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    public AuthorityInstanceDto editAuthorityInstance(@PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.UPDATE)
+    public AuthorityInstanceDto editAuthorityInstance(@LogResource(uuid = true) @PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         return authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    public void deleteAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.DELETE)
+    public void deleteAuthorityInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
         authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
@@ -91,12 +100,14 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
         return authorityInstanceService.bulkDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.FORCE_DELETE)
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstances(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
         return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 

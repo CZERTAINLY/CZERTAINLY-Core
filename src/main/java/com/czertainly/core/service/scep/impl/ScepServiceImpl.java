@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
+import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
 import com.czertainly.api.model.core.scep.PkiStatus;
@@ -29,6 +30,7 @@ import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.dao.repository.scep.ScepTransactionRepository;
 import com.czertainly.core.intune.scepvalidation.IntuneScepServiceClient;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.provider.CzertainlyProvider;
 import com.czertainly.core.provider.key.CzertainlyPrivateKey;
@@ -176,9 +178,18 @@ public class ScepServiceImpl implements ScepService {
         validateProfile();
         logger.info("SCEP request received for profile: {}, operation: {}", profileName, operation);
         return switch (operation) {
-            case "GetCACert" -> getCaCerts();
-            case "GetCACaps" -> getCaCaps();
-            case "PKIOperation" -> pkiOperation(message);
+            case "GetCACert" -> {
+                LoggingHelper.putAuditLogOperation(Operation.LIST_PROTOCOL_CERTIFICATES);
+                yield getCaCerts();
+            }
+            case "GetCACaps" -> {
+                LoggingHelper.putAuditLogOperation(Operation.SCEP_CA_CAPABILITIES);
+                yield getCaCaps();
+            }
+            case "PKIOperation" -> {
+
+                yield pkiOperation(message);
+            }
             default ->
                     buildResponse(null, buildFailedResponse(new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST), null));
         };
@@ -206,6 +217,7 @@ public class ScepServiceImpl implements ScepService {
 
             issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid());
         }
+        LoggingHelper.putLogResourceInfo(Resource.SCEP_PROFILE, true, scepProfile.getUuid().toString(), scepProfile.getName());
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         if (scepCaCertificate == null) {
@@ -341,6 +353,7 @@ public class ScepServiceImpl implements ScepService {
         }
 
         if (scepTransactionRepository.existsByTransactionIdAndScepProfile(scepRequest.getTransactionId(), scepProfile)) {
+            LoggingHelper.putAuditLogOperation(Operation.SCEP_TRANSACTION_CHECK);
             try {
                 scepResponse = getExistingTransaction(scepRequest.getTransactionId());
             } catch (ScepException e) {
@@ -353,8 +366,10 @@ public class ScepServiceImpl implements ScepService {
                 // Manual approval for the SCEP clients are configured in the SCEP Profile.
                 // If the SCEP Profile has the manual approval set to true, only the CSR will be generated
                 if (scepProfile.getRequireManualApproval() != null && !scepProfile.getRequireManualApproval()) {
+                    LoggingHelper.putAuditLogOperation(Operation.ISSUE);
                     scepResponse = issueCertificate(scepRequest, intuneClient);
                 } else {
+                    LoggingHelper.putAuditLogOperation(Operation.REQUEST);
                     scepResponse = generateCsr(scepRequest, intuneClient);
                 }
             } catch (ScepException e) {
@@ -372,6 +387,7 @@ public class ScepServiceImpl implements ScepService {
                 }
             }
         } else if (scepRequest.getMessageType().equals(MessageType.CERT_POLL)) {
+            LoggingHelper.putAuditLogOperation(Operation.SCEP_CERTIFICATE_POLL);
             scepResponse = pollCertificate(scepRequest, intuneClient);
         } else {
             scepResponse = buildFailedResponse(new ScepException("Unsupported Operation. The requested operation is not supported", FailInfo.BAD_REQUEST), scepRequest.getTransactionId());

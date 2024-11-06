@@ -1,9 +1,6 @@
 package com.czertainly.core.tasks;
 
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.CertificateService;
@@ -43,7 +40,6 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
         return true;
     }
 
-    @AuditLogged(originator = ObjectType.SCHEDULER, affected = ObjectType.CERTIFICATE, operation = OperationType.UPDATE)
     public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
         int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
         int expiredApprovals = approvalService.checkApprovalsExpiration();

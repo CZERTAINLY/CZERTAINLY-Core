@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -82,7 +83,7 @@ public class BaseSpringBootTest {
             rawData = String.format("{\"user\":{\"uuid\":\"%s\", \"uuid\":\"%s\"}}",userDto.getUuid(), userDto.getUsername());
         }
 
-        AuthenticationInfo info = new AuthenticationInfo(userDto.getUuid(), userDto.getUsername(), List.of(), rawData);
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userDto.getUuid(), userDto.getUsername(), List.of(), rawData);
         return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(info));
     }
 }
