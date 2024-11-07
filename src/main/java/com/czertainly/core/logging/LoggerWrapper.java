@@ -12,7 +12,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
 
 import java.io.Serializable;
 
@@ -24,10 +23,6 @@ public class LoggerWrapper {
     private final Logger logger;
     private final Module module;
     private final Resource resource;
-
-    public Logger getLogger() {
-        return logger;
-    }
 
     // Constructor that wraps around SLF4J Logger
     public LoggerWrapper(Class<?> clazz, Module module, Resource resource) {
@@ -57,12 +52,13 @@ public class LoggerWrapper {
         }
     }
 
-    public void logEventDebug(Operation operation, OperationResult operationResult, Serializable operationData, String message, Object... args) {
+    public void logEventDebug(Operation operation, OperationResult operationResult, Serializable operationData, String message) {
         if(logger.isDebugEnabled()) {
             try {
                 String logRecordBody = getLogRecordBody(operation, operationResult, operationData, message);
                 logger.info(logRecordBody);
             } catch (JsonProcessingException e) {
+                logger.warn("Cannot serialize debug event LogRecord to JSON: {}", e.getMessage());
             }
         }
     }

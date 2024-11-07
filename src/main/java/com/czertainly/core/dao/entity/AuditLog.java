@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.util.DtoMapper;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -105,7 +104,6 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
     }
 
     public AuditLogExportDto mapToExportDto() {
-        ObjectMapper mapper = new ObjectMapper();
         AuditLogExportDto.AuditLogExportDtoBuilder builder = AuditLogExportDto.builder();
         builder.id(id);
         builder.version(version);

@@ -186,10 +186,7 @@ public class ScepServiceImpl implements ScepService {
                 LoggingHelper.putAuditLogOperation(Operation.SCEP_CA_CAPABILITIES);
                 yield getCaCaps();
             }
-            case "PKIOperation" -> {
-
-                yield pkiOperation(message);
-            }
+            case "PKIOperation" -> pkiOperation(message);
             default ->
                     buildResponse(null, buildFailedResponse(new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST), null));
         };

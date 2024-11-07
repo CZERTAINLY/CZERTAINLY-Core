@@ -99,38 +99,31 @@ public class AuditLogAspect {
         List<UUID> affiliatedResourceUuids = null;
         Serializable responseOperationData = null;
         Map<String, Object> data = new LinkedHashMap<>();
+
         if (parameters != null && parameterValues != null) {
             for (int i = 0; i < parameters.length; i++) {
                 String parameterName = parameters[i].getName();
                 Object parameterValue = parameterValues[i];
 
-                if (resourceUuids == null || resourceName == null || (annotation.affiliatedResource() != Resource.NONE && affiliatedResourceUuids == null)) {
+                if (resourceUuids == null || resourceName == null || (annotation.affiliatedResource() != Resource.NONE && (affiliatedResourceUuids == null || affiliatedResourceName == null))) {
                     LogResource logResource = parameters[i].getAnnotation(LogResource.class);
-                    if (logResource != null) {
-                        List<UUID> logResourceUuids;
-                        if (logResource.uuid()) {
-                            if (parameterValues[i] instanceof List<?> listValues) {
-                                logResourceUuids = listValues.stream().map(v -> UUID.fromString(v.toString())).toList();
-                            } else {
-                                logResourceUuids = List.of(UUID.fromString(parameterValue.toString()));
-                            }
-                            if (logResource.affiliated()) {
-                                affiliatedResourceUuids = logResourceUuids;
-                            } else {
-                                resourceUuids = logResourceUuids;
-                            }
-                        } else if (logResource.name()) {
-                            String paramName = parameterValue instanceof IPlatformEnum platformEnum ? platformEnum.getCode() : parameterValue.toString();
-                            if (logResource.affiliated()) {
-                                affiliatedResourceName = paramName;
-                            } else {
-                                resourceName = paramName;
-                            }
+                    List<UUID> paramResourceUuids = getResourceUuidsFromParameter(logResource, parameterName, parameterValue);
+                    String paramResourceName = getResourceNameFromParameter(logResource, parameterName, parameterValue);
+
+                    boolean isAffiliated = logResource != null && logResource.affiliated();
+                    if (paramResourceUuids != null) {
+                        if (isAffiliated) {
+                            affiliatedResourceUuids = paramResourceUuids;
+                        } else {
+                            resourceUuids = paramResourceUuids;
                         }
-                    } else if ((parameterValue instanceof String || parameterValue instanceof UUID) && (parameterName.equalsIgnoreCase("uuid"))) {
-                        resourceUuids = List.of(parameterValue instanceof UUID argValueUuid ? argValueUuid : UUID.fromString(parameterValue.toString()));
-                    } else if (parameterValue instanceof Named named) {
-                        resourceName = named.getName();
+                    }
+                    if (paramResourceName != null) {
+                        if (isAffiliated) {
+                            affiliatedResourceName = paramResourceName;
+                        } else {
+                            resourceName = paramResourceName;
+                        }
                     }
                 }
 
@@ -163,6 +156,40 @@ public class AuditLogAspect {
         if (!data.isEmpty()) {
             logBuilder.additionalData(data);
         }
+    }
+
+    private List<UUID> getResourceUuidsFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
+        if (logResource != null) {
+            if (logResource.uuid()) {
+                return parameterValue instanceof List<?> listValues
+                        ? listValues.stream().map(v -> UUID.fromString(v.toString())).toList()
+                        : List.of(UUID.fromString(parameterValue.toString()));
+            }
+            return null;
+        }
+        if (parameterName.equalsIgnoreCase("uuid")) {
+            if (parameterValue instanceof String paramString) {
+                return List.of(UUID.fromString(paramString));
+            }
+            if (parameterValue instanceof UUID paramUuid) {
+                return List.of(paramUuid);
+            }
+        }
+
+        return null;
+    }
+
+    private String getResourceNameFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
+        if (logResource != null) {
+            if (logResource.name()) {
+                return parameterValue instanceof IPlatformEnum platformEnum ? platformEnum.getCode() : parameterValue.toString();
+            }
+            return null;
+        }
+        if (parameterValue instanceof Named named) {
+            return named.getName();
+        }
+        return null;
     }
 
     private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName) {

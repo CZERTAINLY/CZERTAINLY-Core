@@ -24,7 +24,6 @@
             <captureMarkerAttribute>false</captureMarkerAttribute>
             <captureKeyValuePairAttributes>false</captureKeyValuePairAttributes>
             <captureLoggerContext>false</captureLoggerContext>
-<!--            <captureMdcAttributes>*</captureMdcAttributes>-->
         </appender>
 
         <appender name="SpanEvents" class="com.czertainly.core.config.SpanEventsAppender">

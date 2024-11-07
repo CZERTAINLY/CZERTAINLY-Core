@@ -298,12 +298,8 @@
                     </execution>
                 </executions>
                 <configuration>
-<!--                    <packageNames>-->
-<!--                        <packageName>com.czertainly.core.logging.records</packageName>-->
-<!--                    </packageNames>-->
                     <classNames>
                         <className>com.czertainly.api.model.core.logging.records.LogRecord</className>
-<!--                        <className>com.czertainly.api.model.core.logging.records.SourceRecord</className>-->
                     </classNames>
                     <schemaVersion>DRAFT_2020_12</schemaVersion>
                     <schemaFilePath>src/main/resources/log-schemas</schemaFilePath>

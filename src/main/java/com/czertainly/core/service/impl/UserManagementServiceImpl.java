@@ -44,7 +44,6 @@ import java.util.UUID;
 @Service
 @Transactional
 public class UserManagementServiceImpl implements UserManagementService {
-//    private static final Logger logger = LoggerFactory.getLogger(UserManagementServiceImpl.class);
     private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);
 
     private UserManagementApiClient userManagementApiClient;
