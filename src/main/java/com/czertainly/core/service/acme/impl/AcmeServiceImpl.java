@@ -214,8 +214,25 @@ public class AcmeServiceImpl implements AcmeService {
         validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
 
         NewAccountRequest accountRequest = AcmeJsonProcessor.getPayloadAsRequestObject(jwsRequest.getJwsObject(), NewAccountRequest.class);
-        logger.debug("New Account requested: {}", accountRequest.toString());
-        AcmeAccount account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()), accountRequest, isRaProfileBased);
+        logger.debug("New Account request: {}", accountRequest.toString());
+
+        // Check if the Account already exists
+        AcmeAccount account = acmeAccountRepository.findByPublicKey(AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()));
+
+        if (accountRequest.isOnlyReturnExisting()) {
+            logger.debug("Request to only return existing Account");
+            if (account == null) {
+                logger.error("Requested Account does not exists");
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
+            }
+        } else {
+            // Create a new Account if it does not exist
+            if (account == null) {
+                logger.debug("Request to create a new Account");
+                account = addNewAccount(acmeProfileName, AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsRequest.getPublicKey()), accountRequest, isRaProfileBased);
+            }
+        }
+
         Account accountDto = account.mapToDto();
         String baseUri = getAcmeBaseUri();
 

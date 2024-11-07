@@ -169,6 +169,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
         acmeProfile.setTermsOfServiceChangeUrl("change url");
         acmeProfile.setEnabled(true);
         acmeProfile.setDisableNewOrders(false);
+        acmeProfile.setRequireContact(true);
         acmeProfileRepository.save(acmeProfile);
 
         raProfile.setAcmeProfile(acmeProfile);
@@ -318,6 +319,48 @@ public class AcmeServiceTest extends BaseSpringBootTest {
                         .jwk(rsa2048PublicJWK)
                         .build(),
                 rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    public void testOnlyReturnExistingAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
+        ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON(requestUri), requestUri, true);
+        Assertions.assertEquals(HttpStatus.OK, account.getStatusCode());
+        Assertions.assertNotNull(account);
+        Assertions.assertEquals(AccountStatus.VALID, Objects.requireNonNull(account.getBody()).getStatus());
+    }
+
+    private String buildOnlyReturnExistingAccountJSON(URI requestUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"onlyReturnExisting\":true}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(rsa2048PublicJWK)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    public void testOnlyReturnExistingAccount_fail() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON_fail(requestUri), requestUri, true));
+    }
+
+    private String buildOnlyReturnExistingAccountJSON_fail(URI requestUri) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"onlyReturnExisting\":true}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .jwk(newRsa2048PublicJWK)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                newRsa2048Signer
         );
         return jwsObjectJSON.serializeFlattened();
     }
