@@ -136,6 +136,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.DISCOVERY, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return discoveryService.getSearchableFieldInformationByGroup();
     }

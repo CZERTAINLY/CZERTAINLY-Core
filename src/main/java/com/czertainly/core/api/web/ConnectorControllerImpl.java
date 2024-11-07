@@ -131,31 +131,35 @@ public class ConnectorControllerImpl implements ConnectorController {
     }
 
     @Override
-    public HealthDto checkHealth(@PathVariable String uuid) throws NotFoundException, ValidationException, ConnectorException {
+    @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.CHECK_HEALTH)
+    public HealthDto checkHealth(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ValidationException, ConnectorException {
         return connectorService.checkHealth(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public List<BaseAttribute> getAttributes(@PathVariable String uuid,
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> getAttributes(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid,
                                              @PathVariable FunctionGroupCode functionGroup,
-                                             @PathVariable String kind) throws NotFoundException, ConnectorException {
+                                             @LogResource(name = true) @PathVariable String kind) throws NotFoundException, ConnectorException {
         return connectorService.getAttributes(SecuredUUID.fromString(uuid), functionGroup, kind);
     }
 
     @Override
-    public void validateAttributes(@PathVariable String uuid,
-                                      @PathVariable String functionGroup,
-                                      @PathVariable String kind,
-                                      @RequestBody List<RequestAttributeDto> attributes)
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
+    public void validateAttributes(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid,
+                                   @PathVariable String functionGroup,
+                                   @LogResource(name = true) @PathVariable String kind,
+                                   @RequestBody List<RequestAttributeDto> attributes)
             throws NotFoundException, ConnectorException {
         connectorService.validateAttributes(SecuredUUID.fromString(uuid), FunctionGroupCode.findByCode(functionGroup), attributes,
                 kind);
     }
 
-	@Override
-	public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAttributesAll(String uuid) throws NotFoundException, ConnectorException {
-		return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));
-	}
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
+    public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAttributesAll(@LogResource(uuid = true, affiliated = true) String uuid) throws NotFoundException, ConnectorException {
+        return connectorService.getAllAttributesOfConnector(SecuredUUID.fromString(uuid));
+    }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.DELETE)

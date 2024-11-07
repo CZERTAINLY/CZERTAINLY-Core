@@ -28,8 +28,12 @@ import java.util.List;
 @RestController
 public class CredentialControllerImpl implements CredentialController {
 
-    @Autowired
     private CredentialService credentialService;
+
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
+    }
 
     @Override
     @AuthEndpoint(resourceName = Resource.CREDENTIAL)

@@ -127,6 +127,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return certificateService.getSearchableFieldInformationByGroup();
     }
@@ -157,6 +158,7 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "csr", affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> getCsrGenerationAttributes() {
         return certificateService.getCsrGenerationAttributes();
     }

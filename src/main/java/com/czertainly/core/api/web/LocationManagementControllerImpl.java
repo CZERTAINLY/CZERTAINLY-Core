@@ -136,16 +136,19 @@ public class LocationManagementControllerImpl implements LocationManagementContr
     }
 
     @Override
-    public List<BaseAttribute> listPushAttributes(String entityUuid, String locationUuid) throws NotFoundException, LocationException {
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "push", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listPushAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, String locationUuid) throws NotFoundException, LocationException {
         return locationService.listPushAttributes(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
-    public List<BaseAttribute> listCsrAttributes(String entityUuid, String locationUuid) throws NotFoundException, LocationException {
+    @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "csr", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listCsrAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, String locationUuid) throws NotFoundException, LocationException {
         return locationService.listCsrAttributes(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.LOCATION, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return locationService.getSearchableFieldInformationByGroup();
     }

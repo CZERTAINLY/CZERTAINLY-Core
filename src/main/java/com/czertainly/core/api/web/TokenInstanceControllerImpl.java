@@ -88,12 +88,14 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
     }
 
     @Override
-    public List<BaseAttribute> listTokenProfileAttributes(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "tokenProfile", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenProfileAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException {
         return tokenInstanceService.listTokenProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public List<BaseAttribute> listTokenInstanceActivationAttributes(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "activate", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenInstanceActivationAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException {
         return tokenInstanceService.listTokenInstanceActivationAttributes(SecuredUUID.fromString(uuid));
     }
 }

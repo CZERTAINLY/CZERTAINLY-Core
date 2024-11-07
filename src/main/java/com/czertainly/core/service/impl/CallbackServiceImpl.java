@@ -22,6 +22,7 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.*;
@@ -147,6 +148,8 @@ public class CallbackServiceImpl implements CallbackService {
                         )
                 );
         }
+
+        LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
 
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);

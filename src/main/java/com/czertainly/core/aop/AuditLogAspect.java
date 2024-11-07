@@ -1,6 +1,7 @@
 package com.czertainly.core.aop;
 
 import com.czertainly.api.model.common.Named;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
@@ -119,10 +120,11 @@ public class AuditLogAspect {
                                 resourceUuids = logResourceUuids;
                             }
                         } else if (logResource.name()) {
+                            String paramName = parameterValue instanceof IPlatformEnum platformEnum ? platformEnum.getCode() : parameterValue.toString();
                             if (logResource.affiliated()) {
-                                affiliatedResourceName = parameterValue.toString();
+                                affiliatedResourceName = paramName;
                             } else {
-                                resourceName = parameterValue.toString();
+                                resourceName = paramName;
                             }
                         }
                     } else if ((parameterValue instanceof String || parameterValue instanceof UUID) && (parameterName.equalsIgnoreCase("uuid"))) {

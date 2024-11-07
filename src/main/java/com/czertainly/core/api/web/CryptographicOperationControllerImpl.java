@@ -112,11 +112,12 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "signature", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listSignatureAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
-            String keyItemUuid,
+            @LogResource(uuid = true, affiliated = true) String keyItemUuid,
             KeyAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listSignatureAttributes(
@@ -129,11 +130,12 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "cipher", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listCipherAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
-            String keyItemUuid,
+            @LogResource(uuid = true, affiliated = true) String keyItemUuid,
             KeyAlgorithm algorithm
     ) throws ConnectorException {
         return cryptographicOperationService.listCipherAttributes(
@@ -146,8 +148,9 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     }
 
     @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "random", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRandomAttributes(
-            String tokenInstanceUuid
+            @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid
     ) throws ConnectorException {
         return cryptographicOperationService.listRandomAttributes(
                 SecuredUUID.fromString(tokenInstanceUuid)

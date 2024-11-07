@@ -52,6 +52,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return cryptographicKeyService.getSearchableFieldInformation();
     }
@@ -271,7 +272,8 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    public List<BaseAttribute> listCreateKeyAttributes(String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listCreateKeyAttributes(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String tokenProfileUuid, @LogResource(name = true) KeyRequestType type) throws ConnectorException {
         return cryptographicKeyService.listCreateKeyAttributes(
                 UUID.fromString(tokenInstanceUuid),
                 SecuredParentUUID.fromString(tokenProfileUuid),
