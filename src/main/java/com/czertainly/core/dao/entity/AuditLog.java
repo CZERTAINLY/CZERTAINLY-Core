@@ -5,7 +5,9 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -68,14 +70,6 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
     @Enumerated(EnumType.STRING)
     private Resource affiliatedResource;
 
-//    @Column(name = "resource_uuids")
-//    @Convert(converter = UUIDListConverter.class)
-//    private List<UUID> resourceUuids;
-//
-//    @Column(name = "resource_names")
-//    @Convert(converter = StringListConverter.class)
-//    private List<String> resourceNames;
-
     @Column(name = "operation", nullable = false)
     @Enumerated(EnumType.STRING)
     private Operation operation;
@@ -110,6 +104,36 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         return dto;
     }
 
+    public AuditLogExportDto mapToExportDto() {
+        ObjectMapper mapper = new ObjectMapper();
+        AuditLogExportDto.AuditLogExportDtoBuilder builder = AuditLogExportDto.builder();
+        builder.id(id);
+        builder.version(version);
+        builder.loggedAt(loggedAt);
+        builder.module(module);
+        builder.resource(resource);
+        builder.resourceUuids(logRecord.resource().uuids());
+        builder.resourceNames(logRecord.resource().names());
+        builder.affiliatedResource(affiliatedResource);
+        if (logRecord.affiliatedResource() != null) {
+            builder.affiliatedResourceUuids(logRecord.affiliatedResource().uuids());
+            builder.affiliatedResourceNames(logRecord.affiliatedResource().names());
+        }
+        builder.actorType(actorType);
+        builder.actorAuthMethod(actorAuthMethod);
+        builder.actorUuid(actorUuid);
+        builder.actorName(actorName);
+        if (logRecord.source() != null) {
+            builder.ipAddress(logRecord.source().ipAddress());
+            builder.userAgent(logRecord.source().userAgent());
+        }
+        builder.operation(operation);
+        builder.operationResult(operationResult);
+        builder.message(message);
+
+        return builder.build();
+    }
+
     public static AuditLog fromLogRecord(LogRecord logRecord) {
         AuditLog auditLog = new AuditLog();
         auditLog.setVersion(logRecord.version());
@@ -120,8 +144,6 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         auditLog.setActorName(logRecord.actor().name());
         auditLog.setResource(logRecord.resource().type());
         auditLog.setAffiliatedResource(logRecord.affiliatedResource() != null ? logRecord.affiliatedResource().type() : null);
-//        auditLog.setResourceUuids(logRecord.resource().uuids());
-//        auditLog.setResourceNames(logRecord.resource().names());
         auditLog.setOperation(logRecord.operation());
         auditLog.setOperationResult(logRecord.operationResult());
         auditLog.setMessage(logRecord.message());

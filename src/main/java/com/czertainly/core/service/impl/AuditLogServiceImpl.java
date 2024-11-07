@@ -11,6 +11,7 @@ import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.entity.AuditLog_;
 import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -101,9 +102,9 @@ public class AuditLogServiceImpl implements AuditLogService {
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
     public ExportResultDto exportAuditLogs(final List<SearchFilterRequestDto> filters) {
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
-        final List<AuditLogDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause)
+        final List<AuditLogExportDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause)
                 .stream()
-                .map(AuditLog::mapToDto).toList();
+                .map(AuditLog::mapToExportDto).toList();
 
         return exportProcessor.generateExport(fileNamePrefix, auditLogs);
     }
