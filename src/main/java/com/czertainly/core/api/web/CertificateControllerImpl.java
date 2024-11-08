@@ -81,8 +81,11 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-        certificateService.bulkUpdateCertificateObjects(SecurityFilter.create(), request);
+    public void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
+        if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getCertificateUuids() == null || request.getCertificateUuids().isEmpty())) {
+            throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
+        }
+        certificateService.bulkUpdateCertificatesObjects(SecurityFilter.create(), request);
     }
 
     @Override
@@ -100,9 +103,12 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException {
-        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
+    public BulkOperationResponse bulkDeleteCertificate(@RequestBody RemoveCertificateDto request) throws NotFoundException, NotSupportedException {
         BulkOperationResponse response = new BulkOperationResponse();
+        if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getUuids() == null || request.getUuids().isEmpty())) {
+            throw new NotSupportedException("Bulk delete of certificates by filters is not supported.");
+        }
+        certificateService.bulkDeleteCertificate(SecurityFilter.create(), request);
         response.setMessage("Initiated bulk delete Certificates. Please refresh after some time");
         response.setStatus(BulkOperationStatus.SUCCESS);
         return response;

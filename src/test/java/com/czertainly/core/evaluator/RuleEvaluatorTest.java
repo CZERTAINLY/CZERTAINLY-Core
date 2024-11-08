@@ -18,12 +18,12 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.api.model.core.search.SearchableFields;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.service.AttributeService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -83,6 +83,12 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Autowired
     private ResourceObjectAssociationService associationService;
 
+    @Autowired
+    private LocationRepository locationRepository;
+
+    @Autowired
+    private CertificateLocationRepository certificateLocationRepository;
+
     private Certificate certificate;
 
     private ConditionItem condition;
@@ -122,7 +128,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
 
         certificate.setCommonName("Common Name");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier(SearchableFields.COMMON_NAME.toString());
+        condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setValue("Common Name");
@@ -155,15 +161,30 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         certificate = certificateRepository.save(certificate);
 
         condition.setOperator(FilterConditionOperator.EQUALS);
-        condition.setFieldIdentifier(SearchableFields.GROUP_NAME.toString());
+        condition.setFieldIdentifier(FilterField.GROUP_NAME.toString());
         condition.setValue(group.getName());
         Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         certificate.setTrustedCa(true);
-        condition.setFieldIdentifier(SearchableFields.TRUSTED_CA.toString());
+        condition.setFieldIdentifier(FilterField.TRUSTED_CA.toString());
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(true);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        Location location = new Location();
+        location.setName("loc");
+        locationRepository.save(location);
+        CertificateLocation certificateLocation = new CertificateLocation();
+        certificateLocation.setLocation(location);
+        certificateLocation.setCertificate(certificate);
+        certificateLocationRepository.save(certificateLocation);
+        certificate.setLocations(new HashSet<>(List.of(certificateLocation)));
+        condition.setFieldIdentifier(FilterField.CERT_LOCATION_NAME.name());
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue("loc");
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+
     }
 
     @Test
@@ -177,7 +198,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
-        condition.setFieldIdentifier(SearchableFields.COMMON_NAME.toString());
+        condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setOperator(FilterConditionOperator.GREATER);
         Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
@@ -198,14 +219,14 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     public void testEvaluatorDate() throws RuleException, ParseException {
         certificate.setNotBefore(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier(SearchableFields.NOT_BEFORE.toString());
+        condition.setFieldIdentifier(FilterField.NOT_BEFORE.toString());
         condition.setValue("2010-12-12");
         condition.setOperator(FilterConditionOperator.GREATER);
         Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
-        condition.setFieldIdentifier(SearchableFields.DISCOVERY_START_TIME.toString());
+        condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
         Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
 
@@ -218,11 +239,11 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         cryptographicKey.setName("Key");
         ConditionItem condition = new ConditionItem();
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        condition.setFieldIdentifier(SearchableFields.CKI_NAME.toString());
+        condition.setFieldIdentifier(FilterField.CKI_NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         cryptographicKey.setLength(256);
-        condition.setFieldIdentifier(SearchableFields.CKI_LENGTH.toString());
+        condition.setFieldIdentifier(FilterField.CKI_LENGTH.toString());
         condition.setOperator(FilterConditionOperator.GREATER);
         condition.setValue(255);
         Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(condition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
@@ -286,7 +307,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Test
     public void testSetCertificateGroup() throws RuleException {
         executionItem.setFieldSource(FilterFieldSource.PROPERTY);
-        executionItem.setFieldIdentifier(SearchableFields.GROUP_NAME.toString());
+        executionItem.setFieldIdentifier(FilterField.GROUP_NAME.toString());
         Group group = new Group();
         group.setName("groupName");
         group = groupRepository.save(group);
@@ -306,7 +327,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
     @Test
     public void testSetCertificateOwner() throws RuleException {
         executionItem.setFieldSource(FilterFieldSource.PROPERTY);
-        executionItem.setFieldIdentifier(SearchableFields.OWNER.toString());
+        executionItem.setFieldIdentifier(FilterField.OWNER.toString());
         executionItem.setData(UUID.randomUUID());
 
         mockServer = new WireMockServer(10001);
@@ -356,7 +377,7 @@ public class RuleEvaluatorTest extends BaseSpringBootTest {
         certificate.setCertificateContent(certificateContent);
 
         executionItem.setFieldSource(FilterFieldSource.PROPERTY);
-        executionItem.setFieldIdentifier(SearchableFields.RA_PROFILE_NAME.toString());
+        executionItem.setFieldIdentifier(FilterField.RA_PROFILE_NAME.toString());
         executionItem.setData(raProfile.getUuid());
         certificateRuleEvaluator.performActions(trigger, certificate, new TriggerHistory());
         Assertions.assertEquals(raProfile.getName(), certificate.getRaProfile().getName());

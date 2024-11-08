@@ -9,7 +9,7 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.AuditLogService;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
+import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -166,7 +166,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
-        CriteriaDelete<AuditLog> criteriaQueryDataObject = Sql2PredicateConverter.prepareQueryForAuditLog(filter, entityManager.getCriteriaBuilder());
+        CriteriaDelete<AuditLog> criteriaQueryDataObject = FilterPredicatesBuilder.prepareQueryForAuditLog(filter, entityManager.getCriteriaBuilder());
         entityManager.createQuery(criteriaQueryDataObject).executeUpdate();
     }
 

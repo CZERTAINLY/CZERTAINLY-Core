@@ -33,7 +33,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
@@ -49,7 +49,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import com.czertainly.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.function.TriFunction;
@@ -91,7 +90,9 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.*;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
@@ -99,12 +100,6 @@ import java.util.stream.Collectors;
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
 
-    // Default page size for the certificate search API when page size is not provided
-    public static final Integer DEFAULT_PAGE_SIZE = 10;
-    // Maximum page size for search API operation
-    public static final Integer MAX_PAGE_SIZE = 1000;
-    // Default batch size to perform bulk delete operation on Certificates
-    public static final Integer DELETE_BATCH_SIZE = 1000;
 
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
@@ -141,9 +136,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Autowired
     private CertificateEventHistoryService certificateEventHistoryService;
-
-    @Autowired
-    private SearchService searchService;
 
     @Lazy
     @Autowired
@@ -303,7 +295,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public Boolean checkCertificateExistsByFingerprint(String fingerprint) {
+    public boolean checkCertificateExistsByFingerprint(String fingerprint) {
         try {
             return certificateRepository.findByFingerprint(fingerprint).isPresent();
         } catch (Exception e) {
@@ -374,18 +366,49 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
-    public void bulkUpdateCertificateObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void bulkUpdateCertificatesObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
         logger.info("Bulk updating certificate objects: RA {} groups {} owner {}", request.getRaProfileUuid(), request.getGroupUuids(), request.getOwnerUuid());
         setupSecurityFilter(filter);
-        if (request.getRaProfileUuid() != null) {
-            bulkUpdateRaProfile(filter, request);
+        Set<UUID> groupUuids = null;
+        if (request.getGroupUuids() != null)
+            groupUuids = request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet());
+        String ownerUuid = null;
+        if (request.getOwnerUuid() != null && !request.getOwnerUuid().isEmpty()) {
+            ownerUuid = request.getOwnerUuid();
         }
-        if (request.getGroupUuids() != null) {
-            bulkUpdateCertificateGroup(filter, request);
+
+        boolean removeRaProfile = false;
+        if (request.getRaProfileUuid() != null) removeRaProfile = request.getRaProfileUuid().isEmpty();
+
+        if (request.getFilters() != null && !request.getFilters().isEmpty() && (request.getCertificateUuids() == null || request.getCertificateUuids().isEmpty())) {
+            throw new NotSupportedException("Bulk updating of certificates by filters is not supported.");
         }
-        if (request.getOwnerUuid() != null) {
-            bulkUpdateOwner(filter, request);
+
+        UUID loggedUserUuid = null;
+        for (String certificateUuidString : request.getCertificateUuids()) {
+            SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
+            TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+            try {
+                bulkUpdateCertificateObjects(request, certificateUuid, groupUuids, ownerUuid, removeRaProfile);
+                transactionManager.commit(status);
+            } catch (Exception e) {
+                transactionManager.rollback(status);
+                logger.error("Error occurred when updating certificate with UUID {}: {}", certificateUuidString, e.getMessage());
+                if (loggedUserUuid == null) {
+                    loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+                }
+                notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to update properties of the certificate " + certificateUuid, e.getMessage());
+            }
         }
+    }
+
+    private void bulkUpdateCertificateObjects(MultipleCertificateObjectUpdateDto request, SecuredUUID certificateUuid, Set<UUID> groupUuids, String ownerUuid, boolean removeRaProfile) throws NotFoundException, CertificateOperationException, AttributeException {
+        permissionEvaluator.certificate(certificateUuid);
+        if (groupUuids != null) updateCertificateGroups(certificateUuid, groupUuids);
+        if (request.getOwnerUuid() != null) updateOwner(certificateUuid, ownerUuid);
+        if (request.getRaProfileUuid() != null)
+            switchRaProfile(certificateUuid, removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
     }
 
     @Override
@@ -393,7 +416,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Async
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException {
+    public void bulkDeleteCertificate(SecurityFilter filter, RemoveCertificateDto request) throws NotFoundException, NotSupportedException {
         setupSecurityFilter(filter);
 
         UUID loggedUserUuid = null;
@@ -414,61 +437,43 @@ public class CertificateServiceImpl implements CertificateService {
             }
             logger.debug("Bulk deleted {} of {} certificates.", deletedCount, request.getUuids().size());
         } else {
-            String joins = "WHERE c.userUuid IS NULL";
-            String data = searchService.createCriteriaBuilderString(filter, true);
-            if (!data.isEmpty()) {
-                joins = joins + " AND " + data;
-            }
-
-            String customQuery = searchService.getQueryDynamicBasedOnFilter(request.getFilters(), "Certificate", getSearchableFieldInformation(), joins, false, false, "");
-
-            List<Certificate> certListDyn = (List<Certificate>) searchService.customQueryExecutor(customQuery);
-
-            for (List<Certificate> certificates : partitionList(certListDyn)) {
-                certificateRepository.deleteAll(certificates);
-            }
-            for (List<CertificateContent> certificateContents : partitionContents(certificateContentRepository.findCertificateContentNotUsed())) {
-                certificateContentRepository.deleteAll(certificateContents);
-            }
+            throw new NotSupportedException("Bulk delete of certificates by filters is not supported.");
         }
     }
 
-    @Deprecated
-    public List<SearchFieldDataDto> getSearchableFieldInformation() {
-        return getSearchableFieldsMap();
-    }
 
     @Override
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.CERTIFICATE, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CERT_LOCATION_NAME, locationRepository.findAll().stream().map(Location::getName).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.EXPIRES),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.NOT_BEFORE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.PRIVATE_KEY),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.TRUSTED_CA)
+                SearchHelper.prepareSearch(FilterField.COMMON_NAME),
+                SearchHelper.prepareSearch(FilterField.SERIAL_NUMBER),
+                SearchHelper.prepareSearch(FilterField.ISSUER_SERIAL_NUMBER),
+                SearchHelper.prepareSearch(FilterField.RA_PROFILE_NAME, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.GROUP_NAME, groupRepository.findAll().stream().map(Group::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.CERT_LOCATION_NAME, locationRepository.findAll().stream().map(Location::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
+                SearchHelper.prepareSearch(FilterField.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.ISSUER_COMMON_NAME),
+                SearchHelper.prepareSearch(FilterField.FINGERPRINT),
+                SearchHelper.prepareSearch(FilterField.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
+                SearchHelper.prepareSearch(FilterField.NOT_AFTER),
+                SearchHelper.prepareSearch(FilterField.NOT_BEFORE),
+                SearchHelper.prepareSearch(FilterField.SUBJECTDN),
+                SearchHelper.prepareSearch(FilterField.ISSUERDN),
+                SearchHelper.prepareSearch(FilterField.SUBJECT_ALTERNATIVE_NAMES),
+                SearchHelper.prepareSearch(FilterField.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
+                SearchHelper.prepareSearch(FilterField.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
+                SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
+                SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
+                SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.TRUSTED_CA)
         );
 
         fields = new ArrayList<>(fields);
@@ -1082,7 +1087,7 @@ public class CertificateServiceImpl implements CertificateService {
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByBasicConstraints(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.basicConstraints, null));
+                        dto.setCertificateStatBySubjectType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.subjectType, null));
                         return null;
                     },
                     () -> {
@@ -1387,34 +1392,6 @@ public class CertificateServiceImpl implements CertificateService {
                 .map(Certificate::mapToListDto).toList();
     }
 
-    private String getExpiryTime(Date now, Date expiry) {
-        long diffInMilliseconds = expiry.getTime() - now.getTime();
-        long difference = TimeUnit.DAYS.convert(diffInMilliseconds, TimeUnit.MILLISECONDS);
-        if (diffInMilliseconds <= 0) {
-            return "expired";
-        } else if (difference < 10) {
-            return "10";
-        } else if (difference < 20) {
-            return "20";
-        } else if (difference < 30) {
-            return "30";
-        } else if (difference < 60) {
-            return "60";
-        } else if (difference < 90) {
-            return "90";
-        }
-        return "More";
-    }
-
-
-    @Deprecated
-    private List<SearchFieldDataDto> getSearchableFieldsMap() {
-
-        final List<SearchFieldDataDto> fields = List.of(SearchHelper.prepareSearch(SearchFieldNameEnum.COMMON_NAME), SearchHelper.prepareSearch(SearchFieldNameEnum.SERIAL_NUMBER_LABEL), SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_SERIAL_NUMBER), SearchHelper.prepareSearch(SearchFieldNameEnum.RA_PROFILE, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.GROUP, groupRepository.findAll().stream().map(Group::getName).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.OWNER), SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_STATE, Arrays.stream(CertificateState.values()).map(CertificateState::getCode).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.CERTIFICATE_VALIDATION_STATUS, Arrays.stream(CertificateValidationStatus.values()).map(CertificateValidationStatus::getCode).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.COMPLIANCE_STATUS, Arrays.stream(ComplianceStatus.values()).map(ComplianceStatus::getCode).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_COMMON_NAME), SearchHelper.prepareSearch(SearchFieldNameEnum.FINGERPRINT), SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())), SearchHelper.prepareSearch(SearchFieldNameEnum.EXPIRES), SearchHelper.prepareSearch(SearchFieldNameEnum.NOT_BEFORE), SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_DN), SearchHelper.prepareSearch(SearchFieldNameEnum.ISSUER_DN), SearchHelper.prepareSearch(SearchFieldNameEnum.SUBJECT_ALTERNATIVE), SearchHelper.prepareSearch(SearchFieldNameEnum.OCSP_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()), SearchHelper.prepareSearch(SearchFieldNameEnum.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())), SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())), SearchHelper.prepareSearch(SearchFieldNameEnum.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())));
-
-        logger.debug("Searchable Fields: {}", fields);
-        return fields;
-    }
 
     private List<Object> serializedListOfStringToListOfObject(List<String> serializedData) {
         Set<String> serSet = new LinkedHashSet<>();
@@ -1458,14 +1435,6 @@ public class CertificateServiceImpl implements CertificateService {
         dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
         dto.setStatus(status);
         return dto;
-    }
-
-    // TODO - move to search service
-    private void bulkUpdateRaProfileComplianceCheck(List<SearchFilterRequestDto> searchFilter) {
-        List<Certificate> certificates = (List<Certificate>) searchService.completeSearchQueryExecutor(searchFilter, "Certificate", getSearchableFieldInformation());
-        CertificateComplianceCheckDto dto = new CertificateComplianceCheckDto();
-        dto.setCertificateUuids(certificates.stream().map(Certificate::getUuid).map(UUID::toString).toList());
-        checkCompliance(dto);
     }
 
     private void certificateComplianceCheck(Certificate certificate) {
@@ -1569,11 +1538,11 @@ public class CertificateServiceImpl implements CertificateService {
             try {
                 response = certificateApiClient.identifyCertificate(newRaProfile.getAuthorityInstanceReference().getConnector().mapToDto(), newRaProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), requestDto);
             } catch (ConnectorException e) {
-                certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), "");
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate));
+                eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.UPDATE_RA_PROFILE.getCode(), CertificateEventStatus.FAILED.toString(), String.format("Certificate not identified by authority of new RA profile %s. Certificate needs to be reissued.", newRaProfile.getName()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate not identified by authority of new RA profile %s. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
             } catch (ValidationException e) {
-                certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.FAILED, String.format("Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate needs to be reissued.", newRaProfile.getName()), "");
-                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate: %s", newRaProfile.getName(), certificate));
+                eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.UPDATE_RA_PROFILE.getCode(), CertificateEventStatus.FAILED.toString(), String.format("Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate needs to be reissued.", newRaProfile.getName()), null);
+                throw new CertificateOperationException(String.format("Cannot switch RA profile for certificate. Certificate identified by authority of new RA profile %s but not valid according to RA profile attributes. Certificate: %s", newRaProfile.getName(), certificate.toStringShort()));
             }
         }
 
@@ -1640,95 +1609,6 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "%s -> %s".formatted(currentOwnerName, newOwnerName == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : newOwnerName), "");
-    }
-
-    private void bulkUpdateRaProfile(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-        boolean removeRaProfile = request.getRaProfileUuid().isEmpty();
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                try {
-                    SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                    permissionEvaluator.certificate(certificateUuid);
-                    switchRaProfile(certificateUuid, removeRaProfile ? null : SecuredUUID.fromString(request.getRaProfileUuid()));
-                } catch (CertificateOperationException e) {
-                    logger.warn(e.getMessage());
-                } catch (AttributeException e) {
-                    logger.warn("Certificate {} switched but there was issue with updating attributes: {}", certificateUuidString, e.getMessage());
-                }
-            }
-        } else {
-            RaProfile raProfile = removeRaProfile ? null : raProfileRepository.findByUuid(SecuredUUID.fromString(request.getRaProfileUuid())).orElseThrow(() -> new NotFoundException(RaProfile.class, request.getRaProfileUuid()));
-
-            String data = searchService.createCriteriaBuilderString(filter, false);
-            if (!data.isEmpty()) {
-                data = "WHERE " + data;
-            }
-
-            String profileUpdateQuery = "UPDATE Certificate c SET c.raProfile = " + (removeRaProfile ? "NULL" : raProfile.getUuid()) + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(profileUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_RA_PROFILE, CertificateEventStatus.SUCCESS, "RA Profile Name: " + (removeRaProfile ? UNDEFINED_CERTIFICATE_OBJECT_NAME : raProfile.getName()));
-            bulkUpdateRaProfileComplianceCheck(request.getFilters());
-        }
-    }
-
-    private void bulkUpdateCertificateGroup(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            Set<UUID> groupUuids = request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet());
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                permissionEvaluator.certificate(certificateUuid);
-                this.updateCertificateGroups(certificateUuid, groupUuids);
-            }
-        }
-        // updating group by filters not supported now
-//        else {
-//        }
-    }
-
-    private void bulkUpdateOwner(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException {
-        boolean removeOwner = request.getOwnerUuid().isEmpty();
-        String ownerUuid = null;
-        String ownerName = null;
-        if (!removeOwner) {
-            ownerUuid = request.getOwnerUuid();
-        }
-        List<CertificateEventHistory> batchHistoryOperationList = new ArrayList<>();
-        if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getCertificateUuids() != null && !request.getCertificateUuids().isEmpty())) {
-            List<Certificate> batchOperationList = new ArrayList<>();
-            for (String certificateUuidString : request.getCertificateUuids()) {
-                SecuredUUID certificateUuid = SecuredUUID.fromString(certificateUuidString);
-                permissionEvaluator.certificate(certificateUuid);
-                updateOwner(certificateUuid, ownerUuid);
-            }
-            certificateRepository.saveAll(batchOperationList);
-            certificateEventHistoryService.asyncSaveAllInBatch(batchHistoryOperationList);
-        } else {
-            String data = searchService.createCriteriaBuilderString(filter, false);
-            if (!data.isEmpty()) {
-                data = "WHERE " + data;
-            }
-            String ownerUpdateQuery = "UPDATE Certificate c SET c.owner = '" + (removeOwner ? "NULL" : ownerName) + "',c.owner_uuid = '" + (removeOwner ? "NULL" : UUID.fromString(request.getOwnerUuid())) + "' " + searchService.getCompleteSearchQuery(request.getFilters(), "certificate", data, getSearchableFieldInformation(), true, false).replace("GROUP BY c.id ORDER BY c.id DESC", "");
-            certificateRepository.bulkUpdateQuery(ownerUpdateQuery);
-            certificateEventHistoryService.addEventHistoryForRequest(request.getFilters(), "Certificate", getSearchableFieldInformation(), CertificateEvent.UPDATE_OWNER, CertificateEventStatus.SUCCESS, "Owner: " + (removeOwner ? UNDEFINED_CERTIFICATE_OBJECT_NAME : ownerName));
-        }
-    }
-
-    private List<List<Certificate>> partitionList(List<Certificate> fullList) {
-        List<List<Certificate>> certificates = new ArrayList<>();
-
-        for (int i = 0; i < fullList.size(); i += DELETE_BATCH_SIZE) {
-            certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
-        }
-        return certificates;
-    }
-
-    private List<List<CertificateContent>> partitionContents(List<CertificateContent> fullList) {
-        List<List<CertificateContent>> certificates = new ArrayList<>();
-
-        for (int i = 0; i < fullList.size(); i += DELETE_BATCH_SIZE) {
-            certificates.add(fullList.subList(i, Math.min(i + DELETE_BATCH_SIZE, fullList.size())));
-        }
-        return certificates;
     }
 
     private void setupSecurityFilter(SecurityFilter filter) {

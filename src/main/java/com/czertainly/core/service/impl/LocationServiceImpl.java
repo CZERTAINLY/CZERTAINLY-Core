@@ -25,9 +25,9 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
@@ -39,7 +39,7 @@ import com.czertainly.core.dao.repository.CertificateLocationRepository;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.LocationRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.enums.SearchFieldNameEnum;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -55,7 +55,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
-import com.czertainly.core.util.converter.Sql2PredicateConverter;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -75,7 +74,6 @@ import java.io.IOException;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
-import java.util.function.BiFunction;
 
 @Service
 @Transactional
@@ -1134,11 +1132,11 @@ public class LocationServiceImpl implements LocationService {
         final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(Resource.LOCATION, false);
 
         List<SearchFieldDataDto> fields = List.of(
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_NAME),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENTITY_INSTANCE, locationRepository.findDistinctEntityInstanceName()),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_ENABLED),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
-                SearchHelper.prepareSearch(SearchFieldNameEnum.LOCATION_SUPPORT_KEY_MANAGEMENT)
+                SearchHelper.prepareSearch(FilterField.LOCATION_NAME),
+                SearchHelper.prepareSearch(FilterField.LOCATION_ENTITY_INSTANCE, locationRepository.findDistinctEntityInstanceName()),
+                SearchHelper.prepareSearch(FilterField.LOCATION_ENABLED),
+                SearchHelper.prepareSearch(FilterField.LOCATION_SUPPORT_MULTIPLE_ENTRIES),
+                SearchHelper.prepareSearch(FilterField.LOCATION_SUPPORT_KEY_MANAGEMENT)
         );
 
         fields = new ArrayList<>(fields);

@@ -1,23 +1,15 @@
 package com.czertainly.core.validation.certificate;
 
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.core.certificate.CertificateState;
-import com.czertainly.api.model.core.certificate.CertificateValidationCheck;
-import com.czertainly.api.model.core.certificate.CertificateValidationCheckDto;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Crl;
 import com.czertainly.core.dao.entity.CrlEntry;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.CrlEntryRepository;
-import com.czertainly.core.dao.repository.CrlRepository;
 import com.czertainly.core.service.CrlService;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CrlUtil;
-import com.czertainly.core.util.CzertainlyX500NameStyle;
 import com.czertainly.core.util.OcspUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.security.cert.CRLException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
@@ -74,7 +65,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             x509Certificate = CertificateUtil.getX509Certificate(certificateChain.get(i).getCertificateContent().getContent());
 
             boolean isEndCertificate = i == 0;
-            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getIssuerDnNormalized());
+            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getSubjectType());
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 
@@ -86,7 +77,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, String issuerDn) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType) {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
@@ -104,24 +95,23 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         // check certificate issuer DN and if certificate chain is valid
         // section (a)(4) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
-        validationOutput.put(CertificateValidationCheck.CERTIFICATE_CHAIN, checkCertificateChain(certificate, issuerCertificate, trustedCa, issuerCertificateStatus, isCompleteChain));
+        validationOutput.put(CertificateValidationCheck.CERTIFICATE_CHAIN, checkCertificateChain(certificate, issuerCertificate, trustedCa, issuerCertificateStatus, isCompleteChain, subjectType));
 
         // (k) and (l) section in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.4
-        validationOutput.put(CertificateValidationCheck.BASIC_CONSTRAINTS, checkBasicConstraints(certificate, issuerCertificate, isEndCertificate));
+        validationOutput.put(CertificateValidationCheck.BASIC_CONSTRAINTS, checkBasicConstraints(certificate, issuerCertificate, isEndCertificate, subjectType));
 
         // (n) section in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.4
-        validationOutput.put(CertificateValidationCheck.KEY_USAGE, checkKeyUsage(certificate));
+        validationOutput.put(CertificateValidationCheck.KEY_USAGE, checkKeyUsage(certificate, subjectType));
 
         return validationOutput;
     }
 
-    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, Boolean isTrustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain) {
+    private CertificateValidationCheckDto checkCertificateChain(X509Certificate certificate, X509Certificate issuerCertificate, Boolean isTrustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, CertificateSubjectType subjectType) {
         if (issuerCertificate == null) {
             // should be trust anchor (Root CA certificate or self-signed certificate)
             if (isCompleteChain) {
-                String certificateType = "self-signed";
-                // Check if certificate is CA, for CA certificate is this value always > -1
-                if (certificate.getBasicConstraints() > -1)  certificateType = "root CA";
+                String certificateType = subjectType.getLabel();
+
                 if (Boolean.TRUE.equals(isTrustedCa)) {
                     return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_CHAIN, CertificateValidationStatus.VALID, "Certificate chain is complete. Certificate is trusted " + certificateType + " certificate.");
                 } else {
@@ -288,9 +278,9 @@ public class X509CertificateValidator implements ICertificateValidator {
     }
 
 
-    private CertificateValidationCheckDto checkBasicConstraints(X509Certificate certificate, X509Certificate issuerCertificate, boolean isEndCertificate) {
+    private CertificateValidationCheckDto checkBasicConstraints(X509Certificate certificate, X509Certificate issuerCertificate, boolean isEndCertificate, CertificateSubjectType subjectType) {
         int pathLenConstraint = certificate.getBasicConstraints();
-        boolean isCa = pathLenConstraint >= 0;
+        boolean isCa = subjectType.isCa();
 
         if (!isCa) {
             if (certificate.getVersion() == 3 && !isEndCertificate) {
@@ -305,10 +295,9 @@ public class X509CertificateValidator implements ICertificateValidator {
         return new CertificateValidationCheckDto(CertificateValidationCheck.BASIC_CONSTRAINTS, CertificateValidationStatus.VALID, "Certificate basic constraints verification successful.");
     }
 
-    private CertificateValidationCheckDto checkKeyUsage(X509Certificate certificate) {
-        boolean isCa = certificate.getBasicConstraints() >= 0;
+    private CertificateValidationCheckDto checkKeyUsage(X509Certificate certificate, CertificateSubjectType subjectType) {
 
-        if (!isCa) {
+        if (!subjectType.isCa()) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.KEY_USAGE, CertificateValidationStatus.NOT_CHECKED, "Certificate is not CA.");
         }
 
