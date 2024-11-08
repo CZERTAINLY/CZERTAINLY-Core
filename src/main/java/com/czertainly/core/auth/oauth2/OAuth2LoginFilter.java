@@ -1,5 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
@@ -19,12 +20,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.client.*;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 @Component
@@ -49,18 +54,40 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         this.authenticationClient = authenticationClient;
     }
 
+    @Autowired
+    private OAuth2AuthorizedClientService authorizedClientService;
+
+    @Autowired
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
+
+
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
-            LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
+           LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
 
             OAuth2User oauthUser = oauthToken.getPrincipal();
 
             List<String> tokenAudiences = oauthUser.getAttribute("aud");
-            List<String> clientAudiences = settingService.getOAuth2ProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), false).getAudiences();
+            OAuth2ProviderSettings providerSettings = settingService.getOAuth2ProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), false);
+            List<String> clientAudiences = providerSettings.getAudiences();
+            int skew = providerSettings.getSkew();
+
+
+            OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(oauthToken.getAuthorizedClientRegistrationId(), oauthToken.getName());
+
+            if (authorizedClient == null) throw new CzertainlyAuthenticationException("No authorized client containing access token available.");
+
+            Instant now = Instant.now();
+            Instant expiresAt = authorizedClient.getAccessToken().getExpiresAt();
+
+            // If the access token is expired, try to refresh it
+            if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
+                refreshToken(oauthToken, authorizedClient);
+            }
 
             if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
                 throw new CzertainlyAuthenticationException("Audiences in access token issued by OAuth2 Provider do not match any of audiences set for the provider in settings.");
@@ -85,13 +112,39 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             AuthenticationInfo authInfo = authenticationClient.authenticate(headers);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-            LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getName());
+            LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getPrincipal().getUsername());
         }
 
         try {
             filterChain.doFilter(request, response);
         } catch (IOException | ServletException e) {
             LOGGER.error("Error when proceeding with OAuth2Login filter: {}", e.getMessage());
+        }
+    }
+
+    private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient) {
+        OAuth2AuthorizedClientProvider authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
+                .refreshToken()
+                .build();
+        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
+        if (authorizedClient.getRefreshToken() != null) {
+            // Refresh the token
+            OAuth2AuthorizationContext context = OAuth2AuthorizationContext.withAuthorizedClient(authorizedClient)
+                    .principal(oauthToken)
+                    .attribute(OAuth2AuthorizationContext.REQUEST_SCOPE_ATTRIBUTE_NAME, clientRegistration.getScopes().toArray(new String[0]))
+                    .build();
+
+            authorizedClient = authorizedClientProvider.authorize(context);
+
+            // Save the refreshed authorized client with refreshed access token
+            if (authorizedClient != null) {
+                LOGGER.debug("OAuth2 Access Token has been refreshed.");
+                authorizedClientService.saveAuthorizedClient(authorizedClient, oauthToken);
+            } else {
+                throw new CzertainlyAuthenticationException("Did not manage to refresh the access token.");
+            }
+        } else {
+            throw new CzertainlyAuthenticationException("Cannot refresh access token, refresh token is not available.");
         }
     }
 

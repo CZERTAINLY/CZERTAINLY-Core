@@ -69,7 +69,7 @@ public class SecurityConfig {
     }
 
     @Autowired
-    public void setJwtTokenFilter(OAuth2LoginFilter oauth2LoginFilter) {
+    public void setOauth2LoginFilter(OAuth2LoginFilter oauth2LoginFilter) {
         this.oauth2LoginFilter = oauth2LoginFilter;
     }
 
