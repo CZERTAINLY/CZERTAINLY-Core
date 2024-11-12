@@ -13,6 +13,7 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,6 +24,8 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.*;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
+import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -55,9 +58,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     @Autowired
-    private OAuth2AuthorizedClientService authorizedClientService;
-
-    @Autowired
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
 
@@ -76,17 +76,15 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             List<String> clientAudiences = providerSettings.getAudiences();
             int skew = providerSettings.getSkew();
 
-
-            OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(oauthToken.getAuthorizedClientRegistrationId(), oauthToken.getName());
-
-            if (authorizedClient == null) throw new CzertainlyAuthenticationException("No authorized client containing access token available.");
+            ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
+            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute("ACCESS_TOKEN"), (OAuth2RefreshToken) request.getSession().getAttribute("REFRESH_TOKEN"));
 
             Instant now = Instant.now();
             Instant expiresAt = authorizedClient.getAccessToken().getExpiresAt();
 
             // If the access token is expired, try to refresh it
             if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
-                refreshToken(oauthToken, authorizedClient);
+                refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
             }
 
             if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
@@ -122,11 +120,10 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         }
     }
 
-    private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient) {
+    private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
         OAuth2AuthorizedClientProvider authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
                 .refreshToken()
                 .build();
-        ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
         if (authorizedClient.getRefreshToken() != null) {
             // Refresh the token
             OAuth2AuthorizationContext context = OAuth2AuthorizationContext.withAuthorizedClient(authorizedClient)
@@ -139,7 +136,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
                 LOGGER.debug("OAuth2 Access Token has been refreshed.");
-                authorizedClientService.saveAuthorizedClient(authorizedClient, oauthToken);
+                session.setAttribute("ACCESS_TOKEN", authorizedClient.getAccessToken());
+                session.setAttribute("REFRESH_TOKEN", authorizedClient.getRefreshToken());
             } else {
                 throw new CzertainlyAuthenticationException("Did not manage to refresh the access token.");
             }

@@ -4,7 +4,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -15,9 +19,20 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyAuthenticationSuccessHandler.class);
 
+    @Autowired
+    private OAuth2AuthorizedClientService authorizedClientService;
+
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
+
+        OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) authentication;
+
+        OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
+
+        request.getSession().setAttribute("ACCESS_TOKEN", authorizedClient.getAccessToken());
+        request.getSession().setAttribute("REFRESH_TOKEN", authorizedClient.getRefreshToken());
+
         String redirectUrl = (String) request.getSession().getAttribute("redirectUrl");
         request.getSession().removeAttribute("redirectUrl");
 

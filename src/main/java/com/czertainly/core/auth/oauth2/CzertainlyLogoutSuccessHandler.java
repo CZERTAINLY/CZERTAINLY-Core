@@ -7,7 +7,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
@@ -21,8 +20,6 @@ public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuc
 
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
-    @Autowired
-    private OAuth2AuthorizedClientService authorizedClientService;
 
     public CzertainlyLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
         super(clientRegistrationRepository);
@@ -32,9 +29,6 @@ public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuc
     public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
 
         OAuth2AuthenticationToken oauth2Token = (OAuth2AuthenticationToken) authentication;
-
-        authorizedClientService.removeAuthorizedClient(oauth2Token.getAuthorizedClientRegistrationId(), oauth2Token.getName());
-
         String redirectUri = clientRegistrationRepository.findByRegistrationId(oauth2Token.getAuthorizedClientRegistrationId()).getProviderDetails().getConfigurationMetadata().get("post_logout_uri").toString();
 
         // Set the post logout redirect URI dynamically
