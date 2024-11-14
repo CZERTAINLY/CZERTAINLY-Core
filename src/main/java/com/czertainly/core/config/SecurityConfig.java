@@ -13,7 +13,10 @@ import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.core.env.Environment;
+import org.springframework.http.RequestEntity;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
@@ -39,11 +42,14 @@ import org.springframework.security.web.authentication.logout.LogoutSuccessHandl
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.web.client.RestTemplate;
 
 import java.text.ParseException;
+import java.time.Duration;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
+import java.util.Map;
 
 @Configuration
 @EnableWebSecurity
@@ -127,26 +133,6 @@ public class SecurityConfig {
         return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken);
     }
 
-    private OAuth2TokenValidatorResult validateClockSkew(Jwt jwt, int skew) {
-        Instant now = Instant.now();
-        Instant issuedAt = jwt.getIssuedAt();
-        Instant expiresAt = jwt.getExpiresAt();
-
-        if (issuedAt != null && issuedAt.isAfter(now.plus(skew, ChronoUnit.SECONDS))) {
-            return OAuth2TokenValidatorResult.failure(
-                    new OAuth2Error("invalid_token", "Token is used before its time.", null)
-            );
-        }
-
-        if (expiresAt != null && expiresAt.isBefore(now.minus(skew, ChronoUnit.SECONDS))) {
-            return OAuth2TokenValidatorResult.failure(
-                    new OAuth2Error("invalid_token", "Token is expired.", null)
-            );
-        }
-
-        return OAuth2TokenValidatorResult.success();
-    }
-
     @Bean
     public JwtDecoder jwtDecoder() {
         return token -> {
@@ -169,16 +155,14 @@ public class SecurityConfig {
 
             NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
 
-            OAuth2TokenValidator<Jwt> clockSkewValidator = jwt -> validateClockSkew(jwt, skew);
+            OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
 
             OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
             // Add audience validation
             if (!audiences.isEmpty()) {
                 audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
             }
-            OAuth2TokenValidator<Jwt> withIssuer = JwtValidators.createDefaultWithIssuer(issuerUri);
-            OAuth2TokenValidator<Jwt> combinedValidator = new DelegatingOAuth2TokenValidator<>(withIssuer, audienceValidator, clockSkewValidator);
-
+            OAuth2TokenValidator<Jwt> combinedValidator = JwtValidators.createDefaultWithValidators(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator);
             jwtDecoder.setJwtValidator(combinedValidator);
             return jwtDecoder.decode(token);
         };
