@@ -16,7 +16,7 @@ import java.util.UUID;
         "resource", "resourceUuids", "resourceNames",
         "affiliatedResource", "affiliatedResourceUuids", "affiliatedResourceNames",
         "actorType", "actorAuthMethod", "actorUuid", "actorName",
-        "ipAddress", "userAgent", "message", "additionalData"})
+        "ipAddress", "userAgent", "message", "operationData", "additionalData"})
 public record AuditLogExportDto(
         long id,
         String version,
@@ -37,6 +37,7 @@ public record AuditLogExportDto(
         Operation operation,
         OperationResult operationResult,
         String message,
+        String operationData,
         String additionalData
 ) implements Serializable {
 }

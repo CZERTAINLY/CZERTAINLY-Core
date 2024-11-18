@@ -20,6 +20,7 @@ import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.persistence.EntityManager;
@@ -34,6 +35,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -102,9 +104,50 @@ public class AuditLogServiceImpl implements AuditLogService {
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
     public ExportResultDto exportAuditLogs(final List<SearchFilterRequestDto> filters) {
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
-        final List<AuditLogExportDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause)
+
+        final List<AuditLog> auditLogsEntities = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, Pageable.ofSize(Integer.MAX_VALUE), (root, cb) -> cb.desc(root.get(AuditLog_.id)));
+        final List<AuditLogExportDto> auditLogs = auditLogsEntities
                 .stream()
-                .map(AuditLog::mapToExportDto).toList();
+                .map(a -> {
+                    AuditLogExportDto.AuditLogExportDtoBuilder builder = AuditLogExportDto.builder();
+                    builder.id(a.getId());
+                    builder.version(a.getVersion());
+                    builder.loggedAt(a.getLoggedAt());
+                    builder.module(a.getModule());
+                    builder.resource(a.getResource());
+                    builder.resourceUuids(a.getLogRecord().resource().uuids());
+                    builder.resourceNames(a.getLogRecord().resource().names());
+                    builder.affiliatedResource(a.getAffiliatedResource());
+                    if (a.getLogRecord().affiliatedResource() != null) {
+                        builder.affiliatedResourceUuids(a.getLogRecord().affiliatedResource().uuids());
+                        builder.affiliatedResourceNames(a.getLogRecord().affiliatedResource().names());
+                    }
+                    builder.actorType(a.getActorType());
+                    builder.actorAuthMethod(a.getActorAuthMethod());
+                    builder.actorUuid(a.getActorUuid());
+                    builder.actorName(a.getActorName());
+                    if (a.getLogRecord().source() != null) {
+                        builder.ipAddress(a.getLogRecord().source().ipAddress());
+                        builder.userAgent(a.getLogRecord().source().userAgent());
+                    }
+                    builder.operation(a.getOperation());
+                    builder.operationResult(a.getOperationResult());
+                    builder.message(a.getMessage());
+
+                    try {
+                        builder.operationData(MAPPER.writeValueAsString(a.getLogRecord().operationData()));
+                    } catch (JsonProcessingException e) {
+                        builder.operationData("ERROR_SERIALIZATION");
+                    }
+
+                    try {
+                        builder.additionalData(MAPPER.writeValueAsString(a.getLogRecord().additionalData()));
+                    } catch (JsonProcessingException e) {
+                        builder.additionalData("ERROR_SERIALIZATION");
+                    }
+
+                    return builder.build();
+                }).toList();
 
         return exportProcessor.generateExport(fileNamePrefix, auditLogs);
     }
