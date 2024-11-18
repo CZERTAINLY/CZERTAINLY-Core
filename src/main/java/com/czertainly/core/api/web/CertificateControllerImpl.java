@@ -91,7 +91,7 @@ public class CertificateControllerImpl implements CertificateController {
     @Override
     public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException {
-        CertificateDetailDto dto = certificateService.upload(request);
+        CertificateDetailDto dto = certificateService.upload(request, false);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")

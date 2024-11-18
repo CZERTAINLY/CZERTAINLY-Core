@@ -1,11 +1,15 @@
 package com.czertainly.core.security.authn;
 
+import com.czertainly.core.util.AuthHelper;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.web.authentication.AuthenticationConverter;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 
 import jakarta.servlet.http.HttpServletRequest;
+
+import java.net.InetAddress;
+import java.net.UnknownHostException;
 import java.util.Collections;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -16,7 +20,16 @@ public class CzertainlyAuthenticationConverter implements AuthenticationConverte
     @Override
     public CzertainlyAuthenticationRequest convert(HttpServletRequest request) {
         HttpHeaders httpHeaders = extractHttpHeaders(request);
-        return new CzertainlyAuthenticationRequest(httpHeaders, new WebAuthenticationDetails(request));
+
+        boolean isLocalhostAddress = false;
+        String ipAddress = AuthHelper.getClientIPAddress(request);
+        try {
+            InetAddress address = InetAddress.getByName(ipAddress);
+            isLocalhostAddress = address.isAnyLocalAddress() || address.isLoopbackAddress();
+        } catch (UnknownHostException ignored) {
+        }
+
+        return new CzertainlyAuthenticationRequest(httpHeaders, new WebAuthenticationDetails(request), isLocalhostAddress);
     }
 
     private HttpHeaders extractHttpHeaders(HttpServletRequest request) {

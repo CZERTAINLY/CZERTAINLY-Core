@@ -40,6 +40,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public PlatformSettingsDto getPlatformSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
@@ -77,6 +78,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public NotificationSettingsDto getNotificationSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
         Map<NotificationType, String> valueMapped = new HashMap<>();
@@ -131,6 +133,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
         List<Setting> settings = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
         OAuth2ProviderSettings settingsDto = null;
@@ -194,6 +197,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public List<OAuth2SettingsDto> listOAuth2Providers() {
         List<String> providerNames = listNamesOfOAuth2Providers();
         List<OAuth2SettingsDto> settingsDtoList = new ArrayList<>();

@@ -19,6 +19,7 @@ import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -37,6 +38,10 @@ public class AuthHelper {
 
     public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
     public static final String USER_UUID_HEADER_NAME = "userUuid";
+
+    public static final String LOCALHOST_USERNAME = "localhost";
+    public static final String SUPERADMIN_USERNAME = "superadmin";
+
     public static final String ACME_USERNAME = "acme";
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
@@ -60,7 +65,7 @@ public class AuthHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.add(SYSTEM_USER_HEADER_NAME, username);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
     }
@@ -69,7 +74,7 @@ public class AuthHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
     }
@@ -127,5 +132,28 @@ public class AuthHelper {
         resourceFilter.addDeniedObjects(result.getForbiddenObjects());
         resourceFilter.setAreOnlySpecificObjectsAllowed(!result.isActionAllowedForGroupOfObjects());
         return resourceFilter;
+    }
+
+    // Method to handle extracting the client IP, even if behind proxies
+    public static String getClientIPAddress(HttpServletRequest request) {
+        String ipAddress = null;
+        List<String> proxyHeaders = List.of("X-Forwarded-For", "X-Real-IP", "HTTP_X_FORWARDED_FOR", "Proxy-Client-IP", "WL-Proxy-Client-IP", "HTTP_CLIENT_IP");
+
+        for (String proxyHeader : proxyHeaders) {
+            ipAddress = request.getHeader(proxyHeader);
+            if (ipAddress != null && !ipAddress.isBlank() && !ipAddress.equalsIgnoreCase("unknown")) {
+                break;
+            }
+        }
+
+        if (ipAddress == null) {
+            ipAddress = request.getRemoteAddr();
+        }
+
+        // In case of multiple proxies, the first IP in the list is the real client IP
+        if (ipAddress != null && ipAddress.contains(",")) {
+            ipAddress = ipAddress.split(",")[0];
+        }
+        return ipAddress;
     }
 }

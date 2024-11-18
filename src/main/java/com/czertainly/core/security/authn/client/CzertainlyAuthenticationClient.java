@@ -16,12 +16,15 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
-import java.io.UnsupportedEncodingException;
+import java.net.InetAddress;
+import java.net.URLDecoder;
+import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -41,12 +44,11 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     private String authTokenHeaderName;
 
     public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
-
         this.objectMapper = objectMapper;
         this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 
-    public AuthenticationInfo authenticate(HttpHeaders headers) throws AuthenticationException {
+    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest) throws AuthenticationException {
         try {
             logger.trace(
                     String.format(
@@ -59,7 +61,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             WebClient.RequestHeadersSpec<?> request = getClient(customAuthServiceBaseUrl)
                     .post()
                     .uri("/auth")
-                    .body(Mono.just(getAuthPayload(headers)), AuthenticationRequestDto.class)
+                    .body(Mono.just(getAuthPayload(headers, isLocalhostRequest)), AuthenticationRequestDto.class)
                     .accept(MediaType.APPLICATION_JSON);
 
             AuthenticationResponseDto response = request
@@ -76,33 +78,38 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
     }
 
-    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers) {
+    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest) {
+        boolean hasAuthenticationMethod = false;
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
         final List<String> certificateHeaderNameList = headers.get(certificateHeaderName);
-        if( certificateHeaderNameList != null) {
-            try {
-                String certificateInHeader = java.net.URLDecoder.decode(certificateHeaderNameList.get(0), StandardCharsets.UTF_8.name());
-                requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
-            } catch (UnsupportedEncodingException e) {
-                logger.debug("Header not URL encoded");
-                requestDto.setCertificateContent(certificateHeaderNameList.get(0));
-            }
+        if (certificateHeaderNameList != null) {
+            hasAuthenticationMethod = true;
+            String certificateInHeader = URLDecoder.decode(certificateHeaderNameList.getFirst(), StandardCharsets.UTF_8);
+            requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
         }
 
         final List<String> authTokenHeaderNameList = headers.get(authTokenHeaderName);
-        if(authTokenHeaderNameList != null) {
-            requestDto.setAuthenticationToken(authTokenHeaderNameList.get(0));
+        if (authTokenHeaderNameList != null) {
+            hasAuthenticationMethod = true;
+            requestDto.setAuthenticationToken(authTokenHeaderNameList.getFirst());
         }
 
         final List<String> systemUserHeaderNameList = headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME);
-        if(systemUserHeaderNameList != null){
-            requestDto.setSystemUsername(systemUserHeaderNameList.get(0));
+        if (systemUserHeaderNameList != null) {
+            hasAuthenticationMethod = true;
+            requestDto.setSystemUsername(systemUserHeaderNameList.getFirst());
         }
 
         final List<String> userUuidHeaderNameList = headers.get(AuthHelper.USER_UUID_HEADER_NAME);
-        if(userUuidHeaderNameList != null){
-            requestDto.setUserUuid(userUuidHeaderNameList.get(0));
+        if (userUuidHeaderNameList != null) {
+            hasAuthenticationMethod = true;
+            requestDto.setUserUuid(userUuidHeaderNameList.getFirst());
         }
+
+        if (!hasAuthenticationMethod && isLocalhostRequest) {
+            requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
+        }
+
         return requestDto;
     }
 

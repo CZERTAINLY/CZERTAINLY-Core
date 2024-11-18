@@ -53,7 +53,7 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
                 String encodedPayload = Base64.getEncoder().encodeToString(new ObjectMapper().writeValueAsString(extractedClaims).getBytes());
                 HttpHeaders headers = new HttpHeaders();
                 headers.add(authTokenHeaderName, encodedPayload);
-                AuthenticationInfo authInfo = authenticationClient.authenticate(headers);
+                AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
                 logger.debug("Authenticated user using JWT token.");
                 return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
 

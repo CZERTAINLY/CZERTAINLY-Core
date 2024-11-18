@@ -259,7 +259,7 @@ public class CertificateServiceTest extends BaseSpringBootTest {
         UploadCertificateRequestDto request = new UploadCertificateRequestDto();
         request.setCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
 
-        CertificateDetailDto dto = certificateService.upload(request);
+        CertificateDetailDto dto = certificateService.upload(request, true);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals("CLIENT1", dto.getCommonName());
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", dto.getSerialNumber());

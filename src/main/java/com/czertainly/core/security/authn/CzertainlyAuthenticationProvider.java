@@ -9,7 +9,6 @@ import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.stereotype.Component;
 
 import java.util.UUID;
@@ -29,10 +28,10 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
         logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
-        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders());
+        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest());
 
-        if(authInfo.isAnonymous()) {
-            logger.trace("User not identified, using anonymous.".formatted());
+        if (authInfo.isAnonymous()) {
+            logger.trace("User not identified, using anonymous.");
             return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
         }
 
