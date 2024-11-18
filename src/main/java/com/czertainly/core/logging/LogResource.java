@@ -10,5 +10,6 @@ import java.lang.annotation.Target;
 public @interface LogResource {
     boolean uuid() default false;
     boolean name() default false;
+    boolean resource() default false;
     boolean affiliated() default false;
 }

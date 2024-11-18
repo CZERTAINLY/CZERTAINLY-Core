@@ -41,14 +41,14 @@ public class ResourceControllerImpl implements ResourceController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.RESOURCE, operation = Operation.LIST)
-    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(@LogResource(name = true, affiliated = true) Resource resource, boolean settable) throws NotFoundException {
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, operation = Operation.LIST)
+    public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(@LogResource(resource = true, affiliated = true) Resource resource, boolean settable) throws NotFoundException {
         return resourceService.listResourceRuleFilterFields(resource, settable);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE_EVENT, affiliatedResource = Resource.RESOURCE, operation = Operation.LIST)
-    public List<ResourceEventDto> listResourceEvents(@LogResource(name = true, affiliated = true) Resource resource) {
+    @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE_EVENT, operation = Operation.LIST)
+    public List<ResourceEventDto> listResourceEvents(@LogResource(resource = true, affiliated = true) Resource resource) {
         return resourceService.listResourceEvents(resource);
     }
 }

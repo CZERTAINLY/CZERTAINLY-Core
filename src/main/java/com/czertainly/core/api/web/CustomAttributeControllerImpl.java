@@ -133,11 +133,12 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
-    public List<BaseAttribute> getResourceCustomAttributes(Resource resource) {
+    public List<BaseAttribute> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
         return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE, affiliatedResource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
     public List<Resource> getResources() {
         return attributeService.getResources();
     }
@@ -145,8 +146,8 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_CONTENT)
     public List<ResponseAttributeDto> updateAttributeContentForResource(
-            Resource resourceName,
-            String objectUuid,
+            @LogResource(resource = true, affiliated = true) Resource resourceName,
+            @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid,
             List<BaseAttributeContent> request
     ) throws NotFoundException, AttributeException {
@@ -161,8 +162,8 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE_ATTRIBUTE_CONTENT)
     public List<ResponseAttributeDto> deleteAttributeContentForResource(
-            Resource resourceName,
-            String objectUuid,
+            @LogResource(resource = true, affiliated = true) Resource resourceName,
+            @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid
     ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(

@@ -93,8 +93,10 @@ public class AuditLogAspect {
     }
 
     private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, Object response) {
+        Resource resource = null;
         String resourceName = null;
         List<UUID> resourceUuids = null;
+        Resource affiliatedResource = null;
         String affiliatedResourceName = null;
         List<UUID> affiliatedResourceUuids = null;
         Serializable responseOperationData = null;
@@ -105,26 +107,20 @@ public class AuditLogAspect {
                 String parameterName = parameters[i].getName();
                 Object parameterValue = parameterValues[i];
 
-                if (resourceUuids == null || resourceName == null || (annotation.affiliatedResource() != Resource.NONE && (affiliatedResourceUuids == null || affiliatedResourceName == null))) {
-                    LogResource logResource = parameters[i].getAnnotation(LogResource.class);
-                    List<UUID> paramResourceUuids = getResourceUuidsFromParameter(logResource, parameterName, parameterValue);
-                    String paramResourceName = getResourceNameFromParameter(logResource, parameterName, parameterValue);
+                LogResource logResource = parameters[i].getAnnotation(LogResource.class);
+                List<UUID> paramResourceUuids = getResourceUuidsFromParameter(logResource, parameterName, parameterValue);
+                String paramResourceName = getResourceNameFromParameter(logResource, parameterValue);
+                Resource paramResource = getResourceFromParameter(logResource, parameterValue);
 
-                    boolean isAffiliated = logResource != null && logResource.affiliated();
-                    if (paramResourceUuids != null) {
-                        if (isAffiliated) {
-                            affiliatedResourceUuids = paramResourceUuids;
-                        } else {
-                            resourceUuids = paramResourceUuids;
-                        }
-                    }
-                    if (paramResourceName != null) {
-                        if (isAffiliated) {
-                            affiliatedResourceName = paramResourceName;
-                        } else {
-                            resourceName = paramResourceName;
-                        }
-                    }
+                boolean isAffiliated = logResource != null && logResource.affiliated();
+                if (isAffiliated) {
+                    if (paramResourceUuids != null) affiliatedResourceUuids = paramResourceUuids;
+                    if (paramResourceName != null) affiliatedResourceName = paramResourceName;
+                    if (paramResource != null) affiliatedResource = paramResource;
+                } else {
+                    if (paramResourceUuids != null) resourceUuids = paramResourceUuids;
+                    if (paramResourceName != null) resourceName = paramResourceName;
+                    if (paramResource != null) resource = paramResource;
                 }
 
                 if (logger.getLogger().isDebugEnabled()) {
@@ -135,6 +131,9 @@ public class AuditLogAspect {
                 }
             }
         }
+
+        if (resource == null) resource = annotation.resource();
+        if (affiliatedResource == null) affiliatedResource = annotation.affiliatedResource();
 
         if (response != null) {
             if (response instanceof ResponseEntity<?> responseEntity) {
@@ -148,14 +147,18 @@ public class AuditLogAspect {
 
         Operation operation = annotation.operation() != Operation.UNKNOWN ? annotation.operation() : LoggingHelper.getAuditLogOperation();
         logBuilder.operation(operation);
-        logBuilder.resource(constructResourceRecord(false, annotation.resource(), resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name()));
-        if (annotation.affiliatedResource() != Resource.NONE) {
-            logBuilder.affiliatedResource(constructResourceRecord(true, annotation.affiliatedResource(), affiliatedResourceUuids, affiliatedResourceName));
+        logBuilder.resource(constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name()));
+        if (affiliatedResource != Resource.NONE) {
+            logBuilder.affiliatedResource(constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName));
         }
         logBuilder.operationData(responseOperationData);
         if (!data.isEmpty()) {
             logBuilder.additionalData(data);
         }
+    }
+
+    private Resource getResourceFromParameter(LogResource logResource, Object parameterValue) {
+        return logResource != null && logResource.resource() && parameterValue instanceof Resource resource ? resource : null;
     }
 
     private List<UUID> getResourceUuidsFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
@@ -179,7 +182,7 @@ public class AuditLogAspect {
         return null;
     }
 
-    private String getResourceNameFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
+    private String getResourceNameFromParameter(LogResource logResource, Object parameterValue) {
         if (logResource != null) {
             if (logResource.name()) {
                 return parameterValue instanceof IPlatformEnum platformEnum ? platformEnum.getCode() : parameterValue.toString();
