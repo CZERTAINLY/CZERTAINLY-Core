@@ -46,7 +46,6 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
@@ -145,8 +144,8 @@ public class CmpServiceImpl implements CmpService {
         this.protectionValidator = protectionValidator;
     }
 
-    @Value("${cmp.verbose}")
-    private Boolean verbose;
+    @Value("${cmp.verbose:false}")
+    private boolean verbose;
 
     // -- OTHERS
     private AttributeEngine attributeEngine;
@@ -185,13 +184,12 @@ public class CmpServiceImpl implements CmpService {
         ASN1OctetString tid = pkiRequest.getHeader().getTransactionID();
         String requestAsString = PkiMessageDumper.dumpPkiMessage(pkiRequest);
         String logPrefix = PkiMessageDumper.logPrefix(pkiRequest, profileName);
-        LOG.info("{} | request processing: {}",
-                logPrefix,
-                PkiMessageDumper.dumpPkiMessage(verbose, pkiRequest));
-        if (verbose) {
-            LOG.info("{} | request as base64: {}",
-                    logPrefix,
-                    Base64.getEncoder().encodeToString(request));
+
+        if (LOG.isInfoEnabled()) {
+            LOG.info("{} | request processing: {}", logPrefix, PkiMessageDumper.dumpPkiMessage(verbose, pkiRequest));
+            if (verbose) {
+                LOG.info("{} | request as base64: {}", logPrefix, Base64.getEncoder().encodeToString(request));
+            }
         }
 
         // -- (processing) part
@@ -218,9 +216,9 @@ public class CmpServiceImpl implements CmpService {
 
             //see https://www.rfc-editor.org/rfc/rfc4210#section-5.1.2, PKI Message Body
             switch (bodyType) {
-                case PKIBody.TYPE_INIT_REQ:                        // ( 1)       ir, Initial Request; CertReqMessages
-                case PKIBody.TYPE_CERT_REQ:                        // ( 2)       cr, Certification Req; CertReqMessages
-                case PKIBody.TYPE_KEY_UPDATE_REQ:                  // ( 7)      kur, Key Update Request; CertReqMessages
+                case PKIBody.TYPE_INIT_REQ,         // ( 1)       ir, Initial Request; CertReqMessages
+                     PKIBody.TYPE_CERT_REQ,         // ( 2)       cr, Certification Req; CertReqMessages
+                     PKIBody.TYPE_KEY_UPDATE_REQ:   // ( 7)      kur, Key Update Request; CertReqMessages
                     pkiResponse = crmfMessageHandler.handle(pkiRequest, configuration);
                     if (pkiResponse == null) {
                         throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
@@ -236,22 +234,23 @@ public class CmpServiceImpl implements CmpService {
                     pkiResponse = certConfirmMessageHandler.handle(pkiRequest, configuration);
                     LoggingHelper.putAuditLogOperation(Operation.CMP_CONFIRM);
                     break;
-                case PKIBody.TYPE_CROSS_CERT_REQ:
-                case PKIBody.TYPE_KEY_RECOVERY_REQ:
-                case PKIBody.TYPE_GEN_MSG:
-                case PKIBody.TYPE_NESTED:
-                case PKIBody.TYPE_P10_CERT_REQ:
-                case PKIBody.TYPE_POLL_REQ:
-                case PKIBody.TYPE_REVOCATION_ANN:
-                case PKIBody.TYPE_CERT_ANN:
-                case PKIBody.TYPE_CA_KEY_UPDATE_ANN:
-                case PKIBody.TYPE_CRL_ANN:
-                case PKIBody.TYPE_POPO_CHALL:
+                case PKIBody.TYPE_CROSS_CERT_REQ,
+                     PKIBody.TYPE_KEY_RECOVERY_REQ,
+                     PKIBody.TYPE_GEN_MSG,
+                     PKIBody.TYPE_NESTED,
+                     PKIBody.TYPE_P10_CERT_REQ,
+                     PKIBody.TYPE_POLL_REQ,
+                     PKIBody.TYPE_REVOCATION_ANN,
+                     PKIBody.TYPE_CERT_ANN,
+                     PKIBody.TYPE_CA_KEY_UPDATE_ANN,
+                     PKIBody.TYPE_CRL_ANN,
+                     PKIBody.TYPE_POPO_CHALL:
                     throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPVALMSG200);
                 default:
-                    LOG.error("{} | unknown cmp message type", PkiMessageDumper.logPrefix(pkiRequest, profileName));
-                    throw new CmpProcessingException(PKIFailureInfo.badRequest,
-                            ImplFailureInfo.CMPVALMSG201);
+                    if (LOG.isErrorEnabled()) {
+                        LOG.error("{} | unknown cmp message type", PkiMessageDumper.logPrefix(pkiRequest, profileName));
+                    }
+                    throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPVALMSG201);
             }
 
             if (pkiResponse == null) {
@@ -259,9 +258,11 @@ public class CmpServiceImpl implements CmpService {
                         PKIFailureInfo.systemFailure,
                         String.format(" %s | general problem while handling PKIMessage", logPrefix));
             }
-            LOG.info("{} | response processed: {}",
-                    PkiMessageDumper.logPrefix(pkiResponse, profileName),
-                    PkiMessageDumper.dumpPkiMessage(verbose, pkiResponse));
+            if (LOG.isInfoEnabled()) {
+                LOG.info("{} | response processed: {}",
+                        PkiMessageDumper.logPrefix(pkiResponse, profileName),
+                        PkiMessageDumper.dumpPkiMessage(verbose, pkiResponse));
+            }
 
             headerValidator.validate(pkiResponse, configuration);
             bodyValidator.validate(pkiResponse, configuration);
@@ -311,8 +312,9 @@ public class CmpServiceImpl implements CmpService {
         }
     }
 
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void handleTrxError(ASN1OctetString tid, Exception e) {
+    // TODO: should it be handled in new transaction? It wqs made private since it was called intra class so Transactional annotation was ignored anyway
+    //    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    private void handleTrxError(ASN1OctetString tid, Exception e) {
         List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
         if (!trx.isEmpty()) {
             for (CmpTransaction updatedTransaction : trx) {
@@ -378,9 +380,7 @@ public class CmpServiceImpl implements CmpService {
             validateRaProfile(incomingProfileName);
         } catch (CmpConfigurationException e) {
             switch (bodyType) {
-                case PKIBody.TYPE_INIT_REQ:
-                case PKIBody.TYPE_CERT_REQ:
-                case PKIBody.TYPE_KEY_UPDATE_REQ:
+                case PKIBody.TYPE_INIT_REQ, PKIBody.TYPE_CERT_REQ, PKIBody.TYPE_KEY_UPDATE_REQ:
                     throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure, e.getMessage());
                 default:
                     throw new CmpProcessingException(PKIFailureInfo.systemFailure, e.getMessage());
@@ -393,7 +393,7 @@ public class CmpServiceImpl implements CmpService {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN=" + incomingProfileName + " | Requested CMP Profile not found");
         }
-        if (!cmpProfile.getEnabled()) {
+        if (Boolean.FALSE.equals(cmpProfile.getEnabled())) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN=" + incomingProfileName + " | CMP Profile is not enabled");
         }
@@ -450,7 +450,7 @@ public class CmpServiceImpl implements CmpService {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN=" + incomingProfileName + " | Requested RA Profile not found");
         }
-        if (!raProfile.getEnabled()) {
+        if (Boolean.FALSE.equals(raProfile.getEnabled())) {
             throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                     "PN=" + incomingProfileName + " | RA Profile is not enabled");
         }

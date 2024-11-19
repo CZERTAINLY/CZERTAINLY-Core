@@ -35,7 +35,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,9 +44,6 @@ import java.util.List;
 @Service
 @Transactional
 public class AuditLogServiceImpl implements AuditLogService {
-
-    private static final String LOGGER_NAME = "audit-log";
-    private static final Logger logger = LoggerFactory.getLogger(LOGGER_NAME);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     static {

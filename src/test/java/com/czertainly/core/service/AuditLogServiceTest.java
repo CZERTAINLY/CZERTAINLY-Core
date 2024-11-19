@@ -2,7 +2,6 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.interfaces.core.web.AuditLogController;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.core.audit.AuditLogResponseDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
 import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -17,7 +16,7 @@ import java.io.IOException;
 import java.util.List;
 
 @SpringBootTest
-public class AuditLogServiceTest extends BaseSpringBootTest {
+class AuditLogServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AuditLogService auditLogService;
@@ -29,14 +28,16 @@ public class AuditLogServiceTest extends BaseSpringBootTest {
     private AuditLogController auditLogController;
 
     @Test
-    void testExportAuditLog() throws IOException {
+    void testExportAuditLog() {
         auditLogController.listAuditLogs(new SearchRequestDto());
         ExportResultDto result = auditLogService.exportAuditLogs(List.of());
 
-        try (FileOutputStream fos = new FileOutputStream(File.createTempFile(result.getFileName(), ""))) {
-            fos.write(result.getFileContent());
-            fos.flush();
-        }
+        Assertions.assertDoesNotThrow(() -> {
+            try (FileOutputStream fos = new FileOutputStream(File.createTempFile(result.getFileName(), ""))) {
+                fos.write(result.getFileContent());
+                fos.flush();
+            }
+        });
     }
 
     @Test
