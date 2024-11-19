@@ -84,7 +84,13 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             // If the access token is expired, try to refresh it
             if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
-                refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
+                try {
+                    refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
+                } catch (ClientAuthorizationException e) {
+                    LOGGER.debug("Could not refresh token: {}", e.getMessage());
+                    request.getSession().invalidate();
+                    return;
+                }
             }
 
             if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
@@ -107,7 +113,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             }
             HttpHeaders headers = new HttpHeaders();
             headers.add(authTokenHeaderName, encodedPayload);
-            AuthenticationInfo authInfo = authenticationClient.authenticate(headers);
+            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getPrincipal().getUsername());

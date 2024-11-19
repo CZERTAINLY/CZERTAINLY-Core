@@ -28,6 +28,8 @@ public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
     public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
 
+    public static final String OAUTH2_PROVIDER_CATEGORY = "oauth2Provider";
+
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
     private SettingRepository settingRepository;
@@ -40,6 +42,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public PlatformSettingsDto getPlatformSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
@@ -77,6 +80,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public NotificationSettingsDto getNotificationSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
         Map<NotificationType, String> valueMapped = new HashMap<>();
@@ -131,8 +135,9 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
-        List<Setting> settings = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
+        List<Setting> settings = settingRepository.findByCategoryAndSectionAndName(OAUTH2_PROVIDER_CATEGORY, SettingsSection.AUTHENTICATION, providerName);
         OAuth2ProviderSettings settingsDto = null;
         if (!settings.isEmpty()) {
             Setting setting = settings.getFirst();
@@ -150,27 +155,28 @@ public class SettingServiceImpl implements SettingService {
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings settingsDto) {
 
-        List<Setting> settingForRegistrationId = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
+        List<Setting> settingForRegistrationId = settingRepository.findByCategoryAndSectionAndName(OAUTH2_PROVIDER_CATEGORY, SettingsSection.AUTHENTICATION, providerName);
         Setting setting = settingForRegistrationId.isEmpty() ? new Setting() : settingForRegistrationId.getFirst();
         setting.setName(providerName);
+        setting.setCategory(OAUTH2_PROVIDER_CATEGORY);
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         try {
             setting.setValue(objectMapper.writeValueAsString(settingsDto));
         } catch (JsonProcessingException e) {
             throw new ValidationException("Unable to convert settings to JSON.");
         }
-        setting.setSection(SettingsSection.OAUTH2_PROVIDER);
+        setting.setSection(SettingsSection.AUTHENTICATION);
         settingRepository.save(setting);
     }
 
     @Override
     public List<String> listNamesOfOAuth2Providers() {
-        return settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream().map(Setting::getName).toList();
+        return settingRepository.findBySection(SettingsSection.AUTHENTICATION).stream().map(Setting::getName).toList();
     }
 
     @Override
     public OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri) {
-        Setting setting = settingRepository.findBySection(SettingsSection.OAUTH2_PROVIDER).stream()
+        Setting setting = settingRepository.findBySection(SettingsSection.AUTHENTICATION).stream()
                 .filter(s -> {
                     try {
                         return objectMapper.readValue(s.getValue(), OAuth2ProviderSettings.class).getIssuerUrl().equals(issuerUri);
@@ -189,11 +195,12 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void removeOAuth2Provider(String providerName) {
-        List<Setting> settings = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
+        List<Setting> settings = settingRepository.findByCategoryAndSectionAndName(OAUTH2_PROVIDER_CATEGORY, SettingsSection.AUTHENTICATION, providerName);
         if (!settings.isEmpty()) settingRepository.delete(settings.getFirst());
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public List<OAuth2SettingsDto> listOAuth2Providers() {
         List<String> providerNames = listNamesOfOAuth2Providers();
         List<OAuth2SettingsDto> settingsDtoList = new ArrayList<>();
@@ -210,9 +217,8 @@ public class SettingServiceImpl implements SettingService {
         var mapping = new HashMap<String, Map<String, Setting>>();
 
         for (Setting setting : settings) {
-            Map<String, Setting> categorySettings;
-            if ((categorySettings = mapping.get(setting.getCategory())) == null)
-                mapping.put(setting.getCategory(), categorySettings = new HashMap<>());
+            String category = setting.getCategory();
+            Map<String, Setting> categorySettings = mapping.computeIfAbsent(category, k -> new HashMap<>());
             categorySettings.put(setting.getName(), setting);
         }
 

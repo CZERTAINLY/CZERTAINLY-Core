@@ -5,13 +5,14 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.api.model.core.logging.enums.ActorType;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.security.authz.OpaPolicy;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
@@ -19,6 +20,7 @@ import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,15 +30,17 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Component
 public class AuthHelper {
 
     public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
     public static final String USER_UUID_HEADER_NAME = "userUuid";
+
+    public static final String LOCALHOST_USERNAME = "localhost";
+    public static final String SUPERADMIN_USERNAME = "superadmin";
+
     public static final String ACME_USERNAME = "acme";
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
@@ -45,6 +49,7 @@ public class AuthHelper {
 
     private OpaClient opaClient;
     private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+    private static final Set<String> protocolUsers = Set.of(ACME_USERNAME, SCEP_USERNAME, CMP_USERNAME);
 
     @Autowired
     public void setOpaClient(OpaClient opaClient) {
@@ -60,25 +65,34 @@ public class AuthHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.add(SYSTEM_USER_HEADER_NAME, username);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
-        securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+        securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
+
+        // update MDC for actor logging
+        ActorType actorType = protocolUsers.contains(userDetails.getUsername()) ? ActorType.PROTOCOL : ActorType.CORE;
+        LoggingHelper.putActorInfo(userDetails, actorType);
     }
 
     public void authenticateAsUser(UUID userUuid) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+
+        // update MDC for actor logging
+        LoggingHelper.putActorInfo(userDetails, ActorType.USER);
     }
 
     public static boolean isLoggedProtocolUser() {
         try {
             CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             String username = userDetails.getUsername();
-            return username.equals(ACME_USERNAME) || username.equals(SCEP_USERNAME);
+            return protocolUsers.contains(username);
         } catch (Exception e) {
             logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));
@@ -127,5 +141,28 @@ public class AuthHelper {
         resourceFilter.addDeniedObjects(result.getForbiddenObjects());
         resourceFilter.setAreOnlySpecificObjectsAllowed(!result.isActionAllowedForGroupOfObjects());
         return resourceFilter;
+    }
+
+    // Method to handle extracting the client IP, even if behind proxies
+    public static String getClientIPAddress(HttpServletRequest request) {
+        String ipAddress = null;
+        List<String> proxyHeaders = List.of("X-Forwarded-For", "X-Real-IP", "HTTP_X_FORWARDED_FOR", "Proxy-Client-IP", "WL-Proxy-Client-IP", "HTTP_CLIENT_IP");
+
+        for (String proxyHeader : proxyHeaders) {
+            ipAddress = request.getHeader(proxyHeader);
+            if (ipAddress != null && !ipAddress.isBlank() && !ipAddress.equalsIgnoreCase("unknown")) {
+                break;
+            }
+        }
+
+        if (ipAddress == null) {
+            ipAddress = request.getRemoteAddr();
+        }
+
+        // In case of multiple proxies, the first IP in the list is the real client IP
+        if (ipAddress != null && ipAddress.contains(",")) {
+            ipAddress = ipAddress.split(",")[0];
+        }
+        return ipAddress;
     }
 }

@@ -2,6 +2,7 @@ package com.czertainly.core.service.cmp.message.handler;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
@@ -12,6 +13,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.cmp.CmpTransaction;
 import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.CmpTransactionService;
@@ -130,6 +132,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
 
             try {
                 Certificate certificate = getCertificate(serialNumber, tid);
+                LoggingHelper.putLogResourceInfo(Resource.CERTIFICATE, false, certificate.getUuid().toString(), certificate.getSubjectDn());
                 revokeCertificate(tid, revocation, certificate, configuration);
                 pollFeature.pollCertificate(tid,
                         certificate.getSerialNumber(), certificate.getUuid().toString(), CertificateState.REVOKED);

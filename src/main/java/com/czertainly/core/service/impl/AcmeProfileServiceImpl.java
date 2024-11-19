@@ -8,10 +8,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -71,7 +68,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
     public List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter) {
         logger.debug("Getting all the ACME Profiles available in the database");
@@ -83,7 +79,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
     public AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting the details for the ACME Profile with uuid " + uuid);
@@ -98,7 +93,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.CREATE)
     public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         if (request.getName() == null || request.getName().isEmpty()) {
@@ -159,7 +153,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
     public AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
@@ -233,7 +226,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
     public void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
@@ -241,7 +233,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
     public void enableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
@@ -253,7 +244,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
     public void disableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
@@ -265,7 +255,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
     public void bulkEnableAcmeProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -283,7 +272,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.ENABLE)
     public void bulkDisableAcmeProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -301,7 +289,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteAcmeProfile(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -319,7 +306,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
     public void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
@@ -328,7 +314,6 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();

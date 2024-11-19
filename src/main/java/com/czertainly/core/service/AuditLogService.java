@@ -1,68 +1,41 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.core.audit.AuditLogFilter;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.AuditLogResponseDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationStatusEnum;
-import com.czertainly.api.model.core.audit.OperationType;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 
-import java.util.Map;
+import java.util.List;
 
 
 public interface AuditLogService {
 
     /**
      *
-     * @param origination
-     * @param affected
-     * @param objectIdentifier
-     * @param operation
-     * @param operationStatus
-     * @param additionalData
-     *
-     */
-    void log(ObjectType origination,
-             ObjectType affected,
-             String objectIdentifier,
-             OperationType operation,
-             OperationStatusEnum operationStatus,
-             Map<Object, Object> additionalData);
-
-    /**
-     *
-     */
-    void logStartup();
-
-    /**
-     *
-     */
-    void logShutdown();
-
-    /**
-     *
-     * @param filter {@link AuditLogFilter}
-     * @param pageable {@link Pageable}
+     * @param request {@link SearchRequestDto}
      *
      * @return {@link AuditLogResponseDto}
      */
-    AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable);
+    AuditLogResponseDto listAuditLogs(final SearchRequestDto request);
 
     /**
      *
-     * @param filter {@link AuditLogFilter}
-     * @param sort {@link Sort}
+     * @param filters {@link SearchFilterRequestDto}
      *
      * @return {@link ExportResultDto}
      */
-    ExportResultDto exportAuditLogs(AuditLogFilter filter, Sort sort);
+    ExportResultDto exportAuditLogs(final List<SearchFilterRequestDto> filters);
 
     /**
      * Removes the audit logs from the database
-     * @param filter {@link AuditLogFilter}
-     * @param sort {@link Sort}
+     * @param filters {@link SearchFilterRequestDto}
      */
-    void purgeAuditLogs(AuditLogFilter filter, Sort sort);
+    void purgeAuditLogs(final List<SearchFilterRequestDto> filters);
+
+    /**
+     * Get all possible field to be able to search by customer
+     * @return List of {@link SearchFieldDataByGroupDto} object with definition the possible fields
+     */
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 }

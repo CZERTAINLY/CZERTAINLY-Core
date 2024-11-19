@@ -1,39 +1,44 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.AuditLogController;
-import com.czertainly.api.model.core.audit.AuditLogFilter;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.AuditLogResponseDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationStatusEnum;
-import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ByteArrayResource;
-import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
-
-import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @RestController
 public class AuditLogControllerImpl implements AuditLogController {
 
-    @Autowired
     private AuditLogService auditLogService;
 
-    @Override
-    public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
-        return auditLogService.listAuditLogs(filter, pageable);
+    @Autowired
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
     }
 
     @Override
-    public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(AuditLogFilter filter, Pageable pageable) {
-        ExportResultDto export = auditLogService.exportAuditLogs(filter, pageable.getSort());
+    @AuditLogged(module = Module.CORE, resource = Resource.AUDIT_LOG, operation = Operation.LIST)
+    public AuditLogResponseDto listAuditLogs(final SearchRequestDto requestDto) {
+        return auditLogService.listAuditLogs(requestDto);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.AUDIT_LOG, operation = Operation.EXPORT)
+    public ResponseEntity<org.springframework.core.io.Resource> exportAuditLogs(final List<SearchFilterRequestDto> filters) {
+        ExportResultDto export = auditLogService.exportAuditLogs(filters);
 
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_OCTET_STREAM)
@@ -43,22 +48,14 @@ public class AuditLogControllerImpl implements AuditLogController {
     }
 
     @Override
-    public void purgeAuditLogs(AuditLogFilter filter, Pageable pageable) {
-        auditLogService.purgeAuditLogs(filter, pageable.getSort());
+    @AuditLogged(module = Module.CORE, resource = Resource.AUDIT_LOG, operation = Operation.DELETE)
+    public void purgeAuditLogs(final List<SearchFilterRequestDto> filters) {
+        auditLogService.purgeAuditLogs(filters);
     }
 
     @Override
-    public List<String> listObjects() {
-        return Arrays.stream(ObjectType.values()).map(ObjectType::name).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<String> listOperations() {
-        return Arrays.stream(OperationType.values()).map(OperationType::name).collect(Collectors.toList());
-    }
-
-    @Override
-    public List<String> listOperationStatuses() {
-        return Arrays.stream(OperationStatusEnum.values()).map(OperationStatusEnum::name).collect(Collectors.toList());
+    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.AUDIT_LOG, operation = Operation.LIST)
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        return auditLogService.getSearchableFieldInformationByGroup();
     }
 }
