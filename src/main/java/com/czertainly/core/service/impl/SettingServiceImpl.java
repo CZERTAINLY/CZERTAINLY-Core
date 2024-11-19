@@ -156,6 +156,7 @@ public class SettingServiceImpl implements SettingService {
         List<Setting> settingForRegistrationId = settingRepository.findBySectionAndName(SettingsSection.OAUTH2_PROVIDER, providerName);
         Setting setting = settingForRegistrationId.isEmpty() ? new Setting() : settingForRegistrationId.getFirst();
         setting.setName(providerName);
+        setting.setCategory("Authentication");
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         try {
             setting.setValue(objectMapper.writeValueAsString(settingsDto));
@@ -214,9 +215,8 @@ public class SettingServiceImpl implements SettingService {
         var mapping = new HashMap<String, Map<String, Setting>>();
 
         for (Setting setting : settings) {
-            Map<String, Setting> categorySettings;
-            if ((categorySettings = mapping.get(setting.getCategory())) == null)
-                mapping.put(setting.getCategory(), categorySettings = new HashMap<>());
+            String category = setting.getCategory();
+            Map<String, Setting> categorySettings = mapping.computeIfAbsent(category, k -> new HashMap<>());
             categorySettings.put(setting.getName(), setting);
         }
 
