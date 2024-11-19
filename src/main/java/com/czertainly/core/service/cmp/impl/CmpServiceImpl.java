@@ -312,7 +312,7 @@ public class CmpServiceImpl implements CmpService {
         }
     }
 
-    // TODO: should it be handled in new transaction? It wqs made private since it was called intra class so Transactional annotation was ignored anyway
+    // Should it be handled in new transaction? It wqs made private since it was called intra class so Transactional annotation was ignored anyway
     //    @Transactional(propagation = Propagation.REQUIRES_NEW)
     private void handleTrxError(ASN1OctetString tid, Exception e) {
         List<CmpTransaction> trx = cmpTransactionService.findByTransactionId(tid.toString());
@@ -412,6 +412,8 @@ public class CmpServiceImpl implements CmpService {
                         "PN=" + incomingProfileName + " | Error converting the certificate to x509 object");
             }
 
+
+            String certificateContent = null;
             try {
                 for (CertificateDetailDto certificate : certificateService.getCertificateChain(cmpCaCertificate.getSecuredUuid(), true).getCertificates()) {
                     // only certificate with valid status should be used
@@ -422,17 +424,17 @@ public class CmpServiceImpl implements CmpService {
                                         certificate.getFingerprint(),
                                         certificate.getValidationStatus().getLabel()));
                     }
-                    try {
-                        CertificateUtil.parseCertificate(certificate.getCertificateContent());
-                    } catch (CertificateException e) {
-                        // This should not happen
-                        throw new IllegalArgumentException("PN=" + this.cmpProfile.getName() + " | Failed to parse certificate content: " +
-                                certificate.getCertificateContent());
-                    }
+
+                    certificateContent = certificate.getCertificateContent();
+                    CertificateUtil.parseCertificate(certificate.getCertificateContent());
                 }
             } catch (NotFoundException e) {
                 throw new CmpConfigurationException(PKIFailureInfo.systemFailure,
                         "PN=" + incomingProfileName + " | CMP Profile does not have associated CA certificate chain");
+            } catch (CertificateException e) {
+                // This should not happen
+                throw new IllegalArgumentException("PN=" + this.cmpProfile.getName() + " | Failed to parse certificate content: " +
+                        certificateContent);
             }
 
             if (!CertificateUtil.isCertificateCmpAcceptable(cmpCaCertificate)) {
