@@ -2,6 +2,10 @@ package com.czertainly.core.api.scep;
 
 import com.czertainly.api.exception.ScepException;
 import com.czertainly.api.interfaces.core.scep.ScepRaProfileController;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.scep.ScepService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -18,11 +22,13 @@ public class ScepRaProfileControllerImpl implements ScepRaProfileController {
     }
 
     @Override
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.UNKNOWN)
     public ResponseEntity<Object> doGet(String raProfileName, String operation, String message) throws ScepException {
         return scepService.handleGet(raProfileName, operation, message);
     }
 
     @Override
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.UNKNOWN)
     public ResponseEntity<Object> doPost(String raProfileName, String operation, byte[] request) throws ScepException {
         return scepService.handlePost(raProfileName, operation, request);
     }

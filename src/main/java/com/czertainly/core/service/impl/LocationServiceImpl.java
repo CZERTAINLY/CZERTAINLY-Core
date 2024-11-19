@@ -155,7 +155,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
     public LocationsResponseDto listLocations(SecurityFilter filter, SearchRequestDto request) {
 
@@ -178,7 +177,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto dto) throws AlreadyExistException, LocationException, ConnectorException, AttributeException {
         if (StringUtils.isBlank(dto.getName())) {
@@ -216,7 +214,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DETAIL, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto getLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
@@ -230,7 +227,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto dto) throws ConnectorException, LocationException, AttributeException {
         Location location = locationRepository.findByUuid(locationUuid)
@@ -260,7 +256,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.DELETE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void deleteLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
@@ -274,7 +269,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void enableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
@@ -287,7 +281,6 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    //@AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ENABLE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
     public void disableLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)

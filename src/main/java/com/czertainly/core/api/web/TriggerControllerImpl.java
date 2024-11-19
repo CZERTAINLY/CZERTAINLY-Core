@@ -4,7 +4,11 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.TriggerController;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.workflows.*;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,36 +34,43 @@ public class TriggerControllerImpl implements TriggerController {
     }
 
     @Override
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.LIST)
     public List<TriggerDto> listTriggers(Resource resource, Resource eventResource) {
         return triggerService.listTriggers(resource, eventResource);
     }
 
     @Override
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.CREATE)
     public TriggerDetailDto createTrigger(TriggerRequestDto request) throws NotFoundException, AlreadyExistException {
         return triggerService.createTrigger(request);
     }
 
     @Override
-    public TriggerDetailDto getTrigger(String triggerUuid) throws NotFoundException {
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.DETAIL)
+    public TriggerDetailDto getTrigger(@LogResource(uuid = true) String triggerUuid) throws NotFoundException {
         return triggerService.getTrigger(triggerUuid);
     }
 
     @Override
-    public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.UPDATE)
+    public TriggerDetailDto updateTrigger(@LogResource(uuid = true) String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
         return triggerService.updateTrigger(triggerUuid, request);
     }
 
     @Override
-    public void deleteTrigger(String triggerUuid) throws NotFoundException {
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.DELETE)
+    public void deleteTrigger(@LogResource(uuid = true) String triggerUuid) throws NotFoundException {
         triggerService.deleteTrigger(triggerUuid);
     }
 
     @Override
-    public List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String associationObjectUuid) {
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.HISTORY)
+    public List<TriggerHistoryDto> getTriggerHistory(@LogResource(uuid = true) String triggerUuid, String associationObjectUuid) {
         return triggerService.getTriggerHistory(triggerUuid, associationObjectUuid);
     }
 
     @Override
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.SUMMARY)
     public TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException {
         return triggerService.getTriggerHistorySummary(associationObjectUuid);
     }

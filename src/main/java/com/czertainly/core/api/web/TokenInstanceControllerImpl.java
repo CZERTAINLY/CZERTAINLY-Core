@@ -8,7 +8,11 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.TokenInstanceService;
@@ -30,57 +34,68 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.TOKEN)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.LIST)
     public List<TokenInstanceDto> listTokenInstances() {
         return tokenInstanceService.listTokenInstances(SecurityFilter.create());
     }
 
     @Override
-    public TokenInstanceDetailDto getTokenInstance(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.DETAIL)
+    public TokenInstanceDetailDto getTokenInstance(@LogResource(uuid = true) String uuid) throws ConnectorException {
         return tokenInstanceService.getTokenInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.CREATE)
     public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         return tokenInstanceService.createTokenInstance(request);
     }
 
     @Override
-    public TokenInstanceDetailDto updateTokenInstance(String uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.UPDATE)
+    public TokenInstanceDetailDto updateTokenInstance(@LogResource(uuid = true) String uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException {
         return tokenInstanceService.updateTokenInstance(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    public void deleteTokenInstance(String uuid) throws NotFoundException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.DELETE)
+    public void deleteTokenInstance(@LogResource(uuid = true) String uuid) throws NotFoundException {
         tokenInstanceService.deleteTokenInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void activateTokenInstance(String uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.ACTIVATE)
+    public void activateTokenInstance(@LogResource(uuid = true) String uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         tokenInstanceService.activateTokenInstance(SecuredUUID.fromString(uuid), attributes);
     }
 
     @Override
-    public void deactivateTokenInstance(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.DEACTIVATE)
+    public void deactivateTokenInstance(@LogResource(uuid = true) String uuid) throws ConnectorException {
         tokenInstanceService.deactivateTokenInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void deleteTokenInstance(List<String> uuids) {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.DELETE)
+    public void deleteTokenInstance(@LogResource(uuid = true) List<String> uuids) {
         tokenInstanceService.deleteTokenInstance(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public TokenInstanceDetailDto reloadStatus(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.GET_STATUS)
+    public TokenInstanceDetailDto reloadStatus(@LogResource(uuid = true) String uuid) throws ConnectorException {
         return tokenInstanceService.reloadStatus(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public List<BaseAttribute> listTokenProfileAttributes(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "tokenProfile", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenProfileAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException {
         return tokenInstanceService.listTokenProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public List<BaseAttribute> listTokenInstanceActivationAttributes(String uuid) throws ConnectorException {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "activate", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
+    public List<BaseAttribute> listTokenInstanceActivationAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException {
         return tokenInstanceService.listTokenInstanceActivationAttributes(SecuredUUID.fromString(uuid));
     }
 }

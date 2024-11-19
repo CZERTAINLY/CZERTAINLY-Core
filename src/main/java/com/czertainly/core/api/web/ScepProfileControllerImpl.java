@@ -6,10 +6,14 @@ import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ScepProfileService;
@@ -24,21 +28,28 @@ import java.util.List;
 @RestController
 public class ScepProfileControllerImpl implements ScepProfileController {
 
-    @Autowired
     private ScepProfileService scepProfileService;
+
+    @Autowired
+    public void setScepProfileService(ScepProfileService scepProfileService) {
+        this.scepProfileService = scepProfileService;
+    }
 
     @Override
     @AuthEndpoint(resourceName = Resource.SCEP_PROFILE)
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.LIST)
     public List<ScepProfileDto> listScepProfiles() {
         return scepProfileService.listScepProfile(SecurityFilter.create());
     }
 
     @Override
-    public ScepProfileDetailDto getScepProfile(String uuid) throws NotFoundException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.DETAIL)
+    public ScepProfileDetailDto getScepProfile(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return scepProfileService.getScepProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.CREATE)
     public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         ScepProfileDetailDto scepProfile = scepProfileService.createScepProfile(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
@@ -47,51 +58,61 @@ public class ScepProfileControllerImpl implements ScepProfileController {
     }
 
     @Override
-    public ScepProfileDetailDto editScepProfile(String uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.UPDATE)
+    public ScepProfileDetailDto editScepProfile(@LogResource(uuid = true) String uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
         return scepProfileService.editScepProfile(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    public void deleteScepProfile(String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.DELETE)
+    public void deleteScepProfile(@LogResource(uuid = true) String uuid) throws NotFoundException, ValidationException {
         scepProfileService.deleteScepProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public List<BulkActionMessageDto> bulkDeleteScepProfile(List<String> uuids) {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.DELETE)
+    public List<BulkActionMessageDto> bulkDeleteScepProfile(@LogResource(uuid = true) List<String> uuids) {
         return scepProfileService.bulkDeleteScepProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public List<BulkActionMessageDto> forceDeleteScepProfiles(List<String> uuids) throws NotFoundException, ValidationException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.FORCE_DELETE)
+    public List<BulkActionMessageDto> forceDeleteScepProfiles(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
         return scepProfileService.bulkForceRemoveScepProfiles(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public void enableScepProfile(String uuid) throws NotFoundException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.ENABLE)
+    public void enableScepProfile(@LogResource(uuid = true) String uuid) throws NotFoundException {
         scepProfileService.enableScepProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void bulkEnableScepProfile(List<String> uuids) {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.ENABLE)
+    public void bulkEnableScepProfile(@LogResource(uuid = true) List<String> uuids) {
         scepProfileService.bulkEnableScepProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public void disableScepProfile(String uuid) throws NotFoundException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.DISABLE)
+    public void disableScepProfile(@LogResource(uuid = true) String uuid) throws NotFoundException {
         scepProfileService.disableScepProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void bulkDisableScepProfile(List<String> uuids) {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.DISABLE)
+    public void bulkDisableScepProfile(@LogResource(uuid = true) List<String> uuids) {
         scepProfileService.bulkDisableScepProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    public void updateRaProfile(String uuid, String raProfileUuid) throws NotFoundException {
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.UPDATE_PROTOCOL_ISSUE_PROFILE)
+    public void updateRaProfile(@LogResource(uuid = true) String uuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws NotFoundException {
         scepProfileService.updateRaProfile(SecuredUUID.fromString(uuid), raProfileUuid);
     }
 
     @Override
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST_PROTOCOL_CERTIFICATES)
     public List<CertificateDto> listScepCaCertificates(boolean intuneEnabled) {
         return scepProfileService.listScepCaCertificates(intuneEnabled);
     }

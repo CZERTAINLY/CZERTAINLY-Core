@@ -4,6 +4,10 @@ import com.czertainly.api.interfaces.core.cmp.CmpRaProfileController;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.ImplFailureInfo;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.cmp.CmpService;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +32,7 @@ public class CmpRaProfileControllerImpl implements CmpRaProfileController {
      * @throws CmpBaseException - http get is not allowed
      */
     @Override
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
     public ResponseEntity<byte[]> doGet(String raProfileName, byte[] request) throws CmpBaseException {
         throw new CmpProcessingException(PKIFailureInfo.badRequest, ImplFailureInfo.CMPCNTR001);
     }
@@ -41,6 +46,7 @@ public class CmpRaProfileControllerImpl implements CmpRaProfileController {
      * @throws CmpBaseException if any error has been raised
      */
     @Override
+    @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CERTIFICATE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.UNKNOWN)
     public ResponseEntity<byte[]> doPost(String raProfileName, byte[] request) throws CmpBaseException {
         return cmpService.handlePost(raProfileName, request);
     }
