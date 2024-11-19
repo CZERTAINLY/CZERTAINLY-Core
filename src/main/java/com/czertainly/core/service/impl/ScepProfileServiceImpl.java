@@ -6,13 +6,10 @@ import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -78,7 +75,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
     public List<ScepProfileDto> listScepProfile(SecurityFilter filter) {
         logger.debug("Getting all the SCEP Profiles available in the database");
@@ -89,7 +85,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DETAIL)
     public ScepProfileDetailDto getScepProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting the details for the SCEP Profile with uuid " + uuid);
@@ -103,7 +98,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.CREATE)
     public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         if (request.getName() == null || request.getName().isEmpty()) {
@@ -167,7 +161,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
     public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
         if (request.getCaCertificateUuid() == null || request.getCaCertificateUuid().isEmpty()) {
@@ -226,7 +219,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DELETE)
     public void deleteScepProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         ScepProfile scepProfile = getScepProfileEntity(uuid);
@@ -234,21 +226,18 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.ENABLE)
     public void enableScepProfile(SecuredUUID uuid) throws NotFoundException {
         enable(uuid);
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.ENABLE)
     public void disableScepProfile(SecuredUUID uuid) throws NotFoundException {
         disable(uuid);
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.ENABLE)
     public void bulkEnableScepProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -261,7 +250,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.ENABLE)
     public void bulkDisableScepProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -274,7 +262,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteScepProfile(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -292,7 +279,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
     public void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException {
         ScepProfile scepProfile = getScepProfileEntity(uuid);
@@ -301,7 +287,6 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.SCEP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkForceRemoveScepProfiles(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();

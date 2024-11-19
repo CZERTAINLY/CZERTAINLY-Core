@@ -1,5 +1,7 @@
 package com.czertainly.core.security.authn;
 
+import com.czertainly.api.model.core.logging.enums.ActorType;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import org.apache.commons.logging.Log;
@@ -28,15 +30,22 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
         logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
-        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest());
+        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders());
+        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
 
         if (authInfo.isAnonymous()) {
-            logger.trace("User not identified, using anonymous.");
+            // update MDC for actor logging
+            LoggingHelper.putActorInfo(userDetails, ActorType.ANONYMOUS);
+
+            logger.trace("User not identified, using anonymous.".formatted());
             return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
         }
 
+        // update MDC for actor logging
+        LoggingHelper.putActorInfo(userDetails, ActorType.USER);
+
         logger.trace("User has been successfully authenticated as '%s'.".formatted(authInfo.getUsername()));
-        return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
+        return new CzertainlyAuthenticationToken(userDetails);
     }
 
     @Override

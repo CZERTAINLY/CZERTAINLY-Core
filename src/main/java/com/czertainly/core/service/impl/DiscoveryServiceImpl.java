@@ -16,8 +16,6 @@ import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
@@ -26,7 +24,6 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
@@ -182,7 +179,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
     public DiscoveryResponseDto listDiscoveries(final SecurityFilter filter, final SearchRequestDto request) {
 
@@ -205,7 +201,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
@@ -217,7 +212,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid,
                                                                     Boolean newlyDiscovered,
@@ -250,7 +244,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
     public void deleteDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
@@ -280,7 +273,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
     @Async
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
@@ -298,7 +290,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
@@ -351,7 +342,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @Async
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public void runDiscoveryAsync(UUID discoveryUuid) {
         runDiscovery(discoveryUuid, null);

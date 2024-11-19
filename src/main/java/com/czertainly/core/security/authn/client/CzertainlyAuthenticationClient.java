@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
@@ -16,15 +17,11 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
-import java.net.InetAddress;
-import java.net.URLDecoder;
-import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -44,11 +41,12 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     private String authTokenHeaderName;
 
     public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
+
         this.objectMapper = objectMapper;
         this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 
-    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest) throws AuthenticationException {
+    public AuthenticationInfo authenticate(HttpHeaders headers) throws AuthenticationException {
         try {
             logger.trace(
                     String.format(
@@ -58,10 +56,12 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                                     .collect(Collectors.joining(","))
                     )
             );
+
+            AuthenticationRequestDto authRequest = getAuthPayload(headers);
             WebClient.RequestHeadersSpec<?> request = getClient(customAuthServiceBaseUrl)
                     .post()
                     .uri("/auth")
-                    .body(Mono.just(getAuthPayload(headers, isLocalhostRequest)), AuthenticationRequestDto.class)
+                    .body(Mono.just(authRequest), AuthenticationRequestDto.class)
                     .accept(MediaType.APPLICATION_JSON);
 
             AuthenticationResponseDto response = request
@@ -72,48 +72,50 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             if (response == null) {
                 throw new CzertainlyAuthenticationException("Empty response received from authentication service.");
             }
-            return createAuthenticationInfo(response);
+            return createAuthenticationInfo(authRequest.getAuthMethod(), response);
         } catch (WebClientResponseException.InternalServerError e) {
             throw new CzertainlyAuthenticationException("An error occurred when calling authentication service.", e);
         }
     }
 
-    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest) {
-        boolean hasAuthenticationMethod = false;
+    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
+        requestDto.setAuthMethod(AuthMethod.NONE);
         final List<String> certificateHeaderNameList = headers.get(certificateHeaderName);
         if (certificateHeaderNameList != null) {
-            hasAuthenticationMethod = true;
-            String certificateInHeader = URLDecoder.decode(certificateHeaderNameList.getFirst(), StandardCharsets.UTF_8);
+            String certificateInHeader = java.net.URLDecoder.decode(certificateHeaderNameList.getFirst(), StandardCharsets.UTF_8);
+            requestDto.setAuthMethod(AuthMethod.CERTIFICATE);
             requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
         }
 
         final List<String> authTokenHeaderNameList = headers.get(authTokenHeaderName);
         if (authTokenHeaderNameList != null) {
-            hasAuthenticationMethod = true;
             requestDto.setAuthenticationToken(authTokenHeaderNameList.getFirst());
+            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
+                requestDto.setAuthMethod(AuthMethod.TOKEN);
+            }
         }
 
         final List<String> systemUserHeaderNameList = headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME);
         if (systemUserHeaderNameList != null) {
-            hasAuthenticationMethod = true;
             requestDto.setSystemUsername(systemUserHeaderNameList.getFirst());
+            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
+                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+            }
         }
 
         final List<String> userUuidHeaderNameList = headers.get(AuthHelper.USER_UUID_HEADER_NAME);
         if (userUuidHeaderNameList != null) {
-            hasAuthenticationMethod = true;
             requestDto.setUserUuid(userUuidHeaderNameList.getFirst());
-        }
-
-        if (!hasAuthenticationMethod && isLocalhostRequest) {
-            requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
+            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
+                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+            }
         }
 
         return requestDto;
     }
 
-    private AuthenticationInfo createAuthenticationInfo(AuthenticationResponseDto response) {
+    private AuthenticationInfo createAuthenticationInfo(AuthMethod authMethod, AuthenticationResponseDto response) {
         if (!response.isAuthenticated()) {
             return AuthenticationInfo.getAnonymousAuthenticationInfo();
         }
@@ -121,6 +123,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         try {
             UserDetailsDto userDetails = objectMapper.readValue(response.getData(), UserDetailsDto.class);
             return new AuthenticationInfo(
+                    authMethod,
                     userDetails.getUser().getUuid(),
                     userDetails.getUser().getUsername(),
                     userDetails.getRoles().stream().map(role -> new SimpleGrantedAuthority(role.getName())).collect(Collectors.toList()),
