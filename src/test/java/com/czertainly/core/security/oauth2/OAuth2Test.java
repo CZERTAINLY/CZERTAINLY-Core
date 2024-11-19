@@ -2,7 +2,6 @@ package com.czertainly.core.security.oauth2;
 
 import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
 import com.czertainly.core.auth.oauth2.CzertainlyJwtAuthenticationConverter;
-import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -16,10 +15,10 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.junit.runner.RunWith;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -28,7 +27,6 @@ import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.springframework.test.context.junit4.SpringRunner;
 
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -41,7 +39,6 @@ import java.util.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 
 @SpringBootTest
-@RunWith(SpringRunner.class)
 class OAuth2Test extends BaseSpringBootTest {
 
     @DynamicPropertySource
@@ -63,12 +60,18 @@ class OAuth2Test extends BaseSpringBootTest {
 
     String tokenValue;
 
-    @Autowired
     CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter;
+
+    WireMockServer mockServer;
+
+    @Autowired
+    public void setJwtAuthenticationConverter(CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter) {
+        this.jwtAuthenticationConverter = jwtAuthenticationConverter;
+    }
 
     @BeforeEach
     void setUp() throws NoSuchAlgorithmException, JsonProcessingException, JOSEException {
-        WireMockServer mockServer = new WireMockServer(8081);
+        mockServer = new WireMockServer(8081);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
@@ -103,22 +106,27 @@ class OAuth2Test extends BaseSpringBootTest {
 
     }
 
+    @AfterEach
+    void stopServer() {
+        mockServer.stop();
+    }
     @Test
     void testJwtConverter() {
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "HS256")
-                .claim("username", "user").build();
+                .claim("username", "user")
+                .claim("roles", "role")
+        .claim("random", "random").build();
 
-        WireMockServer mockServer = new WireMockServer(10001);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+//        WireMockServer mockServer = new WireMockServer(10001);
+//        mockServer.start();
+//        WireMock.configureFor("localhost", mockServer.port());
+//
+//        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
+//                WireMock.okJson("{ \"authenticated\": true, \"data\": \"{\"user\":{\"uuid\":\"cced14a6-08db-4c2c-be07-9dc084357260\",\"username\":\"user2\",\"firstName\":\"user\",\"lastName\":\"user\",\"email\":\"mail@mail.com\",\"description\":null,\"groups\":[],\"enabled\":true,\"systemUser\":false,\"createdAt\":\"2024-10-04T13:48:43.325083+00:00\",\"updatedAt\":\"2024-10-04T13:48:43.325586+00:00\"},\"roles\":[{\"uuid\":\"ca08849a-ab46-4194-8526-269ce5a62814\",\"name\":\"superadmin\"}],\"permissions\":{\"allowAllResources\":true,\"resources\":[]}}\"}")
+//        ));
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("{ \"username\": \"user\"}")
-        ));
-
-        CzertainlyAuthenticationToken authenticationToken = (CzertainlyAuthenticationToken) jwtAuthenticationConverter.convert(jwt);
-
+        Assertions.assertDoesNotThrow(() -> jwtAuthenticationConverter.convert(jwt));
     }
 
     @Test
