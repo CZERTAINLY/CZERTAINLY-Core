@@ -11,11 +11,7 @@ import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AuthorityInstanceService;
@@ -36,19 +32,16 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
 
     @Override
     @AuthEndpoint(resourceName = Resource.AUTHORITY)
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.LIST)
     public List<AuthorityInstanceDto> listAuthorityInstances() {
         return authorityInstanceService.listAuthorityInstances(SecurityFilter.create());
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.DETAIL)
-    public AuthorityInstanceDto getAuthorityInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
+    public AuthorityInstanceDto getAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         return authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.CREATE)
     public ResponseEntity<?> createAuthorityInstance(@RequestBody AuthorityInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         AuthorityInstanceDto authorityInstance = authorityInstanceService.createAuthorityInstance(request);
 
@@ -63,56 +56,47 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.UPDATE)
-    public AuthorityInstanceDto editAuthorityInstance(@LogResource(uuid = true) @PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+    public AuthorityInstanceDto editAuthorityInstance(@PathVariable String uuid, @RequestBody AuthorityInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         return authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.DELETE)
-    public void deleteAuthorityInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
+    public void deleteAuthorityInstance(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.END_ENTITY_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.LIST)
-    public List<NameAndIdDto> listEntityProfiles(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
+    public List<NameAndIdDto> listEntityProfiles(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listEndEntityProfiles(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.END_ENTITY_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.LIST_CERTIFICATE_PROFILES)
-    public List<NameAndIdDto> listCertificateProfiles(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
+    public List<NameAndIdDto> listCertificateProfiles(@PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listCertificateProfiles(SecuredUUID.fromString(uuid), endEntityProfileId);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.END_ENTITY_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.LIST_CAS)
-    public List<NameAndIdDto> listCAsInProfile(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
+    public List<NameAndIdDto> listCAsInProfile(@PathVariable String uuid, @PathVariable Integer endEntityProfileId) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listCAsInProfile(SecuredUUID.fromString(uuid), endEntityProfileId);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "raProfile", affiliatedResource = Resource.AUTHORITY, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listRAProfileAttributes(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
+    public List<BaseAttribute> listRAProfileAttributes(@PathVariable String uuid) throws NotFoundException, ConnectorException {
         return authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "raProfile", affiliatedResource = Resource.AUTHORITY, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws NotFoundException, ConnectorException {
         authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString(uuid), attributes);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.DELETE)
-    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
+    public List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<String> uuids) throws NotFoundException, ConnectorException, ValidationException {
         return authorityInstanceService.bulkDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.AUTHORITY, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> forceDeleteAuthorityInstances(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> forceDeleteAuthorityInstances(List<String> uuids) throws NotFoundException, ValidationException {
         return authorityInstanceService.forceDeleteAuthorityInstance(SecuredUUID.fromList(uuids));
     }
 

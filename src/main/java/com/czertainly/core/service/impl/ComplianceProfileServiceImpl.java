@@ -7,6 +7,8 @@ import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
@@ -17,6 +19,7 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -73,12 +76,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<ComplianceProfilesListDto> listComplianceProfiles(SecurityFilter filter) {
         return complianceProfileRepository.findUsingSecurityFilter(filter).stream().map(ComplianceProfile::ListMapToDTO).collect(Collectors.toList());
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
     public ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting Compliance Profile details for: {}", uuid);
@@ -97,6 +102,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CREATE)
     public ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, AttributeException {
         logger.info("Creating new Compliance Profile: {}", request);
@@ -119,6 +125,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public ComplianceProfileRuleDto addRule(SecuredUUID uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
         logger.info("Adding new rule : {} to the profile: {}", request, uuid);
@@ -138,6 +145,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public ComplianceProfileRuleDto removeRule(SecuredUUID uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
         logger.info("Removing rule : {} from the profile: {}", request, uuid);
@@ -155,6 +163,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_GROUP, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public ComplianceProfileDto addGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
         logger.info("Adding new group : {} to the profile: {}", request, uuid);
@@ -175,6 +184,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_GROUP, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public ComplianceProfileDto removeGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws NotFoundException {
         logger.info("Removing group : {} from the profile: {}", request, uuid);
@@ -193,6 +203,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
     public List<SimplifiedRaProfileDto> getAssociatedRAProfiles(SecuredUUID uuid) throws NotFoundException {
         logger.info("Request to list RA Profiles for the profile with UUID: {}", uuid);
@@ -203,6 +214,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
     public void deleteComplianceProfile(SecuredUUID uuid) throws NotFoundException, ValidationException {
         logger.info("Request to delete the Compliance Profile with UUID: {}", uuid);
@@ -212,6 +224,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<SecuredUUID> uuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -231,6 +244,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.FORCE_DELETE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<SecuredUUID> uuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -249,6 +263,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_RULE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
     public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException {
         logger.info("Gathering Compliance Rules for Provider: {}, Kind: {}, CertificateType: {}", complianceProviderUuid, kind, certificateType);
@@ -305,6 +320,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_GROUP, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
     public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException {
         logger.info("Gathering Compliance Groups for Provider: {}, Kind: {}", complianceProviderUuid, kind);
@@ -357,6 +373,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
         logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);
@@ -382,6 +399,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.COMPLIANCE_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public void disassociateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
         logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);

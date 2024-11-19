@@ -29,6 +29,7 @@ import static com.czertainly.api.clients.BaseApiClient.*;
 
 @Service
 @Transactional
+// TODO AUTH - secure using @ExternalAuthorization. I was unable to find appropriate resource and actions.
 public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorAuthServiceImpl.class);
 

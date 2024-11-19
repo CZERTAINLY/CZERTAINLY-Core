@@ -6,11 +6,6 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.GlobalMetadataController;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.metadata.*;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
@@ -28,33 +23,23 @@ import java.util.UUID;
 @RestController
 public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
+    @Autowired
     private AttributeService attributeService;
+
+    @Autowired
     private ConnectorService connectorService;
 
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
-    }
-
-    @Autowired
-    public void setConnectorService(ConnectorService connectorService) {
-        this.connectorService = connectorService;
-    }
-
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.LIST)
     public List<AttributeDefinitionDto> listGlobalMetadata() {
         return attributeService.listGlobalMetadata();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.DETAIL)
-    public GlobalMetadataDefinitionDetailDto getGlobalMetadata(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public GlobalMetadataDefinitionDetailDto getGlobalMetadata(String uuid) throws NotFoundException {
         return attributeService.getGlobalMetadata(UUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.CREATE)
     public ResponseEntity<GlobalMetadataDefinitionDetailDto> createGlobalMetadata(GlobalMetadataCreateRequestDto request) throws AlreadyExistException, NotFoundException, AttributeException {
         GlobalMetadataDefinitionDetailDto definitionDetailDto = attributeService.createGlobalMetadata(request);
 
@@ -67,31 +52,26 @@ public class GlobalMetadataControllerImpl implements GlobalMetadataController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.UPDATE)
-    public GlobalMetadataDefinitionDetailDto editGlobalMetadata(@LogResource(uuid = true) String uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException, AttributeException {
+    public GlobalMetadataDefinitionDetailDto editGlobalMetadata(String uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException, AttributeException {
         return attributeService.editGlobalMetadata(UUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.DELETE)
-    public void deleteGlobalMetadata(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void deleteGlobalMetadata(String uuid) throws NotFoundException {
         attributeService.demoteConnectorMetadata(UUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.DELETE)
-    public void bulkDeleteGlobalMetadata(@LogResource(uuid = true) List<String> metadataUuids) {
+    public void bulkDeleteGlobalMetadata(List<String> metadataUuids) {
         attributeService.bulkDemoteConnectorMetadata(metadataUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.LIST)
     public List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid) throws NotFoundException {
         return attributeService.getConnectorMetadata(connectorUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.PROMOTE_METADATA)
     public GlobalMetadataDefinitionDetailDto promoteConnectorMetadata(ConnectorMetadataPromotionRequestDto request) throws NotFoundException {
         return attributeService.promoteConnectorMetadata(UUID.fromString(request.getUuid()), UUID.fromString(request.getConnectorUuid()));
     }

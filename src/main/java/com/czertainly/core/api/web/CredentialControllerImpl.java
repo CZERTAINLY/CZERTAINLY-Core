@@ -7,11 +7,7 @@ import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.credential.CredentialDto;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CredentialService;
@@ -28,28 +24,21 @@ import java.util.List;
 @RestController
 public class CredentialControllerImpl implements CredentialController {
 
-    private CredentialService credentialService;
-
     @Autowired
-    public void setCredentialService(CredentialService credentialService) {
-        this.credentialService = credentialService;
-    }
+    private CredentialService credentialService;
 
     @Override
     @AuthEndpoint(resourceName = Resource.CREDENTIAL)
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.LIST)
     public List<CredentialDto> listCredentials() {
         return credentialService.listCredentials(SecurityFilter.create());
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.DETAIL)
-    public CredentialDto getCredential(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public CredentialDto getCredential(@PathVariable String uuid) throws NotFoundException {
         return credentialService.getCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.CREATE)
     public ResponseEntity<?> createCredential(@RequestBody CredentialRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
         CredentialDto credentialDto = credentialService.createCredential(request);
 
@@ -66,32 +55,27 @@ public class CredentialControllerImpl implements CredentialController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.UPDATE)
-    public CredentialDto editCredential(@LogResource(uuid = true) @PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+    public CredentialDto editCredential(@PathVariable String uuid, @RequestBody CredentialUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
         return credentialService.editCredential(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.DELETE)
-    public void deleteCredential(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public void deleteCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.deleteCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.ENABLE)
-    public void enableCredential(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public void enableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.enableCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.DISABLE)
-    public void disableCredential(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public void disableCredential(@PathVariable String uuid) throws NotFoundException {
         credentialService.disableCredential(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CREDENTIAL, operation = Operation.DELETE)
-    public void bulkDeleteCredential(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
+    public void bulkDeleteCredential(List<String> uuids) throws NotFoundException, ValidationException {
         credentialService.bulkDeleteCredential(SecuredUUID.fromList(uuids));
     }
 }

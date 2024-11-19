@@ -4,12 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.v2.*;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -25,47 +20,54 @@ import java.util.List;
 @RestController("clientOperationControllerV2")
 public class ClientOperationControllerImpl implements ClientOperationController {
 
+    @Autowired
     private ClientOperationService clientOperationService;
 
-    @Autowired
-    public void setClientOperationService(ClientOperationService clientOperationService) {
-        this.clientOperationService = clientOperationService;
+    @Override
+    public List<BaseAttribute> listIssueCertificateAttributes(
+            String authorityUuid,
+            String raProfileUuid) throws ConnectorException {
+        return clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.ISSUE)
-    public ClientCertificateDataResponseDto issueRequestedCertificate(
+    public void validateIssueCertificateAttributes(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            @LogResource(uuid = true) String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+            String raProfileUuid,
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+        clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
+    }
+
+    @Override
+    public ClientCertificateDataResponseDto issueNewCertificate(
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
         return clientOperationService.issueRequestedCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REQUEST)
     public ClientCertificateDataResponseDto issueCertificate(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
+            String raProfileUuid,
             ClientCertificateSignRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException {
         return clientOperationService.issueCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request, null);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.RENEW)
     public ClientCertificateDataResponseDto renewCertificate(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            @LogResource(uuid = true) String certificateUuid,
+            String raProfileUuid,
+            String certificateUuid,
             ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException {
         return clientOperationService.renewCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REKEY)
     public ClientCertificateDataResponseDto rekeyCertificate(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            @LogResource(uuid = true) String certificateUuid,
+            String raProfileUuid,
+            String certificateUuid,
             ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateOperationException, CertificateRequestException {
         return clientOperationService.rekeyCertificate(
                 SecuredParentUUID.fromString(authorityUuid),
@@ -76,46 +78,26 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.REVOKE)
-    public void revokeCertificate(
-            String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            @LogResource(uuid = true) String certificateUuid,
-            ClientCertificateRevocationDto request) throws ConnectorException, AttributeException {
-        clientOperationService.revokeCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
-    }
-
-    @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listIssueCertificateAttributes(
-            String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException {
-        return clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
-    }
-
-    @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateIssueCertificateAttributes(
-            String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
-        clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
-    }
-
-    @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRevokeCertificateAttributes(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException {
+            String raProfileUuid) throws ConnectorException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.VALIDATE_ATTRIBUTES)
     public void validateRevokeCertificateAttributes(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid,
+            String raProfileUuid,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         clientOperationService.validateRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
+    }
+
+    @Override
+    public void revokeCertificate(
+            String authorityUuid,
+            String raProfileUuid,
+            String certificateUuid,
+            ClientCertificateRevocationDto request) throws ConnectorException, AttributeException {
+        clientOperationService.revokeCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 }

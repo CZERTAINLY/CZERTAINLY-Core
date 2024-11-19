@@ -1,6 +1,9 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.DiscoveryService;
@@ -35,6 +38,7 @@ public class StatisticsServiceImpl implements StatisticsService {
 
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.STATISTICS, operation = OperationType.REQUEST)
     public StatisticsDto getStatistics() {
         logger.info("Gathering the statistics information from database");
         StatisticsDto dto = new StatisticsDto();

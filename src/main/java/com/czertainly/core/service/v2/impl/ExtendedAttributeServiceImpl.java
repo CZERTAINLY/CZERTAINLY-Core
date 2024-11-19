@@ -4,19 +4,28 @@ import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service("extendedAcmeServiceImpl")
 public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
@@ -34,6 +43,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     public List<BaseAttribute> listIssueCertificateAttributes(RaProfile raProfile) throws ConnectorException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
@@ -43,6 +53,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
     public boolean validateIssueCertificateAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
@@ -73,6 +84,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.REQUEST)
     public List<BaseAttribute> listRevokeCertificateAttributes(RaProfile raProfile) throws ConnectorException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
@@ -82,6 +94,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
     public boolean validateRevokeCertificateAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 

@@ -5,11 +5,14 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approval.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
 import com.czertainly.core.dao.entity.ApprovalRecipient;
@@ -42,6 +45,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.util.*;
+import java.util.function.BiFunction;
 
 @Service
 @Transactional
@@ -64,12 +68,14 @@ public class ApprovalServiceImpl implements ApprovalService {
     private EventProducer eventProducer;
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.LIST)
     public ApprovalResponseDto listApprovals(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto) {
         return listOfApprovals(filter, null, paginationRequestDto);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REQUEST)
     public ApprovalResponseDto listApprovalsByObject(final SecurityFilter securityFilter, final Resource resource, final UUID objectUuid, final PaginationRequestDto paginationRequestDto) {
         final TriFunction<Root<Approval>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Predicate resourcePredicate = cb.equal(root.get("resource"), resource);
@@ -104,6 +110,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REQUEST)
     public ApprovalDetailDto getApprovalDetail(final String uuid) throws NotFoundException {
         ApprovalDetailDto approvalDetailDto = findApprovalByUuid(uuid).mapToDetailDto();
 
@@ -114,6 +121,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.APPROVE)
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.APPROVE)
     public void approveApproval(final String uuid) throws NotFoundException {
         final Approval approval = findApprovalByUuid(uuid);
@@ -125,6 +133,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REJECT)
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.APPROVE)
     public void rejectApproval(final String uuid) throws NotFoundException {
         final Approval approval = findApprovalByUuid(uuid);
@@ -136,12 +145,14 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.APPROVE)
     public void approveApprovalRecipient(final String approvalUuid, final UserApprovalDto userApprovalDto) throws NotFoundException {
         final ApprovalRecipient approvalRecipient = validateAndSetPendingApprovalRecipient(UUID.fromString(approvalUuid), userApprovalDto, ApprovalStatusEnum.APPROVED);
         processApprovalToTheNextStep(approvalUuid, approvalRecipient);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.REJECT)
     public void rejectApprovalRecipient(final String approvalUuid, final UserApprovalDto userApprovalDto) throws NotFoundException {
         final Approval approval = findApprovalByUuid(approvalUuid);
         validateAndSetPendingApprovalRecipient(UUID.fromString(approvalUuid), userApprovalDto, ApprovalStatusEnum.REJECTED);
@@ -149,6 +160,7 @@ public class ApprovalServiceImpl implements ApprovalService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.APPROVAL, operation = OperationType.CREATE)
     public Approval createApproval(final ApprovalProfileVersion approvalProfileVersion, final Resource resource, final ResourceAction resourceAction, final UUID objectUuid, final UUID userUuid, final Object objectData) throws NotFoundException {
         final Approval approvalCheck = approvalRepository.findByResourceAndObjectUuidAndStatus(resource, objectUuid, ApprovalStatusEnum.PENDING);
         if (approvalCheck != null) {

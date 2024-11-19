@@ -6,15 +6,19 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.api.model.connector.cryptography.token.TokenInstanceStatusDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Connector;
@@ -87,6 +91,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     //-------------------------------------------------------------------------------------
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
     public List<TokenInstanceDto> listTokenInstances(SecurityFilter filter) {
         logger.info("Listing token instances");
@@ -97,6 +102,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
     public TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException {
         logger.info("Getting token instance with uuid: {}", uuid);
@@ -144,6 +150,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.CREATE)
     public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         logger.info("Creating token instance with name: {}", request.getName());
@@ -192,6 +199,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.UPDATE)
     public TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException {
         logger.info("Updating token instance with uuid: {}", uuid);
@@ -242,6 +250,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DELETE)
     public void deleteTokenInstance(SecuredUUID uuid) throws NotFoundException {
         logger.info("Deleting token instance with uuid: {}", uuid);
@@ -250,6 +259,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ACTIVATE)
     public void activateTokenInstance(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         logger.info("Activating token instance with uuid: {}", uuid);
@@ -264,6 +274,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ACTIVATE)
     public void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException {
         logger.info("Deactivating token instance with uuid: {}", uuid);
@@ -277,6 +288,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DELETE)
     public void deleteTokenInstance(List<SecuredUUID> uuids) {
         logger.info("Deleting token instances with uuids: {}", uuids);
@@ -297,6 +309,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
     public TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException {
         logger.info("Reloading status of token instance with uuid: {}", uuid);
@@ -313,6 +326,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
     public List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException {
         logger.info("Listing token profile attributes of token instance with uuid: {}", uuid);
@@ -325,6 +339,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ATTRIBUTES, operation = OperationType.VALIDATE)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
     public void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
         logger.info("Validating token profile attributes of token instance with uuid: {}", uuid);
@@ -336,6 +351,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.TOKEN_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
     public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException {
         logger.info("Listing token instance activation attributes of token instance with uuid: {}", uuid);

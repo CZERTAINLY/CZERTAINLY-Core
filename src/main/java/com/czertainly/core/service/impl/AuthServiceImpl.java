@@ -2,9 +2,12 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.AuthService;
@@ -35,6 +38,7 @@ public class AuthServiceImpl implements AuthService {
     private UserManagementService userManagementService;
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACCESS, operation = OperationType.REQUEST)
     public UserDetailDto getAuthProfile() throws NotFoundException {
         UserProfileDto userProfileDto = AuthHelper.getUserProfile();
         return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());

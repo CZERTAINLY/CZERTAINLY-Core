@@ -12,8 +12,6 @@ import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.dao.entity.*;
 import jakarta.persistence.metamodel.Attribute;
 
@@ -84,18 +82,7 @@ public enum FilterField {
     LOCATION_ENABLED(Resource.LOCATION, null, null, Location_.enabled, "Enabled", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_MULTIPLE_ENTRIES(Resource.LOCATION, null, null, Location_.supportMultipleEntries, "Support multiple entries", SearchFieldTypeEnum.BOOLEAN),
     LOCATION_SUPPORT_KEY_MANAGEMENT(Resource.LOCATION, null, null, Location_.supportKeyManagement, "Support key management", SearchFieldTypeEnum.BOOLEAN),
-
-
-    // Audit Logs
-    AUDIT_LOG_TIMESTAMP(Resource.AUDIT_LOG, null, null, AuditLog_.loggedAt, "Logged at", SearchFieldTypeEnum.DATETIME),
-    AUDIT_LOG_MODULE(Resource.AUDIT_LOG, null, null, AuditLog_.module, "Module", SearchFieldTypeEnum.LIST, Module.class),
-    AUDIT_LOG_ACTOR_TYPE(Resource.AUDIT_LOG, null, null, AuditLog_.actorType, "Actor type", SearchFieldTypeEnum.LIST, ActorType.class),
-    AUDIT_LOG_ACTOR_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.actorName, "Actor name", SearchFieldTypeEnum.STRING),
-    AUDIT_LOG_ACTOR_AUTH_METHOD(Resource.AUDIT_LOG, null, null, AuditLog_.actorAuthMethod, "Actor Auth method", SearchFieldTypeEnum.LIST, AuthMethod.class),
-    AUDIT_LOG_RESOURCE(Resource.AUDIT_LOG, null, null, AuditLog_.resource, "Resource", SearchFieldTypeEnum.LIST, Resource.class),
-    AUDIT_LOG_AFFILIATED_RESOURCE(Resource.AUDIT_LOG, null, null, AuditLog_.affiliatedResource, "Affiliated resource", SearchFieldTypeEnum.LIST, Resource.class),
-    AUDIT_LOG_OPERATION(Resource.AUDIT_LOG, null, null, AuditLog_.operation, "Operation", SearchFieldTypeEnum.LIST, Operation.class),
-    AUDIT_LOG_OPERATION_RESULT(Resource.AUDIT_LOG, null, null, AuditLog_.operationResult, "Operation result", SearchFieldTypeEnum.LIST, OperationResult.class);
+    ;
 
     private static final FilterField[] VALUES;
 

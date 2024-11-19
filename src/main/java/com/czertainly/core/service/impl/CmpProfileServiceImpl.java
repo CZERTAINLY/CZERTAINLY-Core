@@ -7,12 +7,15 @@ import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -92,6 +95,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     // -----------------------------------------------------------------------------------------------------------------
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.LIST)
     public List<CmpProfileDto> listCmpProfile(SecurityFilter filter) {
         logger.debug("Getting all the CMP Profiles available in the database");
@@ -102,6 +106,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DETAIL)
     public CmpProfileDetailDto getCmpProfile(SecuredUUID cmpProfileUuid) throws NotFoundException {
         logger.info("Requesting the details for the CMP Profile with uuid {}", cmpProfileUuid);
@@ -113,6 +118,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.CREATE)
     public CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         if (cmpProfileRepository.existsByName(request.getName())) {
@@ -160,6 +166,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.UPDATE)
     public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
@@ -207,6 +214,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DELETE)
     public void deleteCmpProfile(SecuredUUID cmpProfileUuid) throws NotFoundException, ValidationException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
@@ -214,6 +222,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkDeleteCmpProfile(List<SecuredUUID> cmpProfileUuids) {
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -231,6 +240,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.DELETE)
     public List<BulkActionMessageDto> bulkForceRemoveCmpProfiles(List<SecuredUUID> cmpProfileUuids) throws ValidationException {
         List<BulkActionMessageDto> messages = new ArrayList<>();
@@ -253,12 +263,14 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.ENABLE)
     public void enableCmpProfile(SecuredUUID cmpProfileUuid) throws NotFoundException {
         changeCmpStatus(cmpProfileUuid, true);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.ENABLE)
     public void bulkEnableCmpProfile(List<SecuredUUID> cmpProfileUuids) {
         for (SecuredUUID cmpProfileUuid : cmpProfileUuids) {
@@ -271,12 +283,14 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.ENABLE)
     public void disableCmpProfile(SecuredUUID cmpProfileUuid) throws NotFoundException {
         changeCmpStatus(cmpProfileUuid, false);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.ENABLE)
     public void bulkDisableCmpProfile(List<SecuredUUID> cmpProfileUuids) {
         for (SecuredUUID cmpProfileUuid : cmpProfileUuids) {
@@ -289,6 +303,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CMP_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.UPDATE)
     public void updateRaProfile(SecuredUUID cmpProfileUuid, String raProfileUuid) throws NotFoundException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);

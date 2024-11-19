@@ -8,6 +8,8 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
 import com.czertainly.api.model.connector.notification.NotificationType;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.notification.AttributeMappingDto;
@@ -15,6 +17,7 @@ import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
@@ -88,6 +91,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.LIST)
     public List<NotificationInstanceDto> listNotificationInstances() {
         return notificationInstanceReferenceRepository.findAll()
@@ -97,6 +101,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.DETAIL)
     public NotificationInstanceDto getNotificationInstance(UUID uuid) throws ConnectorException {
         NotificationInstanceReference notificationInstanceReference = getNotificationInstanceReferenceEntity(uuid);
@@ -137,6 +142,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.CREATE)
     public NotificationInstanceDto createNotificationInstance(NotificationInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
         if (notificationInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
@@ -171,6 +177,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.UPDATE)
     public NotificationInstanceDto editNotificationInstance(UUID uuid, NotificationInstanceUpdateRequestDto request) throws ConnectorException, AttributeException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);
@@ -198,6 +205,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.NOTIFICATION_INSTANCE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.DELETE)
     public void deleteNotificationInstance(UUID uuid) throws ConnectorException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);

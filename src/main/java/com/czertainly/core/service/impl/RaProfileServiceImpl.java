@@ -12,10 +12,13 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.authority.CaCertificatesRequestDto;
 import com.czertainly.api.model.connector.authority.CaCertificatesResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -58,6 +61,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.function.BiFunction;
 
 @Service
 @Transactional
@@ -84,6 +88,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public List<RaProfileDto> listRaProfiles(SecurityFilter filter, Optional<Boolean> enabled) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
@@ -91,6 +96,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByAcmeProfileUuid(UUID.fromString(acmeProfileUuid));
@@ -98,6 +104,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto addRaProfile(SecuredParentUUID authorityInstanceUuid, AddRaProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
@@ -126,6 +133,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
     public RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
@@ -137,6 +145,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto getRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
@@ -149,6 +158,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public RaProfileDto editRaProfile(SecuredParentUUID authorityInstanceUuid, SecuredUUID uuid, EditRaProfileRequestDto request) throws ConnectorException, AttributeException {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
@@ -171,6 +181,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void deleteRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         deleteRaProfileInt(uuid);
@@ -178,12 +189,14 @@ public class RaProfileServiceImpl implements RaProfileService {
 
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE)
     public void deleteRaProfile(SecuredUUID uuid) throws NotFoundException {
         deleteRaProfileInt(uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void enableRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile entity = raProfileRepository.findByUuid(uuid)
@@ -194,6 +207,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public void disableRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException {
         RaProfile entity = raProfileRepository.findByUuid(uuid)
@@ -204,6 +218,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DELETE)
     public void bulkDeleteRaProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -216,6 +231,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE)
     public void bulkDisableRaProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -232,6 +248,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ENABLE)
     public void bulkEnableRaProfile(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -248,6 +265,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void bulkRemoveAssociatedAcmeProfile(List<SecuredUUID> uuids) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByUuidIn(
@@ -422,6 +440,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.RA_PROFILE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public SecuredList<RaProfile> listRaProfilesAssociatedWithCmpProfile(String cmpProfileUuid, SecurityFilter filter) {
         List<RaProfile> raProfiles = raProfileRepository.findAllByCmpProfileUuid(UUID.fromString(cmpProfileUuid));

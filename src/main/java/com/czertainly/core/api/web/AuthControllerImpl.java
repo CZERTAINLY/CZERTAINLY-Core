@@ -7,9 +7,6 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.AuthService;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
@@ -25,18 +22,11 @@ import java.util.List;
 @RestController
 public class AuthControllerImpl implements AuthController {
 
+    @Autowired
     private AuthService authService;
+
+    @Autowired
     private ResourceService resourceService;
-
-    @Autowired
-    public void setAuthService(AuthService authService) {
-        this.authService = authService;
-    }
-
-    @Autowired
-    public void setResourceService(ResourceService resourceService) {
-        this.resourceService = resourceService;
-    }
 
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
@@ -44,13 +34,11 @@ public class AuthControllerImpl implements AuthController {
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.PROFILE)
     public UserDetailDto profile() throws NotFoundException, JsonProcessingException {
         return authService.getAuthProfile();
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.PROFILE_UPDATE)
     public UserDetailDto updateUserProfile(UpdateUserRequestDto request) throws NotFoundException, JsonProcessingException, CertificateException {
         return authService.updateUserProfile(request);
     }

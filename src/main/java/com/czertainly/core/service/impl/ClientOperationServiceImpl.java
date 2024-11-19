@@ -14,6 +14,9 @@ import com.czertainly.api.model.client.authority.ClientCertificateSignResponseDt
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.ClientEndEntityDto;
 import com.czertainly.api.model.common.NameAndIdDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AddEndEntityRequestDto;
 import com.czertainly.api.model.core.authority.CertRevocationDto;
@@ -21,6 +24,7 @@ import com.czertainly.api.model.core.authority.CertificateSignRequestDto;
 import com.czertainly.api.model.core.authority.CertificateSignResponseDto;
 import com.czertainly.api.model.core.authority.EditEndEntityRequestDto;
 import com.czertainly.api.model.core.authority.EndEntityDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -66,6 +70,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.ISSUE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
     public ClientCertificateSignResponseDto issueCertificate(String raProfileName, LegacyClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException, NoSuchAlgorithmException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
@@ -95,6 +100,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY_CERTIFICATE, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String raProfileName, LegacyClientCertificateRevocationDto request) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
@@ -114,6 +120,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
@@ -129,6 +136,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
@@ -150,6 +158,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.REQUEST)
     public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
@@ -163,6 +172,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
@@ -185,6 +195,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.END_ENTITY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
@@ -197,6 +208,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.CLIENT, affected = ObjectType.ACCESS, operation = OperationType.RESET)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void resetPassword(String raProfileName, String username) throws ConnectorException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);

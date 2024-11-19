@@ -1,7 +1,6 @@
 package com.czertainly.core.config.logging;
 
 import com.czertainly.core.config.CustomHttpServletResponseWrapper;
-import com.czertainly.core.logging.LoggingHelper;
 import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -9,7 +8,6 @@ import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MDC;
 import org.springframework.http.HttpMethod;
 import org.springframework.lang.Nullable;
 import org.springframework.stereotype.Component;
@@ -32,8 +30,6 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     @Override
     public boolean preHandle(HttpServletRequest request, HttpServletResponse response, Object handler)
             throws Exception {
-        LoggingHelper.putSourceInfo(request);
-
         if (logger.isTraceEnabled()) {
             String body = servletInputStreamToString(request.getInputStream());
             ToStringBuilder traceMessage = new ToStringBuilder(this, ToStringStyle.NO_CLASS_NAME_STYLE)
@@ -54,7 +50,6 @@ public class RequestResponseInterceptor implements HandlerInterceptor {
     @Override
     public void postHandle(HttpServletRequest request, HttpServletResponse response, Object handler,
                            @Nullable ModelAndView modelAndView) throws Exception {
-        MDC.clear();
         if (logger.isTraceEnabled()) {
             String responseBody;
             try {

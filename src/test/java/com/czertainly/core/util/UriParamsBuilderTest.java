@@ -1,8 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.core.audit.AuditLogDto;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.audit.OperationType;
 import org.apache.commons.lang3.reflect.FieldUtils;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -27,9 +26,9 @@ public class UriParamsBuilderTest {
     @Test
     public void testBuildUri() throws UnsupportedEncodingException {
         AuditLogDto dto = new AuditLogDto();
-        dto.setModule(Module.CORE);
-        dto.setLoggedAt(OffsetDateTime.now());
-        dto.setOperation(Operation.REQUEST);
+        dto.setAuthor("author");
+        dto.setCreated(OffsetDateTime.now());
+        dto.setOperation(OperationType.REQUEST);
 
         UriComponentsBuilder builder = createUriBuilder("https://localhost:8443/logs", dto);
         appendPageable(builder, PageRequest.of(1, 10, Sort.by(Sort.Order.desc("created"))));

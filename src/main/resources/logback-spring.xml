@@ -19,11 +19,6 @@
 
     <if condition='property("otel.sdk.disabled").equals("false")'>
         <appender name="OpenTelemetry" class="io.opentelemetry.instrumentation.logback.appender.v1_0.OpenTelemetryAppender">
-            <captureExperimentalAttributes>true</captureExperimentalAttributes>
-            <captureCodeAttributes>true</captureCodeAttributes>
-            <captureMarkerAttribute>false</captureMarkerAttribute>
-            <captureKeyValuePairAttributes>false</captureKeyValuePairAttributes>
-            <captureLoggerContext>false</captureLoggerContext>
         </appender>
 
         <appender name="SpanEvents" class="com.czertainly.core.config.SpanEventsAppender">

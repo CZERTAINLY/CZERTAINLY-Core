@@ -2,13 +2,6 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.core.settings.*;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.settings.NotificationSettingsDto;
-import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.converter.SettingsSectionCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,25 +27,21 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.DETAIL, name = "platform")
     public PlatformSettingsDto getPlatformSettings() {
         return settingService.getPlatformSettings();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "platform")
     public void updatePlatformSettings(PlatformSettingsDto request) {
         settingService.updatePlatformSettings(request);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.DETAIL, name = "notifications")
     public NotificationSettingsDto getNotificationsSettings() {
         return settingService.getNotificationSettings();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "notifications")
     public void updateNotificationsSettings(NotificationSettingsDto notificationSettingsDto) {
         settingService.updateNotificationSettings(notificationSettingsDto);
     }

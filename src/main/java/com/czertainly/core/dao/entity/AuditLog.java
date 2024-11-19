@@ -1,24 +1,15 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.audit.AuditLogDto;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.records.LogRecord;
-import com.czertainly.core.logging.AuditLogExportDto;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationStatusEnum;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.ToString;
-import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
+import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
-import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
-import java.time.OffsetDateTime;
 import java.util.Objects;
 import java.util.UUID;
 
@@ -28,134 +19,62 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "audit_log")
-public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
+public class AuditLog extends Audited implements Serializable, DtoMapper<AuditLogDto> {
 
     @Id
-    @Column(name = "id", nullable = false)
+    @Column(name = "id")
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "audit_log_seq")
     @SequenceGenerator(name = "audit_log_seq", sequenceName = "audit_log_id_seq", allocationSize = 1)
     private Long id;
 
-    @Column(name = "version", nullable = false)
-    private String version;
+    @Column(name = "uuid", nullable = false)
+    protected String uuid = UUID.randomUUID().toString();
 
-    @CreationTimestamp
-    @Column(name = "logged_at", nullable = false, updatable = false)
-    protected OffsetDateTime loggedAt;
-
-    @Column(name = "module", nullable = false)
+    @Column(name = "origination")
     @Enumerated(EnumType.STRING)
-    private Module module;
+    private ObjectType origination;
 
-    @Column(name = "actor_type", nullable = false)
+    @Column(name = "affected")
     @Enumerated(EnumType.STRING)
-    private ActorType actorType;
+    private ObjectType affected;
 
-    @Column(name = "actor_auth_method", nullable = false)
+    @Column(name = "object_identifier")
+    private String objectIdentifier;
+
+    @Column(name = "operation")
     @Enumerated(EnumType.STRING)
-    private AuthMethod actorAuthMethod;
+    private OperationType operation;
 
-    @Column(name = "actor_uuid")
-    private UUID actorUuid;
-
-    @Column(name = "actor_name")
-    private String actorName;
-
-    @Column(name = "resource", nullable = false)
+    @Column(name = "operation_status")
     @Enumerated(EnumType.STRING)
-    private Resource resource;
+    private OperationStatusEnum operationStatus;
 
-    @Column(name = "affiliated_resource")
-    @Enumerated(EnumType.STRING)
-    private Resource affiliatedResource;
-
-    @Column(name = "operation", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private Operation operation;
-
-    @Column(name = "operation_result", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private OperationResult operationResult;
-
-    @Column(name = "message")
-    private String message;
-
-    @Column(name = "log_record", nullable = false, columnDefinition = "jsonb")
-    @JdbcTypeCode(SqlTypes.JSON)
-    private LogRecord logRecord;
+    @Column(name = "additional_data")
+    @Lob
+    private String additionalData;
 
     @Override
     public AuditLogDto mapToDto() {
         AuditLogDto dto = new AuditLogDto();
         dto.setId(id);
-        dto.setVersion(version);
-        dto.setLoggedAt(loggedAt);
-        dto.setModule(module);
-        dto.setActor(logRecord.actor());
-        dto.setSource(logRecord.source());
-        dto.setResource(logRecord.resource());
-        dto.setAffiliatedResource(logRecord.affiliatedResource());
+        dto.setUuid(uuid);
+        dto.setAuthor(author);
+        dto.setCreated(created);
+        dto.setOperationStatus(operationStatus);
+        dto.setOrigination(origination);
+        dto.setAffected(affected);
+        dto.setObjectIdentifier(objectIdentifier);
         dto.setOperation(operation);
-        dto.setOperationResult(operationResult);
-        dto.setOperationData(logRecord.operationData());
-        dto.setMessage(message);
-        dto.setAdditionalData(logRecord.additionalData());
+        dto.setAdditionalData(additionalData);
         return dto;
-    }
-
-    public AuditLogExportDto mapToExportDto() {
-        AuditLogExportDto.AuditLogExportDtoBuilder builder = AuditLogExportDto.builder();
-        builder.id(id);
-        builder.version(version);
-        builder.loggedAt(loggedAt);
-        builder.module(module);
-        builder.resource(resource);
-        builder.resourceUuids(logRecord.resource().uuids());
-        builder.resourceNames(logRecord.resource().names());
-        builder.affiliatedResource(affiliatedResource);
-        if (logRecord.affiliatedResource() != null) {
-            builder.affiliatedResourceUuids(logRecord.affiliatedResource().uuids());
-            builder.affiliatedResourceNames(logRecord.affiliatedResource().names());
-        }
-        builder.actorType(actorType);
-        builder.actorAuthMethod(actorAuthMethod);
-        builder.actorUuid(actorUuid);
-        builder.actorName(actorName);
-        if (logRecord.source() != null) {
-            builder.ipAddress(logRecord.source().ipAddress());
-            builder.userAgent(logRecord.source().userAgent());
-        }
-        builder.operation(operation);
-        builder.operationResult(operationResult);
-        builder.message(message);
-
-        return builder.build();
-    }
-
-    public static AuditLog fromLogRecord(LogRecord logRecord) {
-        AuditLog auditLog = new AuditLog();
-        auditLog.setVersion(logRecord.version());
-        auditLog.setModule(logRecord.module());
-        auditLog.setActorType(logRecord.actor().type());
-        auditLog.setActorAuthMethod(logRecord.actor().authMethod());
-        auditLog.setActorUuid(logRecord.actor().uuid());
-        auditLog.setActorName(logRecord.actor().name());
-        auditLog.setResource(logRecord.resource().type());
-        auditLog.setAffiliatedResource(logRecord.affiliatedResource() != null ? logRecord.affiliatedResource().type() : null);
-        auditLog.setOperation(logRecord.operation());
-        auditLog.setOperationResult(logRecord.operationResult());
-        auditLog.setMessage(logRecord.message());
-        auditLog.setLogRecord(logRecord);
-
-        return auditLog;
     }
 
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         AuditLog auditLog = (AuditLog) o;
         return getId() != null && Objects.equals(getId(), auditLog.getId());
@@ -163,6 +82,6 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

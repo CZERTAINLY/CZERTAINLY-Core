@@ -14,10 +14,13 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.repository.CredentialRepository;
@@ -60,6 +63,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<CredentialDto> listCredentials(SecurityFilter filter) {
         return credentialRepository.findUsingSecurityFilter(filter).stream()
@@ -68,6 +72,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listCredentialsCallback(SecurityFilter filter, String kind) {
         List<Credential> credentials = credentialRepository.findUsingSecurityFilter(
@@ -82,6 +87,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
     public CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
@@ -92,6 +98,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.CREATE)
     public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
@@ -124,6 +131,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.UPDATE)
     public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException, AttributeException {
         Credential credential = getCredentialEntity(uuid);
@@ -141,6 +149,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DELETE)
     public void deleteCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
@@ -149,6 +158,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.ENABLE)
     public void enableCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
@@ -157,6 +167,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.ENABLE)
     public void disableCredential(SecuredUUID uuid) throws NotFoundException {
         Credential credential = getCredentialEntity(uuid);
@@ -165,6 +176,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CREDENTIAL, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DELETE)
     public void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException {
         for (SecuredUUID uuid : uuids) {
@@ -177,6 +189,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
     public void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException {
         // TODO: necessary to load full credentials this way?
@@ -202,6 +215,7 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.BE, affected = ObjectType.CREDENTIAL, operation = OperationType.REQUEST)
     public void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback) throws NotFoundException {
         if (callback == null) {
             logger.warn("Given Callback is null");

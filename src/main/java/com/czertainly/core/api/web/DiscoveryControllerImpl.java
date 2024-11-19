@@ -8,14 +8,9 @@ import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.scheduler.ScheduleDiscoveryDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.DiscoveryService;
@@ -54,21 +49,18 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.LIST)
     public DiscoveryResponseDto listDiscoveries(final SearchRequestDto request) {
         return discoveryService.listDiscoveries(SecurityFilter.create(), request);
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DETAIL)
-    public DiscoveryHistoryDetailDto getDiscovery(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public DiscoveryHistoryDetailDto getDiscovery(@PathVariable String uuid) throws NotFoundException {
         return discoveryService.getDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, affiliatedResource = Resource.CERTIFICATE, operation = Operation.LIST)
     public DiscoveryCertificateResponseDto getDiscoveryCertificates(
-            @LogResource(uuid = true) String uuid,
+            String uuid,
             Boolean newlyDiscovered,
             int itemsPerPage,
             int pageNumber
@@ -82,7 +74,6 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CREATE)
     public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request) throws ConnectorException, AlreadyExistException, AttributeException {
         final DiscoveryHistoryDetailDto modal = discoveryService.createDiscovery(request, true);
         discoveryService.runDiscoveryAsync(UUID.fromString(modal.getUuid()));
@@ -97,7 +88,6 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, affiliatedResource = Resource.DISCOVERY, operation = Operation.SCHEDULE)
     public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException {
         final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
         discoveryService.createDiscovery(discoveryDto, false);
@@ -124,19 +114,16 @@ public class DiscoveryControllerImpl implements DiscoveryController {
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DELETE)
-    public void deleteDiscovery(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
+    public void deleteDiscovery(@PathVariable String uuid) throws NotFoundException {
         discoveryService.deleteDiscovery(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.DELETE)
-    public void bulkDeleteDiscovery(@LogResource(uuid = true) List<String> discoveryUuids) throws NotFoundException {
+    public void bulkDeleteDiscovery(List<String> discoveryUuids) throws NotFoundException {
         discoveryService.bulkRemoveDiscovery(SecuredUUID.fromList(discoveryUuids));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.DISCOVERY, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
         return discoveryService.getSearchableFieldInformationByGroup();
     }

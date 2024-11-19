@@ -1,214 +1,112 @@
 package com.czertainly.core.aop;
 
+import com.czertainly.api.model.common.Identified;
 import com.czertainly.api.model.common.Named;
-import com.czertainly.api.model.common.enums.IPlatformEnum;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.logging.enums.OperationResult;
-import com.czertainly.core.dao.entity.AuditLog;
-import com.czertainly.core.dao.repository.AuditLogRepository;
-import com.czertainly.core.logging.AuditLogOutput;
-import com.czertainly.core.logging.LogResource;
-import com.czertainly.core.logging.LoggerWrapper;
-import com.czertainly.core.logging.LoggingHelper;
-import com.czertainly.api.model.core.logging.Loggable;
-import com.czertainly.api.model.core.logging.records.LogRecord;
-import com.czertainly.api.model.core.logging.records.ResourceRecord;
+import com.czertainly.api.model.core.audit.OperationStatusEnum;
+import com.czertainly.core.service.AuditLogService;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
-import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
 
-import java.io.Serializable;
-import java.lang.reflect.Parameter;
-import java.util.*;
+import java.util.LinkedHashMap;
+import java.util.Map;
 
 @Aspect
 @Component
 @ConditionalOnExpression("${auditlog.enabled:true}")
 public class AuditLogAspect {
 
-    private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);
-
-    private AuditLogRepository auditLogRepository;
-
-    @Value("${logging.schema-version}")
-    private String schemaVersion;
-
-    @Value("${auditlog.output}")
-    private AuditLogOutput auditLogOutput;
-
     @Autowired
-    public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
-        this.auditLogRepository = auditLogRepository;
-    }
+    private AuditLogService auditLogService;
 
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
         // if in non-request context, do not log
-        if (RequestContextHolder.getRequestAttributes() == null) {
+        if(RequestContextHolder.getRequestAttributes() == null) {
             return joinPoint.proceed();
         }
 
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         AuditLogged annotation = signature.getMethod().getAnnotation(AuditLogged.class);
 
-        LogRecord.LogRecordBuilder logBuilder = LogRecord.builder()
-                .version(schemaVersion) // hardcoded for now
-                .audited(true)
-                .module(annotation.module())
-                .actor(LoggingHelper.getActorInfo())
-                .source(LoggingHelper.getSourceInfo());
+        Map<Object, Object> additionalData = createAdditionalData(signature.getParameterNames(), joinPoint.getArgs());
+        additionalData.put("method", signature.getName());
 
-        Object result = null;
+        String objectIdentifier = getRequestObjectIdentifier(signature.getParameterNames(), joinPoint.getArgs());
+
+        OperationStatusEnum operationStatus = null;
         try {
-            result = joinPoint.proceed();
-            logBuilder.operationResult(OperationResult.SUCCESS);
+            Object result = joinPoint.proceed();
+            operationStatus = OperationStatusEnum.SUCCESS;
+
+            if (objectIdentifier == null) {
+                objectIdentifier = getResponseObjectIdentifier(result);
+            }
 
             return result;
         } catch (Exception e) {
-            logBuilder.operationResult(OperationResult.FAILURE);
-            logBuilder.message(e.getMessage());
+            operationStatus = OperationStatusEnum.FAILURE;
             throw e;
         } finally {
-            constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
-
-            LogRecord logRecord = logBuilder.build();
-
-            if (auditLogOutput == AuditLogOutput.ALL || auditLogOutput == AuditLogOutput.DATABASE) {
-                AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
-                auditLogRepository.save(auditLog);
-            }
-
-            if (auditLogOutput == AuditLogOutput.ALL || auditLogOutput == AuditLogOutput.CONSOLE) {
-                logger.logAudited(logRecord);
-            }
+            auditLogService.log(annotation.originator(),
+                    annotation.affected(),
+                    objectIdentifier,
+                    annotation.operation(),
+                    operationStatus,
+                    additionalData);
         }
     }
 
-    private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, Object response) {
-        Resource resource = null;
-        String resourceName = null;
-        List<UUID> resourceUuids = null;
-        Resource affiliatedResource = null;
-        String affiliatedResourceName = null;
-        List<UUID> affiliatedResourceUuids = null;
-        Serializable responseOperationData = null;
-        Map<String, Object> data = new LinkedHashMap<>();
-
-        if (parameters != null && parameterValues != null) {
-            for (int i = 0; i < parameters.length; i++) {
-                String parameterName = parameters[i].getName();
-                Object parameterValue = parameterValues[i];
-
-                LogResource logResource = parameters[i].getAnnotation(LogResource.class);
-                List<UUID> paramResourceUuids = getResourceUuidsFromParameter(logResource, parameterName, parameterValue);
-                String paramResourceName = getResourceNameFromParameter(logResource, parameterValue);
-                Resource paramResource = getResourceFromParameter(logResource, parameterValue);
-
-                boolean isAffiliated = logResource != null && logResource.affiliated();
-                if (isAffiliated) {
-                    if (paramResourceUuids != null) affiliatedResourceUuids = paramResourceUuids;
-                    if (paramResourceName != null) affiliatedResourceName = paramResourceName;
-                    if (paramResource != null) affiliatedResource = paramResource;
-                } else {
-                    if (paramResourceUuids != null) resourceUuids = paramResourceUuids;
-                    if (paramResourceName != null) resourceName = paramResourceName;
-                    if (paramResource != null) resource = paramResource;
-                }
-
-                if (logger.getLogger().isDebugEnabled()) {
-                    if (parameterValue instanceof Optional<?> optional) {
-                        parameterValue = optional.orElse(null);
-                    }
-                    data.put(parameterName, parameterValue);
-                }
+    private Map<Object, Object> createAdditionalData(String[] names, Object[] values) {
+        Map<Object, Object> data = new LinkedHashMap<>();
+        if (names != null && values != null) {
+            for (int i = 0; i < names.length; i++) {
+                data.put(names[i], values[i]);
             }
         }
-
-        if (resource == null) resource = annotation.resource();
-        if (affiliatedResource == null) affiliatedResource = annotation.affiliatedResource();
-
-        if (response != null) {
-            if (response instanceof ResponseEntity<?> responseEntity) {
-                response = responseEntity.getBody();
-            }
-
-            if (response instanceof Loggable loggable) {
-                responseOperationData = loggable.toLogData();
-            }
-        }
-
-        Operation operation = annotation.operation() != Operation.UNKNOWN ? annotation.operation() : LoggingHelper.getAuditLogOperation();
-        logBuilder.operation(operation);
-        logBuilder.resource(constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name()));
-        if (affiliatedResource != Resource.NONE) {
-            logBuilder.affiliatedResource(constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName));
-        }
-        logBuilder.operationData(responseOperationData);
-        if (!data.isEmpty()) {
-            logBuilder.additionalData(data);
-        }
+        return data;
     }
 
-    private Resource getResourceFromParameter(LogResource logResource, Object parameterValue) {
-        return logResource != null && logResource.resource() && parameterValue instanceof Resource resource ? resource : null;
-    }
-
-    private List<UUID> getResourceUuidsFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
-        if (logResource != null) {
-            if (logResource.uuid()) {
-                return parameterValue instanceof List<?> listValues
-                        ? listValues.stream().map(v -> UUID.fromString(v.toString())).toList()
-                        : List.of(UUID.fromString(parameterValue.toString()));
-            }
+    private String getRequestObjectIdentifier(String[] names, Object[] values) {
+        if (names == null || names.length == 0 || values == null || values.length == 0) {
             return null;
         }
-        if (parameterName.equalsIgnoreCase("uuid")) {
-            if (parameterValue instanceof String paramString) {
-                return List.of(UUID.fromString(paramString));
-            }
-            if (parameterValue instanceof UUID paramUuid) {
-                return List.of(paramUuid);
-            }
+
+        if (values[0] instanceof Long && names[0].toLowerCase().endsWith("id")) {
+            return values[0].toString();
+        }
+
+        if (values[0] instanceof String &&
+                (names[0].toLowerCase().endsWith("name") ||
+                 names[0].toLowerCase().endsWith("uuid"))) {
+            return values[0].toString();
+        }
+
+        if (values[0] instanceof Identified) {
+            return ((Identified) values[0]).getUuid();
+        }
+
+        if (values[0] instanceof Named) {
+            return ((Named) values[0]).getName();
         }
 
         return null;
     }
 
-    private String getResourceNameFromParameter(LogResource logResource, Object parameterValue) {
-        if (logResource != null) {
-            if (logResource.name()) {
-                return parameterValue instanceof IPlatformEnum platformEnum ? platformEnum.getCode() : parameterValue.toString();
-            }
-            return null;
+    private String getResponseObjectIdentifier(Object result) {
+        if (result instanceof Identified) {
+            return ((Identified) result).getUuid();
         }
-        if (parameterValue instanceof Named named) {
-            return named.getName();
+
+        if (result instanceof Named) {
+            return ((Named) result).getName();
         }
+
         return null;
     }
-
-    private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName) {
-        List<String> resourceNames = resourceName == null ? null : List.of(resourceName);
-        if (resourceUuids == null || resourceNames == null) {
-            ResourceRecord storedResource = LoggingHelper.getLogResourceInfo(affiliated);
-            if (storedResource != null && storedResource.type() == resource) {
-                if (resourceUuids == null) {
-                    resourceUuids = storedResource.uuids();
-                }
-                if (resourceNames == null) {
-                    resourceNames = storedResource.names();
-                }
-            }
-        }
-        return new ResourceRecord(resource, resourceUuids, resourceNames);
-    }
-
 }

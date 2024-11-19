@@ -1,6 +1,5 @@
 package com.czertainly.core.security.authz;
 
-import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -177,7 +176,7 @@ class ExternalFilterAuthorizationVoterTest {
     CzertainlyAuthenticationToken createCzertainlyAuthentication() {
         return new CzertainlyAuthenticationToken(
                 new CzertainlyUserDetails(
-                        new AuthenticationInfo(AuthMethod.USER_PROXY, null, "FrantisekJednicka", List.of())
+                        new AuthenticationInfo(null, "FrantisekJednicka", List.of())
                 )
         );
     }

@@ -3,7 +3,6 @@ package com.czertainly.core.service.cmp.message.handler;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cmp.CmpTransactionState;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
@@ -13,7 +12,6 @@ import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.service.cmp.configurations.ConfigurationContext;
 import com.czertainly.core.service.cmp.message.PkiMessageDumper;
@@ -91,7 +89,6 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
 
         // -- public key (from database)
         Certificate dbCertificate = getCertificate(tid, certRequest);
-        LoggingHelper.putLogResourceInfo(Resource.CERTIFICATE, false, dbCertificate.getUuid().toString(), dbCertificate.getSubjectDn());
         PublicKey dbPublicKey = convertCertificate(tid, dbCertificate).getPublicKey();
 
         if (dbPublicKey.toString().equals(reqPublicKey.toString())) {//re-key is only about public keys change

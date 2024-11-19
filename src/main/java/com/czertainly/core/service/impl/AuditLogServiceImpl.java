@@ -1,49 +1,51 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.*;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.AuditLog;
-import com.czertainly.core.dao.entity.AuditLog_;
+import com.czertainly.core.dao.entity.QAuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
-import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.czertainly.core.util.RequestValidatorHelper;
-import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import com.querydsl.core.BooleanBuilder;
+import com.querydsl.core.types.Predicate;
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.PreDestroy;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.criteria.CriteriaBuilder;
-import jakarta.persistence.criteria.CriteriaQuery;
-import jakarta.persistence.criteria.Root;
-import org.apache.commons.lang3.function.TriFunction;
+import jakarta.persistence.criteria.CriteriaDelete;
+import jakarta.transaction.Transactional;
+import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
 public class AuditLogServiceImpl implements AuditLogService {
+
+    private static final String LOGGER_NAME = "audit-log";
+    private static final Logger logger = LoggerFactory.getLogger(LOGGER_NAME);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
     static {
@@ -58,116 +60,158 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Value("${auditLog.enabled:false}")
     private boolean auditLogEnabled;
 
+    @Autowired
     private AuditLogRepository auditLogRepository;
+    @Autowired
     private ExportProcessor exportProcessor;
+
 
     @PersistenceContext
     private EntityManager entityManager;
 
-    @Autowired
-    public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
-        this.auditLogRepository = auditLogRepository;
-    }
+    @Override
+    public void log(ObjectType origination,
+                    ObjectType affected,
+                    String objectIdentifier,
+                    OperationType operation,
+                    OperationStatusEnum operationStatus,
+                    Map<Object, Object> additionalData
+    ) {
+        String additionalDataJson = null;
+        try {
+            MAPPER.configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
+            additionalDataJson = additionalData != null ? MAPPER.writeValueAsString(additionalData) : null;
+        } catch (JsonProcessingException e) {
+            throw new IllegalArgumentException(e);
+        }
 
-    @Autowired
-    public void setExportProcessor(ExportProcessor exportProcessor) {
-        this.exportProcessor = exportProcessor;
+        AuditLog auditLog = new AuditLog();
+        auditLog.setOrigination(origination);
+        auditLog.setAffected(affected);
+        auditLog.setObjectIdentifier(objectIdentifier);
+        auditLog.setOperation(operation);
+        auditLog.setOperationStatus(operationStatus);
+        auditLog.setAdditionalData(additionalDataJson);
+
+        auditLog = auditLogRepository.save(auditLog);
+
+        try {
+            logger.info(MAPPER.writeValueAsString(auditLog.mapToDto()));
+        } catch (JsonProcessingException e) {
+            logger.info(auditLog.mapToDto().toString());
+            throw new IllegalArgumentException(e);
+        }
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
-    public AuditLogResponseDto listAuditLogs(final SearchRequestDto request) {
-        RequestValidatorHelper.revalidateSearchRequestDto(request);
-        final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
+    @PostConstruct
+    public void logStartup() {
+        if (auditLogEnabled) {
+            Map<Object, Object> additionalData = new HashMap<>();
+            additionalData.put("message", "CZERTAINLY backend started");
+            log(ObjectType.BE, ObjectType.BE, null, OperationType.START, OperationStatusEnum.SUCCESS, additionalData);
+        }
+    }
 
-        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<AuditLogDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(AuditLog_.loggedAt)))
-                .stream()
-                .map(AuditLog::mapToDto).toList();
-        final Long totalItems = auditLogRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+    @Override
+    @PreDestroy
+    public void logShutdown() {
+        if (auditLogEnabled) {
+            Map<Object, Object> additionalData = new HashMap<>();
+            additionalData.put("message", "CZERTAINLY backend shutdown");
+            log(ObjectType.BE, ObjectType.BE, null, OperationType.STOP, OperationStatusEnum.SUCCESS, additionalData);
+        }
+    }
+
+    @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
+    @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.LIST)
+    public AuditLogResponseDto listAuditLogs(AuditLogFilter filter, Pageable pageable) {
 
         AuditLogResponseDto response = new AuditLogResponseDto();
-        response.setItems(auditLogs);
-        response.setItemsPerPage(request.getItemsPerPage());
-        response.setPageNumber(request.getPageNumber());
-        response.setTotalItems(totalItems);
-        response.setTotalPages((int) Math.ceil((double) totalItems / request.getItemsPerPage()));
+        response.setItems(new ArrayList<>());
+
+        if (auditLogRepository.count() <= 0) {
+            return response;
+        }
+
+        Predicate predicate = createPredicate(filter);
+        Page<AuditLog> result = auditLogRepository.findAll(predicate, pageable);
+        long count = auditLogRepository.count(predicate);
+
+        response.setItemsPerPage(pageable.getPageSize());
+        response.setPageNumber(pageable.getPageNumber());
+        response.setTotalItems(count);
+        response.setTotalPages((int) Math.ceil((double) count / pageable.getPageSize()));
+
+        if (result.getSize() > 0) {
+            response.setItems(result.get().map(AuditLog::mapToDto).collect(Collectors.toList()));
+        }
 
         return response;
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
-    public ExportResultDto exportAuditLogs(final List<SearchFilterRequestDto> filters) {
-        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+    public ExportResultDto exportAuditLogs(AuditLogFilter filter, Sort sort) {
+        Predicate predicate = createPredicate(filter);
+        List<AuditLog> entities = auditLogRepository.findAll(predicate, sort);
+        List<AuditLogDto> dtos = entities.stream().map(AuditLog::mapToDto).collect(Collectors.toList());
 
-        final List<AuditLog> auditLogsEntities = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, Pageable.ofSize(Integer.MAX_VALUE), (root, cb) -> cb.desc(root.get(AuditLog_.id)));
-        final List<AuditLogExportDto> auditLogs = auditLogsEntities
-                .stream()
-                .map(a -> {
-                    AuditLogExportDto.AuditLogExportDtoBuilder builder = AuditLogExportDto.builder();
-                    builder.id(a.getId());
-                    builder.version(a.getVersion());
-                    builder.loggedAt(a.getLoggedAt());
-                    builder.module(a.getModule());
-                    builder.resource(a.getResource());
-                    builder.resourceUuids(a.getLogRecord().resource().uuids());
-                    builder.resourceNames(a.getLogRecord().resource().names());
-                    builder.affiliatedResource(a.getAffiliatedResource());
-                    if (a.getLogRecord().affiliatedResource() != null) {
-                        builder.affiliatedResourceUuids(a.getLogRecord().affiliatedResource().uuids());
-                        builder.affiliatedResourceNames(a.getLogRecord().affiliatedResource().names());
-                    }
-                    builder.actorType(a.getActorType());
-                    builder.actorAuthMethod(a.getActorAuthMethod());
-                    builder.actorUuid(a.getActorUuid());
-                    builder.actorName(a.getActorName());
-                    if (a.getLogRecord().source() != null) {
-                        builder.ipAddress(a.getLogRecord().source().ipAddress());
-                        builder.userAgent(a.getLogRecord().source().userAgent());
-                    }
-                    builder.operation(a.getOperation());
-                    builder.operationResult(a.getOperationResult());
-                    builder.message(a.getMessage());
-
-                    try {
-                        builder.operationData(MAPPER.writeValueAsString(a.getLogRecord().operationData()));
-                    } catch (JsonProcessingException e) {
-                        builder.operationData("ERROR_SERIALIZATION");
-                    }
-
-                    try {
-                        builder.additionalData(MAPPER.writeValueAsString(a.getLogRecord().additionalData()));
-                    } catch (JsonProcessingException e) {
-                        builder.additionalData("ERROR_SERIALIZATION");
-                    }
-
-                    return builder.build();
-                }).toList();
-
-        return exportProcessor.generateExport(fileNamePrefix, auditLogs);
+        return exportProcessor.generateExport(fileNamePrefix, dtos);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.AUDIT_LOG, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
-    public void purgeAuditLogs(final List<SearchFilterRequestDto> filters) {
-        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
-        final List<AuditLog> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause);
-        auditLogRepository.deleteAll(auditLogs);
+    public void purgeAuditLogs(AuditLogFilter filter, Sort sort) {
+        CriteriaDelete<AuditLog> criteriaQueryDataObject = FilterPredicatesBuilder.prepareQueryForAuditLog(filter, entityManager.getCriteriaBuilder());
+        entityManager.createQuery(criteriaQueryDataObject).executeUpdate();
     }
 
-    @Override
-    public List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup() {
-        final List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
 
-        List<SearchFieldDataDto> fields = new ArrayList<>();
-        List<FilterField> filterFields = FilterField.getEnumsForResource(Resource.AUDIT_LOG);
-        for (FilterField filterField : filterFields) {
-            fields.add(SearchHelper.prepareSearch(filterField));
+    private Predicate createPredicate(AuditLogFilter filter) {
+        BooleanBuilder predicate = new BooleanBuilder();
+        ZoneId zoneId = ZoneId.systemDefault();
+
+
+        if (StringUtils.isNotBlank(filter.getAuthor())) {
+            predicate.and(QAuditLog.auditLog.author.likeIgnoreCase(filter.getAuthor()));
         }
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
-        return searchFieldDataByGroupDtos;
-    }
+        if (filter.getCreatedFrom() != null) {
+            predicate.and(QAuditLog.auditLog.created.after(filter.getCreatedFrom().atStartOfDay().atZone(zoneId).toOffsetDateTime()));
+        }
+        if (filter.getCreatedTo() != null) {
+            predicate.and(QAuditLog.auditLog.created.before(filter.getCreatedTo().atTime(LocalTime.MAX).atZone(zoneId).toOffsetDateTime()));
+        } else {
+            predicate.and(QAuditLog.auditLog.created.isNotNull());
+        }
 
+        if (filter.getOperation() != null) {
+            predicate.and(QAuditLog.auditLog.operation.eq(filter.getOperation()));
+        }
+        if (filter.getOperationStatus() != null) {
+            predicate.and(QAuditLog.auditLog.operationStatus.eq(filter.getOperationStatus()));
+        }
+
+        if (filter.getAffected() != null) {
+            predicate.and(QAuditLog.auditLog.affected.eq(filter.getAffected()));
+        }
+
+        if (filter.getOrigination() != null) {
+            predicate.and(QAuditLog.auditLog.origination.eq(filter.getOrigination()));
+        }
+
+        if (filter.getAffected() != null) {
+            predicate.and(QAuditLog.auditLog.affected.eq(filter.getAffected()));
+        }
+
+        if (StringUtils.isNotBlank(filter.getObjectIdentifier())) {
+            predicate.and(QAuditLog.auditLog.objectIdentifier.likeIgnoreCase(filter.getObjectIdentifier()));
+        }
+
+        return predicate;
+    }
 }

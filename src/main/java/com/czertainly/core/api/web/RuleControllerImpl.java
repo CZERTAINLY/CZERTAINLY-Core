@@ -4,11 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RuleController;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.workflows.*;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.RuleService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,62 +30,52 @@ public class RuleControllerImpl implements RuleController {
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.CONDITION, operation = Operation.LIST)
     public List<ConditionDto> listConditions(Resource resource) {
         return ruleService.listConditions(resource);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.CONDITION, operation = Operation.CREATE)
     public ConditionDto createCondition(ConditionRequestDto request) throws AlreadyExistException {
         return ruleService.createCondition(request);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.CONDITION, operation = Operation.DETAIL)
-    public ConditionDto getCondition(@LogResource(uuid = true) String conditionUuid) throws NotFoundException {
+    public ConditionDto getCondition(String conditionUuid) throws NotFoundException {
         return ruleService.getCondition(conditionUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.CONDITION, operation = Operation.UPDATE)
-    public ConditionDto updateCondition(@LogResource(uuid = true) String conditionUuid, UpdateConditionRequestDto request) throws NotFoundException {
+    public ConditionDto updateCondition(String conditionUuid, UpdateConditionRequestDto request) throws NotFoundException {
         return ruleService.updateCondition(conditionUuid, request);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.CONDITION, operation = Operation.DELETE)
-    public void deleteCondition(@LogResource(uuid = true) String conditionUuid) throws NotFoundException {
+    public void deleteCondition(String conditionUuid) throws NotFoundException {
         ruleService.deleteCondition(conditionUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RULE, operation = Operation.LIST)
     public List<RuleDto> listRules(Resource resource) {
         return ruleService.listRules(resource);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RULE, operation = Operation.CREATE)
     public RuleDetailDto createRule(RuleRequestDto request) throws NotFoundException, AlreadyExistException {
         return ruleService.createRule(request);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RULE, operation = Operation.DETAIL)
-    public RuleDetailDto getRule(@LogResource(uuid = true) String ruleUuid) throws NotFoundException {
+    public RuleDetailDto getRule(String ruleUuid) throws NotFoundException {
         return ruleService.getRule(ruleUuid);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RULE, operation = Operation.UPDATE)
-    public RuleDetailDto updateRule(@LogResource(uuid = true) String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException {
+    public RuleDetailDto updateRule(String ruleUuid, UpdateRuleRequestDto request) throws NotFoundException {
         return ruleService.updateRule(ruleUuid, request);
     }
 
     @Override
-    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.RULE, operation = Operation.DELETE)
-    public void deleteRule(@LogResource(uuid = true) String ruleUuid) throws NotFoundException {
+    public void deleteRule(String ruleUuid) throws NotFoundException {
         ruleService.deleteRule(ruleUuid);
     }
 }

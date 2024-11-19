@@ -1,6 +1,5 @@
 package com.czertainly.core.security.authn;
 
-import com.czertainly.core.logging.LoggingHelper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -50,13 +49,11 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                 Authentication authResult = this.authenticationManager.authenticate(authRequest);
                 logger.trace("Authentication result: %s".formatted(authResult.isAuthenticated() ? "authenticated" : "unauthenticated"));
 
-                CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authResult.getPrincipal();
-                LoggingHelper.putActorInfo(userDetails, null);
-
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authResult);
                 SecurityContextHolder.setContext(context);
             } catch (AuthenticationException e) {
+                logger.info("Failed to authenticate user.");
                 logger.debug("Failed to authenticate user.", e);
                 SecurityContextHolder.clearContext();
             }

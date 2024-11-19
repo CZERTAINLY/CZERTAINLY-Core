@@ -6,10 +6,6 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.interfaces.core.connector.ConnectorRegistrationController;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.ConnectorRegistrationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -22,7 +18,6 @@ public class ConnectorRegistrationControllerImpl implements ConnectorRegistratio
     private ConnectorRegistrationService connectorRegistrationService;
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.REGISTER)
     public UuidDto register(@RequestBody ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException {
         return connectorRegistrationService.registerConnector(request);
     }

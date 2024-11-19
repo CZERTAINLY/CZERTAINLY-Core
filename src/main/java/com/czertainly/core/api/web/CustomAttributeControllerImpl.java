@@ -9,15 +9,12 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
@@ -38,18 +35,11 @@ import java.util.UUID;
 @RestController
 public class CustomAttributeControllerImpl implements CustomAttributeController {
 
+    @Autowired
     private AttributeService attributeService;
+
+    @Autowired
     private ResourceService resourceService;
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
-    }
-
-    @Autowired
-    public void setResourceService(ResourceService resourceService) {
-        this.resourceService = resourceService;
-    }
 
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
@@ -59,19 +49,16 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuthEndpoint(resourceName = Resource.ATTRIBUTE)
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
     public List<CustomAttributeDefinitionDto> listCustomAttributes(AttributeContentType attributeContentType) {
         return attributeService.listCustomAttributes(SecurityFilter.create(), attributeContentType);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DETAIL)
-    public CustomAttributeDefinitionDetailDto getCustomAttribute(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public CustomAttributeDefinitionDetailDto getCustomAttribute(String uuid) throws NotFoundException {
         return attributeService.getCustomAttribute(UUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.CREATE)
     public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, NotFoundException, AttributeException {
         CustomAttributeDefinitionDetailDto definitionDetailDto = attributeService.createCustomAttribute(request);
 
@@ -84,71 +71,60 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE)
-    public CustomAttributeDefinitionDetailDto editCustomAttribute(@LogResource(uuid = true) String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException {
+    public CustomAttributeDefinitionDetailDto editCustomAttribute(String uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException {
         return attributeService.editCustomAttribute(UUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE)
-    public void deleteCustomAttribute(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void deleteCustomAttribute(String uuid) throws NotFoundException {
         attributeService.deleteCustomAttribute(UUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.ENABLE)
-    public void enableCustomAttribute(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void enableCustomAttribute(String uuid) throws NotFoundException {
         attributeService.enableCustomAttribute(UUID.fromString(uuid), true);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DISABLE)
-    public void disableCustomAttribute(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void disableCustomAttribute(String uuid) throws NotFoundException {
         attributeService.enableCustomAttribute(UUID.fromString(uuid), false);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE)
-    public void bulkDeleteCustomAttributes(@LogResource(uuid = true) List<String> attributeUuids) {
+    public void bulkDeleteCustomAttributes(List<String> attributeUuids) {
         attributeService.bulkDeleteCustomAttributes(attributeUuids);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.ENABLE)
-    public void bulkEnableCustomAttributes(@LogResource(uuid = true) List<String> attributeUuids) {
+    public void bulkEnableCustomAttributes(List<String> attributeUuids) {
         attributeService.bulkEnableCustomAttributes(attributeUuids, true);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DISABLE)
-    public void bulkDisableCustomAttributes(@LogResource(uuid = true) List<String> attributeUuids) {
+    public void bulkDisableCustomAttributes(List<String> attributeUuids) {
         attributeService.bulkEnableCustomAttributes(attributeUuids, false);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_RESOURCES)
-    public void updateResources(@LogResource(uuid = true) String uuid, List<Resource> resources) throws NotFoundException {
+    public void updateResources(String uuid, List<Resource> resources) throws NotFoundException {
         attributeService.updateResources(UUID.fromString(uuid), resources);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
-    public List<BaseAttribute> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
+    public List<BaseAttribute> getResourceCustomAttributes(Resource resource) {
         return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.RESOURCE, affiliatedResource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
     public List<Resource> getResources() {
         return attributeService.getResources();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_CONTENT)
     public List<ResponseAttributeDto> updateAttributeContentForResource(
-            @LogResource(resource = true, affiliated = true) Resource resourceName,
-            @LogResource(uuid = true, affiliated = true) String objectUuid,
-            @LogResource(uuid = true) String attributeUuid,
+            Resource resourceName,
+            String objectUuid,
+            String attributeUuid,
             List<BaseAttributeContent> request
     ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(
@@ -160,11 +136,10 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE_ATTRIBUTE_CONTENT)
     public List<ResponseAttributeDto> deleteAttributeContentForResource(
-            @LogResource(resource = true, affiliated = true) Resource resourceName,
-            @LogResource(uuid = true, affiliated = true) String objectUuid,
-            @LogResource(uuid = true) String attributeUuid
+            Resource resourceName,
+            String objectUuid,
+            String attributeUuid
     ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(
                 resourceName,

@@ -7,7 +7,10 @@ import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
+import com.czertainly.api.model.core.audit.ObjectType;
+import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
@@ -41,12 +44,14 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     private AcmeOrderRepository acmeOrderRepository;
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public void revokeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         revokeAccount(uuid);
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public void enableAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
@@ -58,6 +63,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public void disableAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount account = getAcmeAccountEntity(uuid);
@@ -69,6 +75,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.ENABLE)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
     public void bulkEnableAccount(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -89,6 +96,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.DISABLE)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.ENABLE)
     public void bulkDisableAccount(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -106,6 +114,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REVOKE)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.REVOKE)
     public void bulkRevokeAccount(List<SecuredUUID> uuids) {
         for (SecuredUUID uuid : uuids) {
@@ -118,6 +127,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.LIST, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.LIST)
     public List<AcmeAccountListResponseDto> listAcmeAccounts(SecurityFilter filter) {
         filter.setParentRefProperty("acmeProfileUuid");
@@ -128,6 +138,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.ACME_ACCOUNT, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.ACME_ACCOUNT, action = ResourceAction.DETAIL, parentResource = Resource.ACME_PROFILE, parentAction = ResourceAction.DETAIL)
     public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);

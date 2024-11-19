@@ -34,6 +34,3 @@ target/
 
 application-*.properties
 /.mvn
-
-# generated log record schemas
-src/main/resources/log-schemas/*-gen.json

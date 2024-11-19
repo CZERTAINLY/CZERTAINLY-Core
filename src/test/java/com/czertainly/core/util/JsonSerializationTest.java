@@ -5,6 +5,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
+import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -48,6 +49,14 @@ public class JsonSerializationTest {
 
         String json = MAPPER.writeValueAsString(data);
         System.out.println(json);
+    }
+
+    @Test
+    public void testDeserializeTime() throws JsonProcessingException {
+        String data = "{ \"createdFrom\": \"2021-02-15\"}";
+
+        AuditLogFilter filter = MAPPER.readValue(data, AuditLogFilter.class);
+        System.out.println(filter);
     }
 
     @Test

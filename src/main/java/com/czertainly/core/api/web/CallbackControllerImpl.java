@@ -7,10 +7,6 @@ import com.czertainly.api.interfaces.core.web.CallbackController;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.CallbackService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -23,12 +19,8 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class CallbackControllerImpl implements CallbackController {
 
-    private CallbackService callbackService;
-
     @Autowired
-    public void setCallbackService(CallbackService callbackService) {
-        this.callbackService = callbackService;
-    }
+    private CallbackService callbackService;
 
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
@@ -36,11 +28,10 @@ public class CallbackControllerImpl implements CallbackController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
     public Object callback(
-            @LogResource(uuid = true, affiliated = true) String uuid,
+            String uuid,
             String functionGroup,
-            @LogResource(name = true) String kind,
+            String kind,
             RequestAttributeCallback callback
     ) throws NotFoundException, ConnectorException, ValidationException {
         return callbackService.callback(
@@ -52,7 +43,6 @@ public class CallbackControllerImpl implements CallbackController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.CONNECTOR, operation = Operation.ATTRIBUTE_CALLBACK)
     public Object resourceCallback(
             Resource resource,
             String parentObjectUuid,

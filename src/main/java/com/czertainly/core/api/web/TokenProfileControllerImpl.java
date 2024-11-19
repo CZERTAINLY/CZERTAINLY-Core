@@ -2,6 +2,8 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.TokenProfileController;
+import com.czertainly.api.model.client.cryptography.key.BulkKeyUsageRequestDto;
+import com.czertainly.api.model.client.cryptography.key.UpdateKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.BulkTokenProfileKeyUsageRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
@@ -9,11 +11,7 @@ import com.czertainly.api.model.client.cryptography.tokenprofile.TokenProfileKey
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
-import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
-import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -26,6 +24,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @RestController
 public class TokenProfileControllerImpl implements TokenProfileController {
@@ -39,20 +38,17 @@ public class TokenProfileControllerImpl implements TokenProfileController {
 
     @Override
     @AuthEndpoint(resourceName = Resource.TOKEN_PROFILE)
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.LIST)
     public List<TokenProfileDto> listTokenProfiles(Optional<Boolean> enabled) {
         return tokenProfileService.listTokenProfiles(enabled, SecurityFilter.create());
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
-    public TokenProfileDetailDto getTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid) throws NotFoundException {
+    public TokenProfileDetailDto getTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
         return tokenProfileService.getTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.CREATE)
-    public ResponseEntity<TokenProfileDetailDto> createTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public ResponseEntity<TokenProfileDetailDto> createTokenProfile(String tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfileService.createTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/tokenInstances/{tokenInstanceUuid}/tokenProfiles/{uuid}")
                 .buildAndExpand(tokenInstanceUuid, tokenProfileDetailDto.getUuid()).toUri();
@@ -60,56 +56,47 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.UPDATE)
-    public TokenProfileDetailDto editTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException {
+    public TokenProfileDetailDto editTokenProfile(String tokenInstanceUuid, String uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException {
         return tokenProfileService.editTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid), request);
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.DELETE)
-    public void deleteTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void deleteTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
         tokenProfileService.deleteTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.DELETE)
-    public void deleteTokenProfile(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void deleteTokenProfile(String uuid) throws NotFoundException {
         tokenProfileService.deleteTokenProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.DISABLE)
-    public void disableTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void disableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
         tokenProfileService.disableTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.ENABLE)
-    public void enableTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid) throws NotFoundException {
+    public void enableTokenProfile(String tokenInstanceUuid, String uuid) throws NotFoundException {
         tokenProfileService.enableTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.DELETE)
-    public void deleteTokenProfiles(@LogResource(uuid = true) List<String> uuids) {
+    public void deleteTokenProfiles(List<String> uuids){
         tokenProfileService.deleteTokenProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.DISABLE)
-    public void disableTokenProfiles(@LogResource(uuid = true) List<String> uuids) {
+    public void disableTokenProfiles(List<String> uuids) {
         tokenProfileService.disableTokenProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.ENABLE)
-    public void enableTokenProfiles(@LogResource(uuid = true) List<String> uuids) {
+    public void enableTokenProfiles(List<String> uuids) {
         tokenProfileService.enableTokenProfile(SecuredUUID.fromList(uuids));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.UPDATE_KEY_USAGE)
-    public void updateKeyUsages(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String tokenProfileUuid, TokenProfileKeyUsageRequestDto request) throws NotFoundException, ValidationException {
+    public void updateKeyUsages(String tokenInstanceUuid, String tokenProfileUuid, TokenProfileKeyUsageRequestDto request) throws NotFoundException, ValidationException {
         tokenProfileService.updateKeyUsages(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -118,8 +105,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, operation = Operation.UPDATE_KEY_USAGE)
-    public void updateKeysUsages(BulkTokenProfileKeyUsageRequestDto request) {
+    public void updateKeysUsages(BulkTokenProfileKeyUsageRequestDto request){
         tokenProfileService.updateKeyUsages(
                 SecuredUUID.fromUuidList(request.getUuids()),
                 request.getUsage()

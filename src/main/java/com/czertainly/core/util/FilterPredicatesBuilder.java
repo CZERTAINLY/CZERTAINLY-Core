@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -17,6 +18,7 @@ import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
+import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -319,6 +321,46 @@ public class FilterPredicatesBuilder {
             path = path.get(stz.nextToken());
         }
         return path;
+    }
+
+    public static CriteriaDelete<AuditLog> prepareQueryForAuditLog(AuditLogFilter filter, CriteriaBuilder criteriaBuilder) {
+        CriteriaDelete<AuditLog> criteriaQuery = criteriaBuilder.createCriteriaDelete(AuditLog.class);
+        final Root<AuditLog> root = criteriaQuery.from(AuditLog.class);
+        List<Predicate> rootPredicates = new ArrayList<>();
+
+        if (StringUtils.isNotBlank(filter.getAuthor())) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("author"), filter.getAuthor()));
+        }
+
+        if (filter.getCreatedFrom() != null) {
+            rootPredicates.add(criteriaBuilder.greaterThan(root.get("created"), filter.getCreatedFrom()));
+        }
+        if (filter.getCreatedTo() != null) {
+            rootPredicates.add(criteriaBuilder.lessThan(root.get("created"), filter.getCreatedFrom()));
+        }
+
+        if (filter.getOperation() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("operation"), filter.getOperation()));
+        }
+
+        if (filter.getOperationStatus() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("operationStatus"), filter.getOperationStatus()));
+        }
+
+        if (filter.getAffected() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("affected"), filter.getAffected()));
+        }
+
+        if (filter.getOrigination() != null) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("origination"), filter.getOrigination()));
+        }
+
+        if (StringUtils.isNotBlank(filter.getObjectIdentifier())) {
+            rootPredicates.add(criteriaBuilder.equal(root.get("objectIdentifier"), filter.getObjectIdentifier()));
+        }
+
+        criteriaQuery.where(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
+        return criteriaQuery;
     }
 
     public static Query getAllValuesOfProperty(String property, Resource resource, EntityManager entityManager) {
