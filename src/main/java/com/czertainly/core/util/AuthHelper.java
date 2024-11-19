@@ -5,13 +5,14 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.api.model.core.logging.enums.ActorType;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.security.authz.OpaPolicy;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
@@ -29,9 +30,7 @@ import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Component
 public class AuthHelper {
@@ -50,6 +49,7 @@ public class AuthHelper {
 
     private OpaClient opaClient;
     private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+    private static final Set<String> protocolUsers = Set.of(ACME_USERNAME, SCEP_USERNAME, CMP_USERNAME);
 
     @Autowired
     public void setOpaClient(OpaClient opaClient) {
@@ -66,8 +66,13 @@ public class AuthHelper {
         headers.add(SYSTEM_USER_HEADER_NAME, username);
 
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
-        securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+        securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
+
+        // update MDC for actor logging
+        ActorType actorType = protocolUsers.contains(userDetails.getUsername()) ? ActorType.PROTOCOL : ActorType.CORE;
+        LoggingHelper.putActorInfo(userDetails, actorType);
     }
 
     public void authenticateAsUser(UUID userUuid) {
@@ -75,15 +80,19 @@ public class AuthHelper {
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+
+        // update MDC for actor logging
+        LoggingHelper.putActorInfo(userDetails, ActorType.USER);
     }
 
     public static boolean isLoggedProtocolUser() {
         try {
             CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             String username = userDetails.getUsername();
-            return username.equals(ACME_USERNAME) || username.equals(SCEP_USERNAME);
+            return protocolUsers.contains(username);
         } catch (Exception e) {
             logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));

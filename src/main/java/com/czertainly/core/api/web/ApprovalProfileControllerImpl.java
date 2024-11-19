@@ -7,9 +7,13 @@ import com.czertainly.api.interfaces.core.web.ApprovalProfileController;
 import com.czertainly.api.model.client.approvalprofile.*;
 import com.czertainly.api.model.common.UuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.dao.entity.ApprovalProfile;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ApprovalProfileService;
@@ -26,31 +30,37 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     private ApprovalProfileService approvalProfileService;
 
     @Override
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.LIST)
     public ApprovalProfileResponseDto listApprovalProfiles(final PaginationRequestDto paginationRequestDto) {
         return approvalProfileService.listApprovalProfiles(SecurityFilter.create(), paginationRequestDto);
     }
 
     @Override
-    public ApprovalProfileDetailDto getApprovalProfile(final String uuid, final ApprovalProfileForVersionDto approvalProfileForVersionDto) throws NotFoundException {
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.DETAIL)
+    public ApprovalProfileDetailDto getApprovalProfile(@LogResource(uuid = true) final String uuid, final ApprovalProfileForVersionDto approvalProfileForVersionDto) throws NotFoundException {
         return approvalProfileService.getApprovalProfile(SecuredUUID.fromString(uuid), approvalProfileForVersionDto.getVersion());
     }
 
     @Override
-    public void deleteApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.DELETE)
+    public void deleteApprovalProfile(@LogResource(uuid = true) final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.deleteApprovalProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void enableApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.ENABLE)
+    public void enableApprovalProfile(@LogResource(uuid = true) final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.enableApprovalProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    public void disableApprovalProfile(final String uuid) throws NotFoundException, ValidationException {
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.DISABLE)
+    public void disableApprovalProfile(@LogResource(uuid = true) final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.disableApprovalProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.CREATE)
     public ResponseEntity<?> createApprovalProfile(final ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         URI location = ServletUriComponentsBuilder
@@ -64,7 +74,8 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     }
 
     @Override
-    public ResponseEntity<?> editApprovalProfile(final String uuid, final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
+    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.UPDATE)
+    public ResponseEntity<?> editApprovalProfile(@LogResource(uuid = true) final String uuid, final ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException {
         final ApprovalProfile approvalProfile = approvalProfileService.editApprovalProfile(SecuredUUID.fromString(uuid), approvalProfileUpdateRequestDto);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
