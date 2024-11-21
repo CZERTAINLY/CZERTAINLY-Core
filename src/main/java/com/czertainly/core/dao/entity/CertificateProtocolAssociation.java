@@ -5,13 +5,14 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.io.Serializable;
 import java.util.UUID;
 
 @Entity
 @Getter
 @Setter
 @Table(name = "certificate_protocol_association")
-public class CertificateProtocolAssociation extends UniquelyIdentified {
+public class CertificateProtocolAssociation extends UniquelyIdentified implements Serializable {
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "certificate_uuid", insertable = false, updatable = false)
