@@ -19,8 +19,6 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.model.request.CertificateRequest;
-import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -28,17 +26,15 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.bouncycastle.asn1.crmf.CertReqMsg;
-import org.bouncycastle.asn1.crmf.CertRequest;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.cert.crmf.CRMFException;
-import org.bouncycastle.cert.crmf.CertificateRequestMessage;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessageBuilder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.transaction.TestTransaction;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -84,6 +80,8 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     private ConnectorRepository connectorRepository;
     @Autowired
     private CertificateRepository certificateRepository;
+    @Autowired
+    private CertificateEventHistoryRepository certificateEventHistoryRepository;
     @Autowired
     private CertificateContentRepository certificateContentRepository;
 
@@ -206,7 +204,10 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
 
     @Test
-    public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException {
+    public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException {
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
@@ -221,13 +222,21 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-//        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
+        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null);
+
+        setUpCommitedCleanup();
     }
 
-    @Disabled
     @Test
-    public void testIssueCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null, null));
+    public void testIssueCertificate_validationFail_disabledRaProfile() {
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
+        raProfile.setEnabled(false);
+        raProfile = raProfileRepository.save(raProfile);
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),raProfile.getSecuredUuid(), null, null));
+
+        setUpCommitedCleanup();
     }
 
     @Test
@@ -243,10 +252,22 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 //        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), raProfile.getSecuredUuid(), certificate.getUuid().toString(), request));
     }
 
-    @Disabled
     @Test
-    public void testRenewCertificate_validationFail() {
-        Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null, null));
+    public void testRenewCertificate_validationFail_differentRaProfile() {
+        RaProfile raProfile2 = new RaProfile();
+        raProfile2.setName("testraprofile2");
+        raProfile2.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile2.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
+        raProfile2.setEnabled(true);
+        raProfileRepository.save(raProfile2);
+
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
+
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(raProfile2.getAuthorityInstanceReferenceUuid()), raProfile2.getSecuredUuid(), certificate.getUuid().toString(), null));
+
+        raProfileRepository.delete(raProfile2);
+        setUpCommitedCleanup();
     }
 
     @Test
@@ -300,6 +321,21 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     @Test
     public void testRevokeCertificate_validationFail() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificateAction(UUID.randomUUID(), null, true));
+    }
+
+    private void setUpCommitedCleanup() {
+        TestTransaction.start();
+
+        attributeEngine.deleteConnectorAttributeDefinitionsContent(connector.getUuid());
+
+        certificateEventHistoryRepository.deleteAll();
+        certificateRepository.deleteAll();
+        raProfileRepository.delete(raProfile);
+        authorityInstanceReferenceRepository.delete(authorityInstanceReference);
+        connectorRepository.delete(connector);
+
+        TestTransaction.flagForCommit();
+        TestTransaction.end();
     }
 
     private static byte[] generateRequestWithPOPSig(
