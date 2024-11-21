@@ -194,6 +194,14 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request, final CertificateProtocolInfo protocolInfo) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException, CertificateRequestException {
+        // validate RA profile
+        RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
+                .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
+
+        if (Boolean.FALSE.equals(raProfile.getEnabled())) {
+            throw new ValidationException(String.format("Cannot issue certificate with disabled RA profile. Ra Profile: %s", raProfile.getName()));
+        }
+
         ClientCertificateRequestDto certificateRequestDto = new ClientCertificateRequestDto();
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
         certificateRequestDto.setCsrAttributes(request.getCsrAttributes());
