@@ -5,15 +5,19 @@ import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
-import com.czertainly.core.logging.AuditLogOutput;
+import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
+import com.czertainly.core.settings.SettingsCache;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -41,9 +45,6 @@ public class AuditLogAspect {
     @Value("${logging.schema-version}")
     private String schemaVersion;
 
-    @Value("${auditlog.output}")
-    private AuditLogOutput auditLogOutput;
-
     @Autowired
     public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
         this.auditLogRepository = auditLogRepository;
@@ -53,6 +54,11 @@ public class AuditLogAspect {
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
         // if in non-request context, do not log
         if (RequestContextHolder.getRequestAttributes() == null) {
+            return joinPoint.proceed();
+        }
+
+        AuditLoggingSettingsDto loggingSettings = ((LoggingSettingsDto) SettingsCache.getSettings(SettingsSection.LOGGING)).getAuditLogs();
+        if (loggingSettings.getOutput() == AuditLogOutput.NONE) {
             return joinPoint.proceed();
         }
 
@@ -80,14 +86,15 @@ public class AuditLogAspect {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
 
             LogRecord logRecord = logBuilder.build();
+            if (!logger.filterLog(loggingSettings, logRecord.module(), logRecord.resource().type())) {
+                if (loggingSettings.getOutput() == AuditLogOutput.ALL || loggingSettings.getOutput() == AuditLogOutput.DATABASE) {
+                    AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
+                    auditLogRepository.save(auditLog);
+                }
 
-            if (auditLogOutput == AuditLogOutput.ALL || auditLogOutput == AuditLogOutput.DATABASE) {
-                AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
-                auditLogRepository.save(auditLog);
-            }
-
-            if (auditLogOutput == AuditLogOutput.ALL || auditLogOutput == AuditLogOutput.CONSOLE) {
-                logger.logAudited(logRecord);
+                if (loggingSettings.getOutput() == AuditLogOutput.ALL || loggingSettings.getOutput() == AuditLogOutput.CONSOLE) {
+                    logger.logAudited(logRecord);
+                }
             }
         }
     }
