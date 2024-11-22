@@ -33,6 +33,7 @@ public class FilterPredicatesBuilder {
     }
 
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
+    private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
 
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
@@ -70,7 +71,7 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(UniquelyIdentified_.uuid.getName())));
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
-            Expression<String> attributeContentExpression = criteriaBuilder.function("jsonb_extract_path_text", String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
+            Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
             CriteriaBuilder.SimpleCase<AttributeContentType, Object> contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
 
             if (castedAttributeContentData.contains(contentType)) {
@@ -149,7 +150,17 @@ public class FilterPredicatesBuilder {
         // prepare filter values, expression and set filter characteristics
         List<Object> filterValues = preparePropertyFilterValues(filterDto, filterField);
         Expression expression = from.get(filterField.getFieldAttribute().getName());
-        if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
+
+        if (filterField.getJsonPath() != null) {
+            expression = switch(filterField.getJsonPath().length) {
+                case 1 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]));
+                case 2 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]));
+                case 3 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]));
+                case 4 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]), criteriaBuilder.literal(filterField.getJsonPath()[3]));
+                default -> throw new ValidationException("Unexpected size of JSON path `%s`: %d".formatted(filterField.getJsonPath(), filterField.getJsonPath().length));
+            };
+        }
+        else if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
             expression = expression.as(filterField.getType().getExpressionClass());
         }
 
