@@ -24,7 +24,6 @@ import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
 import org.springframework.web.context.request.RequestContextHolder;
@@ -35,7 +34,6 @@ import java.util.*;
 
 @Aspect
 @Component
-@ConditionalOnExpression("${auditlog.enabled:true}")
 public class AuditLogAspect {
 
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);

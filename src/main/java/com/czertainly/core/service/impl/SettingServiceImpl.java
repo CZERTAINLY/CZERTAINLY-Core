@@ -23,10 +23,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -96,9 +93,9 @@ public class SettingServiceImpl implements SettingService {
     @Override
     public NotificationSettingsDto getNotificationSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
-        Map<NotificationType, String> valueMapped = new HashMap<>();
+        Map<NotificationType, String> valueMapped = new EnumMap<>(NotificationType.class);
         if (!settings.isEmpty()) {
-            String valueJson = settings.get(0).getValue();
+            String valueJson = settings.getFirst().getValue();
             if (valueJson != null) {
                 TypeReference<Map<NotificationType, String>> typeReference = new TypeReference<>() {
                 };
@@ -106,7 +103,8 @@ public class SettingServiceImpl implements SettingService {
                 try {
                     valueMapped = mapper.readValue(valueJson, typeReference);
                 } catch (JsonProcessingException e) {
-                    throw new RuntimeException(e);
+                    logger.warn("Cannot deserialize notification mapping settings. Returning empty mapping.");
+                    valueMapped = new EnumMap<>(NotificationType.class);
                 }
             }
         }
@@ -128,7 +126,7 @@ public class SettingServiceImpl implements SettingService {
             setting.setSection(SettingsSection.NOTIFICATIONS);
             setting.setName(NOTIFICATIONS_MAPPING_NAME);
         } else {
-            setting = settings.get(0);
+            setting = settings.getFirst();
         }
 
         Map<NotificationType, String> notificationTypeStringMap = notificationSettings.getNotificationsMapping();
@@ -142,7 +140,7 @@ public class SettingServiceImpl implements SettingService {
         try {
             setting.setValue(mapper.writeValueAsString(notificationTypeStringMap));
         } catch (JsonProcessingException e) {
-            throw new RuntimeException(e);
+            throw new ValidationException("Cannot serialize notification mapping settings: " + e.getMessage());
         }
         settingRepository.save(setting);
         settingsCache.cacheSettings(SettingsSection.NOTIFICATIONS, notificationSettings);
@@ -169,6 +167,7 @@ public class SettingServiceImpl implements SettingService {
                 try {
                     resources = mapper.readValue(setting.getValue(), ResourceLoggingSettingsDto.class);
                 } catch (JsonProcessingException e) {
+                    logger.warn("Cannot deserialize audit logs resource settings. Returning default settings.");
                     resources = new ResourceLoggingSettingsDto();
                 }
                 auditLoggingSettingsDto.setResourceLogging(resources);
@@ -184,6 +183,7 @@ public class SettingServiceImpl implements SettingService {
             try {
                 resources = mapper.readValue(setting.getValue(), ResourceLoggingSettingsDto.class);
             } catch (JsonProcessingException e) {
+                logger.warn("Cannot deserialize event logs resource settings. Returning default settings.");
                 resources = new ResourceLoggingSettingsDto();
             }
             eventLoggingSettingsDto = resources;
@@ -246,9 +246,7 @@ public class SettingServiceImpl implements SettingService {
         var mapping = new HashMap<String, Map<String, Setting>>();
 
         for (Setting setting : settings) {
-            Map<String, Setting> categorySettings;
-            if ((categorySettings = mapping.get(setting.getCategory())) == null)
-                mapping.put(setting.getCategory(), categorySettings = new HashMap<>());
+            Map<String, Setting> categorySettings = mapping.computeIfAbsent(setting.getCategory(), k -> new HashMap<>());
             categorySettings.put(setting.getName(), setting);
         }
 
