@@ -25,13 +25,13 @@ public enum FilterField {
     // Certificate
     COMMON_NAME(Resource.CERTIFICATE, null, null, Certificate_.commonName, "Common Name", SearchFieldTypeEnum.STRING),
     SERIAL_NUMBER(Resource.CERTIFICATE, null, null, Certificate_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
-    RA_PROFILE_NAME(Resource.CERTIFICATE, Resource.RA_PROFILE, List.of(Certificate_.raProfile), RaProfile_.name, "RA Profile", SearchFieldTypeEnum.LIST, null, null, true),
+    RA_PROFILE_NAME(Resource.CERTIFICATE, Resource.RA_PROFILE, List.of(Certificate_.raProfile), RaProfile_.name, "RA Profile", SearchFieldTypeEnum.LIST, null, null, true, null),
     CERTIFICATE_STATE(Resource.CERTIFICATE, null, null, Certificate_.state, "State", SearchFieldTypeEnum.LIST, CertificateState.class),
     CERTIFICATE_VALIDATION_STATUS(Resource.CERTIFICATE, null, null, Certificate_.validationStatus, "Validation status", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     COMPLIANCE_STATUS(Resource.CERTIFICATE, null, null, Certificate_.complianceStatus, "Compliance Status", SearchFieldTypeEnum.LIST, ComplianceStatus.class),
-    GROUP_NAME(Resource.CERTIFICATE, Resource.GROUP, List.of(Certificate_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true),
+    GROUP_NAME(Resource.CERTIFICATE, Resource.GROUP, List.of(Certificate_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true, null),
     CERT_LOCATION_NAME(Resource.CERTIFICATE, Resource.LOCATION, List.of(Certificate_.locations, CertificateLocation_.location), Location_.name, "Locations", SearchFieldTypeEnum.LIST),
-    OWNER(Resource.CERTIFICATE, Resource.USER, List.of(Certificate_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true),
+    OWNER(Resource.CERTIFICATE, Resource.USER, List.of(Certificate_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true, null),
     ISSUER_COMMON_NAME(Resource.CERTIFICATE, null, null, Certificate_.issuerCommonName, "Issuer Common Name", SearchFieldTypeEnum.STRING),
     SIGNATURE_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.signatureAlgorithm, "Signature Algorithm", SearchFieldTypeEnum.LIST),
     FINGERPRINT(Resource.CERTIFICATE, null, null, Certificate_.fingerprint, "Fingerprint", SearchFieldTypeEnum.STRING),
@@ -48,27 +48,27 @@ public enum FilterField {
     OCSP_VALIDATION(Resource.CERTIFICATE, null, null, Certificate_.certificateValidationResult, "OCSP Validation", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     CRL_VALIDATION(Resource.CERTIFICATE, null, null, Certificate_.certificateValidationResult, "CRL Validation", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     SIGNATURE_VALIDATION(Resource.CERTIFICATE, null, null, Certificate_.certificateValidationResult, "Signature Validation", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
-    PRIVATE_KEY(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, List.of(Certificate_.key, CryptographicKey_.items), CryptographicKeyItem_.type, "Has private key", SearchFieldTypeEnum.BOOLEAN, null, KeyType.PRIVATE_KEY, false),
+    PRIVATE_KEY(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, List.of(Certificate_.key, CryptographicKey_.items), CryptographicKeyItem_.type, "Has private key", SearchFieldTypeEnum.BOOLEAN, null, KeyType.PRIVATE_KEY, false, null),
     TRUSTED_CA(Resource.CERTIFICATE, null, null, Certificate_.trustedCa, "Trusted CA", SearchFieldTypeEnum.BOOLEAN),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),
-    CKI_TYPE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.type, "Key type", SearchFieldTypeEnum.LIST, KeyType.class, null, false),
-    CKI_FORMAT(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.format, "Key format", SearchFieldTypeEnum.LIST, KeyFormat.class, null, false),
-    CKI_STATE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.state, "State", SearchFieldTypeEnum.LIST, KeyState.class, null, false),
-    CKI_CRYPTOGRAPHIC_ALGORITHM(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.keyAlgorithm, "Cryptographic algorithm", SearchFieldTypeEnum.LIST, KeyAlgorithm.class, null, false),
-    CKI_USAGE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.usage, "Key Usage", SearchFieldTypeEnum.LIST, KeyUsage.class, null, false),
+    CKI_TYPE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.type, "Key type", SearchFieldTypeEnum.LIST, KeyType.class, null, false, null),
+    CKI_FORMAT(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.format, "Key format", SearchFieldTypeEnum.LIST, KeyFormat.class, null, false, null),
+    CKI_STATE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.state, "State", SearchFieldTypeEnum.LIST, KeyState.class, null, false, null),
+    CKI_CRYPTOGRAPHIC_ALGORITHM(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.keyAlgorithm, "Cryptographic algorithm", SearchFieldTypeEnum.LIST, KeyAlgorithm.class, null, false, null),
+    CKI_USAGE(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.usage, "Key Usage", SearchFieldTypeEnum.LIST, KeyUsage.class, null, false, null),
     CKI_LENGTH(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.length, "Key Size", SearchFieldTypeEnum.NUMBER),
     CK_TOKEN_PROFILE(Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN_PROFILE, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.tokenProfile), TokenProfile_.name, "Token profile", SearchFieldTypeEnum.LIST),
     CK_TOKEN_INSTANCE(Resource.CRYPTOGRAPHIC_KEY, Resource.TOKEN, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.tokenInstanceReference), TokenInstanceReference_.name, "Token instance", SearchFieldTypeEnum.LIST),
-    CK_GROUP(Resource.CRYPTOGRAPHIC_KEY, Resource.GROUP, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true),
-    CK_OWNER(Resource.CRYPTOGRAPHIC_KEY, Resource.USER, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true),
+    CK_GROUP(Resource.CRYPTOGRAPHIC_KEY, Resource.GROUP, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.groups), Group_.name, "Groups", SearchFieldTypeEnum.LIST, null, null, true, null),
+    CK_OWNER(Resource.CRYPTOGRAPHIC_KEY, Resource.USER, List.of(CryptographicKeyItem_.cryptographicKey, CryptographicKey_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true, null),
 
     // Discovery
     DISCOVERY_NAME(Resource.DISCOVERY, null, null, DiscoveryHistory_.name, "Name", SearchFieldTypeEnum.STRING),
     DISCOVERY_START_TIME(Resource.DISCOVERY, null, null, DiscoveryHistory_.startTime, "Start time", SearchFieldTypeEnum.DATETIME),
     DISCOVERY_END_TIME(Resource.DISCOVERY, null, null, DiscoveryHistory_.endTime, "End time", SearchFieldTypeEnum.DATETIME),
-    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, DiscoveryHistory_.status, "Status", SearchFieldTypeEnum.LIST, DiscoveryStatus.class, null, false),
+    DISCOVERY_STATUS(Resource.DISCOVERY, null, null, DiscoveryHistory_.status, "Status", SearchFieldTypeEnum.LIST, DiscoveryStatus.class, null, false, null),
     DISCOVERY_TOTAL_CERT_DISCOVERED(Resource.DISCOVERY, null, null, DiscoveryHistory_.totalCertificatesDiscovered, "Total certificate discovered", SearchFieldTypeEnum.NUMBER),
     DISCOVERY_CONNECTOR_NAME(Resource.DISCOVERY, null, null, DiscoveryHistory_.connectorName, "Discovery provider", SearchFieldTypeEnum.LIST),
     DISCOVERY_KIND(Resource.DISCOVERY, null, null, DiscoveryHistory_.kind, "Kind", SearchFieldTypeEnum.STRING),
@@ -95,7 +95,10 @@ public enum FilterField {
     AUDIT_LOG_RESOURCE(Resource.AUDIT_LOG, null, null, AuditLog_.resource, "Resource", SearchFieldTypeEnum.LIST, Resource.class),
     AUDIT_LOG_AFFILIATED_RESOURCE(Resource.AUDIT_LOG, null, null, AuditLog_.affiliatedResource, "Affiliated resource", SearchFieldTypeEnum.LIST, Resource.class),
     AUDIT_LOG_OPERATION(Resource.AUDIT_LOG, null, null, AuditLog_.operation, "Operation", SearchFieldTypeEnum.LIST, Operation.class),
-    AUDIT_LOG_OPERATION_RESULT(Resource.AUDIT_LOG, null, null, AuditLog_.operationResult, "Operation result", SearchFieldTypeEnum.LIST, OperationResult.class);
+    AUDIT_LOG_OPERATION_RESULT(Resource.AUDIT_LOG, null, null, AuditLog_.operationResult, "Operation result", SearchFieldTypeEnum.LIST, OperationResult.class),
+    AUDIT_LOG_SOURCE_IP_ADDRESS(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "IP Address", SearchFieldTypeEnum.STRING, new String[]{"source", "ipAddress"}),
+    AUDIT_LOG_SOURCE_PATH(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "API path", SearchFieldTypeEnum.STRING, new String[]{"source", "path"}),
+    AUDIT_LOG_MESSAGE(Resource.AUDIT_LOG, null, null, AuditLog_.message, "Message", SearchFieldTypeEnum.STRING);
 
     private static final FilterField[] VALUES;
 
@@ -109,25 +112,31 @@ public enum FilterField {
     private final Attribute fieldAttribute;
     private final SearchFieldTypeEnum type;
     private final String label;
+    private final String[] jsonPath;
     private final Class<? extends IPlatformEnum> enumClass;
     private final boolean settable;
     private final Object expectedValue;
 
     FilterField(final Resource rootResource, final Resource fieldResource, final List<Attribute> joinAttributes, final Attribute fieldAttribute, final String label, final SearchFieldTypeEnum type) {
-        this(rootResource, fieldResource, joinAttributes, fieldAttribute, label, type, null, null, false);
+        this(rootResource, fieldResource, joinAttributes, fieldAttribute, label, type, null, null, false, null);
+    }
+
+    FilterField(final Resource rootResource, final Resource fieldResource, final List<Attribute> joinAttributes, final Attribute fieldAttribute, final String label, final SearchFieldTypeEnum type, String[] jsonPath) {
+        this(rootResource, fieldResource, joinAttributes, fieldAttribute, label, type, null, null, false, jsonPath);
     }
 
     FilterField(final Resource rootResource, final Resource fieldResource, final List<Attribute> joinAttributes, final Attribute fieldAttribute, final String label, final SearchFieldTypeEnum type, final Class<? extends IPlatformEnum> enumClass) {
-        this(rootResource, fieldResource, joinAttributes, fieldAttribute, label, type, enumClass, null, false);
+        this(rootResource, fieldResource, joinAttributes, fieldAttribute, label, type, enumClass, null, false, null);
     }
 
-    FilterField(final Resource rootResource, final Resource fieldResource, final List<Attribute> joinAttributes, final Attribute fieldAttribute, final String label, final SearchFieldTypeEnum type, final Class<? extends IPlatformEnum> enumClass, final Object expectedValue, final boolean settable) {
+    FilterField(final Resource rootResource, final Resource fieldResource, final List<Attribute> joinAttributes, final Attribute fieldAttribute, final String label, final SearchFieldTypeEnum type, final Class<? extends IPlatformEnum> enumClass, final Object expectedValue, final boolean settable, final String[] jsonPath) {
         this.rootResource = rootResource;
         this.fieldResource = fieldResource;
         this.joinAttributes = joinAttributes == null ? List.of() : joinAttributes;
         this.fieldAttribute = fieldAttribute;
         this.label = label;
         this.type = type;
+        this.jsonPath = jsonPath;
         this.enumClass = enumClass;
         this.settable = settable;
         this.expectedValue = expectedValue;
@@ -155,6 +164,10 @@ public enum FilterField {
 
     public String getLabel() {
         return label;
+    }
+
+    public String[] getJsonPath() {
+        return jsonPath;
     }
 
     public Class<? extends IPlatformEnum> getEnumClass() {
