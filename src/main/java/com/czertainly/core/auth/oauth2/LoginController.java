@@ -1,10 +1,12 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.settings.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
-import com.czertainly.core.service.SettingService;
+import com.czertainly.core.settings.SettingsCache;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -18,16 +20,8 @@ import java.util.List;
 @Controller
 public class LoginController {
 
-    private SettingService settingService;
-    @Autowired
-    public void setSettingService(SettingService settingService) {
-        this.settingService = settingService;
-    }
-
-
     @GetMapping("/login")
-    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error)
-    {
+    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
         if (error != null) {
             model.addAttribute("error", "An error occurred: " + error);
@@ -46,26 +40,33 @@ public class LoginController {
             return "error";
         }
 
-        List<String> oauth2Providers = settingService.listNamesOfOAuth2Providers();
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        if (authenticationSettings.getOAuth2Providers().isEmpty()) return "no-login-options";
 
-        if (oauth2Providers.isEmpty()) return "no-login-options";
-
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().toList();
         if (oauth2Providers.size() == 1) {
-            request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(oauth2Providers.getFirst(), false).getSessionMaxInactiveInterval());
+            request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             try {
-                response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst());
+                response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst().getName());
             } catch (IOException e) {
                 throw new CzertainlyAuthenticationException("Error when redirecting to OAuth2 Provider with name " + oauth2Providers.getFirst() + " : " + e.getMessage());
             }
         }
 
-        model.addAttribute("providers", oauth2Providers);
+        model.addAttribute("providers", oauth2Providers.stream().map(OAuth2ProviderSettingsDto::getName).toList());
         return "login-options";
     }
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, HttpServletResponse response, HttpServletRequest request) throws IOException {
-        request.getSession().setMaxInactiveInterval(settingService.getOAuth2ProviderSettings(provider, false).getSessionMaxInactiveInterval());
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(provider);
+
+        if (providerSettings == null) {
+            throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(provider));
+        }
+
+        request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
     }
 

@@ -33,7 +33,6 @@ public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
     public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
 
-    public static final String OAUTH2_PROVIDER_CATEGORY = "oauth2Provider";
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
     public static final String LOGGING_RESOURCES_NAME = "resources";
 
@@ -54,6 +53,7 @@ public class SettingServiceImpl implements SettingService {
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
         settingsCache.cacheSettings(SettingsSection.LOGGING, getLoggingSettings());
         settingsCache.cacheSettings(SettingsSection.NOTIFICATIONS, getNotificationSettings());
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
     }
 
     @Override
@@ -125,7 +125,6 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateNotificationSettings(NotificationSettingsDto notificationSettings) {
-
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
         Setting setting;
         if (settings.isEmpty()) {
@@ -251,16 +250,36 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
-    public OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
-        List<Setting> settings = settingRepository.findByCategoryAndSectionAndName(OAUTH2_PROVIDER_CATEGORY, SettingsSection.AUTHENTICATION, providerName);
-        OAuth2ProviderSettings settingsDto = null;
+    public AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret) {
+        AuthenticationSettingsDto authenticationSettings = new AuthenticationSettingsDto();
+
+        List<Setting> oauth2ProviderSettings = settingRepository.findBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+        for (Setting oauth2Provider : oauth2ProviderSettings) {
+            OAuth2ProviderSettingsDto oAuth2ProviderSettings;
+            try {
+                oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
+                if (!withClientSecret) oAuth2ProviderSettings.setClientSecret(null);
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(oauth2Provider.getName()));
+            }
+            authenticationSettings.getOAuth2Providers().put(oauth2Provider.getName(), oAuth2ProviderSettings);
+        }
+
+        return authenticationSettings;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    public OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
+        List<Setting> settings = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        OAuth2ProviderSettingsDto settingsDto = null;
         if (!settings.isEmpty()) {
             Setting setting = settings.getFirst();
             try {
-                settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
+                settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) settingsDto.setClientSecret(null);
             } catch (JsonProcessingException e) {
-                throw new ValidationException("Unable to convert JSON value to OAuth2 Provider Settings object.");
+                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(providerName));
             }
         }
         return settingsDto;
@@ -268,64 +287,31 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
-    public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings settingsDto) {
-
-        List<Setting> settingForRegistrationId = settingRepository.findByCategoryAndSectionAndName(OAUTH2_PROVIDER_CATEGORY, SettingsSection.AUTHENTICATION, providerName);
+    public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsDto settingsDto) {
+        List<Setting> settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         Setting setting = settingForRegistrationId.isEmpty() ? new Setting() : settingForRegistrationId.getFirst();
         setting.setName(providerName);
-        setting.setCategory(OAUTH2_PROVIDER_CATEGORY);
+        setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         try {
             setting.setValue(objectMapper.writeValueAsString(settingsDto));
         } catch (JsonProcessingException e) {
-            throw new ValidationException("Unable to convert settings to JSON.");
+            throw new ValidationException("Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
         }
         setting.setSection(SettingsSection.AUTHENTICATION);
         settingRepository.save(setting);
-    }
 
-    @Override
-    public List<String> listNamesOfOAuth2Providers() {
-        return settingRepository.findBySection(SettingsSection.AUTHENTICATION).stream().map(Setting::getName).toList();
-    }
-
-    @Override
-    public OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri) {
-        Setting setting = settingRepository.findBySection(SettingsSection.AUTHENTICATION).stream()
-                .filter(s -> {
-                    try {
-                        return objectMapper.readValue(s.getValue(), OAuth2ProviderSettings.class).getIssuerUrl().equals(issuerUri);
-                    } catch (JsonProcessingException e) {
-                        return false;
-                    }
-                }).findFirst().orElse(null);
-        if (setting == null) return null;
-        try {
-            return objectMapper.readValue(setting.getValue(), OAuth2ProviderSettings.class);
-        } catch (JsonProcessingException e) {
-            throw new ValidationException("Could not process JSON value of OAuth2 Provider.");
-        }
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void removeOAuth2Provider(String providerName) {
-        List<Setting> settings = settingRepository.findByCategoryAndSectionAndName(OAUTH2_PROVIDER_CATEGORY, SettingsSection.AUTHENTICATION, providerName);
-        if (!settings.isEmpty()) settingRepository.delete(settings.getFirst());
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
-    public List<OAuth2SettingsDto> listOAuth2Providers() {
-        List<String> providerNames = listNamesOfOAuth2Providers();
-        List<OAuth2SettingsDto> settingsDtoList = new ArrayList<>();
-        for (String providerName: providerNames) {
-            OAuth2SettingsDto settingsDto = new OAuth2SettingsDto();
-            settingsDto.setProviderName(providerName);
-            settingsDto.setOAuth2ProviderSettings(getOAuth2ProviderSettings(providerName, false));
-            settingsDtoList.add(settingsDto);
+        List<Setting> settings = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        if (!settings.isEmpty()) {
+            settingRepository.deleteAll(settings);
+            settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
         }
-        return settingsDtoList;
     }
 
     private Map<String, Map<String, Setting>> mapSettingsByCategory(List<Setting> settings) {

@@ -2,7 +2,6 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.settings.*;
 
-import java.util.List;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 
 public interface SettingService {
@@ -24,18 +23,14 @@ public interface SettingService {
 
     void updateNotificationSettings(NotificationSettingsDto notificationSettings);
 
-    OAuth2ProviderSettings getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
+    AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret);
 
-    void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettings providerSettings);
+    OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
 
-    List<String> listNamesOfOAuth2Providers();
-
-    OAuth2ProviderSettings findOAuth2ProviderByIssuerUri(String issuerUri);
+    void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsDto providerSettings);
 
     void removeOAuth2Provider(String providerName);
 
-    List<OAuth2SettingsDto> listOAuth2Providers();
-    
     LoggingSettingsDto getLoggingSettings();
 
     void updateLoggingSettings(LoggingSettingsDto loggingSettingsDto);

@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
@@ -28,6 +29,7 @@ import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.NotificationInstanceService;
 import com.czertainly.core.service.SettingService;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -37,7 +39,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -92,8 +93,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     public List<NotificationInstanceDto> listNotificationInstances() {
         return notificationInstanceReferenceRepository.findAll()
                 .stream()
-                .map(NotificationInstanceReference::mapToDto)
-                .collect(Collectors.toList());
+                .map(NotificationInstanceReference::mapToDto).toList();
     }
 
     @Override
@@ -106,8 +106,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         NotificationInstanceDto notificationInstanceDto = notificationInstanceReference.mapToDto();
         notificationInstanceDto.setAttributeMappings(notificationInstanceReference.getMappedAttributes()
                 .stream()
-                .map(NotificationInstanceMappedAttributes::mapToDto)
-                .collect(Collectors.toList()));
+                .map(NotificationInstanceMappedAttributes::mapToDto).toList());
 
         if (notificationInstanceReference.getConnector() == null) {
             notificationInstanceDto.setConnectorName(notificationInstanceReference.getConnectorName() + " (Deleted)");
@@ -241,7 +240,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
             mappedAttribute.setMappingAttributeUuid(UUID.fromString(attributeMappingDto.getMappingAttributeUuid()));
             mappedAttribute.setMappingAttributeName(attributeMappingDto.getMappingAttributeName());
             return mappedAttribute;
-        }).collect(Collectors.toList()));
+        }).toList());
     }
 
     private void removeNotificationInstance(NotificationInstanceReference notificationInstanceRef) throws ValidationException {
@@ -252,8 +251,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
             } catch (NotFoundException notFoundException) {
                 logger.warn("Notification is already deleted in the connector. Proceeding to remove it from the core");
             } catch (Exception e) {
-                logger.error(e.getMessage());
-                throw new ValidationException(e.getMessage());
+                throw new ValidationException("Error in delete of notification instance: " + e.getMessage());
             }
         } else {
             logger.debug("Deleting notification without connector: {}", notificationInstanceRef);
@@ -261,7 +259,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         notificationInstanceReferenceRepository.delete(notificationInstanceRef);
 
         // check notifications settings and remove deleted instance if used
-        NotificationSettingsDto notificationsSettings = settingService.getNotificationSettings();
+        NotificationSettingsDto notificationsSettings = SettingsCache.getSettings(SettingsSection.NOTIFICATIONS);
         if (notificationsSettings != null) {
             boolean updated = false;
             for (NotificationType notificationType : NotificationType.values()) {

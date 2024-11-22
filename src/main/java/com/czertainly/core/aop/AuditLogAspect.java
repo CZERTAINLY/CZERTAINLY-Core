@@ -6,7 +6,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.SettingsSection;
-import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
@@ -26,7 +25,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import java.io.Serializable;
 import java.lang.reflect.Parameter;
@@ -50,13 +48,8 @@ public class AuditLogAspect {
 
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
-        // if in non-request context, do not log
-        if (RequestContextHolder.getRequestAttributes() == null) {
-            return joinPoint.proceed();
-        }
-
-        AuditLoggingSettingsDto loggingSettings = ((LoggingSettingsDto) SettingsCache.getSettings(SettingsSection.LOGGING)).getAuditLogs();
-        if (loggingSettings.getOutput() == AuditLogOutput.NONE) {
+        LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE) {
             return joinPoint.proceed();
         }
 
@@ -84,13 +77,13 @@ public class AuditLogAspect {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
 
             LogRecord logRecord = logBuilder.build();
-            if (!logger.filterLog(loggingSettings, logRecord.module(), logRecord.resource().type())) {
-                if (loggingSettings.getOutput() == AuditLogOutput.ALL || loggingSettings.getOutput() == AuditLogOutput.DATABASE) {
+            if (!logger.filterLog(loggingSettingsDto.getAuditLogs(), logRecord.module(), logRecord.resource().type())) {
+                if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.DATABASE) {
                     AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
                     auditLogRepository.save(auditLog);
                 }
 
-                if (loggingSettings.getOutput() == AuditLogOutput.ALL || loggingSettings.getOutput() == AuditLogOutput.CONSOLE) {
+                if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.CONSOLE) {
                     logger.logAudited(logRecord);
                 }
             }
