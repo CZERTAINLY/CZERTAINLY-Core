@@ -53,9 +53,6 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;
 
-    @Value("${auditLog.enabled:false}")
-    private boolean auditLogEnabled;
-
     private AuditLogRepository auditLogRepository;
     private ExportProcessor exportProcessor;
 
