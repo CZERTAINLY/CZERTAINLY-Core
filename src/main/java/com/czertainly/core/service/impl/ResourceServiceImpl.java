@@ -286,9 +286,10 @@ public class ResourceServiceImpl implements ResourceService {
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
         for (FilterField filterField : enums) {
             // skip filter fields with JSON paths since it is not supported by rule evaluator
-            if (filterField.getJsonPath() != null) continue;
             // If getting only settable fields, skip not settable fields
-            if (settable && !filterField.isSettable()) continue;
+            if (filterField.getJsonPath() != null || (settable && !filterField.isSettable())) {
+                continue;
+            }
             // Filter field has a single value, don't need to provide list
             if (filterField.getType() != SearchFieldTypeEnum.LIST)
                 fieldDataDtos.add(SearchHelper.prepareSearch(filterField));
