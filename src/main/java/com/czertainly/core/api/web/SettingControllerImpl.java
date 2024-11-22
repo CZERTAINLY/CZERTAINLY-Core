@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.settings.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
@@ -75,5 +76,16 @@ public class SettingControllerImpl implements SettingController {
     @Override
     public void removeOAuth2Provider(String providerName) {
         settingService.removeOAuth2Provider(providerName);
+    }
+    
+    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.DETAIL, name = "logging")
+    public LoggingSettingsDto getLoggingSettings() {
+        return settingService.getLoggingSettings();
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "logging")
+    public void updateLoggingSettings(LoggingSettingsDto loggingSettingsDto) {
+        settingService.updateLoggingSettings(loggingSettingsDto);
     }
 }

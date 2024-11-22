@@ -7,6 +7,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
+import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Objects;
@@ -17,7 +18,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "certificate_request")
-public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited  {
+public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited implements Serializable {
 
     @Column(name = "certificate_type")
     @Enumerated(EnumType.STRING)

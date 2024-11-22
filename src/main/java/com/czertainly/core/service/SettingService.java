@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.model.core.settings.*;
 
 import java.util.List;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 
 public interface SettingService {
 
@@ -35,4 +36,7 @@ public interface SettingService {
 
     List<OAuth2SettingsDto> listOAuth2Providers();
     
+    LoggingSettingsDto getLoggingSettings();
+
+    void updateLoggingSettings(LoggingSettingsDto loggingSettingsDto);
 }

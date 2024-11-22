@@ -5,6 +5,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
+import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -15,7 +16,7 @@ import java.util.Set;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "certificate_content")
-public class CertificateContent {
+public class CertificateContent implements Serializable {
 
     @Id
     @Column(name = "id")
