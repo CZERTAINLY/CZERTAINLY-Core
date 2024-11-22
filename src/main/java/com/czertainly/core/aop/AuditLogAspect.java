@@ -3,6 +3,7 @@ package com.czertainly.core.aop;
 import com.czertainly.api.model.common.Named;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.Sensitive;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.SettingsSection;
@@ -121,7 +122,7 @@ public class AuditLogAspect {
                     if (paramResource != null) resource = paramResource;
                 }
 
-                if (logger.getLogger().isDebugEnabled()) {
+                if (logger.getLogger().isDebugEnabled() && !parameters[i].isAnnotationPresent(Sensitive.class)) {
                     if (parameterValue instanceof Optional<?> optional) {
                         parameterValue = optional.orElse(null);
                     }

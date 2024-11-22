@@ -36,6 +36,8 @@ public class SettingServiceImpl implements SettingService {
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
     public static final String LOGGING_RESOURCES_NAME = "resources";
 
+    public static final String AUTHENTICATION_DISABLE_LOCALHOST_NAME = "disableLocalhostUser";
+
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
     private final ObjectMapper mapper;
@@ -264,17 +266,42 @@ public class SettingServiceImpl implements SettingService {
             }
             authenticationSettings.getOAuth2Providers().put(oauth2Provider.getName(), oAuth2ProviderSettings);
         }
+        Setting disableLocalhostSetting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null, AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        if (disableLocalhostSetting != null) {
+            authenticationSettings.setDisableLocalhostUser(Boolean.parseBoolean(disableLocalhostSetting.getValue()));
+        }
 
         return authenticationSettings;
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
+    public void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto) {
+        Setting disableLocalhostSetting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null, AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        if (disableLocalhostSetting == null) {
+            disableLocalhostSetting = new Setting();
+            disableLocalhostSetting.setSection(SettingsSection.AUTHENTICATION);
+            disableLocalhostSetting.setName(AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        }
+        disableLocalhostSetting.setValue(String.valueOf(authenticationSettingsDto.isDisableLocalhostUser()));
+        settingRepository.save(disableLocalhostSetting);
+
+        if (authenticationSettingsDto.getOAuth2Providers() != null) {
+            settingRepository.deleteBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+
+            for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
+                updateOAuth2ProviderSettings(providerDto.getName(), providerDto);
+            }
+        }
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
-        List<Setting> settings = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        Setting setting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         OAuth2ProviderSettingsDto settingsDto = null;
-        if (!settings.isEmpty()) {
-            Setting setting = settings.getFirst();
+        if (setting != null) {
             try {
                 settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) settingsDto.setClientSecret(null);
@@ -288,17 +315,17 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsDto settingsDto) {
-        List<Setting> settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
-        Setting setting = settingForRegistrationId.isEmpty() ? new Setting() : settingForRegistrationId.getFirst();
-        setting.setName(providerName);
+        Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        Setting setting = settingForRegistrationId == null ? new Setting() : settingForRegistrationId;
+        setting.setSection(SettingsSection.AUTHENTICATION);
         setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+        setting.setName(providerName);
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         try {
             setting.setValue(objectMapper.writeValueAsString(settingsDto));
         } catch (JsonProcessingException e) {
             throw new ValidationException("Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
         }
-        setting.setSection(SettingsSection.AUTHENTICATION);
         settingRepository.save(setting);
 
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
@@ -307,9 +334,8 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void removeOAuth2Provider(String providerName) {
-        List<Setting> settings = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
-        if (!settings.isEmpty()) {
-            settingRepository.deleteAll(settings);
+        long deleted = settingRepository.deleteBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        if (deleted > 0) {
             settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
         }
     }

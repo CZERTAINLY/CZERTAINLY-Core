@@ -25,6 +25,8 @@ public interface SettingService {
 
     AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret);
 
+    void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto);
+
     OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
 
     void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsDto providerSettings);
@@ -34,4 +36,5 @@ public interface SettingService {
     LoggingSettingsDto getLoggingSettings();
 
     void updateLoggingSettings(LoggingSettingsDto loggingSettingsDto);
+
 }

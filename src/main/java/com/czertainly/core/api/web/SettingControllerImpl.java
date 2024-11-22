@@ -64,6 +64,12 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "authentication")
+    public void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto) {
+        settingService.updateAuthenticationSettings(authenticationSettingsDto);
+    }
+
+    @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, affiliatedResource = Resource.AUTHENTICATION_PROVIDER, operation = Operation.DETAIL, name = "authentication")
     public OAuth2ProviderSettingsDto getOAuth2ProviderSettings(@LogResource(name = true, affiliated = true) String providerName) {
         return settingService.getOAuth2ProviderSettings(providerName, false);
