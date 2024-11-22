@@ -20,12 +20,14 @@ import java.util.List;
 @Controller
 public class LoginController {
 
+    private static final String ERROR_ATTRIBUTE_NAME = "error";
+
     @GetMapping("/login")
     public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
         if (error != null) {
-            model.addAttribute("error", "An error occurred: " + error);
-            return "error";
+            model.addAttribute(ERROR_ATTRIBUTE_NAME, "An error occurred: " + error);
+            return ERROR_ATTRIBUTE_NAME;
         }
 
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
@@ -36,8 +38,8 @@ public class LoginController {
         if (redirectUrl != null && !redirectUrl.isEmpty()) {
             request.getSession().setAttribute("redirectUrl", baseUrl + redirectUrl);
         } else {
-            model.addAttribute("error", "No redirect URL provided");
-            return "error";
+            model.addAttribute(ERROR_ATTRIBUTE_NAME, "No redirect URL provided");
+            return ERROR_ATTRIBUTE_NAME;
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);

@@ -19,9 +19,12 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyAuthenticationSuccessHandler.class);
 
-    @Autowired
     private OAuth2AuthorizedClientService authorizedClientService;
 
+    @Autowired
+    public void setAuthorizedClientService(OAuth2AuthorizedClientService authorizedClientService) {
+        this.authorizedClientService = authorizedClientService;
+    }
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {

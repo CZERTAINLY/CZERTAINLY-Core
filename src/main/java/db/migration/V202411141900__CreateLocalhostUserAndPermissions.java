@@ -24,11 +24,10 @@ public class V202411141900__CreateLocalhostUserAndPermissions extends BaseJavaMi
 
     public void migrate(Context context) throws Exception {
         // create role
-        Map<Resource, List<ResourceAction>> roleResourceActions = new HashMap<>() {{
-            put(Resource.CERTIFICATE, List.of(ResourceAction.CREATE));
-            put(Resource.USER, List.of(ResourceAction.CREATE, ResourceAction.UPDATE));
-            put(Resource.SETTINGS, List.of(ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.UPDATE));
-        }};
+        Map<Resource, List<ResourceAction>> roleResourceActions = new EnumMap<>(Resource.class);
+        roleResourceActions.put(Resource.CERTIFICATE, List.of(ResourceAction.CREATE));
+        roleResourceActions.put(Resource.USER, List.of(ResourceAction.CREATE, ResourceAction.UPDATE));
+        roleResourceActions.put(Resource.SETTINGS, List.of(ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.UPDATE));
 
         RoleRequestDto roleRequestDto = new RoleRequestDto();
         roleRequestDto.setName(AuthHelper.LOCALHOST_USERNAME);
@@ -42,8 +41,9 @@ public class V202411141900__CreateLocalhostUserAndPermissions extends BaseJavaMi
         userRequestDto.setDescription("System user for localhost operations");
         userRequestDto.setEnabled(true);
         userRequestDto.setSystemUser(true);
-        DatabaseAuthMigration.createUser(userRequestDto, new ArrayList<>() {{
-            add(localhostRole.getUuid());
-        }});
+
+        List<String> roleUuids = new ArrayList<>();
+        roleUuids.add(localhostRole.getUuid());
+        DatabaseAuthMigration.createUser(userRequestDto, roleUuids);
     }
 }

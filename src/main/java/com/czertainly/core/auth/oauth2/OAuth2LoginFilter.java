@@ -46,6 +46,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2LoginFilter.class);
 
     private CzertainlyAuthenticationClient authenticationClient;
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
     @Autowired
     public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
@@ -53,8 +54,9 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     @Autowired
-    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
-
+    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
