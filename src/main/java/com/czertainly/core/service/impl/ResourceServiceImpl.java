@@ -284,22 +284,25 @@ public class ResourceServiceImpl implements ResourceService {
 
         List<FilterField> enums = FilterField.getEnumsForResource(resource);
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
-        for (FilterField fieldEnum : enums) {
+        for (FilterField filterField : enums) {
+            // skip filter fields with JSON paths since it is not supported by rule evaluator
             // If getting only settable fields, skip not settable fields
-            if (settable && !fieldEnum.isSettable()) continue;
+            if (filterField.getJsonPath() != null || (settable && !filterField.isSettable())) {
+                continue;
+            }
             // Filter field has a single value, don't need to provide list
-            if (fieldEnum.getType() != SearchFieldTypeEnum.LIST)
-                fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum));
+            if (filterField.getType() != SearchFieldTypeEnum.LIST)
+                fieldDataDtos.add(SearchHelper.prepareSearch(filterField));
             else {
                 // Filter field has values of an Enum
-                if (fieldEnum.getEnumClass() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, fieldEnum.getEnumClass().getEnumConstants()));
+                if (filterField.getEnumClass() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
-                else if (fieldEnum.getFieldResource() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, getObjectsForResource(fieldEnum.getFieldResource())));
+                else if (filterField.getFieldResource() != null)
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getObjectsForResource(filterField.getFieldResource())));
                     // Filter field has values of all possible values of a property
                 else {
-                    fieldDataDtos.add(SearchHelper.prepareSearch(fieldEnum, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(fieldEnum, false), resource, entityManager).getResultList()));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(filterField, false), resource, entityManager).getResultList()));
                 }
             }
         }
