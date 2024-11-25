@@ -25,7 +25,8 @@ public class V202411141900__CreateLocalhostUserAndPermissions extends BaseJavaMi
     public void migrate(Context context) throws Exception {
         // create role
         Map<Resource, List<ResourceAction>> roleResourceActions = new EnumMap<>(Resource.class);
-        roleResourceActions.put(Resource.CERTIFICATE, List.of(ResourceAction.CREATE));
+        roleResourceActions.put(Resource.CERTIFICATE, List.of(ResourceAction.DETAIL, ResourceAction.CREATE));
+        roleResourceActions.put(Resource.RA_PROFILE, List.of(ResourceAction.MEMBERS));
         roleResourceActions.put(Resource.USER, List.of(ResourceAction.CREATE, ResourceAction.UPDATE));
         roleResourceActions.put(Resource.SETTINGS, List.of(ResourceAction.LIST, ResourceAction.DETAIL, ResourceAction.UPDATE));
 

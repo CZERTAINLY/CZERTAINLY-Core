@@ -60,7 +60,7 @@ public class DatabaseMigration {
         V202404021100__CreateCmpUserAndPermissions(-264892945),
         V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276),
         V202408231055__DuplicateCertificates(-1714171989),
-        V202411141900__CreateLocalhostUserAndPermissions(-1667328445);
+        V202411141900__CreateLocalhostUserAndPermissions(-123211099);
 
       
         private final int checksum;
