@@ -29,8 +29,6 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Root;
 import org.apache.commons.lang3.function.TriFunction;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -54,9 +52,6 @@ public class AuditLogServiceImpl implements AuditLogService {
 
     @Value("${export.auditLog.fileName.prefix:audit-logs}")
     private String fileNamePrefix;
-
-    @Value("${auditLog.enabled:false}")
-    private boolean auditLogEnabled;
 
     private AuditLogRepository auditLogRepository;
     private ExportProcessor exportProcessor;

@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.BeautificationUtil;
 import jakarta.validation.ConstraintViolationException;
@@ -392,6 +393,18 @@ public class ExceptionHandlingAdvice {
         }
         ResponseEntity.BodyBuilder response = ResponseEntity.status(statusCode).contentType(MediaType.valueOf("application/problem+json"));
         return response.body(ex.getException());
+    }
+
+    /**
+     * Handler for {@link CzertainlyAuthenticationException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(CzertainlyAuthenticationException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleCzertainlyAuthenticationException(CzertainlyAuthenticationException ex) {
+        LOG.info("HTTP 400: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
     /**

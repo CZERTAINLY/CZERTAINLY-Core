@@ -1,13 +1,16 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
+import com.czertainly.api.model.core.settings.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
-import com.czertainly.core.service.SettingService;
+import com.czertainly.core.settings.SettingsCache;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -67,8 +70,6 @@ public class SecurityConfig {
 
     private OAuth2LoginFilter oauth2LoginFilter;
 
-    private SettingService settingService;
-    
     @Autowired
     public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
         this.clientRegistrationRepository = clientRegistrationRepository;
@@ -147,9 +148,15 @@ public class SecurityConfig {
             }
             if (issuerUri == null) throw new ValidationException("Issuer URI is not present in JWT.");
 
-            OAuth2ProviderSettings providerSettings = settingService.findOAuth2ProviderByIssuerUri(issuerUri);
-            if (providerSettings == null)
-                throw new ValidationException("No OAuth2 Provider with issuer URI " + issuerUri + "configured.");
+            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream()
+                    .filter(p -> p.getIssuerUrl().equals(issuerUri))
+                    .findFirst().orElse(null);
+
+            if (providerSettings == null) {
+                throw new CzertainlyAuthenticationException("No OAuth2 Provider with issuer URI '%s' configured".formatted(issuerUri));
+            }
+
             int skew = providerSettings.getSkew();
             List<String> audiences = providerSettings.getAudiences();
 
@@ -241,8 +248,4 @@ public class SecurityConfig {
         this.protocolValidationFilter = protocolValidationFilter;
     }
 
-    @Autowired
-    public void setSettingService(SettingService settingService) {
-        this.settingService = settingService;
-    }
 }

@@ -1,10 +1,11 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
-import com.czertainly.core.service.SettingService;
+import com.czertainly.api.model.core.settings.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -16,20 +17,14 @@ import java.util.Map;
 @Component
 public class CzertainlyClientRegistrationRepository implements ClientRegistrationRepository {
 
-    private SettingService settingService;
-
-    @Autowired
-    public void setSettingService(SettingService settingService) {
-        this.settingService = settingService;
-    }
-
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
-        OAuth2ProviderSettings clientSettings = settingService.getOAuth2ProviderSettings(registrationId, true);
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        OAuth2ProviderSettingsDto clientSettings = authenticationSettings.getOAuth2Providers().get(registrationId);
         return convertJsonToClientRegistration(clientSettings, registrationId);
     }
 
-    private ClientRegistration convertJsonToClientRegistration(OAuth2ProviderSettings clientSettings, String registrationId) {
+    private ClientRegistration convertJsonToClientRegistration(OAuth2ProviderSettingsDto clientSettings, String registrationId) {
         if (clientSettings == null) {
             return null;
         }

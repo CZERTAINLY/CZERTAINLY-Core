@@ -21,12 +21,13 @@ public class CzertainlyAuthenticationConverter implements AuthenticationConverte
     public CzertainlyAuthenticationRequest convert(HttpServletRequest request) {
         HttpHeaders httpHeaders = extractHttpHeaders(request);
 
-        boolean isLocalhostAddress = false;
+        boolean isLocalhostAddress;
         String ipAddress = AuthHelper.getClientIPAddress(request);
         try {
             InetAddress address = InetAddress.getByName(ipAddress);
             isLocalhostAddress = address.isAnyLocalAddress() || address.isLoopbackAddress();
         } catch (UnknownHostException ignored) {
+            isLocalhostAddress = false;
         }
 
         return new CzertainlyAuthenticationRequest(httpHeaders, new WebAuthenticationDetails(request), isLocalhostAddress);

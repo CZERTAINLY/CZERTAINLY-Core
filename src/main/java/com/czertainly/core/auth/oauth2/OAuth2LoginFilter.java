@@ -1,12 +1,14 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
+import com.czertainly.api.model.core.settings.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
-import com.czertainly.core.service.SettingService;
+import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.FilterChain;
@@ -44,13 +46,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2LoginFilter.class);
 
     private CzertainlyAuthenticationClient authenticationClient;
-
-    private SettingService settingService;
-
-    @Autowired
-    public void setSettingService(SettingService settingService) {
-        this.settingService = settingService;
-    }
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
     @Autowired
     public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
@@ -58,8 +54,9 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     @Autowired
-    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
-
+    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
@@ -70,9 +67,14 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
            LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
 
             OAuth2User oauthUser = oauthToken.getPrincipal();
-
             List<String> tokenAudiences = oauthUser.getAttribute("aud");
-            OAuth2ProviderSettings providerSettings = settingService.getOAuth2ProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), false);
+
+            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
+            if (providerSettings == null) {
+                throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(oauthToken.getAuthorizedClientRegistrationId()));
+            }
+
             List<String> clientAudiences = providerSettings.getAudiences();
             int skew = providerSettings.getSkew();
 

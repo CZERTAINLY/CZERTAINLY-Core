@@ -3,27 +3,29 @@ package com.czertainly.core.aop;
 import com.czertainly.api.model.common.Named;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.Sensitive;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
-import com.czertainly.core.logging.AuditLogOutput;
+import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
+import com.czertainly.core.settings.SettingsCache;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
 import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Component;
-import org.springframework.web.context.request.RequestContextHolder;
 
 import java.io.Serializable;
 import java.lang.reflect.Parameter;
@@ -31,7 +33,6 @@ import java.util.*;
 
 @Aspect
 @Component
-@ConditionalOnExpression("${auditlog.enabled:true}")
 public class AuditLogAspect {
 
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);
@@ -41,9 +42,6 @@ public class AuditLogAspect {
     @Value("${logging.schema-version}")
     private String schemaVersion;
 
-    @Value("${auditlog.output}")
-    private AuditLogOutput auditLogOutput;
-
     @Autowired
     public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
         this.auditLogRepository = auditLogRepository;
@@ -51,8 +49,8 @@ public class AuditLogAspect {
 
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
-        // if in non-request context, do not log
-        if (RequestContextHolder.getRequestAttributes() == null) {
+        LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE) {
             return joinPoint.proceed();
         }
 
@@ -80,14 +78,15 @@ public class AuditLogAspect {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
 
             LogRecord logRecord = logBuilder.build();
+            if (!logger.filterLog(loggingSettingsDto.getAuditLogs(), logRecord.module(), logRecord.resource().type())) {
+                if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.DATABASE) {
+                    AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
+                    auditLogRepository.save(auditLog);
+                }
 
-            if (auditLogOutput == AuditLogOutput.ALL || auditLogOutput == AuditLogOutput.DATABASE) {
-                AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
-                auditLogRepository.save(auditLog);
-            }
-
-            if (auditLogOutput == AuditLogOutput.ALL || auditLogOutput == AuditLogOutput.CONSOLE) {
-                logger.logAudited(logRecord);
+                if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.CONSOLE) {
+                    logger.logAudited(logRecord);
+                }
             }
         }
     }
@@ -123,7 +122,7 @@ public class AuditLogAspect {
                     if (paramResource != null) resource = paramResource;
                 }
 
-                if (logger.getLogger().isDebugEnabled()) {
+                if (logger.getLogger().isDebugEnabled() && !parameters[i].isAnnotationPresent(Sensitive.class)) {
                     if (parameterValue instanceof Optional<?> optional) {
                         parameterValue = optional.orElse(null);
                     }

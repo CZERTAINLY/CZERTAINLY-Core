@@ -1,10 +1,14 @@
 package com.czertainly.core.security.authn.client;
 
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
+import com.czertainly.api.model.core.settings.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -118,9 +122,12 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
 
         if (!hasAuthenticationMethod && isLocalhostRequest) {
-            requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
-            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
-                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            if (!authenticationSettings.isDisableLocalhostUser()) {
+                requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
+                if (requestDto.getAuthMethod() == AuthMethod.NONE) {
+                    requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+                }
             }
         }
 
