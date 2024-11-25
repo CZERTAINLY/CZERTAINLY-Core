@@ -53,7 +53,7 @@ class OAuth2Test extends BaseSpringBootTest {
 
     private KeyPair keyPair;
 
-    private final static String ISSUER_URL = "http://localhost:8082/realms/CZERTAINLY-realm";
+    private static final String ISSUER_URL = "http://localhost:8082/realms/CZERTAINLY-realm";
 
     private OAuth2ProviderSettingsDto providerSettings;
 
@@ -127,11 +127,11 @@ class OAuth2Test extends BaseSpringBootTest {
                 .claim("roles", "role")
                 .claim("random", "random").build();
 
-        WireMockServer mockServer = new WireMockServer(10004);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
+        WireMockServer authMockServer = new WireMockServer(10004);
+        authMockServer.start();
+        WireMock.configureFor("localhost", authMockServer.port());
 
-        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
+        authMockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
                 WireMock.okJson("""        
                         {
                           "authenticated": true,

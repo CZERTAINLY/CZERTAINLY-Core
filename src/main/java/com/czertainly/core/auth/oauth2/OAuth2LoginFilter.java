@@ -99,17 +99,10 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 throw new CzertainlyAuthenticationException("Audiences in access token issued by OAuth2 Provider do not match any of audiences set for the provider in settings.");
             }
 
-            Map<String, Object> extractedClaims = new HashMap<>();
-            extractedClaims.put("sub", oauthUser.getAttribute("sub"));
-            extractedClaims.put("username", oauthUser.getAttribute("username"));
-            extractedClaims.put("given_name", oauthUser.getAttribute("given_name"));
-            extractedClaims.put("family_name", oauthUser.getAttribute("family_name"));
-            extractedClaims.put("email", oauthUser.getAttribute("email"));
-            extractedClaims.put("roles", oauthUser.getAttribute("roles") == null ? new ArrayList<>() : oauthUser.getAttribute("roles"));
 
             String encodedPayload = null;
             try {
-                encodedPayload = Base64.getEncoder().encodeToString(new ObjectMapper().writeValueAsString(extractedClaims).getBytes());
+                encodedPayload = Base64.getEncoder().encodeToString(new ObjectMapper().writeValueAsString(extractClaims(oauthUser)).getBytes());
             } catch (JsonProcessingException e) {
                 LOGGER.error("Error when encoding JWT claims to payload: {}", e.getMessage());
             }
@@ -157,6 +150,18 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             throw new CzertainlyAuthenticationException("Cannot refresh access token, refresh token is not available.");
         }
     }
+
+    private Map<String,Object> extractClaims(OAuth2User oauthUser) {
+        Map<String, Object> extractedClaims = new HashMap<>();
+        extractedClaims.put("sub", oauthUser.getAttribute("sub"));
+        extractedClaims.put("username", oauthUser.getAttribute("username"));
+        extractedClaims.put("given_name", oauthUser.getAttribute("given_name"));
+        extractedClaims.put("family_name", oauthUser.getAttribute("family_name"));
+        extractedClaims.put("email", oauthUser.getAttribute("email"));
+        extractedClaims.put("roles", oauthUser.getAttribute("roles") == null ? new ArrayList<>() : oauthUser.getAttribute("roles"));
+        return extractedClaims;
+    }
+
 
 }
 
