@@ -139,7 +139,11 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     .attribute(OAuth2AuthorizationContext.REQUEST_SCOPE_ATTRIBUTE_NAME, clientRegistration.getScopes().toArray(new String[0]))
                     .build();
 
-            authorizedClient = authorizedClientProvider.authorize(context);
+            try {
+                authorizedClient = authorizedClientProvider.authorize(context);
+            } catch (Exception e) {
+                throw new CzertainlyAuthenticationException("Could not refresh token: " + e.getMessage());
+            }
 
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {

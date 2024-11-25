@@ -7,10 +7,7 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 
 @TestConfiguration
 class SpringBootTestContext {
-
     @MockBean
     OpaClient opaClient;
 
-    @MockBean
-    CzertainlyAuthenticationClient czertainlyAuthenticationClient;
 }

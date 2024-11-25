@@ -50,7 +50,7 @@ public class AuditLogAspect {
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
         LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
-        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE) {
+        if (loggingSettingsDto == null || (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE )) {
             return joinPoint.proceed();
         }
 

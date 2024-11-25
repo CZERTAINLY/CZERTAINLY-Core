@@ -1,6 +1,7 @@
 package com.czertainly.core.security.oauth2;
 
-import com.czertainly.api.model.core.settings.OAuth2ProviderSettings;
+import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.core.auth.oauth2.CzertainlyClientRegistrationRepository;
 import com.czertainly.core.auth.oauth2.CzertainlyJwtAuthenticationConverter;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -41,28 +42,31 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 @SpringBootTest
 class OAuth2Test extends BaseSpringBootTest {
 
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
-    }
-
     @Autowired
     private JwtDecoder jwtDecoder;
 
     @Autowired
     private SettingService settingService;
 
+    @Autowired
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
+
     private KeyPair keyPair;
 
-    private final String ISSUER_URL = "http://localhost:8081/realms/CZERTAINLY-realm";
+    private final static String ISSUER_URL = "http://localhost:8082/realms/CZERTAINLY-realm";
 
-    private OAuth2ProviderSettings providerSettings;
+    private OAuth2ProviderSettingsDto providerSettings;
 
     String tokenValue;
 
     CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter;
 
     WireMockServer mockServer;
+
+    @DynamicPropertySource
+    static void authServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("auth-service.base-url", () -> "http://localhost:10004");
+    }
 
     @Autowired
     public void setJwtAuthenticationConverter(CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter) {
@@ -71,7 +75,7 @@ class OAuth2Test extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() throws NoSuchAlgorithmException, JsonProcessingException, JOSEException {
-        mockServer = new WireMockServer(8081);
+        mockServer = new WireMockServer(8082);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
@@ -82,24 +86,28 @@ class OAuth2Test extends BaseSpringBootTest {
         mockServer.stubFor(WireMock.get("/realms/CZERTAINLY-realm/.well-known/openid-configuration")
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("""
+                        .withBody(String.format("""
                                 {
-                                  "issuer": "http://localhost:8081/realms/CZERTAINLY-realm",
-                                  "authorization_endpoint": "http://localhost:8081/realms/CZERTAINLY-realm/protocol/openid-connect/auth",
-                                  "token_endpoint": "http://localhost:8081/realms/CZERTAINLY-realm/protocol/openid-connect/token",
-                                  "jwks_uri": "http://localhost:8081/realms/CZERTAINLY-realm/protocol/openid-connect/certs",
+                                  "issuer": "%s",
+                                  "authorization_endpoint": "%s/protocol/openid-connect/auth",
+                                  "token_endpoint": "%s/protocol/openid-connect/token",
+                                  "jwks_uri": "%s/protocol/openid-connect/certs",
                                   "grant_types_supported": ["authorization_code", "implicit", "refresh_token"]
                                 }
-                                """)));
+                                """, ISSUER_URL, ISSUER_URL, ISSUER_URL, ISSUER_URL))));
         mockServer.stubFor(WireMock.get("/realms/CZERTAINLY-realm/protocol/openid-connect/certs")
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
                         .withBody("{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}")));
 
 
-        providerSettings = new OAuth2ProviderSettings();
+        providerSettings = new OAuth2ProviderSettingsDto();
         providerSettings.setClientSecret("secret");
         providerSettings.setIssuerUrl(ISSUER_URL);
+        providerSettings.setClientId("client");
+        providerSettings.setClientSecret("secret");
+        providerSettings.setAuthorizationUrl("http");
+        providerSettings.setTokenUrl("http");
         settingService.updateOAuth2ProviderSettings("provider", providerSettings);
 
         tokenValue = createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000);
@@ -110,21 +118,40 @@ class OAuth2Test extends BaseSpringBootTest {
     void stopServer() {
         mockServer.stop();
     }
+
     @Test
     void testJwtConverter() {
         Jwt jwt = Jwt.withTokenValue("token")
                 .header("alg", "HS256")
                 .claim("username", "user")
                 .claim("roles", "role")
-        .claim("random", "random").build();
+                .claim("random", "random").build();
 
-//        WireMockServer mockServer = new WireMockServer(10001);
-//        mockServer.start();
-//        WireMock.configureFor("localhost", mockServer.port());
-//
-//        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
-//                WireMock.okJson("{ \"authenticated\": true, \"data\": \"{\"user\":{\"uuid\":\"cced14a6-08db-4c2c-be07-9dc084357260\",\"username\":\"user2\",\"firstName\":\"user\",\"lastName\":\"user\",\"email\":\"mail@mail.com\",\"description\":null,\"groups\":[],\"enabled\":true,\"systemUser\":false,\"createdAt\":\"2024-10-04T13:48:43.325083+00:00\",\"updatedAt\":\"2024-10-04T13:48:43.325586+00:00\"},\"roles\":[{\"uuid\":\"ca08849a-ab46-4194-8526-269ce5a62814\",\"name\":\"superadmin\"}],\"permissions\":{\"allowAllResources\":true,\"resources\":[]}}\"}")
-//        ));
+        WireMockServer mockServer = new WireMockServer(10004);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
+                WireMock.okJson("""        
+                        {
+                          "authenticated": true,
+                          "data": {
+                            "user": {
+                              "username": "user2"
+                            },
+                            "roles": [
+                              {
+                                "name": "superadmin"
+                              }
+                            ],
+                            "permissions": {
+                              "allowAllResources": true,
+                              "resources": []
+                            }
+                          }
+                        }
+                        """)
+        ));
 
         Assertions.assertDoesNotThrow(() -> jwtAuthenticationConverter.convert(jwt));
     }
@@ -164,6 +191,11 @@ class OAuth2Test extends BaseSpringBootTest {
         settingService.updateOAuth2ProviderSettings("provider", providerSettings);
         SecurityContextHolder.clearContext();
         Assertions.assertThrows(JwtValidationException.class, () -> jwtDecoder.decode(tokenValue));
+    }
+
+    @Test
+    void testRetrieveClientRegistration() {
+        Assertions.assertNotNull(clientRegistrationRepository.findByRegistrationId("provider"));
     }
 
     private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {
