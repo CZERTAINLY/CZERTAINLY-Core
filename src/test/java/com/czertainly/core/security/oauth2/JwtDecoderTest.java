@@ -1,8 +1,6 @@
 package com.czertainly.core.security.oauth2;
 
 import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
-import com.czertainly.core.auth.oauth2.CzertainlyClientRegistrationRepository;
-import com.czertainly.core.auth.oauth2.CzertainlyJwtAuthenticationConverter;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -26,8 +24,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.jwt.JwtValidationException;
-import org.springframework.test.context.DynamicPropertyRegistry;
-import org.springframework.test.context.DynamicPropertySource;
 
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -40,16 +36,13 @@ import java.util.*;
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 
 @SpringBootTest
-class OAuth2Test extends BaseSpringBootTest {
+class JwtDecoderTest extends BaseSpringBootTest {
 
     @Autowired
     private JwtDecoder jwtDecoder;
 
     @Autowired
     private SettingService settingService;
-
-    @Autowired
-    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
 
     private KeyPair keyPair;
 
@@ -59,19 +52,8 @@ class OAuth2Test extends BaseSpringBootTest {
 
     String tokenValue;
 
-    CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter;
-
     WireMockServer mockServer;
 
-    @DynamicPropertySource
-    static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10004");
-    }
-
-    @Autowired
-    public void setJwtAuthenticationConverter(CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter) {
-        this.jwtAuthenticationConverter = jwtAuthenticationConverter;
-    }
 
     @BeforeEach
     void setUp() throws NoSuchAlgorithmException, JsonProcessingException, JOSEException {
@@ -120,43 +102,6 @@ class OAuth2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testJwtConverter() {
-        Jwt jwt = Jwt.withTokenValue("token")
-                .header("alg", "HS256")
-                .claim("username", "user")
-                .claim("roles", "role")
-                .claim("random", "random").build();
-
-        WireMockServer authMockServer = new WireMockServer(10004);
-        authMockServer.start();
-        WireMock.configureFor("localhost", authMockServer.port());
-
-        authMockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
-                WireMock.okJson("""        
-                        {
-                          "authenticated": true,
-                          "data": {
-                            "user": {
-                              "username": "user2"
-                            },
-                            "roles": [
-                              {
-                                "name": "superadmin"
-                              }
-                            ],
-                            "permissions": {
-                              "allowAllResources": true,
-                              "resources": []
-                            }
-                          }
-                        }
-                        """)
-        ));
-
-        Assertions.assertDoesNotThrow(() -> jwtAuthenticationConverter.convert(jwt));
-    }
-
-    @Test
     void testJwtDecoderOnValidTokenWithoutAudiences() throws JOSEException {
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
@@ -193,11 +138,6 @@ class OAuth2Test extends BaseSpringBootTest {
         Assertions.assertThrows(JwtValidationException.class, () -> jwtDecoder.decode(tokenValue));
     }
 
-    @Test
-    void testRetrieveClientRegistration() {
-        Assertions.assertNotNull(clientRegistrationRepository.findByRegistrationId("provider"));
-    }
-
     private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject("your-subject")
@@ -229,6 +169,5 @@ class OAuth2Test extends BaseSpringBootTest {
 
         return new ObjectMapper().writeValueAsString(jwk);
     }
-
 
 }
