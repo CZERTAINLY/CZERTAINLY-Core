@@ -28,7 +28,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @AutoConfigureMockMvc
 @SpringBootTest
-class SecurityChainTest extends BaseSpringBootTestNoAuth {
+class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     @Autowired
     private MockMvc mvc;
 
@@ -39,12 +39,15 @@ class SecurityChainTest extends BaseSpringBootTestNoAuth {
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
         registry.add("auth-service.base-url", () -> "http://localhost:10003");
+        registry.add("server.servlet.context-path", () -> "/api");
     }
     private static final String CERTIFICATE_USER_USERNAME = "certificate-user";
     private static final String CERTIFICATE_HEADER_VALUE = "certificate";
     private static final String TOKEN = "mock-token";
     private static final String TOKEN_HEADER_VALUE = "Bearer " + TOKEN;
     private static final String TOKEN_USER_USERNAME = "token-user";
+
+    Jwt mockJwt;
 
 
     WireMockServer mockServer;
@@ -101,8 +104,12 @@ class SecurityChainTest extends BaseSpringBootTestNoAuth {
         ));
 
         String tokenUserUuid = UUID.randomUUID().toString();
+        mockJwt = Jwt.withTokenValue(TOKEN)
+                .header("alg", "RS256")
+                .claim("username", TOKEN_USER_USERNAME)
+                .build();
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth"))
-                .withRequestBody(WireMock.containing("eyJzdWIiOm51bGwsInJvbGVzIjpbXSwiZ2l2ZW5fbmFtZSI6bnVsbCwiZmFtaWx5X25hbWUiOm51bGwsImVtYWlsIjpudWxsLCJ1c2VybmFtZSI6InRva2VuLXVzZXIifQ=="))
+                .withRequestBody(WireMock.containing(mockJwt.getTokenValue()))
                 .willReturn(
                         WireMock.okJson(String.format("""        
                                 {
@@ -152,11 +159,6 @@ class SecurityChainTest extends BaseSpringBootTestNoAuth {
 
     @Test
     void authorizeUsingJwtToken() throws Exception {
-        Jwt mockJwt = Jwt.withTokenValue(TOKEN)
-                .header("alg", "RS256")
-                .claim("username", TOKEN_USER_USERNAME)
-                .build();
-
         Mockito.when(jwtDecoder.decode(TOKEN)).thenReturn(mockJwt);
         MvcResult result = mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile")
                 .header("Authorization", TOKEN_HEADER_VALUE)).andReturn();

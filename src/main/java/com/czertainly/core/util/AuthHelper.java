@@ -65,7 +65,7 @@ public class AuthHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.add(SYSTEM_USER_HEADER_NAME, username);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false, false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
@@ -79,7 +79,7 @@ public class AuthHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false, false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));

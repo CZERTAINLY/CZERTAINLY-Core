@@ -9,8 +9,7 @@ import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.settings.SettingsCache;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.czertainly.core.util.Constants;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,7 +18,6 @@ import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -35,13 +33,10 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.*;
+import java.util.List;
 
 @Component
 public class OAuth2LoginFilter extends OncePerRequestFilter {
-
-    @Value("${auth.token.header-name}")
-    private String authTokenHeaderName;
 
     private static final Logger LOGGER = LoggerFactory.getLogger(OAuth2LoginFilter.class);
 
@@ -88,7 +83,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
                 try {
                     refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
-                } catch (ClientAuthorizationException e) {
+                } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
                     LOGGER.debug("Could not refresh token: {}", e.getMessage());
                     request.getSession().invalidate();
                     return;
@@ -99,16 +94,9 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 throw new CzertainlyAuthenticationException("Audiences in access token issued by OAuth2 Provider do not match any of audiences set for the provider in settings.");
             }
 
-
-            String encodedPayload = null;
-            try {
-                encodedPayload = Base64.getEncoder().encodeToString(new ObjectMapper().writeValueAsString(extractClaims(oauthUser)).getBytes());
-            } catch (JsonProcessingException e) {
-                LOGGER.error("Error when encoding JWT claims to payload: {}", e.getMessage());
-            }
             HttpHeaders headers = new HttpHeaders();
-            headers.add(authTokenHeaderName, encodedPayload);
-            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
+            headers.add(Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
+            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false, true);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getPrincipal().getUsername());
@@ -132,11 +120,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     .attribute(OAuth2AuthorizationContext.REQUEST_SCOPE_ATTRIBUTE_NAME, clientRegistration.getScopes().toArray(new String[0]))
                     .build();
 
-            try {
-                authorizedClient = authorizedClientProvider.authorize(context);
-            } catch (Exception e) {
-                throw new CzertainlyAuthenticationException("Could not refresh token: " + e.getMessage());
-            }
+            authorizedClient = authorizedClientProvider.authorize(context);
 
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
@@ -150,18 +134,5 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             throw new CzertainlyAuthenticationException("Cannot refresh access token, refresh token is not available.");
         }
     }
-
-    private Map<String,Object> extractClaims(OAuth2User oauthUser) {
-        Map<String, Object> extractedClaims = new HashMap<>();
-        extractedClaims.put("sub", oauthUser.getAttribute("sub"));
-        extractedClaims.put("username", oauthUser.getAttribute("username"));
-        extractedClaims.put("given_name", oauthUser.getAttribute("given_name"));
-        extractedClaims.put("family_name", oauthUser.getAttribute("family_name"));
-        extractedClaims.put("email", oauthUser.getAttribute("email"));
-        extractedClaims.put("roles", oauthUser.getAttribute("roles") == null ? new ArrayList<>() : oauthUser.getAttribute("roles"));
-        return extractedClaims;
-    }
-
-
 }
 
