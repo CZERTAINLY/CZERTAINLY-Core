@@ -8,5 +8,4 @@ import org.springframework.boot.test.mock.mockito.MockBean;
 class SpringBootTestContext {
     @MockBean
     OpaClient opaClient;
-
 }
