@@ -119,16 +119,20 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
 
         if (!hasAuthenticationMethod && isLocalhostRequest) {
-            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-            if (!authenticationSettings.isDisableLocalhostUser()) {
-                requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
-                if (requestDto.getAuthMethod() == AuthMethod.NONE) {
-                    requestDto.setAuthMethod(AuthMethod.USER_PROXY);
-                }
-            }
+            checkLocalhostUser(requestDto);
         }
 
         return requestDto;
+    }
+
+    private void checkLocalhostUser(AuthenticationRequestDto requestDto) {
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        if (!authenticationSettings.isDisableLocalhostUser()) {
+            requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
+            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
+                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+            }
+        }
     }
 
     private AuthenticationInfo createAuthenticationInfo(AuthMethod authMethod, AuthenticationResponseDto response) {
