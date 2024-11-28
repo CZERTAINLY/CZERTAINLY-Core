@@ -61,8 +61,6 @@ public class SecurityConfig {
 
     private OAuth2LoginFilter oauth2LoginFilter;
 
-    private CzertainlyOAuth2FailureHandler failureHandler;
-
     @Autowired
     public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
         this.clientRegistrationRepository = clientRegistrationRepository;
@@ -113,7 +111,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2
                         ->
                         oauth2.successHandler(customAuthenticationSuccessHandler())
-                                .failureHandler(failureHandler)
+                                .failureHandler(new CzertainlyOAuth2FailureHandler())
                 )
                 .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
                 .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
@@ -239,10 +237,5 @@ public class SecurityConfig {
     @Autowired
     public void setProtocolValidationFilter(ProtocolValidationFilter protocolValidationFilter) {
         this.protocolValidationFilter = protocolValidationFilter;
-    }
-
-    @Autowired
-    public void setFailureHandler(CzertainlyOAuth2FailureHandler failureHandler) {
-        this.failureHandler = failureHandler;
     }
 }

@@ -39,7 +39,6 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
         registry.add("auth-service.base-url", () -> "http://localhost:10003");
-        registry.add("server.servlet.context-path", () -> "/api");
     }
     private static final String CERTIFICATE_USER_USERNAME = "certificate-user";
     private static final String CERTIFICATE_HEADER_VALUE = "certificate";

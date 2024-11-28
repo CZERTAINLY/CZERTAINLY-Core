@@ -74,7 +74,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             int skew = providerSettings.getSkew();
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
-            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute("ACCESS_TOKEN"), (OAuth2RefreshToken) request.getSession().getAttribute("REFRESH_TOKEN"));
+            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE), (OAuth2RefreshToken) request.getSession().getAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
 
             Instant now = Instant.now();
             Instant expiresAt = authorizedClient.getAccessToken().getExpiresAt();
@@ -125,8 +125,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
                 LOGGER.debug("OAuth2 Access Token has been refreshed.");
-                session.setAttribute("ACCESS_TOKEN", authorizedClient.getAccessToken());
-                session.setAttribute("REFRESH_TOKEN", authorizedClient.getRefreshToken());
+                session.setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
+                session.setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
             } else {
                 throw new CzertainlyAuthenticationException("Did not manage to refresh the access token.");
             }

@@ -1,5 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.core.util.Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -33,11 +34,12 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
 
-        request.getSession().setAttribute("ACCESS_TOKEN", authorizedClient.getAccessToken());
-        request.getSession().setAttribute("REFRESH_TOKEN", authorizedClient.getRefreshToken());
+        request.getSession().setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
+        request.getSession().setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
 
-        String redirectUrl = (String) request.getSession().getAttribute("redirectUrl");
-        request.getSession().removeAttribute("redirectUrl");
+        String redirectUrl = (String) request.getSession().getAttribute(Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
+        request.getSession().removeAttribute(Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
+        request.getSession().removeAttribute(Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE);
 
         try {
             response.sendRedirect(redirectUrl);
