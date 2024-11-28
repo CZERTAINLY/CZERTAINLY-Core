@@ -13,6 +13,8 @@ import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.SettingService;
+import com.czertainly.core.util.SecretEncodingVersion;
+import com.czertainly.core.util.SecretsUtil;
 import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -34,11 +36,15 @@ public class SettingServiceImpl implements SettingService {
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
     public static final String LOGGING_RESOURCES_NAME = "resources";
 
+    public static final String AUTHENTICATION_DISABLE_LOCALHOST_NAME = "disableLocalhostUser";
+
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
     private final ObjectMapper mapper;
     private final SettingsCache settingsCache;
     private final SettingRepository settingRepository;
+
+    private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
     public SettingServiceImpl(SettingsCache settingsCache, SettingRepository settingRepository, ObjectMapper mapper) {
@@ -49,9 +55,11 @@ public class SettingServiceImpl implements SettingService {
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
         settingsCache.cacheSettings(SettingsSection.LOGGING, getLoggingSettings());
         settingsCache.cacheSettings(SettingsSection.NOTIFICATIONS, getNotificationSettings());
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public PlatformSettingsDto getPlatformSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
@@ -91,6 +99,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
     public NotificationSettingsDto getNotificationSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
         Map<NotificationType, String> valueMapped = new EnumMap<>(NotificationType.class);
@@ -101,7 +110,7 @@ public class SettingServiceImpl implements SettingService {
                 };
 
                 try {
-                    valueMapped = mapper.readValue(valueJson, typeReference);
+                    valueMapped = objectMapper.readValue(valueJson, typeReference);
                 } catch (JsonProcessingException e) {
                     logger.warn("Cannot deserialize notification mapping settings. Returning empty mapping.");
                     valueMapped = new EnumMap<>(NotificationType.class);
@@ -118,7 +127,6 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateNotificationSettings(NotificationSettingsDto notificationSettings) {
-
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
         Setting setting;
         if (settings.isEmpty()) {
@@ -138,7 +146,7 @@ public class SettingServiceImpl implements SettingService {
             }
         }
         try {
-            setting.setValue(mapper.writeValueAsString(notificationTypeStringMap));
+            setting.setValue(objectMapper.writeValueAsString(notificationTypeStringMap));
         } catch (JsonProcessingException e) {
             throw new ValidationException("Cannot serialize notification mapping settings: " + e.getMessage());
         }
@@ -240,6 +248,96 @@ public class SettingServiceImpl implements SettingService {
         }
 
         settingsCache.cacheSettings(SettingsSection.LOGGING, loggingSettingsDto);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    public AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret) {
+        AuthenticationSettingsDto authenticationSettings = new AuthenticationSettingsDto();
+
+        List<Setting> oauth2ProviderSettings = settingRepository.findBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+        for (Setting oauth2Provider : oauth2ProviderSettings) {
+            OAuth2ProviderSettingsDto oAuth2ProviderSettings;
+            try {
+                oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
+                if (!withClientSecret) oAuth2ProviderSettings.setClientSecret(null);
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(oauth2Provider.getName()));
+            }
+            authenticationSettings.getOAuth2Providers().put(oauth2Provider.getName(), oAuth2ProviderSettings);
+        }
+        Setting disableLocalhostSetting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null, AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        if (disableLocalhostSetting != null) {
+            authenticationSettings.setDisableLocalhostUser(Boolean.parseBoolean(disableLocalhostSetting.getValue()));
+        }
+
+        return authenticationSettings;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
+    public void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto) {
+        Setting disableLocalhostSetting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, null, AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        if (disableLocalhostSetting == null) {
+            disableLocalhostSetting = new Setting();
+            disableLocalhostSetting.setSection(SettingsSection.AUTHENTICATION);
+            disableLocalhostSetting.setName(AUTHENTICATION_DISABLE_LOCALHOST_NAME);
+        }
+        disableLocalhostSetting.setValue(String.valueOf(authenticationSettingsDto.isDisableLocalhostUser()));
+        settingRepository.save(disableLocalhostSetting);
+
+        if (authenticationSettingsDto.getOAuth2Providers() != null) {
+            settingRepository.deleteBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+
+            for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
+                updateOAuth2ProviderSettings(providerDto.getName(), providerDto);
+            }
+        }
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    public OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret) {
+        Setting setting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        OAuth2ProviderSettingsDto settingsDto = null;
+        if (setting != null) {
+            try {
+                settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
+                if (!withClientSecret) settingsDto.setClientSecret(null);
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(providerName));
+            }
+        }
+        return settingsDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
+    public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsDto settingsDto) {
+        Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        Setting setting = settingForRegistrationId == null ? new Setting() : settingForRegistrationId;
+        setting.setSection(SettingsSection.AUTHENTICATION);
+        setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
+        setting.setName(providerName);
+        settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
+        try {
+            setting.setValue(objectMapper.writeValueAsString(settingsDto));
+        } catch (JsonProcessingException e) {
+            throw new ValidationException("Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
+        }
+        settingRepository.save(setting);
+
+        settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
+    public void removeOAuth2Provider(String providerName) {
+        long deleted = settingRepository.deleteBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
+        if (deleted > 0) {
+            settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
+        }
     }
 
     private Map<String, Map<String, Setting>> mapSettingsByCategory(List<Setting> settings) {

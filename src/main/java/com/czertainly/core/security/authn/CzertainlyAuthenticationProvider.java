@@ -30,14 +30,15 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
         logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
-        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders());
+        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest(), false);
+
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
 
         if (authInfo.isAnonymous()) {
             // update MDC for actor logging
             LoggingHelper.putActorInfo(userDetails, ActorType.ANONYMOUS);
 
-            logger.trace("User not identified, using anonymous.".formatted());
+            logger.trace("User not identified, using anonymous.");
             return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
         }
 

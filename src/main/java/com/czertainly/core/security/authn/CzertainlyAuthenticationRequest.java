@@ -12,14 +12,20 @@ public class CzertainlyAuthenticationRequest implements Authentication {
 
     private final HttpHeaders headers;
     private final WebAuthenticationDetails details;
+    private final boolean isLocalhostRequest;
 
-    public CzertainlyAuthenticationRequest(HttpHeaders headers, WebAuthenticationDetails details) {
+    public CzertainlyAuthenticationRequest(HttpHeaders headers, WebAuthenticationDetails details, boolean isLocalhostRequest) {
         this.headers = headers;
         this.details = details;
+        this.isLocalhostRequest = isLocalhostRequest;
     }
 
     public HttpHeaders getHeaders() {
         return headers;
+    }
+
+    public boolean isLocalhostRequest() {
+        return isLocalhostRequest;
     }
 
     @Override
@@ -56,4 +62,6 @@ public class CzertainlyAuthenticationRequest implements Authentication {
     public String getName() {
         return null;
     }
+
+
 }

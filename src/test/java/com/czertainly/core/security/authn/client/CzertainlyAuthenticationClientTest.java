@@ -74,7 +74,7 @@ class CzertainlyAuthenticationClientTest {
         setUpSuccessfulAuthenticationResponse();
 
         // when
-        AuthenticationInfo info = czertainlyAuthenticationClient.authenticate(new HttpHeaders());
+        AuthenticationInfo info = czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false, false);
 
         // then
         assertEquals("FrantisekJednicka", info.getUsername());
@@ -108,7 +108,7 @@ class CzertainlyAuthenticationClientTest {
         setUpEmptyResponse();
 
         // when
-        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(new HttpHeaders());
+        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false, false);
 
         // then
         assertThrows(CzertainlyAuthenticationException.class, willThrow);

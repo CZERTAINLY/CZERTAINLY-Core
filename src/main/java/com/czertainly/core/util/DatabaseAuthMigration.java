@@ -63,6 +63,30 @@ public class DatabaseAuthMigration {
         return systemRolesMapping;
     }
 
+    public static UserDetailDto createUser(UserRequestDto request, List<String> roleUuids) throws IOException, URISyntaxException {
+        UserDetailDto user = getUserManagementApiClient().createUser(request);
+        return getUserManagementApiClient().updateRoles(user.getUuid(), roleUuids);
+    }
+
+    public static RoleDetailDto createRole(RoleRequestDto request, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
+        RolePermissionsRequestDto permissionsRequest = new RolePermissionsRequestDto();
+        permissionsRequest.setAllowAllResources(resourcesActions.isEmpty());
+        permissionsRequest.setResources(new ArrayList<>());
+        for (Resource resource : resourcesActions.keySet()) {
+            List<ResourceAction> resourceActions = resourcesActions.get(resource);
+            ResourcePermissionsRequestDto resourcePermissionsRequest = new ResourcePermissionsRequestDto();
+            resourcePermissionsRequest.setName(resource.getCode());
+            resourcePermissionsRequest.setAllowAllActions(resourceActions == null || resourceActions.isEmpty());
+            resourcePermissionsRequest.setActions(resourceActions == null ? null : resourceActions.stream().map(ResourceAction::getCode).toList());
+            resourcePermissionsRequest.setObjects(List.of());
+
+            permissionsRequest.getResources().add(resourcePermissionsRequest);
+        }
+
+        request.setPermissions(permissionsRequest);
+        return getRoleManagementApiClient().createRole(request);
+    }
+
     public static void updateRolePermissions(String roleUuid, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
 
         Map<Resource, List<ResourceAction>> resourcesActionsCopy = new HashMap<>(resourcesActions);

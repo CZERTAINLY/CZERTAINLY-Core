@@ -1,14 +1,13 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -33,10 +32,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.*;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateExpiredException;
-import java.security.cert.CertificateNotYetValidException;
-import java.security.cert.X509Certificate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -103,7 +100,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         UserRequestDto requestDto = new UserRequestDto();
         Certificate certificate = null;
         if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
-            certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+            certificate = addUserCertificate(null, request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
         }
@@ -220,8 +217,9 @@ public class UserManagementServiceImpl implements UserManagementService {
         getUser(uuid.toString());
     }
 
-    private Certificate addUserCertificate(String certificateUuid, String certificateData) throws CertificateException, NotFoundException {
-        Certificate certificate;
+    private Certificate addUserCertificate(String userUuid, String certificateUuid, String certificateData) throws CertificateException, NotFoundException {
+        Certificate certificate = null;
+        boolean uploadCertificate = false;
         if (StringUtils.isNotBlank(certificateUuid)) {
             certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
         } else {
@@ -233,13 +231,29 @@ public class UserManagementServiceImpl implements UserManagementService {
             }
             try {
                 certificate = certificateService.getCertificateEntityByFingerprint(CertificateUtil.getThumbprint(x509Cert));
-                if (!certificate.getState().equals(CertificateState.ISSUED)) {
-                    throw new ValidationException(ValidationError.create("Cannot create user for certificate with state " + certificate.getState().getLabel()));
-                }
-            } catch (NotFoundException | NoSuchAlgorithmException e) {
+            } catch (NotFoundException e) {
+                uploadCertificate = true;
+            } catch (NoSuchAlgorithmException e) {
+                throw new ValidationException(ValidationError.create("Cannot assign certificate to the user due to error in fingerprint calculation: " + e.getMessage()));
+            }
+        }
+
+        if (uploadCertificate) {
+            try {
+                UploadCertificateRequestDto uploadRequest = new UploadCertificateRequestDto();
+                uploadRequest.setCertificate(certificateData);
+                CertificateDetailDto certificateDetailDto = certificateService.upload(uploadRequest, true);
+                certificate = certificateService.getCertificateEntityByFingerprint(certificateDetailDto.getFingerprint());
                 logger.getLogger().debug("New Certificate uploaded for the user");
-                certificate = certificateService.createCertificateEntity(x509Cert);
-                certificateService.updateCertificateEntity(certificate);
+            } catch (Exception e) {
+                throw new CertificateException("Cannot upload certificate that should be assigned to the user: " + e.getMessage());
+            }
+        } else {
+            if (!certificate.getState().equals(CertificateState.ISSUED)) {
+                throw new ValidationException(ValidationError.create("Cannot assign certificate with state %s to the user".formatted(certificate.getState().getLabel())));
+            }
+            if (certificate.getUserUuid() != null && !certificate.getUserUuid().toString().equals(userUuid)) {
+                throw new ValidationException(ValidationError.create("Cannot assign certificate to the user because it is already assigned to other user"));
             }
         }
         return certificate;
@@ -250,7 +264,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         UserUpdateRequestDto requestDto = new UserUpdateRequestDto();
 
         if ((request.getCertificateUuid() != null && !request.getCertificateUuid().isEmpty()) || (request.getCertificateData() != null && !request.getCertificateData().isEmpty())) {
-            certificate = addUserCertificate(request.getCertificateUuid(), request.getCertificateData());
+            certificate = addUserCertificate(userUuid, request.getCertificateUuid(), request.getCertificateData());
             requestDto.setCertificateUuid(certificate.getUuid().toString());
             requestDto.setCertificateFingerprint(certificate.getFingerprint());
         } else {

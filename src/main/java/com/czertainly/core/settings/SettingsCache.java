@@ -14,8 +14,8 @@ public class SettingsCache {
     private static final Map<SettingsSection, SettingsDto> cache = new ConcurrentHashMap<>();
 
     // Get a setting value by key
-    public static SettingsDto getSettings(SettingsSection settingsSection) {
-        return cache.get(settingsSection);
+    public static <T extends SettingsDto> T getSettings(SettingsSection settingsSection) {
+        return (T) cache.get(settingsSection);
     }
 
     // Cache settings

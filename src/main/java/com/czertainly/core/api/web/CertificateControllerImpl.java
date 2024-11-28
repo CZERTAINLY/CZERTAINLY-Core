@@ -102,7 +102,7 @@ public class CertificateControllerImpl implements CertificateController {
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPLOAD)
     public ResponseEntity<UuidDto> upload(@RequestBody UploadCertificateRequestDto request)
             throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException {
-        CertificateDetailDto dto = certificateService.upload(request);
+        CertificateDetailDto dto = certificateService.upload(request, false);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")

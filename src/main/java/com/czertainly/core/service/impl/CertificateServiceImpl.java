@@ -879,20 +879,24 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public CertificateDetailDto upload(UploadCertificateRequestDto request) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
+    public CertificateDetailDto upload(UploadCertificateRequestDto request, boolean ignoreCustomAttributes) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(request.getCertificate());
         String fingerprint = CertificateUtil.getThumbprint(certificate);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
 
-        attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
+        if (!ignoreCustomAttributes) {
+            attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
+        }
 
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
 
         CertificateDetailDto dto = entity.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
+        if (!ignoreCustomAttributes) {
+            dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
+        }
 
         certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
         applicationEventPublisher.publishEvent(new CertificateValidationEvent(entity.getUuid()));
