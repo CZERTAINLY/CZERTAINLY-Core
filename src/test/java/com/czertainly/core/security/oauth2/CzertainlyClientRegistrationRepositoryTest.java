@@ -1,6 +1,7 @@
 package com.czertainly.core.security.oauth2;
 
-import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.auth.oauth2.CzertainlyClientRegistrationRepository;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -19,7 +20,7 @@ class CzertainlyClientRegistrationRepositoryTest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() {
-        OAuth2ProviderSettingsDto providerSettings = new OAuth2ProviderSettingsDto();
+        OAuth2ProviderSettingsUpdateDto providerSettings = new OAuth2ProviderSettingsUpdateDto();
         providerSettings.setClientSecret("secret");
         providerSettings.setIssuerUrl("issuer");
         providerSettings.setClientId("client");

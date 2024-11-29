@@ -5,6 +5,10 @@ import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.api.model.core.settings.*;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
@@ -314,7 +318,7 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
-    public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsDto settingsDto) {
+    public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
         Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         Setting setting = settingForRegistrationId == null ? new Setting() : settingForRegistrationId;
         setting.setSection(SettingsSection.AUTHENTICATION);
@@ -322,7 +326,14 @@ public class SettingServiceImpl implements SettingService {
         setting.setName(providerName);
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         try {
-            setting.setValue(objectMapper.writeValueAsString(settingsDto));
+            OAuth2ProviderSettingsDto fullSettingsDto;
+            if (settingsDto instanceof OAuth2ProviderSettingsDto s) {
+                fullSettingsDto = s;
+            } else {
+                fullSettingsDto = objectMapper.convertValue(settingsDto, OAuth2ProviderSettingsDto.class);
+                fullSettingsDto.setName(providerName);
+            }
+            setting.setValue(objectMapper.writeValueAsString(fullSettingsDto));
         } catch (JsonProcessingException e) {
             throw new ValidationException("Cannot serialize OAuth2 provider settings for provider '%s'.".formatted(providerName));
         }

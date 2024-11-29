@@ -1,7 +1,7 @@
 package com.czertainly.core.security.authn.client;
 
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
-import com.czertainly.api.model.core.settings.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
