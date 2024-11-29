@@ -1,6 +1,7 @@
 package com.czertainly.core.security.oauth2;
 
-import com.czertainly.api.model.core.settings.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -48,7 +49,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
     private static final String ISSUER_URL = "http://localhost:8082/realms/CZERTAINLY-realm";
 
-    private OAuth2ProviderSettingsDto providerSettings;
+    private OAuth2ProviderSettingsUpdateDto providerSettings;
 
     String tokenValue;
 
@@ -83,7 +84,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
                         .withBody("{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}")));
 
 
-        providerSettings = new OAuth2ProviderSettingsDto();
+        providerSettings = new OAuth2ProviderSettingsUpdateDto();
         providerSettings.setClientSecret("secret");
         providerSettings.setIssuerUrl(ISSUER_URL);
         providerSettings.setClientId("client");
