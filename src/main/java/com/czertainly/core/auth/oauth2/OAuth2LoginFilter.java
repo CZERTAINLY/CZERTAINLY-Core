@@ -1,8 +1,8 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
@@ -10,6 +10,7 @@ import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Util;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,14 +27,12 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
-import org.springframework.security.oauth2.core.user.OAuth2User;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
-import java.util.List;
 
 @Component
 public class OAuth2LoginFilter extends OncePerRequestFilter {
@@ -59,25 +58,21 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
-           LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
-
-            OAuth2User oauthUser = oauthToken.getPrincipal();
-            List<String> tokenAudiences = oauthUser.getAttribute("aud");
+            LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
 
             AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
             OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
             if (providerSettings == null) {
+                request.getSession().invalidate();
                 throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(oauthToken.getAuthorizedClientRegistrationId()));
             }
-
-            List<String> clientAudiences = providerSettings.getAudiences();
-            int skew = providerSettings.getSkew();
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE), (OAuth2RefreshToken) request.getSession().getAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
 
             Instant now = Instant.now();
             Instant expiresAt = authorizedClient.getAccessToken().getExpiresAt();
+            int skew = providerSettings.getSkew();
 
             // If the access token is expired, try to refresh it
             if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
@@ -88,10 +83,12 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     request.getSession().invalidate();
                     return;
                 }
-            }
-
-            if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
-                throw new CzertainlyAuthenticationException("Audiences in access token issued by OAuth2 Provider do not match any of audiences set for the provider in settings.");
+                try {
+                    OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
+                } catch (CzertainlyAuthenticationException e) {
+                    request.getSession().invalidate();
+                    throw e;
+                }
             }
 
             HttpHeaders headers = new HttpHeaders();
@@ -105,6 +102,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         try {
             filterChain.doFilter(request, response);
         } catch (IOException | ServletException e) {
+            request.getSession().invalidate();
             LOGGER.error("Error when proceeding with OAuth2Login filter: {}", e.getMessage());
         }
     }
