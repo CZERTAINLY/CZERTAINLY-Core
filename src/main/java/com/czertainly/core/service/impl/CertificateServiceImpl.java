@@ -1282,11 +1282,11 @@ public class CertificateServiceImpl implements CertificateService {
             protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
             certificateProtocolAssociationRepository.save(protocolAssociation);
             certificate.setProtocolAssociation(protocolAssociation);
+        } else {
+            // set owner of certificate to logged user when there is not protocol involved
+            objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
         }
 
-
-        // set owner of certificate to logged user
-        objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
 
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
