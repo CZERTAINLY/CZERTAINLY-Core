@@ -1,9 +1,9 @@
 package com.czertainly.core.config;
 
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
@@ -160,7 +160,8 @@ public class SecurityConfig {
             if (!audiences.isEmpty()) {
                 audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
             }
-            OAuth2TokenValidator<Jwt> combinedValidator = JwtValidators.createDefaultWithValidators(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator);
+
+            OAuth2TokenValidator<Jwt> combinedValidator = JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));
             jwtDecoder.setJwtValidator(combinedValidator);
             return jwtDecoder.decode(token);
         };
