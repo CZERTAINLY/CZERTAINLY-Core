@@ -1,6 +1,12 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Util;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -33,6 +39,18 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) authentication;
 
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(authenticationToken.getAuthorizedClientRegistrationId());
+        if (providerSettings == null) {
+            request.getSession().invalidate();
+            throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(authenticationToken.getAuthorizedClientRegistrationId()));
+        }
+        try {
+            OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
+        } catch (CzertainlyAuthenticationException e) {
+            request.getSession().invalidate();
+            throw e;
+        }
 
         request.getSession().setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
         request.getSession().setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
