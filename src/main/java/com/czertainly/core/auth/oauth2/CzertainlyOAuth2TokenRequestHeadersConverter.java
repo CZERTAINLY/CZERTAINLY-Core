@@ -19,6 +19,9 @@ import java.text.ParseException;
 import java.util.List;
 
 
+/**
+ * Customizing request headers can be improved after upgrading to <a href="https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_customizing_the_access_token_request_2">Spring Security 6.4.1</a>
+ */
 public final class CzertainlyOAuth2TokenRequestHeadersConverter<T extends AbstractOAuth2AuthorizationGrantRequest> implements Converter<T, HttpHeaders> {
 
     private static final MediaType APPLICATION_JSON_UTF8 = new MediaType(MediaType.APPLICATION_JSON,
@@ -54,8 +57,8 @@ public final class CzertainlyOAuth2TokenRequestHeadersConverter<T extends Abstra
                 throw new CzertainlyAuthenticationException("Could not parse issuer URL in token: " + e.getMessage());
             }
             headers.set("X-Forwarded-Host", issuerUrl.getHost());
-            headers.set("X-Forwarded-port", "443");
-            headers.set("X-Forwarded-proto", issuerUrl.getScheme());
+            if (issuerUrl.getPort() > 0) headers.set("X-Forwarded-Port", String.valueOf(issuerUrl.getPort()));
+            headers.set("X-Forwarded-Proto", issuerUrl.getScheme());
         }
 
         return headers;
