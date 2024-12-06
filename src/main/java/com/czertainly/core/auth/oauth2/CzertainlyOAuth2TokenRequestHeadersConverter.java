@@ -20,7 +20,7 @@ import java.util.List;
 
 
 /**
- * Customizing request headers can be improved after upgrading to <a href="https://docs.spring.io/spring-security/reference/6.3/servlet/oauth2/client/authorization-grants.html#_customizing_the_access_token_request_2">Spring Security 6.4.1</a>
+ * Customizing request headers can be improved after upgrading to <a href="https://docs.spring.io/spring-security/reference/servlet/oauth2/client/authorization-grants.html#oauth2-client-client-credentials-access-token-request">Spring Security 6.4.1</a>
  */
 public final class CzertainlyOAuth2TokenRequestHeadersConverter<T extends AbstractOAuth2AuthorizationGrantRequest> implements Converter<T, HttpHeaders> {
 
