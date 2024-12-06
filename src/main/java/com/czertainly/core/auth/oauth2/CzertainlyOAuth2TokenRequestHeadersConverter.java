@@ -21,6 +21,7 @@ import java.util.List;
 
 /**
  * Customizing request headers can be improved after upgrading to <a href="https://docs.spring.io/spring-security/reference/servlet/oauth2/client/authorization-grants.html#oauth2-client-client-credentials-access-token-request">Spring Security 6.4.1</a>
+ * In new version, RestClientRefreshTokenTokenResponseClient is available and custom headers can be added directly using its addHeadersConverter() method
  */
 public final class CzertainlyOAuth2TokenRequestHeadersConverter<T extends AbstractOAuth2AuthorizationGrantRequest> implements Converter<T, HttpHeaders> {
 
