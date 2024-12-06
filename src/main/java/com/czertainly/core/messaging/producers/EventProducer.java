@@ -4,10 +4,8 @@ import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
-import com.czertainly.core.tasks.ScheduledJobInfo;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -41,12 +39,6 @@ public class EventProducer {
         String message = String.format("Certificate %s changed from %s to %s.", certificateEvent == CertificateEvent.UPDATE_STATE ? "state" : "validation status", oldStatus.getLabel(), newStatus.getLabel());
         logger.debug("Sending Certificate {} event message: {}", certificateUUID, message);
         final EventMessage eventMessage = new EventMessage(Resource.CERTIFICATE, certificateUUID, certificateEvent.getCode(), eventStatus.toString(), message, null, null, null);
-        produceMessage(eventMessage);
-    }
-
-    public void produceDiscoveryFinishedEventMessage(final UUID discoveryUuid, final UUID userUuid, final ResourceEvent event, final ScheduledJobInfo scheduledJobInfo) {
-
-        final EventMessage eventMessage = new EventMessage(Resource.DISCOVERY, discoveryUuid, event.getCode(), null, null, null, userUuid, scheduledJobInfo);
         produceMessage(eventMessage);
     }
 

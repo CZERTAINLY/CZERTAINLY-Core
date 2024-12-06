@@ -11,8 +11,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.tasks.ScheduledJobInfo;
 
-import java.security.NoSuchAlgorithmException;
-import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.UUID;
 
@@ -50,7 +48,5 @@ public interface DiscoveryService extends ResourceExtensionService {
     Long statisticsDiscoveryCount(SecurityFilter filter);
 
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
-
-    void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) throws NotFoundException, RuleException, CertificateException, NoSuchAlgorithmException, AttributeException;
 
 }
