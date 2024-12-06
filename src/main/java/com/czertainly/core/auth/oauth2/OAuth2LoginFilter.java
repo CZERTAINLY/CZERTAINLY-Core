@@ -22,7 +22,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.oauth2.client.*;
+import org.springframework.security.oauth2.client.ClientAuthorizationException;
+import org.springframework.security.oauth2.client.OAuth2AuthorizationContext;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
+import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
@@ -41,6 +44,13 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
     private CzertainlyAuthenticationClient authenticationClient;
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
+
+    private OAuth2AuthorizedClientProvider authorizedClientProvider;
+
+    @Autowired
+    public void setAuthorizedClientProvider(OAuth2AuthorizedClientProvider authorizedClientProvider) {
+        this.authorizedClientProvider = authorizedClientProvider;
+    }
 
     @Autowired
     public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
@@ -79,9 +89,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 try {
                     refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
                 } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
-                    LOGGER.debug("Could not refresh token: {}", e.getMessage());
                     request.getSession().invalidate();
-                    return;
+                    throw new CzertainlyAuthenticationException("Could not refresh token: " + e.getMessage());
                 }
                 try {
                     OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
@@ -108,9 +117,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
-        OAuth2AuthorizedClientProvider authorizedClientProvider = OAuth2AuthorizedClientProviderBuilder.builder()
-                .refreshToken()
-                .build();
+
         if (authorizedClient.getRefreshToken() != null) {
             // Refresh the token
             OAuth2AuthorizationContext context = OAuth2AuthorizationContext.withAuthorizedClient(authorizedClient)
@@ -132,5 +139,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             throw new CzertainlyAuthenticationException("Cannot refresh access token, refresh token is not available.");
         }
     }
+
 }
 
