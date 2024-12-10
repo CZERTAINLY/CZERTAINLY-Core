@@ -33,8 +33,9 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
             HttpHeaders headers = new HttpHeaders();
             headers.add(Constants.TOKEN_AUTHENTICATION_HEADER, source.getTokenValue());
             AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false, true);
-            logger.debug("Authenticated user using JWT token.");
-            return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
+            CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
+            logger.debug("User {} has been authenticated using JWT token from issuer {}.", userDetails.getUsername(), source.getIssuer());
+            return new CzertainlyAuthenticationToken(userDetails);
         } else return (CzertainlyAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
     }
 }

@@ -41,7 +41,7 @@ public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuc
             LOGGER.error("Error occurred when logging out from OAuth2 Provider: {}", e.getMessage());
         }
 
-        LOGGER.debug("Logout from OAuth2 Provider successful, redirecting to {}", redirectUri);
+        LOGGER.debug("Logout of user {} from OAuth2 Provider successful, redirecting to {}", oauth2Token.getPrincipal().getAttribute("username"), redirectUri);
     }
 
     @Autowired

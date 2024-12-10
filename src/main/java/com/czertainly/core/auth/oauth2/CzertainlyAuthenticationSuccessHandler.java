@@ -65,7 +65,7 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
             logger.error("Error occurred when sending redirect to {} after authentication via OAuth2. ", redirectUrl);
             return;
         }
-        logger.debug("Authentication via OAuth2 successful, redirecting to {}", redirectUrl);
+        logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", authenticationToken.getPrincipal().getAttribute("username"), redirectUrl);
 
 
     }
