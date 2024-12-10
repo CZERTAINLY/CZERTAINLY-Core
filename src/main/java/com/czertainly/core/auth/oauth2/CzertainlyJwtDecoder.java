@@ -7,6 +7,8 @@ import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSetti
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.settings.SettingsCache;
 import com.nimbusds.jwt.SignedJWT;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -21,6 +23,9 @@ import java.util.List;
 
 @Component
 public class CzertainlyJwtDecoder implements JwtDecoder {
+
+    private static final Logger logger = LoggerFactory.getLogger(JwtDecoder.class);
+
     @Override
     public Jwt decode(String token) throws JwtException {
         if (!isAuthenticationNeeded()) {
@@ -58,7 +63,12 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
         OAuth2TokenValidator<Jwt> combinedValidator = JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));
         jwtDecoder.setJwtValidator(combinedValidator);
-        return jwtDecoder.decode(token);
+        try {
+            return jwtDecoder.decode(token);
+        } catch (JwtException e) {
+            logger.info("Could not authenticate user using with JWT token: {}", e.getMessage());
+            throw e;
+        }
     }
 
     private boolean isAuthenticationNeeded() {

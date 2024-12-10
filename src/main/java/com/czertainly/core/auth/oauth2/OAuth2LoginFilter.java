@@ -68,7 +68,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
-            LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
 
             AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
             OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
@@ -129,7 +128,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
-                LOGGER.debug("OAuth2 Access Token has been refreshed.");
+                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", oauthToken.getPrincipal().getAttribute("username").toString());
                 session.setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
                 session.setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
             } else {

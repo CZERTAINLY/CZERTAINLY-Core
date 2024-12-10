@@ -1,12 +1,13 @@
 package com.czertainly.core.security.authn.client;
 
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
+import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
@@ -48,17 +49,19 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     }
 
     public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest, boolean allowTokenAuthentication) throws AuthenticationException {
-        try {
-            logger.trace(
-                    String.format(
-                            "Calling authentication service with the following headers [%s].",
-                            headers.entrySet().stream()
-                                    .map(e -> String.format("%s='%s'", e.getKey(), String.join(", ", e.getValue())))
-                                    .collect(Collectors.joining(","))
-                    )
-            );
+        logger.trace(
+                String.format(
+                        "Calling authentication service with the following headers [%s].",
+                        headers.entrySet().stream()
+                                .map(e -> String.format("%s='%s'", e.getKey(), String.join(", ", e.getValue())))
+                                .collect(Collectors.joining(","))
+                )
+        );
 
-            AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest, allowTokenAuthentication);
+        AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest, allowTokenAuthentication);
+
+        try {
+
             WebClient.RequestHeadersSpec<?> request = getClient(customAuthServiceBaseUrl)
                     .post()
                     .uri("/auth")
@@ -76,6 +79,8 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             return createAuthenticationInfo(authRequest.getAuthMethod(), response);
         } catch (WebClientResponseException.InternalServerError e) {
             throw new CzertainlyAuthenticationException("An error occurred when calling authentication service.", e);
+        } catch (AuthenticationServiceException e) {
+            throw e;
         }
     }
 
