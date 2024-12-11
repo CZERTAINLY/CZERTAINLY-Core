@@ -65,27 +65,26 @@ public class AuthHelper {
         HttpHeaders headers = new HttpHeaders();
         headers.add(SYSTEM_USER_HEADER_NAME, username);
 
+        // update MDC for actor logging
+        ActorType actorType = protocolUsers.contains(username) ? ActorType.PROTOCOL : ActorType.CORE;
+        LoggingHelper.putActorInfo(actorType, null, username);
+
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false, false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
-
-        // update MDC for actor logging
-        ActorType actorType = protocolUsers.contains(userDetails.getUsername()) ? ActorType.PROTOCOL : ActorType.CORE;
-        LoggingHelper.putActorInfo(userDetails, actorType);
     }
 
     public void authenticateAsUser(UUID userUuid) {
         HttpHeaders headers = new HttpHeaders();
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
+        // update MDC for actor logging
+        LoggingHelper.putActorInfo(ActorType.USER, userUuid.toString(), null);
+
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false, false);
-        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
-
-        // update MDC for actor logging
-        LoggingHelper.putActorInfo(userDetails, ActorType.USER);
     }
 
     public static boolean isLoggedProtocolUser() {

@@ -1,12 +1,9 @@
 package com.czertainly.core.security.authn;
 
-import com.czertainly.core.logging.LoggingHelper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
@@ -19,8 +16,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
-
-    protected final Log logger = LogFactory.getLog(this.getClass());
 
     private final AuthenticationManager authenticationManager;
 
@@ -50,9 +45,6 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                 Authentication authResult = this.authenticationManager.authenticate(authRequest);
                 logger.trace("Authentication result: %s".formatted(authResult.isAuthenticated() ? "authenticated" : "unauthenticated"));
 
-                CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authResult.getPrincipal();
-                LoggingHelper.putActorInfo(userDetails, null);
-
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authResult);
                 SecurityContextHolder.setContext(context);
@@ -63,7 +55,7 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
         } else {
             logger.trace("The user is already authenticated. Will not re-authenticate");
         }
-            filterChain.doFilter(request, response);
+        filterChain.doFilter(request, response);
     }
 
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {

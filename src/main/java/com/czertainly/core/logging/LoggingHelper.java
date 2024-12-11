@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 
 import java.util.List;
+import java.util.UUID;
 
 public class LoggingHelper {
 
@@ -101,13 +102,20 @@ public class LoggingHelper {
         MDC.put(LoggingHelper.LOG_SOURCE_USER_AGENT, request.getHeader("User-Agent"));
     }
 
-    public static void putActorInfo(CzertainlyUserDetails userDetails, ActorType actorType) {
+    public static void putActorInfo(ActorType actorType, AuthMethod authMethod) {
         if (actorType != null) {
-            MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+            String actor = MDC.get(LOG_ACTOR_TYPE);
+            if (actor == null) {
+                MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+            }
         }
-        MDC.put(LoggingHelper.LOG_ACTOR_AUTH_METHOD, userDetails.getAuthMethod().name());
-        MDC.put(LoggingHelper.LOG_ACTOR_UUID, userDetails.getUserUuid());
-        MDC.put(LoggingHelper.LOG_ACTOR_NAME, userDetails.getUsername());
+        if (authMethod != null) MDC.put(LoggingHelper.LOG_ACTOR_AUTH_METHOD, authMethod.name());
+    }
+
+    public static void putActorInfo(ActorType actorType, String actorUuid, String actorName) {
+        if (actorType != null) MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+        if (actorUuid != null) MDC.put(LoggingHelper.LOG_ACTOR_UUID, actorUuid);
+        if (actorName != null) MDC.put(LoggingHelper.LOG_ACTOR_NAME, actorName);
     }
 
     public static void putLogResourceInfo(Resource resource, boolean affiliated, String resourceUuid, String resourceName) {

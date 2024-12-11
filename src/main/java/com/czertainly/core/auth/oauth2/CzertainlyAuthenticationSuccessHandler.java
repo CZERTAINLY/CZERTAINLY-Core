@@ -1,9 +1,14 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.Constants;
 import com.czertainly.core.util.OAuth2Util;
@@ -28,6 +33,13 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
     private OAuth2AuthorizedClientService authorizedClientService;
 
+    private AuditLogService auditLogService;
+
+    @Autowired
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
     @Autowired
     public void setAuthorizedClientService(OAuth2AuthorizedClientService authorizedClientService) {
         this.authorizedClientService = authorizedClientService;
@@ -43,12 +55,15 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(authenticationToken.getAuthorizedClientRegistrationId());
         if (providerSettings == null) {
             request.getSession().invalidate();
-            throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(authenticationToken.getAuthorizedClientRegistrationId()));
+            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(authenticationToken.getAuthorizedClientRegistrationId());
+            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            throw new CzertainlyAuthenticationException(message);
         }
         try {
             OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
         } catch (CzertainlyAuthenticationException e) {
             request.getSession().invalidate();
+            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage());
             throw e;
         }
 

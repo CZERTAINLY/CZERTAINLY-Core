@@ -4,18 +4,27 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.*;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
+import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.entity.AuditLog_;
 import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.logging.AuditLogExportDto;
+import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AuditLogService;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
@@ -43,7 +52,10 @@ import java.util.List;
 @Transactional
 public class AuditLogServiceImpl implements AuditLogService {
 
+    private static final LoggerWrapper logger = new LoggerWrapper(AuditLogService.class, null, null);
+
     private static final ObjectMapper MAPPER = new ObjectMapper();
+
     static {
         MAPPER.findAndRegisterModules();
         MAPPER.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
@@ -163,6 +175,43 @@ public class AuditLogServiceImpl implements AuditLogService {
 
         searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
         return searchFieldDataByGroupDtos;
+    }
+
+    @Override
+    public void log(LogRecord logRecord) {
+        handleAuditLogging(logRecord);
+    }
+
+    @Override
+    public void log(Module module, Resource resource, Operation operation, OperationResult operationResult, String message) {
+        if (logger.isLogFiltered(true, module, resource, null)) {
+            return;
+        }
+
+        LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message);
+        log(logRecord);
+    }
+
+    private void handleAuditLogging(LogRecord logRecord) {
+        if (logger.isLogFiltered(true, logRecord.module(), logRecord.resource().type(), null)) {
+            return;
+        }
+
+        LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettingsDto == null || (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE)) {
+            return;
+        }
+
+        // log to DB
+        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.DATABASE) {
+            AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
+            auditLogRepository.save(auditLog);
+        }
+
+        // log to output
+        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.CONSOLE) {
+            logger.logAudited(logRecord);
+        }
     }
 
 }
