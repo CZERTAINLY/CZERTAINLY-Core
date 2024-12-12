@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.logging.LoggingHelper;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
@@ -35,7 +36,9 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) {
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         String message = "Error occurred when trying to authenticate using OAuth2 protocol: %s".formatted(exception.getMessage());
-        auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+        if (!(exception instanceof CzertainlyAuthenticationException)) {
+            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+        }
         logger.error(message);
 
         try {

@@ -50,6 +50,7 @@ public class SecurityConfig {
     private JwtDecoder jwtDecoder;
 
 
+
     @Autowired
     public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
         this.clientRegistrationRepository = clientRegistrationRepository;
@@ -69,6 +70,11 @@ public class SecurityConfig {
     @Bean
     public CzertainlyAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
         return new CzertainlyAuthenticationSuccessHandler();
+    }
+
+    @Bean
+    public CzertainlyOAuth2FailureHandler failureHandler() {
+        return new CzertainlyOAuth2FailureHandler();
     }
 
     @Bean
@@ -105,7 +111,7 @@ public class SecurityConfig {
                 .oauth2Login(oauth2
                         ->
                         oauth2.successHandler(customAuthenticationSuccessHandler())
-                                .failureHandler(new CzertainlyOAuth2FailureHandler())
+                                .failureHandler(failureHandler())
                 )
                 .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
                 .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
@@ -162,7 +168,7 @@ public class SecurityConfig {
     }
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
-        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"));
+        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"), environment.getProperty("server.ssl.certificate-header-name"));
     }
 
     // SETTERs

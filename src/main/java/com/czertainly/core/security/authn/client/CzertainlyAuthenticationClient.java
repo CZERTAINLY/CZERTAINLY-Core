@@ -55,7 +55,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 
-    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest, boolean allowTokenAuthentication) throws AuthenticationException {
+    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest) throws AuthenticationException {
         if (logger.isTraceEnabled()) {
             logger.trace(
                     String.format(
@@ -67,7 +67,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             );
         }
 
-        AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest, allowTokenAuthentication);
+        AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest);
 
         try {
 
@@ -98,7 +98,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
     }
 
-    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest, boolean allowTokenAuthentication) {
+    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest) {
         boolean hasAuthenticationMethod = false;
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
         requestDto.setAuthMethod(AuthMethod.NONE);
@@ -111,7 +111,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
 
         final List<String> authTokenHeaderNameList = headers.get(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
-        if (authTokenHeaderNameList != null && allowTokenAuthentication) {
+        if (authTokenHeaderNameList != null) {
             hasAuthenticationMethod = true;
             requestDto.setAuthenticationToken(authTokenHeaderNameList.getFirst());
             if (requestDto.getAuthMethod() == AuthMethod.NONE) {

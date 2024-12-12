@@ -119,7 +119,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             HttpHeaders headers = new HttpHeaders();
             headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
-            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false, true);
+            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getPrincipal().getUsername());

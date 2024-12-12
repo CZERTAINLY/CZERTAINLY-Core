@@ -2,6 +2,7 @@ package com.czertainly.core.security.authn;
 
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.util.OAuth2Constants;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,7 +29,8 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
         logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
-        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest(), false);
+        authRequest.getHeaders().remove(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
+        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest());
 
         if (authInfo.isAnonymous()) {
             logger.trace("User not identified, using anonymous.");
