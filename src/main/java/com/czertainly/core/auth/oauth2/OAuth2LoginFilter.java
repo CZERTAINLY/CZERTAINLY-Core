@@ -14,7 +14,7 @@ import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.OAuth2Util;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -92,7 +92,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             }
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
-            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE), (OAuth2RefreshToken) request.getSession().getAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
+            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE), (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
 
             Instant now = Instant.now();
             Instant expiresAt = authorizedClient.getAccessToken().getExpiresAt();
@@ -118,7 +118,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             }
 
             HttpHeaders headers = new HttpHeaders();
-            headers.add(Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
+            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
             AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false, true);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
@@ -145,10 +145,14 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
-                // TODO: Is it okay to have hard coded "username" attribute name. Cannot have different name, like preferred_username
-                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", oauthToken.getPrincipal().getAttribute("username").toString());
-                session.setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
-                session.setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
+                Object usernameClaim = oauthToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME);
+                if (usernameClaim == null) {
+                    throw new CzertainlyAuthenticationException("Missing username claim in token attributes.");
+                }
+
+                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", oauthToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME).toString());
+                session.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
+                session.setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
             } else {
                 throw new CzertainlyAuthenticationException("Failed to refresh the access token.");
             }

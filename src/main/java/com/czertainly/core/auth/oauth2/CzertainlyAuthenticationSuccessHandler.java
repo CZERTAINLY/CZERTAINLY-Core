@@ -1,16 +1,16 @@
 package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.OAuth2Util;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -47,7 +47,7 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-
+        LoggingHelper.putActorInfo(ActorType.USER, AuthMethod.SESSION);
         OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) authentication;
 
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
@@ -67,12 +67,12 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
             throw e;
         }
 
-        request.getSession().setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
-        request.getSession().setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
+        request.getSession().setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
+        request.getSession().setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
 
-        String redirectUrl = (String) request.getSession().getAttribute(Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
-        request.getSession().removeAttribute(Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
-        request.getSession().removeAttribute(Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE);
+        String redirectUrl = (String) request.getSession().getAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
+        request.getSession().removeAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE);
+        request.getSession().removeAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE);
 
         try {
             response.sendRedirect(redirectUrl);
@@ -80,7 +80,7 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
             logger.error("Error occurred when sending redirect to {} after authentication via OAuth2. ", redirectUrl);
             return;
         }
-        logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", authenticationToken.getPrincipal().getAttribute("username"), redirectUrl);
+        logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", authenticationToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME), redirectUrl);
 
 
     }

@@ -15,7 +15,7 @@ import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -114,7 +114,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
         }
 
-        final List<String> authTokenHeaderNameList = headers.get(Constants.TOKEN_AUTHENTICATION_HEADER);
+        final List<String> authTokenHeaderNameList = headers.get(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
         if (authTokenHeaderNameList != null && allowTokenAuthentication) {
             hasAuthenticationMethod = true;
             requestDto.setAuthenticationToken(authTokenHeaderNameList.getFirst());

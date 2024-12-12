@@ -5,7 +5,7 @@ import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSetti
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.settings.SettingsCache;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.stereotype.Controller;
@@ -26,7 +26,7 @@ public class LoginController {
     @GetMapping("/login")
     public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
-        request.getSession().setAttribute(Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
+        request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
         if (error != null) {
             model.addAttribute(ERROR_ATTRIBUTE_NAME, "An error occurred: " + error);
@@ -40,7 +40,7 @@ public class LoginController {
                 .toUriString();
 
         if (redirectUrl != null && !redirectUrl.isEmpty()) {
-            request.getSession().setAttribute(Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + redirectUrl);
+            request.getSession().setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + redirectUrl);
         } else {
             model.addAttribute(ERROR_ATTRIBUTE_NAME, "No redirect URL provided");
             return ERROR_ATTRIBUTE_NAME;

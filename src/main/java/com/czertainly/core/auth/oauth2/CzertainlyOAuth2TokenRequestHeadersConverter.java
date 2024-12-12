@@ -1,7 +1,7 @@
 package com.czertainly.core.auth.oauth2;
 
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import com.nimbusds.jwt.SignedJWT;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpHeaders;
@@ -49,7 +49,7 @@ public final class CzertainlyOAuth2TokenRequestHeadersConverter<T extends Abstra
             headers.setBasicAuth(clientId, clientSecret);
         }
 
-        if (clientRegistration.getRegistrationId().equals(Constants.INTERNAL_OAUTH2_PROVIDER_RESERVED_NAME)) {
+        if (clientRegistration.getRegistrationId().equals(OAuth2Constants.INTERNAL_OAUTH2_PROVIDER_RESERVED_NAME)) {
             URI issuerUrl;
             try {
                 String issuerUrlString = SignedJWT.parse(((OAuth2RefreshTokenGrantRequest) grantRequest).getAccessToken().getTokenValue()).getJWTClaimsSet().getIssuer();

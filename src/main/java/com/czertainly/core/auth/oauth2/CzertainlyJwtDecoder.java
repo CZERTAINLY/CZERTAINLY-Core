@@ -49,15 +49,14 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         try {
             issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
         } catch (ParseException e) {
-            // TODO: why is here ValidationException?
             String message = "Could not extract issuer from JWT token";
             auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
-            throw new ValidationException(message);
+            throw new CzertainlyAuthenticationException(message);
         }
         if (issuerUri == null) {
             String message = "Issuer URI is not present in JWT token";
             auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
-            throw new ValidationException(message);
+            throw new CzertainlyAuthenticationException(message);
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
@@ -71,7 +70,15 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
         int skew = providerSettings.getSkew();
         List<String> audiences = providerSettings.getAudiences();
-        NimbusJwtDecoder jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+
+        NimbusJwtDecoder jwtDecoder = null;
+        try {
+            jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+        } catch (Exception e) {
+            String message = "Could not authenticate user using JWT token. ILLEGAL!!!!!: %s".formatted(e.getMessage());
+            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            throw e;
+        }
         OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
         OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
         // Add audience validation
