@@ -7,13 +7,11 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.records.ActorRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.logging.records.SourceRecord;
-import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.util.NullUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 
 import java.util.List;
-import java.util.UUID;
 
 public class LoggingHelper {
 
@@ -102,17 +100,22 @@ public class LoggingHelper {
         MDC.put(LoggingHelper.LOG_SOURCE_USER_AGENT, request.getHeader("User-Agent"));
     }
 
-    public static void putActorInfo(ActorType actorType, AuthMethod authMethod) {
+    public static void putActorInfoWhenNull(ActorType actorType, AuthMethod authMethod) {
         if (actorType != null) {
-            String actor = MDC.get(LOG_ACTOR_TYPE);
-            if (actor == null) {
+            String actualActorType = MDC.get(LOG_ACTOR_TYPE);
+            if (actualActorType == null) {
                 MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
             }
         }
-        if (authMethod != null) MDC.put(LoggingHelper.LOG_ACTOR_AUTH_METHOD, authMethod.name());
+        if (authMethod != null) {
+            String actualAuthMethod = MDC.get(LOG_ACTOR_AUTH_METHOD);
+            if (actualAuthMethod == null) {
+                MDC.put(LoggingHelper.LOG_ACTOR_AUTH_METHOD, authMethod.name());
+            }
+        }
     }
 
-    public static void putActorInfo(ActorType actorType, String actorUuid, String actorName) {
+    public static void putActorInfoWhenNull(ActorType actorType, String actorUuid, String actorName) {
         if (actorType != null) MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
         if (actorUuid != null) MDC.put(LoggingHelper.LOG_ACTOR_UUID, actorUuid);
         if (actorName != null) MDC.put(LoggingHelper.LOG_ACTOR_NAME, actorName);

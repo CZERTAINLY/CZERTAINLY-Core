@@ -142,7 +142,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
 
         // update MDC for actor logging before authentication
-        LoggingHelper.putActorInfo(ActorType.USER, requestDto.getAuthMethod());
+        LoggingHelper.putActorInfoWhenNull(ActorType.USER, requestDto.getAuthMethod());
 
         return requestDto;
     }
@@ -162,7 +162,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             AuthenticationInfo anonymousUserDetails = AuthenticationInfo.getAnonymousAuthenticationInfo();
 
             // update MDC for actor logging after successful authentication
-            LoggingHelper.putActorInfo(ActorType.ANONYMOUS, null, anonymousUserDetails.getUsername());
+            LoggingHelper.putActorInfoWhenNull(ActorType.ANONYMOUS, null, anonymousUserDetails.getUsername());
 
             return anonymousUserDetails;
         }
@@ -171,7 +171,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             UserDetailsDto userDetails = objectMapper.readValue(response.getData(), UserDetailsDto.class);
 
             // update MDC for actor logging after successful authentication
-            LoggingHelper.putActorInfo(ActorType.USER, userDetails.getUser().getUuid(), userDetails.getUser().getUsername());
+            LoggingHelper.putActorInfoWhenNull(ActorType.USER, userDetails.getUser().getUuid(), userDetails.getUser().getUsername());
 
             return new AuthenticationInfo(
                     authMethod,

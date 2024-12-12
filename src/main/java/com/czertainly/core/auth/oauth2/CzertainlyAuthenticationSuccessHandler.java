@@ -47,7 +47,7 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
     @Override
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-        LoggingHelper.putActorInfo(ActorType.USER, AuthMethod.SESSION);
+        LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) authentication;
 
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());

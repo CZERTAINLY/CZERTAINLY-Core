@@ -1,6 +1,5 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -45,7 +44,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             return null;
         }
         String issuerUri;
-        LoggingHelper.putActorInfo(ActorType.USER, AuthMethod.TOKEN);
+        LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.TOKEN);
         try {
             issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
         } catch (ParseException e) {

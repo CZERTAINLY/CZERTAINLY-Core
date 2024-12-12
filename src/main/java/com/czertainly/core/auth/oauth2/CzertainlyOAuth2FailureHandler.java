@@ -33,7 +33,7 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
 
     @Override
     public void onAuthenticationFailure(HttpServletRequest request, HttpServletResponse response, AuthenticationException exception) {
-        LoggingHelper.putActorInfo(ActorType.USER, AuthMethod.SESSION);
+        LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         String message = "Error occurred when trying to authenticate using OAuth2 protocol: %s".formatted(exception.getMessage());
         auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
         logger.error(message);

@@ -67,7 +67,7 @@ public class AuthHelper {
 
         // update MDC for actor logging
         ActorType actorType = protocolUsers.contains(username) ? ActorType.PROTOCOL : ActorType.CORE;
-        LoggingHelper.putActorInfo(actorType, null, username);
+        LoggingHelper.putActorInfoWhenNull(actorType, null, username);
 
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false, false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
@@ -80,7 +80,7 @@ public class AuthHelper {
         headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
 
         // update MDC for actor logging
-        LoggingHelper.putActorInfo(ActorType.USER, userUuid.toString(), null);
+        LoggingHelper.putActorInfoWhenNull(ActorType.USER, userUuid.toString(), null);
 
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false, false);
         SecurityContext securityContext = SecurityContextHolder.getContext();

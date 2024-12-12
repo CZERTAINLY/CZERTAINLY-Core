@@ -80,7 +80,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
-            LoggingHelper.putActorInfo(ActorType.USER, AuthMethod.SESSION);
+            LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
             AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
             OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
