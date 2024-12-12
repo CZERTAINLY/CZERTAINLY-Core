@@ -150,7 +150,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     throw new CzertainlyAuthenticationException("Missing username claim in token attributes.");
                 }
 
-                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", oauthToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME).toString());
+                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", usernameClaim);
                 session.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
                 session.setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
             } else {
