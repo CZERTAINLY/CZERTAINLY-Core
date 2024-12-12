@@ -47,15 +47,11 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     @Value("${server.ssl.certificate-header-name}")
     private String certificateHeaderName;
 
-    private AuditLogService auditLogService;
+    private final AuditLogService auditLogService;
 
-    @Autowired
-    public void setAuditLogService(AuditLogService auditLogService) {
-        this.auditLogService = auditLogService;
-    }
-
-    public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
+    public CzertainlyAuthenticationClient(@Autowired AuditLogService auditLogService, @Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
         this.objectMapper = objectMapper;
+        this.auditLogService = auditLogService;
         this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 

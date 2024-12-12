@@ -75,7 +75,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         try {
             jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
         } catch (Exception e) {
-            String message = "Could not authenticate user using JWT token. ILLEGAL!!!!!: %s".formatted(e.getMessage());
+            String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
             auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
             throw e;
         }

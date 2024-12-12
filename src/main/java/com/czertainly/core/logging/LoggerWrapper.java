@@ -116,6 +116,9 @@ public class LoggerWrapper {
 
     private ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {
         LoggingSettingsDto loggingSettings = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettings == null) {
+            return new ResourceLoggingSettingsDto();
+        }
         return audited ? loggingSettings.getAuditLogs() : loggingSettings.getEventLogs();
     }
 }
