@@ -1,15 +1,20 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.*;
+import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.OAuth2Util;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -44,8 +49,15 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
     private CzertainlyAuthenticationClient authenticationClient;
     private CzertainlyClientRegistrationRepository clientRegistrationRepository;
-
     private OAuth2AuthorizedClientProvider authorizedClientProvider;
+
+    private AuditLogService auditLogService;
+
+    @Autowired
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
 
     @Autowired
     public void setAuthorizedClientProvider(OAuth2AuthorizedClientProvider authorizedClientProvider) {
@@ -68,17 +80,19 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
 
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
-            LOGGER.debug("Converting OAuth2 Authentication Token to Czertainly Authentication Token.");
+            LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
             AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
             OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
             if (providerSettings == null) {
                 request.getSession().invalidate();
-                throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(oauthToken.getAuthorizedClientRegistrationId()));
+                String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(oauthToken.getAuthorizedClientRegistrationId());
+                auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+                throw new CzertainlyAuthenticationException(message);
             }
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
-            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE), (OAuth2RefreshToken) request.getSession().getAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
+            OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE), (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
 
             Instant now = Instant.now();
             Instant expiresAt = authorizedClient.getAccessToken().getExpiresAt();
@@ -90,19 +104,22 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
                 } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
-                    throw new CzertainlyAuthenticationException("Could not refresh token: " + e.getMessage());
+                    String message = "Could not refresh token: %s".formatted(e.getMessage());
+                    auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+                    throw new CzertainlyAuthenticationException(message);
                 }
                 try {
                     OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
                 } catch (CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
+                    auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage());
                     throw e;
                 }
             }
 
             HttpHeaders headers = new HttpHeaders();
-            headers.add(Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
-            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false, true);
+            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
+            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             LOGGER.debug("OAuth2 Authentication Token has been converted to Czertainly Authentication Token with username {}.", authenticationToken.getPrincipal().getUsername());
@@ -117,7 +134,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
-
         if (authorizedClient.getRefreshToken() != null) {
             // Refresh the token
             OAuth2AuthorizationContext context = OAuth2AuthorizationContext.withAuthorizedClient(authorizedClient)
@@ -129,14 +145,19 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             // Save the refreshed authorized client with refreshed access token
             if (authorizedClient != null) {
-                LOGGER.debug("OAuth2 Access Token has been refreshed.");
-                session.setAttribute(Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
-                session.setAttribute(Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
+                Object usernameClaim = oauthToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME);
+                if (usernameClaim == null) {
+                    throw new CzertainlyAuthenticationException("Missing username claim in token attributes.");
+                }
+
+                LOGGER.debug("OAuth2 Access Token has been refreshed for user {}.", usernameClaim);
+                session.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());
+                session.setAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getRefreshToken());
             } else {
-                throw new CzertainlyAuthenticationException("Did not manage to refresh the access token.");
+                throw new CzertainlyAuthenticationException("Failed to refresh the access token.");
             }
         } else {
-            throw new CzertainlyAuthenticationException("Cannot refresh access token, refresh token is not available.");
+            throw new CzertainlyAuthenticationException("Refresh token is not available.");
         }
     }
 

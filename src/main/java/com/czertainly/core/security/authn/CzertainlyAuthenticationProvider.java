@@ -1,9 +1,8 @@
 package com.czertainly.core.security.authn;
 
-import com.czertainly.api.model.core.logging.enums.ActorType;
-import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.util.OAuth2Constants;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,23 +29,16 @@ public class CzertainlyAuthenticationProvider implements AuthenticationProvider 
     public Authentication authenticate(Authentication authentication) throws AuthenticationException {
         CzertainlyAuthenticationRequest authRequest = (CzertainlyAuthenticationRequest) authentication;
         logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
-        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest(), false);
-
-        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
+        authRequest.getHeaders().remove(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
+        AuthenticationInfo authInfo = authClient.authenticate(authRequest.getHeaders(), authRequest.isLocalhostRequest());
 
         if (authInfo.isAnonymous()) {
-            // update MDC for actor logging
-            LoggingHelper.putActorInfo(userDetails, ActorType.ANONYMOUS);
-
             logger.trace("User not identified, using anonymous.");
             return new AnonymousAuthenticationToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authInfo), authInfo.getAuthorities());
         }
 
-        // update MDC for actor logging
-        LoggingHelper.putActorInfo(userDetails, ActorType.USER);
-
         logger.trace("User has been successfully authenticated as '%s'.".formatted(authInfo.getUsername()));
-        return new CzertainlyAuthenticationToken(userDetails);
+        return new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
     }
 
     @Override

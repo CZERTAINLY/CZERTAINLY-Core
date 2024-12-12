@@ -1,6 +1,8 @@
 package com.czertainly.core.security.authn.client;
 
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.service.AuditLogService;
+import com.czertainly.core.service.impl.AuditLogServiceImpl;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
@@ -11,6 +13,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.GrantedAuthority;
 
@@ -24,6 +27,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CzertainlyAuthenticationClientTest {
     private static MockWebServer authServiceMock;
+
+    @Autowired
+    private static AuditLogService auditLogService;
 
     private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
     // @formatter:off
@@ -49,7 +55,7 @@ class CzertainlyAuthenticationClientTest {
         String authServiceBaseUrl = "http://%s:%d".formatted(authServiceMock.getHostName(), authServiceMock.getPort());
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        czertainlyAuthenticationClient = new CzertainlyAuthenticationClient(objectMapper, authServiceBaseUrl);
+        czertainlyAuthenticationClient = new CzertainlyAuthenticationClient(new AuditLogServiceImpl(), objectMapper, authServiceBaseUrl);
     }
 
     @AfterAll
@@ -74,7 +80,7 @@ class CzertainlyAuthenticationClientTest {
         setUpSuccessfulAuthenticationResponse();
 
         // when
-        AuthenticationInfo info = czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false, false);
+        AuthenticationInfo info = czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false);
 
         // then
         assertEquals("FrantisekJednicka", info.getUsername());
@@ -108,7 +114,7 @@ class CzertainlyAuthenticationClientTest {
         setUpEmptyResponse();
 
         // when
-        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false, false);
+        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false);
 
         // then
         assertThrows(CzertainlyAuthenticationException.class, willThrow);

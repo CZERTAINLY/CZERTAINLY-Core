@@ -44,13 +44,13 @@ public class AuthControllerImpl implements AuthController {
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.PROFILE)
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.GET_USER_PROFILE)
     public UserDetailDto profile() throws NotFoundException, JsonProcessingException {
         return authService.getAuthProfile();
     }
 
     @Override
-    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.PROFILE_UPDATE)
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.UPDATE_USER_PROFILE)
     public UserDetailDto updateUserProfile(UpdateUserRequestDto request) throws NotFoundException, JsonProcessingException, CertificateException {
         return authService.updateUserProfile(request);
     }

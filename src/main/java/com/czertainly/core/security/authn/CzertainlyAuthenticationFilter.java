@@ -1,12 +1,9 @@
 package com.czertainly.core.security.authn;
 
-import com.czertainly.core.logging.LoggingHelper;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
@@ -20,19 +17,20 @@ import java.io.IOException;
 
 public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
-    protected final Log logger = LogFactory.getLog(this.getClass());
-
     private final AuthenticationManager authenticationManager;
 
     private final CzertainlyAuthenticationConverter authenticationConverter;
 
     private final String healthCheckRequest;
 
+    private final String certificateHeaderName;
 
-    public CzertainlyAuthenticationFilter(final AuthenticationManager authenticationManager, final CzertainlyAuthenticationConverter authenticationConverter, final String restApiPrefix) {
+
+    public CzertainlyAuthenticationFilter(final AuthenticationManager authenticationManager, final CzertainlyAuthenticationConverter authenticationConverter, final String restApiPrefix, final String certificateHeaderName) {
         this.authenticationManager = authenticationManager;
         this.authenticationConverter = authenticationConverter;
         this.healthCheckRequest = "/api" + restApiPrefix + "health";
+        this.certificateHeaderName = certificateHeaderName;
     }
 
     @Override
@@ -50,9 +48,6 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                 Authentication authResult = this.authenticationManager.authenticate(authRequest);
                 logger.trace("Authentication result: %s".formatted(authResult.isAuthenticated() ? "authenticated" : "unauthenticated"));
 
-                CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authResult.getPrincipal();
-                LoggingHelper.putActorInfo(userDetails, null);
-
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authResult);
                 SecurityContextHolder.setContext(context);
@@ -60,30 +55,27 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                 logger.debug("Failed to authenticate user.", e);
                 SecurityContextHolder.clearContext();
             }
-        } else {
-            logger.trace("The user is already authenticated. Will not re-authenticate");
         }
-            filterChain.doFilter(request, response);
+        filterChain.doFilter(request, response);
     }
 
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
 
         if (request.getRequestURI().startsWith(healthCheckRequest)) {
-            logger.debug("Actuator health checks are automatically authenticated.");
+            logger.trace("Actuator health checks are automatically authenticated.");
             return false;
         }
 
+        // User is already authenticated and is not anonymous user
         SecurityContext context = SecurityContextHolder.getContext();
-        if (context == null) {
-            return true;
-        }
-        Authentication auth = context.getAuthentication();
-
-        if (auth == null) {
-            return true;
+        if (context != null && context.getAuthentication() != null && context.getAuthentication().isAuthenticated()) {
+            logger.trace("The user is already authenticated. Will not re-authenticate");
+            return false;
         }
 
-        return !auth.isAuthenticated();
+        // If there is no token header, user will need to be authenticated in this filter
+        return request.getHeader("Authorization") == null || request.getHeader(certificateHeaderName) != null;
+
     }
 
 }

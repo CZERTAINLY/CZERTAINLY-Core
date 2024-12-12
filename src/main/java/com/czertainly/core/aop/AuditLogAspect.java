@@ -8,8 +8,6 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
-import com.czertainly.core.dao.entity.AuditLog;
-import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.logging.LoggerWrapper;
@@ -17,6 +15,7 @@ import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
@@ -37,14 +36,14 @@ public class AuditLogAspect {
 
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);
 
-    private AuditLogRepository auditLogRepository;
-
     @Value("${logging.schema-version}")
     private String schemaVersion;
 
+    private AuditLogService auditLogService;
+
     @Autowired
-    public void setAuditLogRepository(AuditLogRepository auditLogRepository) {
-        this.auditLogRepository = auditLogRepository;
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
     }
 
     @Around("@annotation(AuditLogged)")
@@ -78,16 +77,7 @@ public class AuditLogAspect {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
 
             LogRecord logRecord = logBuilder.build();
-            if (!logger.filterLog(loggingSettingsDto.getAuditLogs(), logRecord.module(), logRecord.resource().type())) {
-                if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.DATABASE) {
-                    AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
-                    auditLogRepository.save(auditLog);
-                }
-
-                if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.CONSOLE) {
-                    logger.logAudited(logRecord);
-                }
-            }
+            auditLogService.log(logRecord);
         }
     }
 

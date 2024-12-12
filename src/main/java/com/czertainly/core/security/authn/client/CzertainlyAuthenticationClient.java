@@ -1,20 +1,25 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.model.core.logging.enums.AuthMethod;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.*;
+import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.dto.AuthenticationResponseDto;
 import com.czertainly.core.security.authn.client.dto.UserDetailsDto;
+import com.czertainly.core.security.exception.AuthenticationServiceException;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.Constants;
+import com.czertainly.core.util.OAuth2Constants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -34,7 +39,7 @@ import java.util.stream.Collectors;
 @Component
 public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthenticationClient {
 
-    protected final Log logger = LogFactory.getLog(this.getClass());
+    protected final Logger logger = LoggerFactory.getLogger(this.getClass());
 
     private final ObjectMapper objectMapper;
     private final String customAuthServiceBaseUrl;
@@ -42,13 +47,16 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
     @Value("${server.ssl.certificate-header-name}")
     private String certificateHeaderName;
 
-    public CzertainlyAuthenticationClient(@Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
+    private final AuditLogService auditLogService;
+
+    public CzertainlyAuthenticationClient(@Autowired AuditLogService auditLogService, @Autowired ObjectMapper objectMapper, @Value("${auth-service.base-url}") String customAuthServiceBaseUrl) {
         this.objectMapper = objectMapper;
+        this.auditLogService = auditLogService;
         this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 
-    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest, boolean allowTokenAuthentication) throws AuthenticationException {
-        try {
+    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest) throws AuthenticationException {
+        if (logger.isTraceEnabled()) {
             logger.trace(
                     String.format(
                             "Calling authentication service with the following headers [%s].",
@@ -57,8 +65,12 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                                     .collect(Collectors.joining(","))
                     )
             );
+        }
 
-            AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest, allowTokenAuthentication);
+        AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest);
+
+        try {
+
             WebClient.RequestHeadersSpec<?> request = getClient(customAuthServiceBaseUrl)
                     .post()
                     .uri("/auth")
@@ -71,15 +83,22 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                     .block();
 
             if (response == null) {
-                throw new CzertainlyAuthenticationException("Empty response received from authentication service.");
+                String message = "Empty response received from authentication service";
+                auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+                throw new CzertainlyAuthenticationException(message);
             }
             return createAuthenticationInfo(authRequest.getAuthMethod(), response);
         } catch (WebClientResponseException.InternalServerError e) {
-            throw new CzertainlyAuthenticationException("An error occurred when calling authentication service.", e);
+            String message = "An error occurred when calling authentication service";
+            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            throw new CzertainlyAuthenticationException(message, e);
+        } catch (AuthenticationServiceException e) {
+            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, e.getException().getMessage());
+            throw e;
         }
     }
 
-    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest, boolean allowTokenAuthentication) {
+    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest) {
         boolean hasAuthenticationMethod = false;
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
         requestDto.setAuthMethod(AuthMethod.NONE);
@@ -91,8 +110,8 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
         }
 
-        final List<String> authTokenHeaderNameList = headers.get(Constants.TOKEN_AUTHENTICATION_HEADER);
-        if (authTokenHeaderNameList != null && allowTokenAuthentication) {
+        final List<String> authTokenHeaderNameList = headers.get(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
+        if (authTokenHeaderNameList != null) {
             hasAuthenticationMethod = true;
             requestDto.setAuthenticationToken(authTokenHeaderNameList.getFirst());
             if (requestDto.getAuthMethod() == AuthMethod.NONE) {
@@ -122,6 +141,9 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             checkLocalhostUser(requestDto);
         }
 
+        // update MDC for actor logging before authentication
+        LoggingHelper.putActorInfoWhenNull(ActorType.USER, requestDto.getAuthMethod());
+
         return requestDto;
     }
 
@@ -137,11 +159,20 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     private AuthenticationInfo createAuthenticationInfo(AuthMethod authMethod, AuthenticationResponseDto response) {
         if (!response.isAuthenticated()) {
-            return AuthenticationInfo.getAnonymousAuthenticationInfo();
+            AuthenticationInfo anonymousUserDetails = AuthenticationInfo.getAnonymousAuthenticationInfo();
+
+            // update MDC for actor logging after successful authentication
+            LoggingHelper.putActorInfoWhenNull(ActorType.ANONYMOUS, null, anonymousUserDetails.getUsername());
+
+            return anonymousUserDetails;
         }
 
         try {
             UserDetailsDto userDetails = objectMapper.readValue(response.getData(), UserDetailsDto.class);
+
+            // update MDC for actor logging after successful authentication
+            LoggingHelper.putActorInfoWhenNull(ActorType.USER, userDetails.getUser().getUuid(), userDetails.getUser().getUsername());
+
             return new AuthenticationInfo(
                     authMethod,
                     userDetails.getUser().getUuid(),

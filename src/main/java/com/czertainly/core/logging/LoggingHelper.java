@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.records.ActorRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.logging.records.SourceRecord;
-import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.util.NullUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
@@ -101,13 +100,25 @@ public class LoggingHelper {
         MDC.put(LoggingHelper.LOG_SOURCE_USER_AGENT, request.getHeader("User-Agent"));
     }
 
-    public static void putActorInfo(CzertainlyUserDetails userDetails, ActorType actorType) {
+    public static void putActorInfoWhenNull(ActorType actorType, AuthMethod authMethod) {
         if (actorType != null) {
-            MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+            String actualActorType = MDC.get(LOG_ACTOR_TYPE);
+            if (actualActorType == null) {
+                MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+            }
         }
-        MDC.put(LoggingHelper.LOG_ACTOR_AUTH_METHOD, userDetails.getAuthMethod().name());
-        MDC.put(LoggingHelper.LOG_ACTOR_UUID, userDetails.getUserUuid());
-        MDC.put(LoggingHelper.LOG_ACTOR_NAME, userDetails.getUsername());
+        if (authMethod != null) {
+            String actualAuthMethod = MDC.get(LOG_ACTOR_AUTH_METHOD);
+            if (actualAuthMethod == null) {
+                MDC.put(LoggingHelper.LOG_ACTOR_AUTH_METHOD, authMethod.name());
+            }
+        }
+    }
+
+    public static void putActorInfoWhenNull(ActorType actorType, String actorUuid, String actorName) {
+        if (actorType != null) MDC.put(LoggingHelper.LOG_ACTOR_TYPE, actorType.name());
+        if (actorUuid != null) MDC.put(LoggingHelper.LOG_ACTOR_UUID, actorUuid);
+        if (actorName != null) MDC.put(LoggingHelper.LOG_ACTOR_NAME, actorName);
     }
 
     public static void putLogResourceInfo(Resource resource, boolean affiliated, String resourceUuid, String resourceName) {

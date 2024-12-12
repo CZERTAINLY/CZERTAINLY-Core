@@ -36,64 +36,66 @@ public class LoggerWrapper {
     }
 
     public void logAudited(LogRecord logRecord) {
+        if (!logger.isInfoEnabled() || isLogFiltered(true, logRecord.module(), logRecord.resource().type(), null)) {
+            return;
+        }
+
         try {
-            if (logger.isInfoEnabled()) {
-                ResourceLoggingSettingsDto loggingSettings = ((LoggingSettingsDto) SettingsCache.getSettings(SettingsSection.LOGGING)).getAuditLogs();
-                if (filterLog(loggingSettings, logRecord.module(), logRecord.resource().type())) {
-                    return;
-                }
-                logger.info(OBJECT_MAPPER.writeValueAsString(logRecord));
-            }
+            logger.info(OBJECT_MAPPER.writeValueAsString(logRecord));
         } catch (JsonProcessingException e) {
-            logger.warn("Cannot serialize LogRecord to JSON: {}", e.getMessage());
+            logger.warn("Cannot serialize audit LogRecord to JSON: {}", e.getMessage());
         }
     }
 
     public void logEvent(Operation operation, OperationResult operationResult, Serializable operationData, String message) {
-        if ((operationResult == OperationResult.SUCCESS && !logger.isInfoEnabled()) || (operationResult == OperationResult.FAILURE && !logger.isErrorEnabled())) {
+        if (isLogFiltered(false, this.module, this.resource, operationResult)) {
             return;
         }
 
-        if (logger.isInfoEnabled()) {
-            try {
-                LogRecord logRecord = buildLogRecord(operation, operationResult, operationData, message);
-                ResourceLoggingSettingsDto loggingSettings = ((LoggingSettingsDto) SettingsCache.getSettings(SettingsSection.LOGGING)).getEventLogs();
-                if (filterLog(loggingSettings, logRecord.module(), logRecord.resource().type())) {
-                    return;
-                }
-
+        try {
+            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message);
+            if (operationResult == OperationResult.SUCCESS) {
                 logger.info(OBJECT_MAPPER.writeValueAsString(logRecord));
-            } catch (JsonProcessingException e) {
-                logger.warn("Cannot serialize event LogRecord to JSON: {}", e.getMessage());
+            } else {
+                logger.error(OBJECT_MAPPER.writeValueAsString(logRecord));
             }
+
+
+        } catch (JsonProcessingException e) {
+            logger.warn("Cannot serialize event LogRecord to JSON: {}", e.getMessage());
         }
     }
 
     public void logEventDebug(Operation operation, OperationResult operationResult, Serializable operationData, String message) {
-        if (logger.isDebugEnabled()) {
-            try {
-                LogRecord logRecord = buildLogRecord(operation, operationResult, operationData, message);
-                ResourceLoggingSettingsDto loggingSettings = ((LoggingSettingsDto) SettingsCache.getSettings(SettingsSection.LOGGING)).getEventLogs();
-                if (filterLog(loggingSettings, logRecord.module(), logRecord.resource().type())) {
-                    return;
-                }
+        if (!logger.isDebugEnabled() || isLogFiltered(false, this.module, this.resource, operationResult)) {
+            return;
+        }
 
-                logger.debug(OBJECT_MAPPER.writeValueAsString(logRecord));
-            } catch (JsonProcessingException e) {
-                logger.warn("Cannot serialize debug event LogRecord to JSON: {}", e.getMessage());
-            }
+        try {
+            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message);
+            logger.debug(OBJECT_MAPPER.writeValueAsString(logRecord));
+        } catch (JsonProcessingException e) {
+            logger.warn("Cannot serialize debug event LogRecord to JSON: {}", e.getMessage());
         }
     }
 
-    public boolean filterLog(ResourceLoggingSettingsDto settings, Module module, Resource resource) {
+    public boolean isLogFiltered(boolean audited, Module module, Resource resource, OperationResult result) {
+        if (result != null && ((result == OperationResult.SUCCESS && !logger.isInfoEnabled()) || (result == OperationResult.FAILURE && !logger.isErrorEnabled()))) {
+            return true;
+        }
+
+        ResourceLoggingSettingsDto settings = getLoggingSettings(audited);
         if (settings.getIgnoredModules().contains(module) || (!settings.isLogAllModules() && !settings.getLoggedModules().contains(module))) {
-            return false;
+            return true;
         }
         return settings.getIgnoredResources().contains(resource) || (!settings.isLogAllResources() && !settings.getLoggedResources().contains(resource));
     }
 
-    private LogRecord buildLogRecord(Operation operation, OperationResult operationResult, Serializable operationData, String message) {
-        var logBuilder = prepareLogRecord();
+    public LogRecord buildLogRecord(boolean audited, Module module, Resource resource, Operation operation, OperationResult operationResult, Serializable operationData, String message) {
+        if (module == null) module = this.module;
+        if (resource == null) resource = this.resource;
+
+        var logBuilder = prepareLogRecord(audited, module, resource);
         return logBuilder
                 .operation(operation)
                 .operationResult(operationResult)
@@ -102,13 +104,21 @@ public class LoggerWrapper {
                 .build();
     }
 
-    private LogRecord.LogRecordBuilder prepareLogRecord() {
+    private LogRecord.LogRecordBuilder prepareLogRecord(boolean audited, Module module, Resource resource) {
         return LogRecord.builder()
                 .version("1.0")
-                .audited(false)
-                .module(this.module)
+                .audited(audited)
+                .module(module)
                 .actor(LoggingHelper.getActorInfo())
                 .source(LoggingHelper.getSourceInfo())
-                .resource(new ResourceRecord(this.resource, null, (String) null));
+                .resource(new ResourceRecord(resource, null, (String) null));
+    }
+
+    private ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {
+        LoggingSettingsDto loggingSettings = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettings == null) {
+            return new ResourceLoggingSettingsDto();
+        }
+        return audited ? loggingSettings.getAuditLogs() : loggingSettings.getEventLogs();
     }
 }
