@@ -49,7 +49,8 @@ public class LoginController {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         if (authenticationSettings.getOAuth2Providers().isEmpty()) return "no-login-options";
 
-        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().toList();
+        // Because of validation of OAuth2ProviderSettingsDto, when client ID is null, all other client related properties will be null too, meaning this provider is only for JWT token validation
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(dto -> dto.getClientId() != null).toList();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             try {
