@@ -27,7 +27,7 @@ public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuc
 
     @Override
     public void onLogoutSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
-
+        if (authentication == null) return;
         OAuth2AuthenticationToken oauth2Token = (OAuth2AuthenticationToken) authentication;
         String redirectUri = clientRegistrationRepository.findByRegistrationId(oauth2Token.getAuthorizedClientRegistrationId()).getProviderDetails().getConfigurationMetadata().get("post_logout_uri").toString();
 
