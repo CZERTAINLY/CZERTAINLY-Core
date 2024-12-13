@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn;
 
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -51,6 +52,13 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authResult);
                 SecurityContextHolder.setContext(context);
+                CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authResult.getPrincipal();
+                if (userDetails.getAuthMethod() == AuthMethod.CERTIFICATE) {
+                    logger.debug("User with username '" + userDetails.getUsername() + "' has been successfully authenticated with certificate.");
+                } else {
+                    logger.debug("User has not been identified, using anonymous user.");
+                }
+
             } catch (AuthenticationException e) {
                 logger.debug("Failed to authenticate user.", e);
                 SecurityContextHolder.clearContext();

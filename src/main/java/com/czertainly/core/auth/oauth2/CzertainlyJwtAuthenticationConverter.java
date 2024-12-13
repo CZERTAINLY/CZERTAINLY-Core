@@ -1,9 +1,13 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.OAuth2Constants;
 import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
@@ -38,7 +42,10 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
         headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, source.getTokenValue());
         AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
-        logger.debug("User {} has been authenticated using JWT token from issuer {}.", userDetails.getUsername(), source.getIssuer());
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(source.getIssuer().toString())).findFirst().orElse(null);
+        // Provider settings will not be null, otherwise converter would not have been reached from decoder
+        logger.debug("User '{}' has been authenticated using JWT from OAuth2 Provider '{}'.", userDetails.getUsername(), providerSettings == null ? " " : providerSettings.getName());
         return new CzertainlyAuthenticationToken(userDetails);
     }
 }
