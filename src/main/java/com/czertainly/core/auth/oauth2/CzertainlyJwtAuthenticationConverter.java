@@ -5,6 +5,7 @@ import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.util.OAuth2Constants;
+import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,14 +29,16 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
     }
 
     @Override
-    public AbstractAuthenticationToken convert(Jwt source) {
-        if (source != null) {
-            HttpHeaders headers = new HttpHeaders();
-            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, source.getTokenValue());
-            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
-            CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
-            logger.debug("User {} has been authenticated using JWT token from issuer {}.", userDetails.getUsername(), source.getIssuer());
-            return new CzertainlyAuthenticationToken(userDetails);
-        } else return (CzertainlyAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+    public AbstractAuthenticationToken convert(@Nullable Jwt source) {
+        if (source == null) {
+            return (CzertainlyAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+        }
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, source.getTokenValue());
+        AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
+        CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
+        logger.debug("User {} has been authenticated using JWT token from issuer {}.", userDetails.getUsername(), source.getIssuer());
+        return new CzertainlyAuthenticationToken(userDetails);
     }
 }

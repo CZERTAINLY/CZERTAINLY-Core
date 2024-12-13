@@ -15,8 +15,11 @@ import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
+import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.BeautificationUtil;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -24,6 +27,7 @@ import org.aspectj.lang.reflect.MethodSignature;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
@@ -49,7 +53,7 @@ public class AuditLogAspect {
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
         LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
-        if (loggingSettingsDto == null || (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE )) {
+        if (loggingSettingsDto == null || (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE)) {
             return joinPoint.proceed();
         }
 
@@ -70,8 +74,15 @@ public class AuditLogAspect {
 
             return result;
         } catch (Exception e) {
+            String message = e.getMessage();
+            if (e instanceof AccessDeniedException) {
+                String resourceName = AuthHelper.getDeniedPermissionResource();
+                String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
+                message = "%s. Required '%s' action permission for resource '%s'".formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName), Resource.findByCode(resourceName).getLabel());
+            }
+
             logBuilder.operationResult(OperationResult.FAILURE);
-            logBuilder.message(e.getMessage());
+            logBuilder.message(message);
             throw e;
         } finally {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);

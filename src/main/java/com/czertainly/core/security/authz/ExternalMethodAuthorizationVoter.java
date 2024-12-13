@@ -13,6 +13,7 @@ import com.czertainly.core.security.authz.opa.dto.AnonymousPrincipal;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.security.authz.opa.dto.OpaResourceAccessResult;
+import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.aopalliance.intercept.MethodInvocation;
@@ -156,8 +157,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             if (!Resource.NONE.getCode().equals(properties.get(PARENT_NAME_PROP_NAME))) {
                 int result = voteResource(principal, methodInvocation, properties, parentUUIDGetter, true);
                 if (result == ACCESS_DENIED) {
-                    setDeniedResource(properties.get(PARENT_NAME_PROP_NAME));
-                    setDeniedResourceAction(properties.get(PARENT_ACTION_PROP_NAME));
+                    AuthHelper.setDeniedPermissionResourceAction(properties.get(PARENT_NAME_PROP_NAME), properties.get(PARENT_ACTION_PROP_NAME));
                     return result;
                 }
             }
@@ -190,8 +190,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
         if (!parentResource && parentUUIDGetter.isPresent()) {
             if (objectUUIDs.isEmpty()) {
                 logger.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
-                setDeniedResource(voteProperties.get(NAME_PROP_NAME));
-                setDeniedResourceAction(voteProperties.get(ACTION_PROP_NAME));
+                AuthHelper.setDeniedPermissionResourceAction(voteProperties.get(NAME_PROP_NAME), voteProperties.get(ACTION_PROP_NAME));
                 return ACCESS_DENIED;
             } else {
                 List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
@@ -220,8 +219,7 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
             return ACCESS_GRANTED;
         } else {
             logger.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
-            setDeniedResource(voteProperties.get(NAME_PROP_NAME));
-            setDeniedResourceAction(voteProperties.get(ACTION_PROP_NAME));
+            AuthHelper.setDeniedPermissionResourceAction(voteProperties.get(NAME_PROP_NAME), voteProperties.get(ACTION_PROP_NAME));
             return ACCESS_DENIED;
         }
     }
@@ -307,19 +305,5 @@ public class ExternalMethodAuthorizationVoter extends AbstractExternalAuthorizat
                 value instanceof Boolean ||
                 value instanceof Float ||
                 value instanceof Double;
-    }
-
-    private void setDeniedResource(String resourceName) {
-        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
-        if (requestAttributes != null) {
-            requestAttributes.setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", resourceName, 121);
-        }
-    }
-
-    private void setDeniedResourceAction(String resourceActionName) {
-        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
-        if (requestAttributes != null) {
-            requestAttributes.setAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", resourceActionName, 121);
-        }
     }
 }
