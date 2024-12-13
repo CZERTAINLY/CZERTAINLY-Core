@@ -57,6 +57,10 @@ public class LoggingHelper {
         }
     }
 
+    public static AuthMethod getAuthMethod() {
+        return AuthMethod.valueOf(MDC.get(LOG_ACTOR_AUTH_METHOD));
+    }
+
     public static SourceRecord getSourceInfo() {
         String method = MDC.get(LOG_SOURCE_METHOD);
         if (method != null) {

@@ -27,6 +27,18 @@ public class AuthenticationRequestDto {
     @Schema(description = "User UUID")
     private String userUuid;
 
+    @JsonIgnore
+    public String getAuthData() {
+        return switch (authMethod) {
+            case NONE -> null;
+            case CERTIFICATE -> certificateContent;
+            case TOKEN -> authenticationToken;
+            case SESSION -> authenticationToken;
+            case API_KEY -> null;
+            case USER_PROXY -> systemUsername != null ? systemUsername : userUuid;
+        };
+    }
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)

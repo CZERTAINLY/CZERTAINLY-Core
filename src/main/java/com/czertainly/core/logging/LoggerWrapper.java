@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.util.Map;
 
 @Getter
 public class LoggerWrapper {
@@ -53,7 +54,7 @@ public class LoggerWrapper {
         }
 
         try {
-            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message);
+            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message, null);
             if (operationResult == OperationResult.SUCCESS) {
                 logger.info(OBJECT_MAPPER.writeValueAsString(logRecord));
             } else {
@@ -72,7 +73,7 @@ public class LoggerWrapper {
         }
 
         try {
-            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message);
+            LogRecord logRecord = buildLogRecord(false, this.module, this.resource, operation, operationResult, operationData, message, null);
             logger.debug(OBJECT_MAPPER.writeValueAsString(logRecord));
         } catch (JsonProcessingException e) {
             logger.warn("Cannot serialize debug event LogRecord to JSON: {}", e.getMessage());
@@ -91,7 +92,7 @@ public class LoggerWrapper {
         return settings.getIgnoredResources().contains(resource) || (!settings.isLogAllResources() && !settings.getLoggedResources().contains(resource));
     }
 
-    public LogRecord buildLogRecord(boolean audited, Module module, Resource resource, Operation operation, OperationResult operationResult, Serializable operationData, String message) {
+    public LogRecord buildLogRecord(boolean audited, Module module, Resource resource, Operation operation, OperationResult operationResult, Serializable operationData, String message, Map<String, Object> additionalData) {
         if (module == null) module = this.module;
         if (resource == null) resource = this.resource;
 
@@ -101,6 +102,7 @@ public class LoggerWrapper {
                 .operationResult(operationResult)
                 .operationData(operationData)
                 .message(message)
+                .additionalData(additionalData)
                 .build();
     }
 

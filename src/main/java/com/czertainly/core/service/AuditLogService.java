@@ -44,7 +44,7 @@ public interface AuditLogService {
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void log(LogRecord logRecord);
+    void logAuthentication(LogRecord logRecord);
 
-    void log(Module module, Resource resource, Operation operation, OperationResult operationResult, String message);
+    void logAuthentication(OperationResult operationResult, String message, String authData);
 }

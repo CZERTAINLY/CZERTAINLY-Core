@@ -84,16 +84,16 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
             if (response == null) {
                 String message = "Empty response received from authentication service";
-                auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+                auditLogService.logAuthentication(OperationResult.FAILURE, message, authRequest.getAuthData());
                 throw new CzertainlyAuthenticationException(message);
             }
             return createAuthenticationInfo(authRequest.getAuthMethod(), response);
         } catch (WebClientResponseException.InternalServerError e) {
             String message = "An error occurred when calling authentication service";
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            auditLogService.logAuthentication(OperationResult.FAILURE, message, authRequest.getAuthData());
             throw new CzertainlyAuthenticationException(message, e);
         } catch (AuthenticationServiceException e) {
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, e.getException().getMessage());
+            auditLogService.logAuthentication(OperationResult.FAILURE, e.getException().getMessage(), authRequest.getAuthData());
             throw e;
         }
     }

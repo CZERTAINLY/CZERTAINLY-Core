@@ -15,7 +15,6 @@ import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
@@ -88,7 +87,7 @@ public class AuditLogAspect {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
 
             LogRecord logRecord = logBuilder.build();
-            auditLogService.log(logRecord);
+            auditLogService.logAuthentication(logRecord);
         }
     }
 

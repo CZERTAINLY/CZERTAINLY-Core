@@ -56,14 +56,14 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         if (providerSettings == null) {
             request.getSession().invalidate();
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(authenticationToken.getAuthorizedClientRegistrationId());
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            auditLogService.logAuthentication(OperationResult.FAILURE, message, authorizedClient.getAccessToken().getTokenValue());
             throw new CzertainlyAuthenticationException(message);
         }
         try {
             OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
         } catch (CzertainlyAuthenticationException e) {
             request.getSession().invalidate();
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage());
+            auditLogService.logAuthentication(OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
             throw e;
         }
 
