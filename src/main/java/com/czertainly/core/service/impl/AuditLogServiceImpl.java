@@ -180,15 +180,14 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    public void logAuthentication(LogRecord logRecord) {
+    public void log(LogRecord logRecord) {
         handleAuditLogging(logRecord);
     }
 
     @Override
-    public void logAuthentication(OperationResult operationResult, String message, String authData) {
+    public void logAuthentication(Operation operation, OperationResult operationResult, String message, String authData) {
         Module module = Module.AUTH;
         Resource resource = Resource.USER;
-        Operation operation = Operation.AUTHENTICATION;
         if (logger.isLogFiltered(true, module, resource, null)) {
             return;
         }
@@ -200,7 +199,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
 
         LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message, additionalData);
-        logAuthentication(logRecord);
+        log(logRecord);
     }
 
     private void handleAuditLogging(LogRecord logRecord) {

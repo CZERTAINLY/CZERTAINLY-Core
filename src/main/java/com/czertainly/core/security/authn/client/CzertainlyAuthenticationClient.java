@@ -1,8 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.core.logging.LoggingHelper;
@@ -68,6 +66,10 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
 
         AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest);
+        if (logger.isDebugEnabled()) {
+            ActorType actorType = LoggingHelper.getActorType();
+            logger.debug("Going to authenticate {}user with {} auth method. {}", actorType == null || actorType == ActorType.USER ? "" : actorType.getLabel() + " ", authRequest.getAuthMethod().getLabel(), authRequest.getAuthData(true));
+        }
 
         try {
 
@@ -84,16 +86,16 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
             if (response == null) {
                 String message = "Empty response received from authentication service";
-                auditLogService.logAuthentication(OperationResult.FAILURE, message, authRequest.getAuthData());
+                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authRequest.getAuthData(false));
                 throw new CzertainlyAuthenticationException(message);
             }
             return createAuthenticationInfo(authRequest.getAuthMethod(), response);
         } catch (WebClientResponseException.InternalServerError e) {
             String message = "An error occurred when calling authentication service";
-            auditLogService.logAuthentication(OperationResult.FAILURE, message, authRequest.getAuthData());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authRequest.getAuthData(false));
             throw new CzertainlyAuthenticationException(message, e);
         } catch (AuthenticationServiceException e) {
-            auditLogService.logAuthentication(OperationResult.FAILURE, e.getException().getMessage(), authRequest.getAuthData());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getException().getMessage(), authRequest.getAuthData(false));
             throw e;
         }
     }

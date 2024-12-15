@@ -1,8 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
@@ -43,7 +41,7 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
                 OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
                 accessToken = oauth2AccessToken.getTokenValue();
             } catch (Exception ignored) {}
-            auditLogService.logAuthentication(OperationResult.FAILURE, message, accessToken);
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessToken);
         }
         logger.error(message);
 

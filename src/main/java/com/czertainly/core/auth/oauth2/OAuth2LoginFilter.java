@@ -1,8 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
@@ -58,7 +56,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         this.auditLogService = auditLogService;
     }
 
-
     @Autowired
     public void setAuthorizedClientProvider(OAuth2AuthorizedClientProvider authorizedClientProvider) {
         this.authorizedClientProvider = authorizedClientProvider;
@@ -76,9 +73,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
-
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
@@ -88,7 +83,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             if (providerSettings == null) {
                 request.getSession().invalidate();
                 String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(oauthToken.getAuthorizedClientRegistrationId());
-                auditLogService.logAuthentication(OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
+                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
                 throw new CzertainlyAuthenticationException(message);
             }
 
@@ -106,14 +101,14 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
                     String message = "Could not refresh token: %s".formatted(e.getMessage());
-                    auditLogService.logAuthentication(OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
+                    auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
                     throw new CzertainlyAuthenticationException(message);
                 }
                 try {
                     OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
                 } catch (CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
-                    auditLogService.logAuthentication(OperationResult.FAILURE, e.getMessage(), oauth2AccessToken.getTokenValue());
+                    auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), oauth2AccessToken.getTokenValue());
                     throw e;
                 }
             }

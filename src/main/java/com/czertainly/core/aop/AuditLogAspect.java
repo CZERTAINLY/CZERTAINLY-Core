@@ -87,7 +87,7 @@ public class AuditLogAspect {
             constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
 
             LogRecord logRecord = logBuilder.build();
-            auditLogService.logAuthentication(logRecord);
+            auditLogService.log(logRecord);
         }
     }
 

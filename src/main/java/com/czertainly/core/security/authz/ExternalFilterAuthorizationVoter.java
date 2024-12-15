@@ -1,11 +1,14 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.AnonymousPrincipal;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.security.authz.opa.dto.OpaResourceAccessResult;
+import com.czertainly.core.service.AuditLogService;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.logging.Log;
@@ -35,9 +38,12 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
 
     private RequestMatcher doNotAuthorizeAnonymousRequestsMatcher;
 
-    public ExternalFilterAuthorizationVoter(@Autowired OpaClient opaClient, @Autowired ObjectMapper om) {
+    private final AuditLogService auditLogService;
+
+    public ExternalFilterAuthorizationVoter(@Autowired OpaClient opaClient, @Autowired ObjectMapper om, @Autowired AuditLogService auditLogService) {
         this.opaClient = opaClient;
         this.om = om;
+        this.auditLogService = auditLogService;
     }
 
     @Override
@@ -91,11 +97,14 @@ public class ExternalFilterAuthorizationVoter extends AbstractExternalAuthorizat
                 );
                 return ACCESS_GRANTED;
             } else {
-                logger.trace(String.format("Access to the endpoint '%s' has been denied.", fi.getRequestUrl()));
+                String message = "Access to the endpoint '%s' has been denied.".formatted(fi.getRequestUrl());
+                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, null);
                 return ACCESS_DENIED;
             }
         } catch (Exception e) {
-            logger.error(String.format("Unable verify access to the endpoint '%s'. Voting to deny access.", fi.getRequestUrl()), e);
+            String message = "Unable verify access to the endpoint '%s'. Voting to deny access.".formatted(fi.getRequestUrl());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, null);
+            logger.error(message, e);
             return ACCESS_DENIED;
         }
     }
