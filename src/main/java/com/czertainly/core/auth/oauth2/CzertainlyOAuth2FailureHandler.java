@@ -36,11 +36,13 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         String message = "Error occurred when trying to authenticate using OAuth2 protocol: %s".formatted(exception.getMessage());
         if (!(exception instanceof CzertainlyAuthenticationException)) {
-            String accessToken = null;
+            String accessToken;
             try {
                 OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
                 accessToken = oauth2AccessToken.getTokenValue();
-            } catch (Exception ignored) {}
+            } catch (Exception e) {
+                accessToken = null;
+            }
             auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessToken);
         }
         logger.error(message);
