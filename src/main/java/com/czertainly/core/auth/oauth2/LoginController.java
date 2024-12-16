@@ -1,13 +1,18 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -22,6 +27,13 @@ import java.util.List;
 public class LoginController {
 
     private static final String ERROR_ATTRIBUTE_NAME = "error";
+
+    private AuditLogService auditLogService;
+
+    @Autowired
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
 
     @GetMapping("/login")
     public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
@@ -70,7 +82,17 @@ public class LoginController {
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(provider);
 
         if (providerSettings == null) {
-            throw new CzertainlyAuthenticationException("Unknown OAuth2 Provider with name '%s'".formatted(provider));
+            String accessToken;
+            try {
+                OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
+                accessToken = oauth2AccessToken.getTokenValue();
+            } catch (Exception e) {
+                accessToken = null;
+            }
+
+            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(provider);
+            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, accessToken);
+            throw new CzertainlyAuthenticationException(message);
         }
 
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());

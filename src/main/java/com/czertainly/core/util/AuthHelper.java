@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.ActorType;
+import com.czertainly.core.auth.oauth2.CzertainlyJwtDecoder;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
@@ -29,12 +30,19 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.web.context.request.RequestAttributes;
+import org.springframework.web.context.request.RequestContextHolder;
 
 import java.util.*;
 
 @Component
 public class AuthHelper {
+    // Access control request attributes
+    public static final String REQ_ATTR_RESOURCE_NAME = "INTERNAL_ATTRIB_DENIED_RESOURCE_NAME";
+    public static final String REQ_ATTR_RESOURCE_ACTION_NAME = "INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME";
+    public static final int REQ_ATTR_ACCESS_CONTROL_SCOPE = 121;
 
+    // system users and roles names
     public static final String SYSTEM_USER_HEADER_NAME = "systemUsername";
     public static final String USER_UUID_HEADER_NAME = "userUuid";
 
@@ -73,6 +81,7 @@ public class AuthHelper {
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
+        logger.debug("User with username '{}' has been successfully authenticated as system user proxy.", authUserInfo.getUsername());
     }
 
     public void authenticateAsUser(UUID userUuid) {
@@ -85,6 +94,7 @@ public class AuthHelper {
         AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
+        logger.debug("User with username '{}' has been successfully authenticated as user proxy.", authUserInfo.getUsername());
     }
 
     public static boolean isLoggedProtocolUser() {
@@ -163,5 +173,27 @@ public class AuthHelper {
             ipAddress = ipAddress.split(",")[0];
         }
         return ipAddress;
+    }
+
+    public static String getDeniedPermissionResource() {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        Object requestAttribute = requestAttributes == null ? null : requestAttributes.getAttribute(REQ_ATTR_RESOURCE_NAME, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+
+        return requestAttribute == null ? null : requestAttribute.toString();
+    }
+
+    public static String getDeniedPermissionResourceAction() {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        Object requestAttribute = requestAttributes == null ? null : requestAttributes.getAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+
+        return requestAttribute == null ? null : requestAttribute.toString();
+    }
+
+    public static void setDeniedPermissionResourceAction(String resourceName, String resourceActionName) {
+        RequestAttributes requestAttributes = RequestContextHolder.getRequestAttributes();
+        if (requestAttributes != null) {
+            requestAttributes.setAttribute(REQ_ATTR_RESOURCE_NAME, resourceName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+            requestAttributes.setAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, resourceActionName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
+        }
     }
 }

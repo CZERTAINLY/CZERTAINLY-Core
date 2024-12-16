@@ -27,13 +27,25 @@ public class AuthenticationRequestDto {
     @Schema(description = "User UUID")
     private String userUuid;
 
+    @JsonIgnore
+    public String getAuthData(boolean withLabel) {
+        return withLabel ? switch (authMethod) {
+            case NONE -> "";
+            case CERTIFICATE -> "Certificate: " + certificateContent;
+            case TOKEN, SESSION -> "Token: " + authenticationToken;
+            case API_KEY -> "";
+            case USER_PROXY -> systemUsername != null ? "System username: " + systemUsername : "User UUID: " + userUuid;
+        } : switch (authMethod) {
+            case NONE -> null;
+            case CERTIFICATE -> certificateContent;
+            case TOKEN, SESSION -> authenticationToken;
+            case API_KEY -> null;
+            case USER_PROXY -> systemUsername != null ? systemUsername : userUuid;
+        };
+    }
+
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("certificateContent", certificateContent)
-                .append("authenticationToken", authenticationToken)
-                .append("systemUsername", systemUsername)
-                .append("userUuid", userUuid)
-                .toString();
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("certificateContent", certificateContent).append("authenticationToken", authenticationToken).append("systemUsername", systemUsername).append("userUuid", userUuid).toString();
     }
 }

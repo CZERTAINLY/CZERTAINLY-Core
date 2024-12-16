@@ -4,10 +4,8 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.*;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
+import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -20,6 +18,7 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -38,6 +37,7 @@ import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Root;
 import org.apache.commons.lang3.function.TriFunction;
+import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.PageRequest;
@@ -46,7 +46,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @Service
 @Transactional
@@ -183,12 +185,20 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    public void log(Module module, Resource resource, Operation operation, OperationResult operationResult, String message) {
+    public void logAuthentication(Operation operation, OperationResult operationResult, String message, String authData) {
+        Module module = Module.AUTH;
+        Resource resource = Resource.USER;
         if (logger.isLogFiltered(true, module, resource, null)) {
             return;
         }
 
-        LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message);
+        Map<String, Object> additionalData = null;
+        if (logger.getLogger().isDebugEnabled()) {
+            additionalData = new HashMap<>();
+            additionalData.put("authData", authData);
+        }
+
+        LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message, additionalData);
         log(logRecord);
     }
 

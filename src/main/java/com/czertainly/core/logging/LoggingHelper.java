@@ -57,6 +57,10 @@ public class LoggingHelper {
         }
     }
 
+    public static ActorType getActorType() {
+        return ActorType.valueOf(MDC.get(LOG_ACTOR_TYPE));
+    }
+
     public static SourceRecord getSourceInfo() {
         String method = MDC.get(LOG_SOURCE_METHOD);
         if (method != null) {

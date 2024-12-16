@@ -1,8 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
@@ -56,14 +54,14 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         if (providerSettings == null) {
             request.getSession().invalidate();
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(authenticationToken.getAuthorizedClientRegistrationId());
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, authorizedClient.getAccessToken().getTokenValue());
             throw new CzertainlyAuthenticationException(message);
         }
         try {
             OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
         } catch (CzertainlyAuthenticationException e) {
             request.getSession().invalidate();
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
             throw e;
         }
 
@@ -81,7 +79,6 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
             return;
         }
         logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", authenticationToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME), redirectUrl);
-
-
+        auditLogService.logAuthentication(Operation.LOGIN, OperationResult.SUCCESS, null, authorizedClient.getAccessToken().getTokenValue());
     }
 }

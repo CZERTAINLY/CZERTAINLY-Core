@@ -2,6 +2,7 @@ package com.czertainly.core.security.oauth2;
 
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -119,7 +120,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
         SecurityContextHolder.clearContext();
         String expiredToken = createJwtTokenValue(keyPair.getPrivate(), 1);
-        Assertions.assertThrows(JwtValidationException.class, () -> jwtDecoder.decode(expiredToken));
+        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
     }
 
     @Test
@@ -136,7 +137,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         providerSettings.setAudiences(List.of("different-audience"));
         settingService.updateOAuth2ProviderSettings("provider", providerSettings);
         SecurityContextHolder.clearContext();
-        Assertions.assertThrows(JwtValidationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
     }
 
     private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {

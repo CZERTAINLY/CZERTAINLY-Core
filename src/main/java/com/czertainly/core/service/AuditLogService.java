@@ -46,5 +46,5 @@ public interface AuditLogService {
 
     void log(LogRecord logRecord);
 
-    void log(Module module, Resource resource, Operation operation, OperationResult operationResult, String message);
+    void logAuthentication(Operation operation, OperationResult operationResult, String message, String authData);
 }

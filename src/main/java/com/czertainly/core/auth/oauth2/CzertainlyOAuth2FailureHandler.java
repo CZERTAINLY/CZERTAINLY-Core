@@ -1,8 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
-import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
@@ -13,6 +11,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.web.authentication.AuthenticationFailureHandler;
 import org.springframework.stereotype.Component;
 
@@ -37,7 +36,14 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         String message = "Error occurred when trying to authenticate using OAuth2 protocol: %s".formatted(exception.getMessage());
         if (!(exception instanceof CzertainlyAuthenticationException)) {
-            auditLogService.log(Module.AUTH, Resource.USER, Operation.AUTHENTICATION, OperationResult.FAILURE, message);
+            String accessToken;
+            try {
+                OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
+                accessToken = oauth2AccessToken.getTokenValue();
+            } catch (Exception e) {
+                accessToken = null;
+            }
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessToken);
         }
         logger.error(message);
 

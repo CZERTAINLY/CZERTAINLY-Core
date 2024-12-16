@@ -4,8 +4,10 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BeautificationUtil;
 import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
@@ -317,19 +319,18 @@ public class ExceptionHandlingAdvice {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<AuthenticationServiceExceptionDto> handleAccessDeniedException(AccessDeniedException ex) {
         LOG.warn("Access denied: {}", ex.getMessage());
-        RequestAttributes attributes = RequestContextHolder.getRequestAttributes();
         ResponseEntity.BodyBuilder response = ResponseEntity.status(HttpStatus.FORBIDDEN).contentType(MediaType.valueOf("application/problem+json"));
         AuthenticationServiceExceptionDto responseDto = new AuthenticationServiceExceptionDto();
         responseDto.setCode("ACCESS_DENIED");
         responseDto.setStatusCode(HttpStatus.FORBIDDEN.value());
 
-        Object resourceName = attributes == null ? null : attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_NAME", 121);
-        Object resourceActionName = attributes == null ? null : attributes.getAttribute("INTERNAL_ATTRIB_DENIED_RESOURCE_ACTION_NAME", 121);
-        if (resourceName != null && !((String) resourceName).isEmpty() && resourceActionName != null && !((String) resourceActionName).isEmpty()) {
+        String resourceName = AuthHelper.getDeniedPermissionResource();
+        String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
+        if (resourceName != null && !resourceName.isEmpty() && resourceActionName != null && !resourceActionName.isEmpty()) {
             responseDto.setMessage("Access Denied. Required '"
-                    + BeautificationUtil.camelToHumanForm((String) resourceActionName)
+                    + BeautificationUtil.camelToHumanForm(resourceActionName)
                     + "' permission for '"
-                    + BeautificationUtil.camelToHumanForm((String) resourceName)
+                    + Resource.findByCode(resourceName).getLabel()
                     + "'");
         } else {
             responseDto.setMessage("Access denied for the specified operation: " + ex.getMessage());
