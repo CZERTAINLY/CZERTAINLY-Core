@@ -60,8 +60,8 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                 }
 
             } catch (AuthenticationException e) {
-                logger.debug("Failed to authenticate user.", e);
                 SecurityContextHolder.clearContext();
+                throw new CzertainlyAuthenticationException(e.getMessage());
             }
         }
         filterChain.doFilter(request, response);

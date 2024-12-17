@@ -26,6 +26,7 @@ import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Mono;
 
@@ -90,13 +91,15 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
                 throw new CzertainlyAuthenticationException(message);
             }
             return createAuthenticationInfo(authRequest.getAuthMethod(), response);
-        } catch (WebClientResponseException.InternalServerError e) {
-            String message = "An error occurred when calling authentication service";
+        } catch (WebClientResponseException.InternalServerError | WebClientRequestException e) {
+            String message = "An error occurred when calling authentication service: " + e.getMessage();
+            logger.error(message);
             auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authRequest.getAuthData(false));
             throw new CzertainlyAuthenticationException(message, e);
         } catch (AuthenticationServiceException e) {
+            logger.error(e.getException().getMessage());
             auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getException().getMessage(), authRequest.getAuthData(false));
-            throw e;
+            throw new CzertainlyAuthenticationException(e.getException().getMessage(), e);
         }
     }
 
