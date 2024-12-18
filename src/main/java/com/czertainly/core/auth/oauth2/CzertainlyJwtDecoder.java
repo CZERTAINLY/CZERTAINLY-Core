@@ -47,14 +47,12 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
         } catch (ParseException e) {
             String message = "Could not extract issuer from JWT token";
-            logger.error(message);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
+            logErrorAndAudit(message, token);
             throw new CzertainlyAuthenticationException(message);
         }
         if (issuerUri == null) {
             String message = "Issuer URI is not present in JWT token";
-            logger.error(message);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
+            logErrorAndAudit(message, token);
             throw new CzertainlyAuthenticationException(message);
         }
 
@@ -63,8 +61,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
         if (providerSettings == null) {
             String message = "No OAuth2 Provider with issuer URI '%s' configured for authentication with JWT token".formatted(issuerUri);
-            logger.error(message);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
+            logErrorAndAudit(message, token);
             throw new CzertainlyAuthenticationException(message);
         }
 
@@ -76,8 +73,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
         } catch (Exception e) {
             String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
-            logger.error(message);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
+            logErrorAndAudit(message, token);
             throw new CzertainlyAuthenticationException(message);
         }
         OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
@@ -93,8 +89,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             return jwtDecoder.decode(token);
         } catch (JwtException e) {
             String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
-            logger.error(message);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
+            logErrorAndAudit(message, token);
             throw new CzertainlyAuthenticationException(message);
         }
     }
@@ -102,5 +97,14 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
     private boolean isAuthenticationNeeded() {
         SecurityContext context = SecurityContextHolder.getContext();
         return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken);
+    }
+
+    private void logErrorAndAudit(String message, String token) {
+        if (logger.isDebugEnabled()) {
+            logger.error("{}: {}", message, token);
+        } else {
+            logger.error(message);
+        }
+        auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
     }
 }
