@@ -5,6 +5,8 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.core.Authentication;
@@ -17,6 +19,8 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import java.io.IOException;
 
 public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
+
+    private static final Logger logger = LoggerFactory.getLogger(CzertainlyAuthenticationFilter.class);
 
     private final AuthenticationManager authenticationManager;
 
@@ -42,26 +46,29 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         if (isAuthenticationNeeded(request)) {
-            logger.trace("Going to authenticate the '%s' request on '%s'.".formatted(request.getMethod(), request.getRequestURI()));
+            logger.trace("Going to authenticate the '{}' request on '{}'.", request.getMethod(), request.getRequestURI());
             CzertainlyAuthenticationRequest authRequest = this.authenticationConverter.convert(request);
 
             try {
                 Authentication authResult = this.authenticationManager.authenticate(authRequest);
-                logger.trace("Authentication result: %s".formatted(authResult.isAuthenticated() ? "authenticated" : "unauthenticated"));
+                logger.trace("Authentication result: {}", authResult.isAuthenticated() ? "authenticated" : "unauthenticated");
 
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authResult);
                 SecurityContextHolder.setContext(context);
                 CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authResult.getPrincipal();
                 if (userDetails.getAuthMethod() == AuthMethod.CERTIFICATE) {
-                    logger.debug("User with username '" + userDetails.getUsername() + "' has been successfully authenticated with certificate.");
+                    logger.debug("User with username '{}' has been successfully authenticated with certificate.", userDetails.getUsername());
                 } else {
                     logger.debug("User has not been identified, using anonymous user.");
                 }
 
             } catch (AuthenticationException e) {
                 SecurityContextHolder.clearContext();
-                throw new CzertainlyAuthenticationException(e.getMessage());
+                if (logger.isDebugEnabled()) {
+                    throw e;
+                }
+                logger.info("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
             }
         }
         filterChain.doFilter(request, response);
@@ -70,14 +77,14 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
 
         if (request.getRequestURI().startsWith(healthCheckRequest)) {
-            logger.trace("Actuator health checks are automatically authenticated.");
+            logger.trace("Actuator health checks are automatically authenticated. Will skip authentication.");
             return false;
         }
 
         // User is already authenticated and is not anonymous user
         SecurityContext context = SecurityContextHolder.getContext();
         if (context != null && context.getAuthentication() != null && context.getAuthentication().isAuthenticated()) {
-            logger.trace("The user is already authenticated. Will not re-authenticate");
+            logger.trace("The user {} is already authenticated. Will not re-authenticate.", context.getAuthentication().getName());
             return false;
         }
 
