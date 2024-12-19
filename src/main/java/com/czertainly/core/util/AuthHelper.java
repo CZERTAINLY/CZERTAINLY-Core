@@ -6,7 +6,8 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.ActorType;
-import com.czertainly.core.auth.oauth2.CzertainlyJwtDecoder;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
@@ -19,6 +20,7 @@ import com.czertainly.core.security.authz.opa.OpaClient;
 import com.czertainly.core.security.authz.opa.dto.OpaObjectAccessResult;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
+import com.czertainly.core.service.AuditLogService;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
@@ -195,5 +197,14 @@ public class AuthHelper {
             requestAttributes.setAttribute(REQ_ATTR_RESOURCE_NAME, resourceName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
             requestAttributes.setAttribute(REQ_ATTR_RESOURCE_ACTION_NAME, resourceActionName, REQ_ATTR_ACCESS_CONTROL_SCOPE);
         }
+    }
+
+    public static void logAndAuditAuthFailure(Logger logger, AuditLogService auditLogService, String message, String token) {
+        if (logger.isDebugEnabled()) {
+            logger.debug("{}: {}", message, token);
+        } else {
+            logger.info(message);
+        }
+        auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
     }
 }

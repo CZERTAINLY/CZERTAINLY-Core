@@ -56,14 +56,9 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest) throws AuthenticationException {
         if (logger.isTraceEnabled()) {
-            logger.trace(
-                    String.format(
-                            "Calling authentication service with the following headers [%s].",
-                            headers.entrySet().stream()
-                                    .map(e -> String.format("%s='%s'", e.getKey(), String.join(", ", e.getValue())))
-                                    .collect(Collectors.joining(","))
-                    )
-            );
+            logger.trace("Calling authentication service with the following headers [{}].", headers.entrySet().stream()
+                    .map(e -> String.format("%s='%s'", e.getKey(), String.join(", ", e.getValue())))
+                    .collect(Collectors.joining(",")));
         }
 
         AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest);
@@ -87,18 +82,16 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
             if (response == null) {
                 String message = "Empty response received from authentication service";
-                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authRequest.getAuthData(false));
+                AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, authRequest.getAuthData(false));
                 throw new CzertainlyAuthenticationException(message);
             }
             return createAuthenticationInfo(authRequest.getAuthMethod(), response);
         } catch (WebClientResponseException.InternalServerError | WebClientRequestException e) {
             String message = "An error occurred when calling authentication service: " + e.getMessage();
-            logger.error(message);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authRequest.getAuthData(false));
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, authRequest.getAuthData(false));
             throw new CzertainlyAuthenticationException(message, e);
         } catch (AuthenticationServiceException e) {
-            logger.error(e.getException().getMessage());
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getException().getMessage(), authRequest.getAuthData(false));
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, e.getException().getMessage(), authRequest.getAuthData(false));
             throw new CzertainlyAuthenticationException(e.getException().getMessage(), e);
         }
     }
@@ -189,4 +182,5 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
             throw new CzertainlyAuthenticationException("The response from the authentication service could not be parsed.", e);
         }
     }
+
 }

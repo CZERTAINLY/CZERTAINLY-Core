@@ -20,7 +20,7 @@ import java.io.IOException;
 
 public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
-    private static final Logger logger = LoggerFactory.getLogger(CzertainlyAuthenticationFilter.class);
+    private static final Logger log = LoggerFactory.getLogger(CzertainlyAuthenticationFilter.class);
 
     private final AuthenticationManager authenticationManager;
 
@@ -46,29 +46,29 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
         if (isAuthenticationNeeded(request)) {
-            logger.trace("Going to authenticate the '{}' request on '{}'.", request.getMethod(), request.getRequestURI());
+            log.trace("Going to authenticate the '{}' request on '{}'.", request.getMethod(), request.getRequestURI());
             CzertainlyAuthenticationRequest authRequest = this.authenticationConverter.convert(request);
 
             try {
                 Authentication authResult = this.authenticationManager.authenticate(authRequest);
-                logger.trace("Authentication result: {}", authResult.isAuthenticated() ? "authenticated" : "unauthenticated");
+                log.trace("Authentication result: {}", authResult.isAuthenticated() ? "authenticated" : "unauthenticated");
 
                 SecurityContext context = SecurityContextHolder.createEmptyContext();
                 context.setAuthentication(authResult);
                 SecurityContextHolder.setContext(context);
                 CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authResult.getPrincipal();
                 if (userDetails.getAuthMethod() == AuthMethod.CERTIFICATE) {
-                    logger.debug("User with username '{}' has been successfully authenticated with certificate.", userDetails.getUsername());
+                    log.debug("User with username '{}' has been successfully authenticated with certificate.", userDetails.getUsername());
                 } else {
-                    logger.debug("User has not been identified, using anonymous user.");
+                    log.debug("User has not been identified, using anonymous user.");
                 }
 
             } catch (AuthenticationException e) {
                 SecurityContextHolder.clearContext();
-                if (logger.isDebugEnabled()) {
+                if (log.isDebugEnabled()) {
                     throw e;
                 }
-                logger.info("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
+                log.info("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
             }
         }
         filterChain.doFilter(request, response);
@@ -77,14 +77,14 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
 
         if (request.getRequestURI().startsWith(healthCheckRequest)) {
-            logger.trace("Actuator health checks are automatically authenticated. Will skip authentication.");
+            log.trace("Actuator health checks are automatically authenticated. Will skip authentication.");
             return false;
         }
 
         // User is already authenticated and is not anonymous user
         SecurityContext context = SecurityContextHolder.getContext();
         if (context != null && context.getAuthentication() != null && context.getAuthentication().isAuthenticated()) {
-            logger.trace("The user {} is already authenticated. Will not re-authenticate.", context.getAuthentication().getName());
+            log.trace("The user {} is already authenticated. Will not re-authenticate.", context.getAuthentication().getName());
             return false;
         }
 

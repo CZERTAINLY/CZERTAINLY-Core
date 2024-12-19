@@ -8,6 +8,7 @@ import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
+import com.czertainly.core.util.AuthHelper;
 import com.nimbusds.jwt.SignedJWT;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -47,12 +48,12 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
         } catch (ParseException e) {
             String message = "Could not extract issuer from JWT token";
-            logErrorAndAudit(message, token);
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
         if (issuerUri == null) {
             String message = "Issuer URI is not present in JWT token";
-            logErrorAndAudit(message, token);
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
 
@@ -61,19 +62,19 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
         if (providerSettings == null) {
             String message = "No OAuth2 Provider with issuer URI '%s' configured for authentication with JWT token".formatted(issuerUri);
-            logErrorAndAudit(message, token);
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
 
         int skew = providerSettings.getSkew();
         List<String> audiences = providerSettings.getAudiences();
 
-        NimbusJwtDecoder jwtDecoder = null;
+        NimbusJwtDecoder jwtDecoder;
         try {
             jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
         } catch (Exception e) {
             String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
-            logErrorAndAudit(message, token);
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
         OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
@@ -89,7 +90,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             return jwtDecoder.decode(token);
         } catch (JwtException e) {
             String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
-            logErrorAndAudit(message, token);
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
     }
@@ -99,12 +100,4 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken);
     }
 
-    private void logErrorAndAudit(String message, String token) {
-        if (logger.isDebugEnabled()) {
-            logger.error("{}: {}", message, token);
-        } else {
-            logger.error(message);
-        }
-        auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
-    }
 }
