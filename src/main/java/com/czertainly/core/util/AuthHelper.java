@@ -199,12 +199,12 @@ public class AuthHelper {
         }
     }
 
-    public static void logAndAuditAuthFailure(Logger logger, AuditLogService auditLogService, String message, String token) {
+    public static void logAndAuditAuthFailure(Logger logger, AuditLogService auditLogService, String message, String authData) {
         if (logger.isDebugEnabled()) {
-            logger.debug("{}: {}", message, token);
+            logger.debug("{}: {}", message, authData);
         } else {
             logger.info(message);
         }
-        auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, token);
+        auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authData);
     }
 }
