@@ -65,10 +65,11 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
             } catch (AuthenticationException e) {
                 SecurityContextHolder.clearContext();
-                if (log.isDebugEnabled()) {
+                if (e instanceof CzertainlyAuthenticationException) {
+                    log.warn("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
+                } else {
                     throw e;
                 }
-                log.info("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
             }
         }
         filterChain.doFilter(request, response);
