@@ -1,6 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.PlatformEnum;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldType;
@@ -11,6 +12,7 @@ import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 public class SearchHelper {
@@ -31,6 +33,9 @@ public class SearchHelper {
         fieldDataDto.setValue(values);
         if (fieldNameEnum.getEnumClass() != null) {
             fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(fieldNameEnum.getEnumClass()));
+            if (values == null) {
+                fieldDataDto.setValue(Arrays.stream(fieldDataDto.getPlatformEnum().getEnumClass().getEnumConstants()).map(IPlatformEnum::getCode).sorted().toList());
+            }
         }
 
         return fieldDataDto;

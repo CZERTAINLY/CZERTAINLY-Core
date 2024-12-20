@@ -1,12 +1,12 @@
 package com.czertainly.core.config;
 
+import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
@@ -17,11 +17,15 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
-import org.springframework.security.config.http.SessionCreationPolicy;
+import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
+import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
+import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.expression.WebExpressionVoter;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
-import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
 
@@ -29,7 +33,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
-public class SecurityConfig  {
+public class SecurityConfig {
 
     CzertainlyAuthenticationProvider czertainlyAuthenticationProvider;
 
@@ -39,34 +43,94 @@ public class SecurityConfig  {
 
     private Environment environment;
 
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
+
+    private OAuth2LoginFilter oauth2LoginFilter;
+
+    private JwtDecoder jwtDecoder;
+
+
+
+    @Autowired
+    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
+
+    @Autowired
+    public void setOauth2LoginFilter(OAuth2LoginFilter oauth2LoginFilter) {
+        this.oauth2LoginFilter = oauth2LoginFilter;
+    }
+
+    @Autowired
+    public void setJwtDecoder(JwtDecoder jwtDecoder) {
+        this.jwtDecoder = jwtDecoder;
+    }
+
+
+    @Bean
+    public CzertainlyAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
+        return new CzertainlyAuthenticationSuccessHandler();
+    }
+
+    @Bean
+    public CzertainlyOAuth2FailureHandler failureHandler() {
+        return new CzertainlyOAuth2FailureHandler();
+    }
 
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
 
         http
                 .authorizeRequests()
+                .requestMatchers("/login", "/oauth2/**").permitAll() // Allow unauthenticated access
                 .anyRequest().authenticated()
                 .accessDecisionManager(accessDecisionManager())
                 .and()
                 .exceptionHandling(exceptionHandling -> exceptionHandling
-                        .accessDeniedHandler((request, response, accessDeniedException) -> {
-                            response.sendError(HttpServletResponse.SC_FORBIDDEN);
-                        })
-                        .authenticationEntryPoint((request, response, authException) -> {
-                            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
-                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
+                        .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                 )
                 .csrf(AbstractHttpConfigurer::disable)
-                .cors(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
                 .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
-                .addFilterBefore(createCzertainlyAuthenticationFilter(), BasicAuthenticationFilter.class)
-                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS));
+                .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt.decoder(jwtDecoder)
+                                .jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter())
+                        )
+                )
+                .logout(logout -> logout
+                        .logoutUrl("/logout")
+                        .logoutSuccessHandler(oidcLogoutSuccessHandler(clientRegistrationRepository))
+                        .invalidateHttpSession(true) // Invalidate the session
+                        .clearAuthentication(true) // Clear the authentication
+                        .deleteCookies(CookieConfig.COOKIE_NAME) // Delete the session cookie
+                )
+                .oauth2Login(oauth2
+                        ->
+                        oauth2.successHandler(customAuthenticationSuccessHandler())
+                                .failureHandler(failureHandler())
+                )
+                .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
+                .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
+        ;
 
         return http.build();
     }
+
+
+    @Bean
+    public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
+        return new CzertainlyLogoutSuccessHandler(clientRegistrationRepository);
+    }
+
+    @Bean
+    public CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter() {
+        return new CzertainlyJwtAuthenticationConverter();
+    }
+
 
     @Bean
     public AuthenticationManager authenticationManager() {
@@ -104,7 +168,7 @@ public class SecurityConfig  {
     }
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
-        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"));
+        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"), environment.getProperty("server.ssl.certificate-header-name"));
     }
 
     // SETTERs

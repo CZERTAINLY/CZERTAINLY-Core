@@ -1,6 +1,5 @@
 package com.czertainly.core.config;
 
-import com.czertainly.api.model.core.audit.ObjectType;
 import org.springframework.data.domain.AuditorAware;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;

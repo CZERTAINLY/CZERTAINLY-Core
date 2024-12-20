@@ -32,7 +32,7 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
 
     private DiscoveryService discoveryService;
 
-    private ObjectMapper mapper = new ObjectMapper();
+    private final ObjectMapper mapper = new ObjectMapper();
 
     private PlatformTransactionManager transactionManager;
 
@@ -87,11 +87,8 @@ public class DiscoveryCertificateTask implements ScheduledJobTask {
             return new ScheduledTaskResult(SchedulerJobExecutionStatus.FAILED, errorMessage, discovery != null ? Resource.DISCOVERY : null, discovery != null ? discovery.getUuid() : null);
         }
 
-        // After the transaction with new discovery persisting commits, run discovery
-        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        // After the discovery is created and commited, run discovery
         discovery = discoveryService.runDiscovery(UUID.fromString(discovery.getUuid()), scheduledJobInfo);
-        transactionManager.commit(status);
-
         if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
             return new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid());
         }

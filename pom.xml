@@ -10,10 +10,11 @@
     </parent>
 
     <artifactId>core</artifactId>
-    <version>2.13.1</version>
+    <version>2.14.0</version>
     <name>CZERTAINLY-Core</name>
 
     <properties>
+        <log-schema.version>1.0</log-schema.version>
         <querydsl.version>5.1.0</querydsl.version>
         <hsqldb.version>2.7.3</hsqldb.version>
         <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
@@ -49,7 +50,7 @@
         <dependency>
             <groupId>com.czertainly</groupId>
             <artifactId>interfaces</artifactId>
-            <version>2.13.1</version>
+            <version>2.14.0</version>
         </dependency>
 
         <!-- Spring  -->
@@ -77,6 +78,19 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-amqp</artifactId>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-resource-server</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-oauth2-client</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-thymeleaf</artifactId>
+        </dependency>
+
 
         <!-- OpenTelemetry -->
         <dependency>
@@ -135,6 +149,10 @@
             <artifactId>hibernate-jpamodelgen</artifactId>
             <scope>provided</scope>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.session</groupId>
+            <artifactId>spring-session-jdbc</artifactId>
+        </dependency>
 
         <!-- Utility -->
         <dependency>
@@ -144,6 +162,11 @@
         <dependency>
             <groupId>com.fasterxml.jackson.datatype</groupId>
             <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.github.victools</groupId>
+            <artifactId>jsonschema-generator</artifactId>
+            <version>4.36.0</version>
         </dependency>
 
         <dependency>
@@ -207,6 +230,11 @@
             <groupId>org.testcontainers</groupId>
             <artifactId>postgresql</artifactId>
             <version>${testcontainers-postgresql.version}</version>
+            <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.security</groupId>
+            <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
 
@@ -278,6 +306,54 @@
             <plugin>
                 <groupId>org.jacoco</groupId>
                 <artifactId>jacoco-maven-plugin</artifactId>
+            </plugin>
+
+            <plugin>
+                <groupId>com.github.victools</groupId>
+                <artifactId>jsonschema-maven-plugin</artifactId>
+                <version>4.36.0</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>generate</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <classNames>
+                        <className>com.czertainly.api.model.core.logging.records.LogRecord</className>
+                    </classNames>
+                    <schemaVersion>DRAFT_2020_12</schemaVersion>
+                    <schemaFilePath>src/main/resources/log-schemas</schemaFilePath>
+                    <schemaFileName>{0}-${log-schema.version}-gen.json</schemaFileName>
+                    <failIfNoClassesMatch>true</failIfNoClassesMatch>
+                    <options>
+                        <preset>PLAIN_JSON</preset>
+                        <enabled>
+                            <option>SCHEMA_VERSION_INDICATOR</option>
+                            <option>INLINE_NULLABLE_SCHEMAS</option>
+                            <option>NULLABLE_FIELDS_BY_DEFAULT</option>
+                            <option>DEFINITIONS_FOR_ALL_OBJECTS</option>
+                            <option>FORBIDDEN_ADDITIONAL_PROPERTIES_BY_DEFAULT</option>
+                        </enabled>
+                    </options>
+                    <modules>
+                        <module>
+                            <name>Jackson</name>
+                            <options>
+                                <option>RESPECT_JSONPROPERTY_REQUIRED</option>
+                                <option>FLATTENED_ENUMS_FROM_JSONVALUE</option>
+                            </options>
+                        </module>
+                        <module>
+                            <name>JakartaValidation</name>
+                            <options>
+                                <option>NOT_NULLABLE_FIELD_IS_REQUIRED</option>
+                                <option>INCLUDE_PATTERN_EXPRESSIONS</option>
+                            </options>
+                        </module>
+                    </modules>
+                </configuration>
             </plugin>
         </plugins>
     </build>

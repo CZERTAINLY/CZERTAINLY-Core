@@ -21,10 +21,10 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
-import com.czertainly.core.event.transaction.DiscoveryProgressEvent;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.CertificateEventHistoryService;
@@ -37,7 +37,6 @@ import com.czertainly.core.util.X509ObjectToString;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Isolation;
 import org.springframework.transaction.annotation.Propagation;
@@ -57,7 +56,6 @@ public class CertificateHandler {
 
     private AttributeEngine attributeEngine;
     private CertificateRuleEvaluator certificateRuleEvaluator;
-    private ApplicationEventPublisher applicationEventPublisher;
     private ValidationProducer validationProducer;
 
     private TriggerService triggerService;
@@ -66,6 +64,7 @@ public class CertificateHandler {
     private CertificateEventHistoryService certificateEventHistoryService;
 
     private CertificateRepository certificateRepository;
+    private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private TriggerAssociationRepository triggerAssociationRepository;
 
@@ -77,11 +76,6 @@ public class CertificateHandler {
     @Autowired
     public void setCertificateRuleEvaluator(CertificateRuleEvaluator certificateRuleEvaluator) {
         this.certificateRuleEvaluator = certificateRuleEvaluator;
-    }
-
-    @Autowired
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired
@@ -115,6 +109,11 @@ public class CertificateHandler {
     }
 
     @Autowired
+    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
+        this.discoveryRepository = discoveryRepository;
+    }
+
+    @Autowired
     public void setDiscoveryCertificateRepository(DiscoveryCertificateRepository discoveryCertificateRepository) {
         this.discoveryCertificateRepository = discoveryCertificateRepository;
     }
@@ -128,7 +127,7 @@ public class CertificateHandler {
     public void validate(Certificate certificate) {
         certificateService.validate(certificate);
         try {
-            if(certificate.getRaProfileUuid() != null) {
+            if (certificate.getRaProfileUuid() != null) {
                 complianceService.checkComplianceOfCertificate(certificate);
             }
         } catch (ConnectorException e) {
@@ -176,17 +175,20 @@ public class CertificateHandler {
             }
         }
 
-        applicationEventPublisher.publishEvent(new DiscoveryProgressEvent(discovery.getUuid(), discovery.getTotalCertificatesDiscovered(), true));
+        // report progress
+        long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
+        discovery.setMessage(String.format("Downloaded %d %% of discovered certificates from provider (%d / %d)", (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100), currentCount, discovery.getConnectorTotalCertificatesDiscovered()));
+        discoveryRepository.save(discovery);
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void processDiscoveredCertificate(int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate) {
         // Get X509 from discovered certificate and create certificate entity, do not save in database yet
-        Certificate entry;
+        Certificate certificate;
         X509Certificate x509Cert;
         try {
             x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
-            entry = certificateService.createCertificateEntity(x509Cert);
+            certificate = certificateService.createCertificateEntity(x509Cert);
         } catch (Exception e) {
             logger.error("Unable to create certificate from discovery certificate with UUID {}: {}", discoveryCertificate.getUuid(), e.getMessage());
             discoveryCertificate.setProcessed(true);
@@ -213,60 +215,68 @@ public class CertificateHandler {
         }
 
         try {
-            // First, check the triggers that have action with action type set to ignore
-            boolean ignored = false;
-            List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
-            for (Trigger trigger : ignoreTriggers) {
-                TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), null, discoveryCertificate.getUuid());
-                if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
-                    ignored = true;
-                    triggerHistory.setConditionsMatched(true);
-                    triggerHistory.setActionsPerformed(true);
-                    break;
-                } else {
-                    triggerHistory.setConditionsMatched(false);
-                    triggerHistory.setActionsPerformed(false);
-                }
-                ignoreTriggerHistories.add(triggerHistory);
-            }
-
-            // If some trigger ignored this certificate, certificate is not saved and continue with next one
-            if (ignored) {
-                return;
-            }
-
-            // Save certificate to database
-            certificateService.updateCertificateEntity(entry);
-
-            // update objectUuid of not ignored certs
-            for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
-                ignoreTriggerHistory.setObjectUuid(entry.getUuid());
-            }
-
-            // Evaluate rest of the triggers in given order
-            for (Trigger trigger : orderedTriggers) {
-                // Create trigger history entry
-                TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discovery.getUuid(), entry.getUuid(), discoveryCertificate.getUuid());
-                // If rules are satisfied, perform defined actions
-                if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), entry, triggerHistory)) {
-                    triggerHistory.setConditionsMatched(true);
-                    certificateRuleEvaluator.performActions(trigger, entry, triggerHistory);
-                    triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
-                } else {
-                    triggerHistory.setConditionsMatched(false);
-                    triggerHistory.setActionsPerformed(false);
-                }
-            }
+            processTriggers(discovery.getUuid(), certificate, discoveryCertificate, ignoreTriggers, orderedTriggers);
         } catch (RuleException e) {
-            logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", entry.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
+            logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", certificate.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
         }
 
-        updateDiscoveredCertificate(discovery, entry, discoveryCertificate.getMeta());
+        updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
         discoveryCertificate.setProcessed(true);
+
         discoveryCertificateRepository.save(discoveryCertificate);
 
-        if (certIndex % 100 == 0) {
-            applicationEventPublisher.publishEvent(new DiscoveryProgressEvent(discovery.getUuid(), totalCount, false));
+        // report progress
+        if (certIndex % 2 == 0) {
+            long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
+            discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
+            discoveryRepository.save(discovery);
+        }
+    }
+
+    private void processTriggers(UUID discoveryUuid, Certificate certificate, DiscoveryCertificate discoveryCertificate, List<Trigger> ignoreTriggers, List<Trigger> orderedTriggers) throws RuleException {
+        // First, check the triggers that have action with action type set to ignore
+        boolean ignored = false;
+        List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
+        for (Trigger trigger : ignoreTriggers) {
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
+            if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate, triggerHistory)) {
+                ignored = true;
+                triggerHistory.setConditionsMatched(true);
+                triggerHistory.setActionsPerformed(true);
+                break;
+            } else {
+                triggerHistory.setConditionsMatched(false);
+                triggerHistory.setActionsPerformed(false);
+            }
+            ignoreTriggerHistories.add(triggerHistory);
+        }
+
+        // If some trigger ignored this certificate, certificate is not saved and continue with next one
+        if (ignored) {
+            return;
+        }
+
+        // Save certificate to database
+        certificateService.updateCertificateEntity(certificate);
+
+        // update objectUuid of not ignored certs
+        for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
+            ignoreTriggerHistory.setObjectUuid(certificate.getUuid());
+        }
+
+        // Evaluate rest of the triggers in given order
+        for (Trigger trigger : orderedTriggers) {
+            // Create trigger history entry
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, certificate.getUuid(), discoveryCertificate.getUuid());
+            // If rules are satisfied, perform defined actions
+            if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate, triggerHistory)) {
+                triggerHistory.setConditionsMatched(true);
+                certificateRuleEvaluator.performActions(trigger, certificate, triggerHistory);
+                triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
+            } else {
+                triggerHistory.setConditionsMatched(false);
+                triggerHistory.setActionsPerformed(false);
+            }
         }
     }
 

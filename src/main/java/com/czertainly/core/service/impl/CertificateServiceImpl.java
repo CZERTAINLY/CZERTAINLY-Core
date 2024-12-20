@@ -13,8 +13,6 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
@@ -25,7 +23,6 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
@@ -213,7 +210,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
     public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
         setupSecurityFilter(filter);
@@ -234,7 +230,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
@@ -258,7 +253,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException {
         Certificate entity = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
@@ -275,7 +269,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     // This method does not need security as it is not exposed by the controllers. This method also does not use uuid
     public Certificate getCertificateEntityByContent(String content) {
         CertificateContent certificateContent = certificateContentRepository.findByContent(content);
@@ -283,7 +276,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.REQUEST)
     //This method does not need security as it is used only by the internal services for certificate related operations
     public Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException {
         return certificateRepository.findByFingerprint(fingerprint).orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
@@ -304,7 +296,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE)
     public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
@@ -336,7 +327,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void updateCertificateObjects(SecuredUUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException {
         logger.debug("Updating certificate objects: RA {} groups {} owner {}", request.getRaProfileUuid(), request.getGroupUuids(), request.getOwnerUuid());
@@ -364,7 +354,6 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Async
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void bulkUpdateCertificatesObjects(SecurityFilter filter, MultipleCertificateObjectUpdateDto request) throws NotFoundException, NotSupportedException {
@@ -412,7 +401,6 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.DELETE)
     @Async
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DELETE, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.DETAIL)
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
@@ -485,7 +473,6 @@ public class CertificateServiceImpl implements CertificateService {
         return searchFieldDataByGroupDtos;
     }
 
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CHANGE)
     // @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     // Auth is not required for this method. It is used only internally by other services to update the certificate chain
     private void updateCertificateChain(Certificate certificate) throws CertificateException {
@@ -891,22 +878,25 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.CERTIFICATE, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public CertificateDetailDto upload(UploadCertificateRequestDto request) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
+    public CertificateDetailDto upload(UploadCertificateRequestDto request, boolean ignoreCustomAttributes) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         X509Certificate certificate = CertificateUtil.parseUploadedCertificateContent(request.getCertificate());
         String fingerprint = CertificateUtil.getThumbprint(certificate);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
 
-        attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
+        if (!ignoreCustomAttributes) {
+            attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, request.getCustomAttributes());
+        }
 
         Certificate entity = createCertificateEntity(certificate);
         certificateRepository.save(entity);
 
         CertificateDetailDto dto = entity.mapToDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
+        if (!ignoreCustomAttributes) {
+            dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, entity.getUuid(), request.getCustomAttributes()));
+        }
 
         certificateEventHistoryService.addEventHistory(entity.getUuid(), CertificateEvent.UPLOAD, CertificateEventStatus.SUCCESS, "Certificate uploaded", "");
         applicationEventPublisher.publishEvent(new CertificateValidationEvent(entity.getUuid()));
@@ -1292,11 +1282,11 @@ public class CertificateServiceImpl implements CertificateService {
             protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
             certificateProtocolAssociationRepository.save(protocolAssociation);
             certificate.setProtocolAssociation(protocolAssociation);
+        } else {
+            // set owner of certificate to logged user when there is not protocol involved
+            objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
         }
 
-
-        // set owner of certificate to logged user
-        objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
 
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);

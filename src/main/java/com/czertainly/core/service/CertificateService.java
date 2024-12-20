@@ -33,12 +33,9 @@ public interface CertificateService extends ResourceExtensionService  {
 
     Certificate getCertificateEntity(SecuredUUID uuid) throws NotFoundException;
 
-    // TODO AUTH - unable to check access based on certificate content. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByContent(String content);
 
-    // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     Certificate getCertificateEntityByFingerprint(String fingerprint) throws NotFoundException;
-
 
     Certificate getCertificateEntityByIssuerDnNormalizedAndSerialNumber(String issuerDn, String serialNumber) throws NotFoundException;
 
@@ -78,7 +75,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateContent checkAddCertificateContent(String fingerprint, String content);
 
-    CertificateDetailDto upload(UploadCertificateRequestDto request) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException;
+    CertificateDetailDto upload(UploadCertificateRequestDto request, boolean ignoreCustomAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException;
 
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);

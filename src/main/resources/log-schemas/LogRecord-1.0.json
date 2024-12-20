@@ -1,0 +1,162 @@
+{
+  "$schema" : "https://json-schema.org/draft/2020-12/schema",
+  "$defs" : {
+    "ActorRecord" : {
+      "type" : "object",
+      "properties" : {
+        "authMethod" : {
+          "$ref" : "#/$defs/AuthMethod"
+        },
+        "name" : {
+          "type" : [ "string", "null" ]
+        },
+        "type" : {
+          "$ref" : "#/$defs/ActorType"
+        },
+        "uuid" : {
+          "type" : [ "string", "null" ],
+          "format" : "uuid"
+        }
+      },
+      "required" : [ "authMethod", "type" ],
+      "additionalProperties" : false
+    },
+    "ActorType" : {
+      "type" : "string",
+      "enum" : [ "anonymous", "core", "user", "connector", "protocol" ]
+    },
+    "AdditionalDataMap" : {
+      "type" : "object",
+      "additionalProperties" : false,
+      "patternProperties": {
+        ".{1,}": { "type": "string" }
+      }
+    },
+    "AuthMethod" : {
+      "type" : "string",
+      "enum" : [ "none", "certificate", "token", "apiKey", "userProxy" ]
+    },
+    "Module" : {
+      "type" : "string",
+      "enum" : [ "approvals", "auth", "certificates", "keys", "compliance", "core", "discovery", "entities", "protocols", "scheduler", "workflows" ]
+    },
+    "Operation" : {
+      "type" : "string",
+      "enum" : [ "unknown", "list", "detail", "create", "update", "delete", "forceDelete", "add", "remove", "request", "register", "enable", "disable", "activate", "deactivate", "listAssociations", "associate", "disassociate", "history", "summary", "checkCompliance", "checkValidation", "issue", "renew", "rekey", "revoke", "export", "getStatus", "getContent", "getChain", "download", "downloadChain", "getProtocolInfo", "listProtocolCertificates", "updateProtocolIssueProfile", "activateProtocol", "deactivateProtocol", "acmeDirectory", "acmeNonce", "acmeKeyRollover", "acmeValidate", "acmeFinalize", "scepCaCapabilities", "scepCertificatePoll", "scepTransactionCheck", "cmpConfirm", "upload", "sync", "compromise", "destroy", "updateKeyUsage", "encrypt", "decrypt", "sign", "verify", "randomData", "pushToLocation", "removeFromLocation", "issueInLocation", "renewInLocation", "connect", "reconnect", "checkHealth", "statistics", "approve", "approveOverride", "reject", "rejectOverride", "profile", "profileUpdate", "identify", "markAsRead", "getPermissions", "getObjectPermissions", "updatePermissions", "updateObjectPermissions", "schedule", "listAttributes", "validateAttributes", "attributeCallback", "updateAttributeResources", "updateAttributeContent", "deleteAttributeContent", "promoteMetadata", "listCertificateProfiles", "listCas" ]
+    },
+    "OperationResult" : {
+      "type" : "string",
+      "enum" : [ "success", "failure" ]
+    },
+    "Resource" : {
+      "type" : "string",
+      "enum" : [ "NONE", "dashboard", "settings", "auditLogs", "credentials", "connectors", "attributes", "jobs", "notificationInstances", "users", "roles", "acmeAccounts", "acmeProfiles", "scepProfiles", "cmpProfiles", "authorities", "raProfiles", "certificates", "certificateRequests", "groups", "complianceProfiles", "discoveries", "entities", "locations", "tokenProfiles", "tokens", "keys", "approvalProfiles", "approvals", "rules", "actions", "triggers", "resources", "resourceEvents", "searchFilters", "keyItems", "platformEnums", "notifications", "conditions", "executions", "complianceRules", "complianceGroups", "customAttributes", "globalMetadata", "acmeOrders", "acmeAuthorizations", "acmeChallenges", "cmpTransactions", "endEntityProfile" ]
+    },
+    "ResourceRecord" : {
+      "type" : "object",
+      "properties" : {
+        "names" : {
+          "type" : [ "array", "null" ],
+          "items" : {
+            "type" : "string"
+          }
+        },
+        "type" : {
+          "$ref" : "#/$defs/Resource"
+        },
+        "uuids" : {
+          "type" : [ "array", "null" ],
+          "items" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        }
+      },
+      "required" : [ "type" ],
+      "additionalProperties" : false
+    },
+    "Serializable" : {
+      "type" : "object",
+      "additionalProperties" : true
+    },
+    "SourceRecord" : {
+      "type" : "object",
+      "properties" : {
+        "contentType" : {
+          "type" : [ "string", "null" ]
+        },
+        "ipAddress" : {
+          "type" : [ "string", "null" ]
+        },
+        "method" : {
+          "type" : "string"
+        },
+        "path" : {
+          "type" : "string"
+        },
+        "userAgent" : {
+          "type" : [ "string", "null" ]
+        }
+      },
+      "required" : [ "method", "path" ],
+      "additionalProperties" : false
+    }
+  },
+  "type" : "object",
+  "properties" : {
+    "actor" : {
+      "$ref" : "#/$defs/ActorRecord"
+    },
+    "additionalData" : {
+      "anyOf" : [ {
+        "type" : "null"
+      }, {
+        "$ref" : "#/$defs/AdditionalDataMap"
+      } ]
+    },
+    "affiliatedResource" : {
+      "anyOf" : [ {
+        "type" : "null"
+      }, {
+        "$ref" : "#/$defs/ResourceRecord"
+      } ]
+    },
+    "audited" : {
+      "type" : "boolean"
+    },
+    "message" : {
+      "type" : [ "string", "null" ]
+    },
+    "module" : {
+      "$ref" : "#/$defs/Module"
+    },
+    "operation" : {
+      "$ref" : "#/$defs/Operation"
+    },
+    "operationData" : {
+      "anyOf" : [ {
+        "type" : "null"
+      }, {
+        "$ref" : "#/$defs/Serializable"
+      } ]
+    },
+    "operationResult" : {
+      "$ref" : "#/$defs/OperationResult"
+    },
+    "resource" : {
+      "$ref" : "#/$defs/ResourceRecord"
+    },
+    "source" : {
+      "anyOf" : [ {
+        "type" : "null"
+      }, {
+        "$ref" : "#/$defs/SourceRecord"
+      } ]
+    },
+    "version" : {
+      "type" : "string"
+    }
+  },
+  "required" : [ "actor", "audited", "module", "operation", "operationResult", "resource", "version" ],
+  "additionalProperties" : false
+}

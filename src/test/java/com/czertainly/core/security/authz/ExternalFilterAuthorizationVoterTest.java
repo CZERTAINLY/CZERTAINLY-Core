@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authz;
 
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -8,9 +9,11 @@ import com.czertainly.core.security.authz.opa.dto.AnonymousPrincipal;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestDetails;
 import com.czertainly.core.security.authz.opa.dto.OpaRequestedResource;
 import com.czertainly.core.security.authz.opa.dto.OpaResourceAccessResult;
+import com.czertainly.core.service.impl.AuditLogServiceImpl;
 import com.czertainly.core.util.AuthenticationTokenTestHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -47,10 +50,14 @@ class ExternalFilterAuthorizationVoterTest {
     @InjectMocks
     ExternalFilterAuthorizationVoter voter;
 
-
     CzertainlyAuthenticationToken authentication = createCzertainlyAuthentication();
 
     FilterInvocation fi = new FilterInvocation("/v1/groups", "GET");
+
+    @BeforeEach
+    void setUp() {
+        voter = new ExternalFilterAuthorizationVoter(opaClient, new ObjectMapper(), new AuditLogServiceImpl());
+    }
 
     @Test
     void accessIsGrantedWhenOpaAuthorizesIt() {
@@ -176,7 +183,7 @@ class ExternalFilterAuthorizationVoterTest {
     CzertainlyAuthenticationToken createCzertainlyAuthentication() {
         return new CzertainlyAuthenticationToken(
                 new CzertainlyUserDetails(
-                        new AuthenticationInfo(null, "FrantisekJednicka", List.of())
+                        new AuthenticationInfo(AuthMethod.USER_PROXY, null, "FrantisekJednicka", List.of())
                 )
         );
     }

@@ -2,12 +2,9 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -54,7 +51,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public List<GroupDto> listGroups(SecurityFilter filter) {
         return groupRepository.findUsingSecurityFilter(filter)
@@ -64,7 +60,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DETAIL)
     public GroupDto getGroup(SecuredUUID uuid) throws NotFoundException {
         GroupDto dto = getGroupEntity(uuid).mapToDto();
@@ -73,7 +68,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.CREATE)
     public GroupDto createGroup(GroupRequestDto request) throws ValidationException, AlreadyExistException, NotFoundException, AttributeException {
         if (StringUtils.isBlank(request.getName())) {
@@ -99,7 +93,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.CHANGE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.UPDATE)
     public GroupDto editGroup(SecuredUUID uuid, GroupRequestDto request) throws NotFoundException, AttributeException {
         Group group = getGroupEntity(uuid);
@@ -115,7 +108,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
     public void deleteGroup(SecuredUUID uuid) throws NotFoundException {
         Group group = getGroupEntity(uuid);
@@ -126,7 +118,6 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.GROUP, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.DELETE)
     public void bulkDeleteGroup(List<SecuredUUID> entityUuids) {
         for (SecuredUUID uuid : entityUuids) {

@@ -5,10 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.ConnectorRegistrationService;
 import com.czertainly.core.service.ConnectorService;
 import org.slf4j.Logger;
@@ -27,7 +24,6 @@ public class ConnectorRegistrationServiceImpl implements ConnectorRegistrationSe
     private ConnectorService connectorService;
 
     @Override
-    @AuditLogged(originator = ObjectType.CONNECTOR, affected = ObjectType.CONNECTOR, operation = OperationType.CREATE)
     public UuidDto registerConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
         ConnectorDto connectorDto = connectorService.createNewWaitingConnector(request);
         logger.info("Connector {} registered and is waiting for approval.", request.getName());

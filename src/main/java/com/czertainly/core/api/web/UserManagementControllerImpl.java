@@ -6,10 +6,11 @@ import com.czertainly.api.interfaces.core.web.UserManagementController;
 import com.czertainly.api.model.client.auth.AddUserRequestDto;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
-import com.czertainly.api.model.core.auth.RoleDto;
-import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
-import com.czertainly.api.model.core.auth.UserDetailDto;
-import com.czertainly.api.model.core.auth.UserDto;
+import com.czertainly.api.model.core.auth.*;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.UserManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -23,20 +24,27 @@ import java.util.List;
 @RestController
 public class UserManagementControllerImpl implements UserManagementController {
 
-    @Autowired
     private UserManagementService userManagementService;
 
+    @Autowired
+    public void setUserManagementService(UserManagementService userManagementService) {
+        this.userManagementService = userManagementService;
+    }
+
     @Override
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.LIST)
     public List<UserDto> listUsers() {
         return userManagementService.listUsers();
     }
 
     @Override
-    public UserDetailDto getUser(String userUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.DETAIL)
+    public UserDetailDto getUser(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         return userManagementService.getUser(userUuid);
     }
 
     @Override
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.CREATE)
     public ResponseEntity<UserDetailDto> createUser(AddUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
         UserDetailDto userDto = userManagementService.createUser(request);
 
@@ -49,51 +57,61 @@ public class UserManagementControllerImpl implements UserManagementController {
     }
 
     @Override
-    public UserDetailDto updateUser(String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.UPDATE)
+    public UserDetailDto updateUser(@LogResource(uuid = true) String userUuid, UpdateUserRequestDto request) throws NotFoundException, CertificateException, AttributeException {
         return userManagementService.updateUser(userUuid, request);
     }
 
     @Override
-    public UserDetailDto enableUser(String userUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.ENABLE)
+    public UserDetailDto enableUser(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         return userManagementService.enableUser(userUuid);
     }
 
     @Override
-    public UserDetailDto disableUser(String userUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.DISABLE)
+    public UserDetailDto disableUser(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         return userManagementService.disableUser(userUuid);
     }
 
     @Override
-    public void deleteUser(String userUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.DELETE)
+    public void deleteUser(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         userManagementService.deleteUser(userUuid);
     }
 
     @Override
-    public List<RoleDto> getUserRoles(String userUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.LIST)
+    public List<RoleDto> getUserRoles(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         return userManagementService.getUserRoles(userUuid);
     }
 
     @Override
-    public UserDetailDto updateRoles(String userUuid, List<String> roleUuids) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.UPDATE)
+    public UserDetailDto updateRoles(@LogResource(uuid = true) String userUuid, @LogResource(uuid = true, affiliated = true) List<String> roleUuids) throws NotFoundException {
         return userManagementService.updateRoles(userUuid, roleUuids);
     }
 
     @Override
-    public UserDetailDto addRole(String userUuid, String roleUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.ADD)
+    public UserDetailDto addRole(@LogResource(uuid = true) String userUuid, @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
         return userManagementService.updateRole(userUuid, roleUuid);
     }
 
     @Override
-    public UserDetailDto removeRole(String userUuid, String roleUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, affiliatedResource = Resource.ROLE, operation = Operation.REMOVE)
+    public UserDetailDto removeRole(@LogResource(uuid = true) String userUuid, @LogResource(uuid = true, affiliated = true) String roleUuid) throws NotFoundException {
         return userManagementService.removeRole(userUuid, roleUuid);
     }
 
     @Override
-    public SubjectPermissionsDto getPermissions(String userUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.GET_PERMISSIONS)
+    public SubjectPermissionsDto getPermissions(@LogResource(uuid = true) String userUuid) throws NotFoundException {
         return userManagementService.getPermissions(userUuid);
     }
 
     @Override
+    @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.IDENTIFY)
     public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException, CertificateException {
         return userManagementService.identifyUser(request);
     }

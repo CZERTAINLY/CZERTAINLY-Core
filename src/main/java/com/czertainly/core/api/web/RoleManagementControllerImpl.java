@@ -5,6 +5,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.RoleManagementController;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.core.auth.*;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.RoleManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,22 +21,29 @@ import java.util.List;
 @RestController
 public class RoleManagementControllerImpl implements RoleManagementController {
 
-    @Autowired
     private RoleManagementService roleManagementService;
 
+    @Autowired
+    public void setRoleManagementService(RoleManagementService roleManagementService) {
+        this.roleManagementService = roleManagementService;
+    }
+
     @Override
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.LIST)
     public List<RoleDto> listRoles() {
         return roleManagementService.listRoles();
     }
 
     @Override
-    public RoleDetailDto getRole(String roleUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.DETAIL)
+    public RoleDetailDto getRole(@LogResource(uuid = true) String roleUuid) throws NotFoundException {
         return roleManagementService.getRole(roleUuid);
     }
 
     @Override
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.CREATE)
     public ResponseEntity<RoleDetailDto> createRole(com.czertainly.api.model.client.auth.RoleRequestDto request) throws NotFoundException, AttributeException {
-        RoleDetailDto dto =  roleManagementService.createRole(request);
+        RoleDetailDto dto = roleManagementService.createRole(request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
                 .path("/{uuid}")
@@ -42,57 +53,68 @@ public class RoleManagementControllerImpl implements RoleManagementController {
     }
 
     @Override
-    public RoleDetailDto updateRole(String roleUuid, RoleRequestDto request) throws NotFoundException, AttributeException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.UPDATE)
+    public RoleDetailDto updateRole(@LogResource(uuid = true) String roleUuid, RoleRequestDto request) throws NotFoundException, AttributeException {
         return roleManagementService.updateRole(roleUuid, request);
     }
 
     @Override
-    public void deleteRole(String roleUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.DELETE)
+    public void deleteRole(@LogResource(uuid = true) String roleUuid) throws NotFoundException {
         roleManagementService.deleteRole(roleUuid);
     }
 
     @Override
-    public List<UserDto> getRoleUsers(String roleUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, affiliatedResource = Resource.USER, operation = Operation.LIST)
+    public List<UserDto> getRoleUsers(@LogResource(uuid = true) String roleUuid) throws NotFoundException {
         return roleManagementService.getRoleUsers(roleUuid);
     }
 
     @Override
-    public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, affiliatedResource = Resource.USER, operation = Operation.UPDATE)
+    public RoleDetailDto updateUsers(@LogResource(uuid = true) String roleUuid, @LogResource(uuid = true, affiliated = true) List<String> userUuids) throws NotFoundException {
         return roleManagementService.updateUsers(roleUuid, userUuids);
     }
 
     @Override
-    public SubjectPermissionsDto getRolePermissions(String roleUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.GET_PERMISSIONS)
+    public SubjectPermissionsDto getRolePermissions(@LogResource(uuid = true) String roleUuid) throws NotFoundException {
         return roleManagementService.getRolePermissions(roleUuid);
     }
 
     @Override
-    public SubjectPermissionsDto savePermissions(String roleUuid, RolePermissionsRequestDto request) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.UPDATE_PERMISSIONS)
+    public SubjectPermissionsDto savePermissions(@LogResource(uuid = true) String roleUuid, RolePermissionsRequestDto request) throws NotFoundException {
         return roleManagementService.addPermissions(roleUuid, request);
     }
 
     @Override
-    public ResourcePermissionsDto getRoleResourcePermissions(String roleUuid, String resourceUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.GET_PERMISSIONS)
+    public ResourcePermissionsDto getRoleResourcePermissions(@LogResource(uuid = true) String roleUuid, String resourceUuid) throws NotFoundException {
         return roleManagementService.getRoleResourcePermission(roleUuid, resourceUuid);
     }
 
     @Override
-    public List<ObjectPermissionsDto> getResourcePermissionObjects(String roleUuid, String resourceUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.GET_OBJECT_PERMISSIONS)
+    public List<ObjectPermissionsDto> getResourcePermissionObjects(@LogResource(uuid = true) String roleUuid, String resourceUuid) throws NotFoundException {
         return roleManagementService.getResourcePermissionObjects(roleUuid, resourceUuid);
     }
 
     @Override
-    public void addResourcePermissionObjects(String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.UPDATE_OBJECT_PERMISSIONS)
+    public void addResourcePermissionObjects(@LogResource(uuid = true) String roleUuid, String resourceUuid, List<ObjectPermissionsRequestDto> request) throws NotFoundException {
         roleManagementService.addResourcePermissionObjects(roleUuid, resourceUuid, request);
     }
 
     @Override
-    public void updateResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.UPDATE_OBJECT_PERMISSIONS)
+    public void updateResourcePermissionObjects(@LogResource(uuid = true) String roleUuid, String resourceUuid, String objectUuid, ObjectPermissionsRequestDto request) throws NotFoundException {
         roleManagementService.updateResourcePermissionObjects(roleUuid, resourceUuid, objectUuid, request);
     }
 
     @Override
-    public void removeResourcePermissionObjects(String roleUuid, String resourceUuid, String objectUuid) throws NotFoundException {
+    @AuditLogged(module = Module.AUTH, resource = Resource.ROLE, operation = Operation.UPDATE_OBJECT_PERMISSIONS)
+    public void removeResourcePermissionObjects(@LogResource(uuid = true) String roleUuid, String resourceUuid, String objectUuid) throws NotFoundException {
         roleManagementService.removeResourcePermissionObjects(roleUuid, resourceUuid, objectUuid);
     }
 }

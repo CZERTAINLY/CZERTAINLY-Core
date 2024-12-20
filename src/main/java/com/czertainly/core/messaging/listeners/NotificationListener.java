@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
@@ -30,6 +31,7 @@ import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.SettingService;
+import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -116,8 +118,8 @@ public class NotificationListener {
 
         // check settings and send external notifications
         String notificationInstanceUUID;
-        NotificationSettingsDto notificationSettingsDto = settingService.getNotificationSettings();
-        Map<NotificationType, String> notificationTypeStringMap = notificationSettingsDto.getNotificationsMapping();
+        NotificationSettingsDto notificationsSettings = SettingsCache.getSettings(SettingsSection.NOTIFICATIONS);
+        Map<NotificationType, String> notificationTypeStringMap = notificationsSettings.getNotificationsMapping();
         if (notificationTypeStringMap != null && (notificationInstanceUUID = notificationTypeStringMap.get(notificationMessage.getType())) != null) {
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
             try {

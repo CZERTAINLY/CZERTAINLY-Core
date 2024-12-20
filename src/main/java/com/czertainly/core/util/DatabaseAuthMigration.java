@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.core.auth.*;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -25,6 +26,10 @@ public class DatabaseAuthMigration {
     private static ResourceApiClient resourceApiClient;
     private static RoleManagementApiClient roleManagementApiClient;
     private static UserManagementApiClient userManagementApiClient;
+
+    private DatabaseAuthMigration() {
+
+    }
 
     public static String getAuthServiceUrl() throws IOException, URISyntaxException {
         if (authUrl != null && !authUrl.isEmpty()) {
@@ -51,11 +56,25 @@ public class DatabaseAuthMigration {
         return splitData[splitData.length - 1].replace("}", "");
     }
 
+    public static void seedResources(Map<Resource, List<ResourceAction>> resources) throws IOException, URISyntaxException {
+        List<ResourceSyncRequestDto> resourceDtos = new ArrayList<>();
+
+        for (Map.Entry<Resource, List<ResourceAction>> resourceEntry : resources.entrySet()) {
+            ResourceSyncRequestDto requestDto = new ResourceSyncRequestDto();
+            requestDto.setName(com.czertainly.core.model.auth.Resource.findByCode(resourceEntry.getKey().getCode()));
+            requestDto.setActions(resourceEntry.getValue().stream().map(ResourceAction::getCode).toList());
+
+            resourceDtos.add(requestDto);
+        }
+
+        getResourceApiClient().addResources(resourceDtos);
+    }
+
     public static Map<String, String> getSystemRolesMapping() throws IOException, URISyntaxException {
         HashMap<String, String> systemRolesMapping = new HashMap<>();
         List<RoleDto> roles = getRoleManagementApiClient().getRoles().getData();
         for (RoleDto role : roles) {
-            if (role.getSystemRole()) {
+            if (Boolean.TRUE.equals(role.getSystemRole())) {
                 systemRolesMapping.put(role.getName(), role.getUuid());
             }
         }
@@ -63,9 +82,32 @@ public class DatabaseAuthMigration {
         return systemRolesMapping;
     }
 
-    public static void updateRolePermissions(String roleUuid, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
+    public static UserDetailDto createUser(UserRequestDto request, List<String> roleUuids) throws IOException, URISyntaxException {
+        UserDetailDto user = getUserManagementApiClient().createUser(request);
+        return getUserManagementApiClient().updateRoles(user.getUuid(), roleUuids);
+    }
 
-        Map<Resource, List<ResourceAction>> resourcesActionsCopy = new HashMap<>(resourcesActions);
+    public static RoleDetailDto createRole(RoleRequestDto request, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
+        RolePermissionsRequestDto permissionsRequest = new RolePermissionsRequestDto();
+        permissionsRequest.setAllowAllResources(resourcesActions.isEmpty());
+        permissionsRequest.setResources(new ArrayList<>());
+        for (Map.Entry<Resource, List<ResourceAction>> resourceEntry : resourcesActions.entrySet()) {
+            List<ResourceAction> resourceActions = resourceEntry.getValue();
+            ResourcePermissionsRequestDto resourcePermissionsRequest = new ResourcePermissionsRequestDto();
+            resourcePermissionsRequest.setName(resourceEntry.getKey().getCode());
+            resourcePermissionsRequest.setAllowAllActions(resourceActions == null || resourceActions.isEmpty());
+            resourcePermissionsRequest.setActions(resourceActions == null ? null : resourceActions.stream().map(ResourceAction::getCode).toList());
+            resourcePermissionsRequest.setObjects(List.of());
+
+            permissionsRequest.getResources().add(resourcePermissionsRequest);
+        }
+
+        request.setPermissions(permissionsRequest);
+        return getRoleManagementApiClient().createRole(request);
+    }
+
+    public static void updateRolePermissions(String roleUuid, Map<Resource, List<ResourceAction>> resourcesActions) throws IOException, URISyntaxException {
+        Map<Resource, List<ResourceAction>> resourcesActionsCopy = new EnumMap<>(resourcesActions);
         SubjectPermissionsDto permissions = getRoleManagementApiClient().getPermissions(roleUuid);
 
         List<ResourcePermissionsRequestDto> resourcePermissionsRequests = new ArrayList<>();
@@ -91,12 +133,12 @@ public class DatabaseAuthMigration {
             // copy objects permissions
             ArrayList<ObjectPermissionsRequestDto> objectsPermissions = new ArrayList<>();
             for (ObjectPermissionsDto objectPermissions : resourcePermissions.getObjects()) {
-                objectsPermissions.add(new ObjectPermissionsRequestDto() {{
-                    setUuid(objectPermissions.getUuid());
-                    setName(objectPermissions.getName());
-                    setAllow(objectPermissions.getAllow());
-                    setDeny(objectPermissions.getDeny());
-                }});
+                ObjectPermissionsRequestDto objectPermissionDto = new ObjectPermissionsRequestDto();
+                objectPermissionDto.setUuid(objectPermissions.getUuid());
+                objectPermissionDto.setName(objectPermissions.getName());
+                objectPermissionDto.setAllow(objectPermissions.getAllow());
+                objectPermissionDto.setDeny(objectPermissions.getDeny());
+                objectsPermissions.add(objectPermissionDto);
             }
             requestDto.setObjects(objectsPermissions);
             resourcePermissionsRequests.add(requestDto);
@@ -105,8 +147,9 @@ public class DatabaseAuthMigration {
         }
 
         if (!resourcesActionsCopy.isEmpty()) {
-            for (Resource resource : resourcesActionsCopy.keySet()) {
-                List<ResourceAction> resourceActions = resourcesActionsCopy.get(resource);
+            for (Map.Entry<Resource, List<ResourceAction>> resourceEntry : resourcesActionsCopy.entrySet()) {
+                Resource resource = resourceEntry.getKey();
+                List<ResourceAction> resourceActions = resourceEntry.getValue();
 
                 ResourcePermissionsRequestDto requestDto = new ResourcePermissionsRequestDto();
                 requestDto.setName(resource.getCode());

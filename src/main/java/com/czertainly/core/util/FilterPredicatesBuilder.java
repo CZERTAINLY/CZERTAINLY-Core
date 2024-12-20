@@ -4,7 +4,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
-import com.czertainly.api.model.core.audit.AuditLogFilter;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -18,7 +17,6 @@ import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
-import org.apache.commons.lang3.StringUtils;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -35,6 +33,7 @@ public class FilterPredicatesBuilder {
     }
 
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
+    private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
 
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
@@ -72,7 +71,7 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(UniquelyIdentified_.uuid.getName())));
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
-            Expression<String> attributeContentExpression = criteriaBuilder.function("jsonb_extract_path_text", String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
+            Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
             CriteriaBuilder.SimpleCase<AttributeContentType, Object> contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
 
             if (castedAttributeContentData.contains(contentType)) {
@@ -151,7 +150,17 @@ public class FilterPredicatesBuilder {
         // prepare filter values, expression and set filter characteristics
         List<Object> filterValues = preparePropertyFilterValues(filterDto, filterField);
         Expression expression = from.get(filterField.getFieldAttribute().getName());
-        if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
+
+        if (filterField.getJsonPath() != null) {
+            expression = switch(filterField.getJsonPath().length) {
+                case 1 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]));
+                case 2 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]));
+                case 3 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]));
+                case 4 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]), criteriaBuilder.literal(filterField.getJsonPath()[3]));
+                default -> throw new ValidationException("Unexpected size of JSON path `%s`: %d".formatted(filterField.getJsonPath(), filterField.getJsonPath().length));
+            };
+        }
+        else if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
             expression = expression.as(filterField.getType().getExpressionClass());
         }
 
@@ -321,46 +330,6 @@ public class FilterPredicatesBuilder {
             path = path.get(stz.nextToken());
         }
         return path;
-    }
-
-    public static CriteriaDelete<AuditLog> prepareQueryForAuditLog(AuditLogFilter filter, CriteriaBuilder criteriaBuilder) {
-        CriteriaDelete<AuditLog> criteriaQuery = criteriaBuilder.createCriteriaDelete(AuditLog.class);
-        final Root<AuditLog> root = criteriaQuery.from(AuditLog.class);
-        List<Predicate> rootPredicates = new ArrayList<>();
-
-        if (StringUtils.isNotBlank(filter.getAuthor())) {
-            rootPredicates.add(criteriaBuilder.equal(root.get("author"), filter.getAuthor()));
-        }
-
-        if (filter.getCreatedFrom() != null) {
-            rootPredicates.add(criteriaBuilder.greaterThan(root.get("created"), filter.getCreatedFrom()));
-        }
-        if (filter.getCreatedTo() != null) {
-            rootPredicates.add(criteriaBuilder.lessThan(root.get("created"), filter.getCreatedFrom()));
-        }
-
-        if (filter.getOperation() != null) {
-            rootPredicates.add(criteriaBuilder.equal(root.get("operation"), filter.getOperation()));
-        }
-
-        if (filter.getOperationStatus() != null) {
-            rootPredicates.add(criteriaBuilder.equal(root.get("operationStatus"), filter.getOperationStatus()));
-        }
-
-        if (filter.getAffected() != null) {
-            rootPredicates.add(criteriaBuilder.equal(root.get("affected"), filter.getAffected()));
-        }
-
-        if (filter.getOrigination() != null) {
-            rootPredicates.add(criteriaBuilder.equal(root.get("origination"), filter.getOrigination()));
-        }
-
-        if (StringUtils.isNotBlank(filter.getObjectIdentifier())) {
-            rootPredicates.add(criteriaBuilder.equal(root.get("objectIdentifier"), filter.getObjectIdentifier()));
-        }
-
-        criteriaQuery.where(criteriaBuilder.and(rootPredicates.toArray(new Predicate[]{})));
-        return criteriaQuery;
     }
 
     public static Query getAllValuesOfProperty(String property, Resource resource, EntityManager entityManager) {

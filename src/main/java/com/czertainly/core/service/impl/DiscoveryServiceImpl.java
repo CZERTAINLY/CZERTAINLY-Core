@@ -16,17 +16,12 @@ import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
-import com.czertainly.api.model.core.audit.ObjectType;
-import com.czertainly.api.model.core.audit.OperationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
-import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
@@ -37,13 +32,8 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
-import com.czertainly.core.event.transaction.DiscoveryFinishedEvent;
-import com.czertainly.core.event.transaction.DiscoveryProgressEvent;
-import com.czertainly.core.event.transaction.ScheduledJobFinishedEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
-import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -69,12 +59,13 @@ import org.springframework.security.concurrent.DelegatingSecurityContextExecutor
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Isolation;
+import org.springframework.transaction.PlatformTransactionManager;
+import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.transaction.event.TransactionPhase;
-import org.springframework.transaction.event.TransactionalEventListener;
+import org.springframework.transaction.support.DefaultTransactionDefinition;
 
+import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
@@ -94,8 +85,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public static final Semaphore downloadCertSemaphore = new Semaphore(10);
     public static final Semaphore processCertSemaphore = new Semaphore(10);
 
-    private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
+    private PlatformTransactionManager transactionManager;
     private ApplicationEventPublisher applicationEventPublisher;
 
     private AttributeEngine attributeEngine;
@@ -124,11 +115,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
-    }
-
-    @Autowired
-    public void setEventProducer(EventProducer eventProducer) {
-        this.eventProducer = eventProducer;
     }
 
     @Autowired
@@ -181,8 +167,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         this.applicationEventPublisher = applicationEventPublisher;
     }
 
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
     public DiscoveryResponseDto listDiscoveries(final SecurityFilter filter, final SearchRequestDto request) {
 
@@ -205,7 +195,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryHistoryDetailDto getDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discoveryHistory = getDiscoveryEntity(uuid);
@@ -217,7 +206,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.REQUEST)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DETAIL)
     public DiscoveryCertificateResponseDto getDiscoveryCertificates(SecuredUUID uuid,
                                                                     Boolean newlyDiscovered,
@@ -250,7 +238,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
     public void deleteDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
@@ -280,7 +267,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.DELETE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.DELETE)
     @Async
     public void bulkRemoveDiscovery(List<SecuredUUID> discoveryUuids) throws NotFoundException {
@@ -298,7 +284,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
@@ -351,82 +336,107 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @Async
-    @AuditLogged(originator = ObjectType.FE, affected = ObjectType.DISCOVERY, operation = OperationType.CREATE)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public void runDiscoveryAsync(UUID discoveryUuid) {
         runDiscovery(discoveryUuid, null);
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
         UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
 
         // reload discovery modal with all association since it could be in separate transaction/session due to async
+        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         logger.info("Starting discovery: name={}, uuid={}", discovery.getName(), discovery.getUuid());
+
+        Connector connector;
         try {
-            Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid().toString()));
+            connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid().toString()));
+        } catch (NotFoundException e) {
+            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, DiscoveryStatus.FAILED, "Discovery does not have associated provider", 0, 0, null);
+            return finalizeDiscovery(discovery, loggedUserUuid, null, null);
+        }
 
-            // discover certificates by provider
-            DiscoveryProviderDto providerResponse = discoverCertificatesByProvider(discovery, connector, loggedUserUuid);
-            if (providerResponse == null) {
-                return discovery.mapToDto();
+        // discover certificates by provider
+        DiscoveryProviderDto providerResponse;
+        try {
+            providerResponse = discoverCertificatesByProvider(discovery, connector, status);
+            if (status.isCompleted()) {
+                status = transactionManager.getTransaction(new DefaultTransactionDefinition());
             }
-
-            // download and create discovered certificates
-            List<DiscoveryProviderCertificateDataDto> duplicateCertificates = downloadDiscoveredCertificates(discovery, connector, providerResponse);
-
-            if (discoveryCertificateRepository.countByDiscovery(discovery) == 0 && providerResponse.getStatus() == DiscoveryStatus.FAILED) {
-                discovery.setStatus(DiscoveryStatus.FAILED);
-                discovery.setMessage("Discovery has failed on connector side with some certificates found, but none of them has been downloaded.");
-                notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
-                return discovery.mapToDto();
-            }
-
-            // process duplicates
-            for (DiscoveryProviderCertificateDataDto certificate : duplicateCertificates) {
-                try {
-                    X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
-                    String fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
-                    Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
-
-                    if (existingCertificate == null) {
-                        logger.warn("Could not update metadata for duplicate discovery certificate. Certificate with fingerprint {} not found.", fingerprint);
-                    } else {
-                        attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
-                    }
-                } catch (AttributeException e) {
-                    logger.error("Could not update metadata for duplicate discovery certificate {}.", certificate.getUuid());
-                }
-            }
-
-            updateDiscovery(discovery, providerResponse, DiscoveryStatus.PROCESSING);
-            logger.debug("Going to process {} certificates", providerResponse.getTotalCertificatesDiscovered());
-
-            // Publish the custom event after transaction completion
-            applicationEventPublisher.publishEvent(new DiscoveryFinishedEvent(discovery.getUuid(), loggedUserUuid, scheduledJobInfo));
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            discovery.setStatus(DiscoveryStatus.FAILED);
-            discovery.setMessage(e.getMessage());
-            discoveryRepository.save(discovery);
+        } catch (DiscoveryException e) {
             logger.error(e.getMessage());
+            return finalizeDiscovery(discovery, loggedUserUuid, status, null);
         } catch (Exception e) {
-            discovery.setStatus(DiscoveryStatus.FAILED);
-            discovery.setMessage(e.getMessage());
-            discoveryRepository.save(discovery);
+            logger.error("Error in discovery '{}' at provider: {}", discovery.getName(), e.getMessage());
+            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, DiscoveryStatus.FAILED, "Error in provider: " + e.getMessage(), 0, 0, null);
+            if (e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            return finalizeDiscovery(discovery, loggedUserUuid, status, null);
+        }
+        discoveryRepository.save(discovery);
+        transactionManager.commit(status);
+
+        // download and create discovered certificates
+        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = List.of();
+        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        try {
+            duplicateCertificates = downloadDiscoveredCertificates(discovery, connector, providerResponse);
+            updateDiscoveryState(discovery, DiscoveryStatus.IN_PROGRESS, null, "Discovered certificates downloaded from provider", null, null, null);
+        } catch (DiscoveryException e) {
             logger.error(e.getMessage());
         }
+        int downloadedCertificatesCount = (int) discoveryCertificateRepository.countByDiscovery(discovery);
+        discovery.setTotalCertificatesDiscovered(downloadedCertificatesCount);
 
-        if (discovery.getStatus() != DiscoveryStatus.PROCESSING) {
-            notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
+        // process duplicates
+        for (DiscoveryProviderCertificateDataDto certificate : duplicateCertificates) {
+            try {
+                X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate.getBase64Content());
+                String fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
+                Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
+
+                if (existingCertificate == null) {
+                    logger.warn("Could not update metadata for duplicate discovery certificate. Certificate with fingerprint {} not found.", fingerprint);
+                } else {
+                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
+                }
+            } catch (AttributeException e) {
+                logger.error("Could not update metadata for duplicate discovery certificate {}.", certificate.getUuid());
+            } catch (java.security.cert.CertificateException | NoSuchAlgorithmException e) {
+                logger.error("Could not parse and process duplicate discovery certificate {}: {}", certificate.getUuid(), e.getMessage());
+            }
+        }
+        String preProcessingMessage = discovery.getStatus() == DiscoveryStatus.IN_PROGRESS ? null : discovery.getMessage();
+        long newlyDiscoveredCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discovery, true);
+        if (newlyDiscoveredCount == 0) {
+            if (discovery.getStatus() == DiscoveryStatus.IN_PROGRESS) {
+                discovery.setStatus(DiscoveryStatus.COMPLETED);
+            }
+            return finalizeDiscovery(discovery, loggedUserUuid, status, preProcessingMessage);
+        } else {
+            discovery.setStatus(DiscoveryStatus.PROCESSING);
         }
 
-        return discovery.mapToDto();
+        discoveryRepository.save(discovery);
+        transactionManager.commit(status);
+
+        logger.debug("Going to process {} certificates", newlyDiscoveredCount);
+
+        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        processDiscoveredCertificates(discovery);
+        discovery.setStatus(DiscoveryStatus.COMPLETED);
+
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discoveryUuid, discovery.getName(), null, null));
+        return finalizeDiscovery(discovery, loggedUserUuid, status, preProcessingMessage);
     }
 
-    private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, final UUID loggedUserUuid) throws ConnectorException, InterruptedException {
+    private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, TransactionStatus status) throws InterruptedException, DiscoveryException, ConnectorException {
         DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
         dtoRequest.setName(discovery.getName());
         dtoRequest.setKind(discovery.getKind());
@@ -442,8 +452,12 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
                 discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
+        if (response.getUuid() == null) {
+            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, DiscoveryStatus.FAILED, "Discovery does not have associated discovery object at provider", 0, 0, null);
+            throw new DiscoveryException(discovery.getName(), discovery.getMessage());
+        }
+
         discovery.setDiscoveryConnectorReference(response.getUuid());
-        discoveryRepository.save(discovery);
 
         DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
         getRequest.setName(response.getName());
@@ -451,57 +465,42 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         getRequest.setPageNumber(1);
         getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
 
-        boolean waitForCompletion = checkForCompletion(response);
         boolean isReachedMaxTime = false;
-        int oldCertificateCount = 0;
-        while (waitForCompletion) {
-            if (discovery.getDiscoveryConnectorReference() == null) {
-                discovery.setStatus(DiscoveryStatus.FAILED);
-                discovery.setMessage("Discovery does not have associated connector");
-                discoveryRepository.save(discovery);
-                return null;
-            }
-            logger.debug("Waiting {}ms for discovery to be completed: name={}, uuid={}",
-                    SLEEP_TIME, discovery.getName(), discovery.getUuid());
+        while (response.getStatus() == DiscoveryStatus.IN_PROGRESS) {
+            logger.debug("Waiting {}ms for discovery to be completed: name={}, uuid={}", SLEEP_TIME, discovery.getName(), discovery.getUuid());
             Thread.sleep(SLEEP_TIME);
 
-            response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+            try {
+                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+            } catch (ConnectorException e) {
+                updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Discovery has failed on connector side while waiting for completion.", 0, response.getTotalCertificatesDiscovered(), null);
+                throw new DiscoveryException(discovery.getName(), discovery.getMessage(), e);
+            }
 
             logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
                     discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
-            if ((discovery.getStartTime().getTime() - new Date().getTime()) / 1000 > MAXIMUM_WAIT_TIME
-                    && !isReachedMaxTime && oldCertificateCount == response.getTotalCertificatesDiscovered()) {
+            if (!isReachedMaxTime && (new Date().getTime() - discovery.getStartTime().getTime()) / 1000 > MAXIMUM_WAIT_TIME) {
                 isReachedMaxTime = true;
-                discovery.setStatus(DiscoveryStatus.WARNING);
-                discovery.setMessage(
-                        "Discovery " + discovery.getName() + " exceeded maximum time of "
-                                + MAXIMUM_WAIT_TIME / (60 * 60) + " hours. There are no changes in number " +
-                                "of certificates discovered. Please abort the discovery if the provider " +
-                                "is stuck in state " + DiscoveryStatus.IN_PROGRESS.getLabel());
+
+                String message = "Discovery %s exceeded maximum time of %d hours. Please abort the discovery if the provider is stuck in state %s."
+                        .formatted(discovery.getName(), (int) (MAXIMUM_WAIT_TIME / (60 * 60)), DiscoveryStatus.IN_PROGRESS.getLabel());
+                updateDiscoveryState(discovery, DiscoveryStatus.WARNING, response.getStatus(), message, null, response.getTotalCertificatesDiscovered(), null);
                 discoveryRepository.save(discovery);
+                transactionManager.commit(status);
             }
-
-            oldCertificateCount = response.getTotalCertificatesDiscovered();
-            waitForCompletion = checkForCompletion(response);
         }
 
-        discovery.setTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
-        discovery.setConnectorTotalCertificatesDiscovered(response.getTotalCertificatesDiscovered());
-        discovery.setConnectorStatus(response.getStatus());
         if (response.getTotalCertificatesDiscovered() == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
-            discovery.setStatus(DiscoveryStatus.FAILED);
-            discovery.setMessage("Discovery has failed on connector side without any certificates found.");
-            notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
-            discoveryRepository.save(discovery);
-            return null;
+            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Discovery has failed on connector side without any certificates found.", 0, response.getTotalCertificatesDiscovered(), response.getMeta());
+            throw new DiscoveryException(discovery.getName(), discovery.getMessage());
         }
 
-        discoveryRepository.save(discovery);
+        updateDiscoveryState(discovery, DiscoveryStatus.IN_PROGRESS, response.getStatus(), "Discovery completed at provider", null, response.getTotalCertificatesDiscovered(), response.getMeta());
         return response;
     }
 
-    private List<DiscoveryProviderCertificateDataDto> downloadDiscoveredCertificates(final DiscoveryHistory discovery, final Connector connector, DiscoveryProviderDto response) {
+    private List<DiscoveryProviderCertificateDataDto> downloadDiscoveredCertificates(final DiscoveryHistory discovery, final Connector connector, DiscoveryProviderDto response) throws DiscoveryException {
         int currentPage = 1;
         int currentTotal = 0;
 
@@ -514,22 +513,29 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         List<Future<?>> futures = new ArrayList<>();
         Set<String> uniqueCertificateContents = new HashSet<>();
         List<DiscoveryProviderCertificateDataDto> duplicateCertificates = new ArrayList<>();
+
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);
                 getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
-                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+                try {
+                    response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+                } catch (ConnectorException e) {
+                    handleDiscoveredCertificatesBatch(futures, discovery.getName());
+                    updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Discovery has failed on connector side while downloading certificates.", null, null, null);
+                    throw new DiscoveryException(discovery.getName(), discovery.getMessage(), e);
+                }
 
                 if (response.getCertificateData().isEmpty()) {
-                    discovery.setMessage(String.format("Retrieved only %d certificates but provider discovered %d " +
-                            "certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
-                    break;
+                    handleDiscoveredCertificatesBatch(futures, discovery.getName());
+                    String message = String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered());
+                    updateDiscoveryState(discovery, DiscoveryStatus.WARNING, response.getStatus(), message, null, null, null);
+                    throw new DiscoveryException(discovery.getName(), discovery.getMessage());
                 }
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
-                    updateDiscovery(discovery, response, DiscoveryStatus.FAILED);
-                    logger.error("Too many content in response. Maximum processable is {}.", MAXIMUM_CERTIFICATES_PER_PAGE);
-                    throw new InterruptedException(
-                            "Too many content in response to process. Maximum processable is " + MAXIMUM_CERTIFICATES_PER_PAGE);
+                    handleDiscoveredCertificatesBatch(futures, discovery.getName());
+                    updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Too many certificates (%d) in response at page %d. Maximum processable is %d.".formatted(response.getCertificateData().size(), currentPage, MAXIMUM_CERTIFICATES_PER_PAGE), null, null, null);
+                    throw new DiscoveryException(discovery.getName(), discovery.getMessage());
                 }
 
                 futures.add(downloadDiscoveredCertificatesBatchAsync(discovery, response, connector, uniqueCertificateContents, duplicateCertificates, executor, currentPage));
@@ -538,28 +544,15 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 currentTotal += response.getCertificateData().size();
 
                 if (futures.size() >= MAXIMUM_PARALLELISM) {
-                    logger.debug("Waiting for {} download tasks for discovery {}", futures.size(), discovery.getName());
-                    for (Future<?> future : futures) {
-                        future.get();
-                    }
-                    logger.debug("{} download tasks for discovery {} finished", futures.size(), discovery.getName());
-                    futures.clear();
+                    handleDiscoveredCertificatesBatch(futures, discovery.getName());
                 }
             }
 
             // Wait for all tasks to complete
-            logger.debug("Waiting for {} download tasks for discovery {}", futures.size(), discovery.getName());
-            for (Future<?> future : futures) {
-                future.get();
-            }
-            logger.debug("{} download tasks for discovery {} finished", futures.size(), discovery.getName());
-        } catch (Exception e) {
-            logger.error("An error occurred during downloading discovered certificate of discovery {}: {}", discovery.getName(), e.getMessage(), e);
-            if (e instanceof InterruptedException) {
-                Thread.currentThread().interrupt();
+            if (!futures.isEmpty()) {
+                handleDiscoveredCertificatesBatch(futures, discovery.getName());
             }
         }
-
         return duplicateCertificates;
     }
 
@@ -600,10 +593,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
                 certificateHandler.createDiscoveredCertificate(String.valueOf(currentPage), discovery, discoveredCertificates);
             } catch (InterruptedException e) {
+                logger.error("Downloading batch {} of discovered certificates for discovery {} interrupted.", currentPage, discovery.getName(), e);
                 Thread.currentThread().interrupt();
-                logger.error("Downloading batch {} of discovered certificates for discovery {} interrupted.", currentPage, discovery.getName());
             } catch (Exception e) {
-                logger.error("Downloading batch {} of discovered certificates for discovery {} failed.", currentPage, discovery.getName());
+                logger.error("Downloading batch {} of discovered certificates for discovery {} failed.", currentPage, discovery.getName(), e);
             } finally {
                 logger.trace("Downloading batch {} of discovered certificates for discovery {} finalized. Released semaphore.", currentPage, discovery.getName());
                 downloadCertSemaphore.release();
@@ -611,25 +604,99 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         });
     }
 
-    private void updateDiscovery(DiscoveryHistory modal, DiscoveryProviderDto response, DiscoveryStatus status) throws AttributeException {
-        modal.setStatus(status);
-        modal.setTotalCertificatesDiscovered(status == DiscoveryStatus.FAILED ? response.getTotalCertificatesDiscovered() : (int) discoveryCertificateRepository.countByDiscovery(modal));
-        attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(modal.getConnectorUuid(), Resource.DISCOVERY, modal.getUuid()));
-        discoveryRepository.save(modal);
+    private void handleDiscoveredCertificatesBatch(List<Future<?>> futures, String discoveryName) {
+        logger.debug("Waiting for {} download tasks for discovery {}", futures.size(), discoveryName);
+        for (Future<?> future : futures) {
+            try {
+                future.get();
+            } catch (Exception e) {
+                logger.error("An error occurred during downloading discovered certificate of discovery {}: {}", discoveryName, e.getMessage(), e);
+                if (e instanceof InterruptedException) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+        logger.debug("{} download tasks for discovery {} finished", futures.size(), discoveryName);
+        futures.clear();
     }
 
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleDiscoveryFinishedEvent(DiscoveryFinishedEvent event) {
-        eventProducer.produceDiscoveryFinishedEventMessage(
-                event.discoveryUuid(),
-                event.loggedUserUuid(),
-                ResourceEvent.DISCOVERY_FINISHED,
-                event.scheduledJobInfo()
-        );
+    private void processDiscoveredCertificates(DiscoveryHistory discovery) {
+        // Get newly discovered certificates
+        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
+
+        logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
+
+        if (discoveredCertificates.isEmpty()) return;
+
+        // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
+        AtomicInteger index = new AtomicInteger(0);
+        try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
+            SecurityContext securityContext = SecurityContextHolder.getContext();
+            DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
+            CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
+                    ParallelCollectors.parallel(
+                            discoveryCertificate -> {
+                                int certIndex;
+                                try {
+                                    certIndex = index.incrementAndGet();
+                                    logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
+                                    processCertSemaphore.acquire();
+                                    logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
+
+                                    certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate);
+                                } catch (InterruptedException e) {
+                                    Thread.currentThread().interrupt();
+                                    logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
+                                } catch (Exception e) {
+                                    logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
+                                } finally {
+                                    logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), index.get());
+                                    processCertSemaphore.release();
+                                }
+                                return null; // Return null to satisfy the return type
+                            },
+                            executor,
+                            MAXIMUM_PARALLELISM
+                    )
+            );
+
+            // Wait for all tasks to complete
+            future.join();
+        }
     }
 
-    private boolean checkForCompletion(DiscoveryProviderDto response) {
-        return response.getStatus() == DiscoveryStatus.IN_PROGRESS;
+    private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttribute> metadata) {
+        discovery.setStatus(status);
+        if (connectorStatus != null) discovery.setConnectorStatus(connectorStatus);
+        if (message != null) discovery.setMessage(message);
+        if (totalCertificatesDiscovered != null) discovery.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
+        if (connectorTotalCertificatesDiscovered != null) {
+            discovery.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
+        }
+        if (metadata != null && !metadata.isEmpty()) {
+            try {
+                attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.DISCOVERY, discovery.getUuid()));
+            } catch (AttributeException e) {
+                logger.warn("Failed to serialize discovery metadata");
+            }
+        }
+    }
+
+    private DiscoveryHistoryDetailDto finalizeDiscovery(DiscoveryHistory discovery, UUID loggedUserUuid, TransactionStatus status, String preProcessingMessage) {
+        if (status == null || status.isCompleted()) {
+            status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        }
+
+        discovery.setEndTime(new Date());
+        if (discovery.getStatus() == DiscoveryStatus.COMPLETED) {
+            discovery.setMessage(preProcessingMessage == null ? "Discovery completed successfully" : "Discovery completed. " + preProcessingMessage);
+        }
+
+        discoveryRepository.save(discovery);
+        transactionManager.commit(status);
+
+        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus().getLabel()), discovery.getMessage());
+        return discovery.mapToDto();
     }
 
     @Override
@@ -665,80 +732,5 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         logger.debug("Searchable Fields by Groups: {}", searchFieldDataByGroupDtos);
         return searchFieldDataByGroupDtos;
-    }
-
-    @Override
-    public void evaluateDiscoveryTriggers(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) {
-        // Get newly discovered certificates
-        DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
-
-        logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
-
-        if (!discoveredCertificates.isEmpty()) {
-            // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
-            AtomicInteger index = new AtomicInteger(0);
-            try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-                SecurityContext securityContext = SecurityContextHolder.getContext();
-                DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
-                CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
-                        ParallelCollectors.parallel(
-                                discoveryCertificate -> {
-                                    int certIndex;
-                                    try {
-                                        certIndex = index.incrementAndGet();
-                                        logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-                                        processCertSemaphore.acquire();
-                                        logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-
-                                        certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate);
-                                    } catch (InterruptedException e) {
-                                        Thread.currentThread().interrupt();
-                                        logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
-                                    } catch (Exception e) {
-                                        logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
-                                    } finally {
-                                        logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), index.get());
-                                        processCertSemaphore.release();
-                                    }
-                                    return null; // Return null to satisfy the return type
-                                },
-                                executor,
-                                MAXIMUM_PARALLELISM
-                        )
-                );
-
-                // Wait for all tasks to complete
-                future.join();
-            }
-        }
-
-        discovery.setStatus(DiscoveryStatus.COMPLETED);
-        discovery.setEndTime(new Date());
-        discoveryRepository.save(discovery);
-
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(userUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus()), discovery.getMessage());
-        if (scheduledJobInfo != null) {
-            applicationEventPublisher.publishEvent(new ScheduledJobFinishedEvent(scheduledJobInfo, new ScheduledTaskResult(discovery.getStatus() == DiscoveryStatus.FAILED ? SchedulerJobExecutionStatus.FAILED : SchedulerJobExecutionStatus.SUCCESS, discovery.getMessage(), Resource.DISCOVERY, discovery.getUuid().toString())));
-        }
-        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discoveryUuid, discovery.getName(), null, null));
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleDiscoveryProgressEvent(DiscoveryProgressEvent event) {
-        logger.debug("Handling discovery progress event: {}", event);
-        DiscoveryHistory discoveryHistory = discoveryRepository.findByUuid(event.discoveryUuid()).orElse(null);
-        if (discoveryHistory != null) {
-            long currentCount;
-            if (event.downloading()) {
-                currentCount = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
-                discoveryHistory.setMessage(String.format("Downloaded %d %% of discovered certificates from provider (%d / %d)", (int) ((currentCount / (double) event.totalCount()) * 100), currentCount, event.totalCount()));
-            } else {
-                currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discoveryHistory, true, true);
-                discoveryHistory.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) event.totalCount()) * 100), currentCount, event.totalCount()));
-            }
-            discoveryRepository.save(discoveryHistory);
-        }
     }
 }

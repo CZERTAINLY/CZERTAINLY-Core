@@ -6,12 +6,12 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.service.handler.CertificateHandler;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 

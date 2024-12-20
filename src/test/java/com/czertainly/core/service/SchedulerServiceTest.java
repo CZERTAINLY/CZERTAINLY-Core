@@ -28,7 +28,6 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
-import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -44,7 +43,7 @@ import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.UUID;
 
-public class SchedulerServiceTest extends BaseSpringBootTest {
+class SchedulerServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private SchedulerService schedulerService;
@@ -87,7 +86,7 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
     @Test
-    public void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, InterruptedException, CertificateException, NoSuchAlgorithmException, RuleException, IOException {
+    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, InterruptedException, CertificateException, NoSuchAlgorithmException, RuleException, IOException {
         // register custom attribute
         CustomAttribute certificateDomainAttr = new CustomAttribute();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
@@ -199,6 +198,7 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
 
         String discoveredCertificatesMockResponse = """
                 {
+                    "uuid": "4bd64640-be29-4e14-aad8-5c0ffa55c5bd",
                     "status": "completed",
                     "totalCertificatesDiscovered": 2,
                     "certificateData": [
@@ -227,33 +227,19 @@ public class SchedulerServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson(discoveredCertificatesMockResponse)));
 
         mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/*"))
+                .post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/4bd64640-be29-4e14-aad8-5c0ffa55c5bd"))
                 .willReturn(WireMock.okJson(discoveredCertificatesMockResponse)));
-
-        TestTransaction.start();
 
         schedulerService.runScheduledJob(jobName);
 
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-
         List<DiscoveryHistory> discoveries = discoveryRepository.findAll();
-
         Assertions.assertEquals(1, discoveries.size());
 
         DiscoveryHistory discovery = discoveries.getFirst();
-        Assertions.assertEquals(DiscoveryStatus.PROCESSING, discovery.getStatus());
+        Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
 
         ScheduledJobHistory jobHistory = scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(scheduledJobEntity.getUuid());
         Assertions.assertNotNull(jobHistory);
-
-        TestTransaction.start();
-
-        // run manually processing of discovered certificates since RabbitMQ is not available
-        discoveryService.evaluateDiscoveryTriggers(discovery.getUuid(), UUID.randomUUID(), new ScheduledJobInfo(scheduledJobEntity.getJobName(), scheduledJobEntity.getUuid(), jobHistory.getUuid()));
-
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
 
         ScheduledJobHistoryResponseDto jobHistoryResponse = schedulerService.getScheduledJobHistory(SecurityFilter.create(), new PaginationRequestDto(), scheduledJobEntity.getUuid().toString());
 
