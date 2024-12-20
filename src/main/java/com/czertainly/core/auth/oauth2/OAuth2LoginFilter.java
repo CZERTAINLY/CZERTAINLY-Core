@@ -24,6 +24,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.client.ClientAuthorizationException;
 import org.springframework.security.oauth2.client.OAuth2AuthorizationContext;
@@ -115,10 +116,22 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
             HttpHeaders headers = new HttpHeaders();
             headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
-            AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
-            CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
-            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-            LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
+            AuthenticationInfo authInfo;
+            try {
+                authInfo = authenticationClient.authenticate(headers, false);
+                CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
+                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+                LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
+            } catch (AuthenticationException e) {
+                // invalidate session when authentication fails
+                request.getSession().invalidate();
+                SecurityContextHolder.clearContext();
+                if (e instanceof CzertainlyAuthenticationException) {
+                    LOGGER.warn("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
+                } else {
+                    throw e;
+                }
+            }
         }
 
         try {
