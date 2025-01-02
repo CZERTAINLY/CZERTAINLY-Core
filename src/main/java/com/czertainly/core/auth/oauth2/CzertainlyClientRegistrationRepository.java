@@ -26,7 +26,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
 
     private ClientRegistration convertJsonToClientRegistration(OAuth2ProviderSettingsDto clientSettings, String registrationId) {
         // Because of validation of OAuth2ProviderSettingsDto, when client ID is null, all other client related properties will be null too, meaning this provider is only for JWT token validation
-        if (clientSettings == null || clientSettings.getClientId() == null) {
+        if (clientSettings == null || clientSettings.getClientId() == null || clientSettings.getClientSecret() == null || clientSettings.getAuthorizationUrl() == null || clientSettings.getTokenUrl() == null || clientSettings.getJwkSetUrl() == null || clientSettings.getLogoutUrl() == null || clientSettings.getPostLogoutUrl() == null) {
             return null;
         }
         Map<String, Object> configMetadata = new HashMap<>();
