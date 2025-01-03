@@ -61,8 +61,8 @@ public class LoginController {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         if (authenticationSettings.getOAuth2Providers().isEmpty()) return "no-login-options";
 
-        // Because of validation of OAuth2ProviderSettingsDto, when client ID is null, all other client related properties will be null too, meaning this provider is only for JWT token validation
-        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(dto -> dto.getClientId() != null).toList();
+        // Display only properly configured providers
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             try {
@@ -97,6 +97,16 @@ public class LoginController {
 
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
+    }
+
+    private boolean validOAuth2Provider(OAuth2ProviderSettingsDto settingsDto) {
+        return (settingsDto.getClientId() != null) &&
+                (settingsDto.getClientSecret() != null) &&
+                (settingsDto.getAuthorizationUrl() != null) &&
+                (settingsDto.getTokenUrl() != null) &&
+                (settingsDto.getJwkSetUrl() != null) &&
+                (settingsDto.getLogoutUrl() != null) &&
+                (settingsDto.getPostLogoutUrl() != null);
     }
 
 }
