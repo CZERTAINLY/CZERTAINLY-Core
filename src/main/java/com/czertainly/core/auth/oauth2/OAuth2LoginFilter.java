@@ -89,11 +89,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             }
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
-            if (clientRegistration == null) {
-                String message = "OAuth2 Provider " + oauthToken.getAuthorizedClientRegistrationId() + "was not found or is not configured properly.";
-                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
-                throw new CzertainlyAuthenticationException(message);
-            }
             OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), oauth2AccessToken, (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
 
             Instant now = Instant.now();
