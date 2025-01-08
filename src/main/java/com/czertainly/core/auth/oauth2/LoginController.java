@@ -99,12 +99,19 @@ public class LoginController {
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
     }
 
+    @GetMapping("/{provider}/jwkSet")
+    public String getJwkSet(@PathVariable String provider) {
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        return authenticationSettings.getOAuth2Providers().get(provider).getJwkSet();
+    }
+
+
     private boolean validOAuth2Provider(OAuth2ProviderSettingsDto settingsDto) {
         return (settingsDto.getClientId() != null) &&
                 (settingsDto.getClientSecret() != null) &&
                 (settingsDto.getAuthorizationUrl() != null) &&
                 (settingsDto.getTokenUrl() != null) &&
-                (settingsDto.getJwkSetUrl() != null) &&
+                (settingsDto.getJwkSetUrl() != null || settingsDto.getJwkSet() != null) &&
                 (settingsDto.getLogoutUrl() != null) &&
                 (settingsDto.getPostLogoutUrl() != null);
     }

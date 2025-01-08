@@ -10,6 +10,7 @@ import org.springframework.security.oauth2.client.registration.ClientRegistratio
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.stereotype.Component;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
         configMetadata.put("end_session_endpoint", clientSettings.getLogoutUrl());
         configMetadata.put("post_logout_uri", clientSettings.getPostLogoutUrl());
 
+
         return ClientRegistration.withRegistrationId(registrationId)
                 .clientId(clientSettings.getClientId())
                 .clientSecret(SecretsUtil.decodeAndDecryptSecretString(clientSettings.getClientSecret(), SecretEncodingVersion.V1))
@@ -40,7 +42,9 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
                 .scope(clientSettings.getScope())
                 .authorizationUri(clientSettings.getAuthorizationUrl())
                 .tokenUri(clientSettings.getTokenUrl())
-                .jwkSetUri(clientSettings.getJwkSetUrl())
+                .jwkSetUri(clientSettings.getJwkSetUrl() != null ? clientSettings.getJwkSetUrl() :
+                        "http://127.0.0.1:8443/api/"
+                        + registrationId + "/jwkSet")
                 .userInfoUri(clientSettings.getUserInfoUrl())
                 .providerConfigurationMetadata(configMetadata)
                 .build();
