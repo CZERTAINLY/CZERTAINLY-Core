@@ -13,6 +13,7 @@ import com.nimbusds.jwt.SignedJWT;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -27,6 +28,12 @@ import java.util.List;
 
 @Component
 public class CzertainlyJwtDecoder implements JwtDecoder {
+
+    @Value("${server.port}")
+    private String port;
+
+    @Value("${server.servlet.context-path}")
+    private String context;
 
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyJwtDecoder.class);
 
@@ -71,7 +78,11 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
         NimbusJwtDecoder jwtDecoder;
         try {
-            jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+            if (providerSettings.getJwkSetUrl() == null && providerSettings.getJwkSet() == null) jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+            else  {
+                String jwkSetUrl = providerSettings.getJwkSetUrl() != null ? providerSettings.getJwkSetUrl() : "http://127.0.0.1:" + port + context + "/oauth2/" + providerSettings.getName() + "/jwkSet";
+                jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUrl).build();
+            }
         } catch (Exception e) {
             String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);

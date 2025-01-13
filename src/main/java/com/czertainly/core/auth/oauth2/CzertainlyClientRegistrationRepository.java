@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
@@ -16,6 +17,13 @@ import java.util.Map;
 
 @Component
 public class CzertainlyClientRegistrationRepository implements ClientRegistrationRepository {
+
+    @Value("${server.port}")
+    private String port;
+
+    @Value("${server.servlet.context-path}")
+    private String context;
+
 
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
@@ -32,6 +40,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
         configMetadata.put("end_session_endpoint", clientSettings.getLogoutUrl());
         configMetadata.put("post_logout_uri", clientSettings.getPostLogoutUrl());
 
+
         return ClientRegistration.withRegistrationId(registrationId)
                 .clientId(clientSettings.getClientId())
                 .clientSecret(SecretsUtil.decodeAndDecryptSecretString(clientSettings.getClientSecret(), SecretEncodingVersion.V1))
@@ -40,7 +49,8 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
                 .scope(clientSettings.getScope())
                 .authorizationUri(clientSettings.getAuthorizationUrl())
                 .tokenUri(clientSettings.getTokenUrl())
-                .jwkSetUri(clientSettings.getJwkSetUrl())
+                .jwkSetUri(clientSettings.getJwkSetUrl() != null ? clientSettings.getJwkSetUrl() :
+                        "http://127.0.0.1:" + port + context + "/oauth2/" + registrationId + "/jwkSet")
                 .userInfoUri(clientSettings.getUserInfoUrl())
                 .providerConfigurationMetadata(configMetadata)
                 .build();

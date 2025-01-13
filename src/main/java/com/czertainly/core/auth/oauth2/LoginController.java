@@ -12,6 +12,7 @@ import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 @Controller
@@ -99,12 +101,22 @@ public class LoginController {
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
     }
 
+    @GetMapping("/oauth2/{provider}/jwkSet")
+    public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-type", MediaType.APPLICATION_JSON_VALUE);
+        String jwkSet = new String(Base64.getDecoder().decode(authenticationSettings.getOAuth2Providers().get(provider).getJwkSet()));
+        return new ResponseEntity<>(jwkSet, headers, HttpStatus.OK);
+    }
+
+
     private boolean validOAuth2Provider(OAuth2ProviderSettingsDto settingsDto) {
         return (settingsDto.getClientId() != null) &&
                 (settingsDto.getClientSecret() != null) &&
                 (settingsDto.getAuthorizationUrl() != null) &&
                 (settingsDto.getTokenUrl() != null) &&
-                (settingsDto.getJwkSetUrl() != null) &&
+                (settingsDto.getJwkSetUrl() != null || settingsDto.getJwkSet() != null) &&
                 (settingsDto.getLogoutUrl() != null) &&
                 (settingsDto.getPostLogoutUrl() != null);
     }
