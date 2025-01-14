@@ -1,9 +1,7 @@
 package com.czertainly.core.config;
 
-import com.czertainly.core.service.SettingService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.BeanClassLoaderAware;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.support.GenericConversionService;
@@ -19,8 +17,6 @@ import org.springframework.session.jdbc.config.annotation.web.http.EnableJdbcHtt
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.time.Duration;
-import java.util.Date;
 
 @Configuration
 @EnableJdbcHttpSession(tableName = "${DB_SCHEMA:core}.spring_session")
@@ -77,12 +73,12 @@ public class SessionConfig implements BeanClassLoaderAware {
 
     private static final String CREATE_SESSION_ATTRIBUTE_QUERY = """
             INSERT INTO %TABLE_NAME%_ATTRIBUTES (SESSION_PRIMARY_ID, ATTRIBUTE_NAME, ATTRIBUTE_BYTES)
-            VALUES (?, ?, encode(?, 'escape')::jsonb)
+            VALUES (?, ?, convert_from(?, 'UTF8')::jsonb)
             """;
 
     private static final String UPDATE_SESSION_ATTRIBUTE_QUERY = """
             UPDATE %TABLE_NAME%_ATTRIBUTES
-            SET ATTRIBUTE_BYTES = encode(?, 'escape')::jsonb
+            SET ATTRIBUTE_BYTES = convert_from(?, 'UTF8')::jsonb
             WHERE SESSION_PRIMARY_ID = ?
             AND ATTRIBUTE_NAME = ?
             """;
@@ -96,5 +92,3 @@ public class SessionConfig implements BeanClassLoaderAware {
     }
 
 }
-
-
