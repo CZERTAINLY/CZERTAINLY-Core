@@ -23,6 +23,7 @@ import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,6 +32,7 @@ import org.springframework.stereotype.Service;
 
 import java.io.IOException;
 import java.net.*;
+import java.text.ParseException;
 import java.util.*;
 
 @Service
@@ -321,25 +323,13 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
+        validateOAuth2ProviderSettings(settingsDto, false);
         Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
         Setting setting = settingForRegistrationId == null ? new Setting() : settingForRegistrationId;
         setting.setSection(SettingsSection.AUTHENTICATION);
         setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         setting.setName(providerName);
         settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
-        for (String urlString: List.of(settingsDto.getJwkSetUrl(), settingsDto.getIssuerUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getLogoutUrl(), settingsDto.getTokenUrl(), settingsDto.getLogoutUrl())) {
-            URL url;
-            try {
-                url = new URI(urlString).toURL();
-                HttpURLConnection huc = (HttpURLConnection) url.openConnection();
-                huc.setRequestMethod("OPTIONS");
-                if (huc.getResponseCode() == HttpURLConnection.HTTP_NOT_FOUND) {
-                    throw new ValidationException("URL %s is could not be reached.");
-                }
-            } catch (IOException | URISyntaxException e) {
-                throw new ValidationException("Could not verify if URL %s is reachable: %s".formatted(urlString, e.getCause().toString()));
-            }
-        }
         try {
             OAuth2ProviderSettingsDto fullSettingsDto;
             if (settingsDto instanceof OAuth2ProviderSettingsDto s) {
@@ -375,5 +365,30 @@ public class SettingServiceImpl implements SettingService {
         }
 
         return mapping;
+    }
+
+    private void validateOAuth2ProviderSettings(OAuth2ProviderSettingsUpdateDto settingsDto, boolean checkAvailability) {
+        if (settingsDto.getJwkSet() != null) {
+            try {
+                JWKSet.parse(new String(Base64.getDecoder().decode(settingsDto.getJwkSet())));
+            } catch (ParseException e) {
+                throw new ValidationException("Included JWK Set is invalid: " + e.getMessage());
+            }
+        }
+        if (checkAvailability) {
+            for (String urlString : List.of(settingsDto.getJwkSetUrl(), settingsDto.getIssuerUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getLogoutUrl(), settingsDto.getTokenUrl(), settingsDto.getLogoutUrl())) {
+                URL url;
+                try {
+                    url = new URI(urlString).toURL();
+                    HttpURLConnection huc = (HttpURLConnection) url.openConnection();
+                    huc.setRequestMethod("OPTIONS");
+                    if (huc.getResponseCode() == HttpURLConnection.HTTP_NOT_FOUND) {
+                        throw new ValidationException("URL %s is could not be reached.");
+                    }
+                } catch (IOException | URISyntaxException e) {
+                    throw new ValidationException("Could not verify if URL %s is reachable: %s".formatted(urlString, e.getCause().toString()));
+                }
+            }
+        }
     }
 }

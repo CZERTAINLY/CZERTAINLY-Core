@@ -8,7 +8,7 @@
 <ul>
     <li th:each="provider : ${providers}">
         <a th:href="@{/oauth2/authorization/{provider}/prepare(provider=${provider})}"
-           th:text="'Login with ' + ${#strings.capitalize(provider)}">Login with Provider</a>
+           th:text="'Login with ' + ${provider}">Login with Provider</a>
     </li>
 </ul>
 

@@ -33,7 +33,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
     private String port;
 
     @Value("${server.servlet.context-path}")
-    private String context;
+    private String contextPath;
 
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyJwtDecoder.class);
 
@@ -80,7 +80,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         try {
             if (providerSettings.getJwkSetUrl() == null && providerSettings.getJwkSet() == null) jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
             else  {
-                String jwkSetUrl = providerSettings.getJwkSetUrl() != null ? providerSettings.getJwkSetUrl() : "http://127.0.0.1:" + port + context + "/oauth2/" + providerSettings.getName() + "/jwkSet";
+                String jwkSetUrl = providerSettings.getJwkSetUrl() != null ? providerSettings.getJwkSetUrl() : "http://127.0.0.1:" + port + contextPath + "/oauth2/" + providerSettings.getName() + "/jwkSet";
                 jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUrl).build();
             }
         } catch (Exception e) {
