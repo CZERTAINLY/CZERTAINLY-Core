@@ -1,5 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
@@ -104,9 +105,15 @@ public class LoginController {
     @GetMapping("/oauth2/{provider}/jwkSet")
     public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+
+        String jwkSetEncoded = authenticationSettings.getOAuth2Providers().get(provider).getJwkSet();
+        if (jwkSetEncoded == null) {
+            throw new ValidationException("Provider %s does not have JWK Set set up.".formatted(provider));
+        }
+
+        String jwkSet = new String(Base64.getDecoder().decode(jwkSetEncoded));
         HttpHeaders headers = new HttpHeaders();
         headers.add("Content-type", MediaType.APPLICATION_JSON_VALUE);
-        String jwkSet = new String(Base64.getDecoder().decode(authenticationSettings.getOAuth2Providers().get(provider).getJwkSet()));
         return new ResponseEntity<>(jwkSet, headers, HttpStatus.OK);
     }
 
