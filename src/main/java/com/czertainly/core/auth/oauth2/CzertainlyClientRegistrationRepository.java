@@ -24,6 +24,8 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
     @Value("${server.servlet.context-path}")
     private String context;
 
+    @Value("${server.ssl.enabled}")
+    private boolean sslEnabled;
 
     @Override
     public ClientRegistration findByRegistrationId(String registrationId) {
@@ -40,7 +42,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
         configMetadata.put("end_session_endpoint", clientSettings.getLogoutUrl());
         configMetadata.put("post_logout_uri", clientSettings.getPostLogoutUrl());
 
-
+        String protocol = sslEnabled ? "https" : "http";
         return ClientRegistration.withRegistrationId(registrationId)
                 .clientId(clientSettings.getClientId())
                 .clientSecret(SecretsUtil.decodeAndDecryptSecretString(clientSettings.getClientSecret(), SecretEncodingVersion.V1))
@@ -49,8 +51,7 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
                 .scope(clientSettings.getScope())
                 .authorizationUri(clientSettings.getAuthorizationUrl())
                 .tokenUri(clientSettings.getTokenUrl())
-                .jwkSetUri(clientSettings.getJwkSetUrl() != null ? clientSettings.getJwkSetUrl() :
-                        "http://127.0.0.1:" + port + context + "/oauth2/" + registrationId + "/jwkSet")
+                .jwkSetUri(clientSettings.getJwkSetUrl() != null ? clientSettings.getJwkSetUrl() : protocol + "://localhost:" + port + context + "/oauth2/" + registrationId + "/jwkSet")
                 .userInfoUri(clientSettings.getUserInfoUrl())
                 .providerConfigurationMetadata(configMetadata)
                 .build();
