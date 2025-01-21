@@ -370,7 +370,8 @@ public class SettingServiceImpl implements SettingService {
 
     private void validateOAuth2ProviderSettings(OAuth2ProviderSettingsUpdateDto settingsDto, boolean checkAvailability) {
 
-        if (settingsDto.getJwkSet() == null && settingsDto.getJwkSetUrl() == null) throw new ValidationException("Missing JWK Set URL or encoded JWK Set.");
+        if (settingsDto.getJwkSet() == null && settingsDto.getJwkSetUrl() == null)
+            throw new ValidationException("Missing JWK Set URL or encoded JWK Set.");
         checkJwkSetValidity(settingsDto);
         if (checkAvailability) {
             for (String urlString : List.of(settingsDto.getJwkSetUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getTokenUrl(), settingsDto.getLogoutUrl())) {
@@ -408,12 +409,11 @@ public class SettingServiceImpl implements SettingService {
         } else {
             jwkSet = new String(Base64.getDecoder().decode(settingsDto.getJwkSet()));
         }
-        if (settingsDto.getJwkSet() != null) {
-            try {
-                JWKSet.parse(jwkSet);
-            } catch (ParseException e) {
-                throw new ValidationException("JWK Set is invalid: " + e.getMessage());
-            }
+        try {
+            JWKSet.parse(jwkSet);
+        } catch (ParseException e) {
+            throw new ValidationException("JWK Set is invalid: " + e.getMessage());
         }
+
     }
 }
