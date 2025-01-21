@@ -17,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.SQLJoinTableRestriction;
-import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serial;
@@ -125,9 +124,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", insertable = false, updatable = false)
-    @SQLRestriction("resource = 'CERTIFICATE'")
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate")
     @ToString.Exclude
     private OwnerAssociation owner;
 
@@ -421,8 +418,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         Certificate that = (Certificate) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -430,7 +427,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 
     public String toStringShort() {

@@ -17,6 +17,7 @@ import jakarta.persistence.Query;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
+import org.hibernate.query.criteria.JpaExpression;
 
 import java.io.Serializable;
 import java.time.LocalDate;
@@ -75,7 +76,7 @@ public class FilterPredicatesBuilder {
             CriteriaBuilder.SimpleCase<AttributeContentType, Object> contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
 
             if (castedAttributeContentData.contains(contentType)) {
-                contentTypeCaseExpression.when(contentType, attributeContentExpression.as(contentType.getContentDataClass())).otherwise(criteriaBuilder.nullLiteral(contentType.getContentDataClass()));
+                contentTypeCaseExpression.when(contentType, ((JpaExpression) attributeContentExpression).cast(contentType.getContentDataClass())).otherwise(criteriaBuilder.nullLiteral(contentType.getContentDataClass()));
             } else {
                 contentTypeCaseExpression.when(contentType, attributeContentExpression).otherwise(criteriaBuilder.nullLiteral(String.class));
             }
@@ -152,16 +153,20 @@ public class FilterPredicatesBuilder {
         Expression expression = from.get(filterField.getFieldAttribute().getName());
 
         if (filterField.getJsonPath() != null) {
-            expression = switch(filterField.getJsonPath().length) {
-                case 1 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]));
-                case 2 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]));
-                case 3 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]));
-                case 4 -> criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]), criteriaBuilder.literal(filterField.getJsonPath()[3]));
-                default -> throw new ValidationException("Unexpected size of JSON path `%s`: %d".formatted(filterField.getJsonPath(), filterField.getJsonPath().length));
+            expression = switch (filterField.getJsonPath().length) {
+                case 1 ->
+                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]));
+                case 2 ->
+                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]));
+                case 3 ->
+                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]));
+                case 4 ->
+                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]), criteriaBuilder.literal(filterField.getJsonPath()[3]));
+                default ->
+                        throw new ValidationException("Unexpected size of JSON path `%s`: %d".formatted(filterField.getJsonPath(), filterField.getJsonPath().length));
             };
-        }
-        else if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
-            expression = expression.as(filterField.getType().getExpressionClass());
+        } else if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
+            expression = ((JpaExpression) expression).cast(filterField.getType().getExpressionClass());
         }
 
         boolean multipleValues = filterValues.size() > 1;
