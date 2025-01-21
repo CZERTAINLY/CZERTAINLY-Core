@@ -31,6 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.*;
 import java.text.ParseException;
 import java.util.*;
@@ -368,15 +369,11 @@ public class SettingServiceImpl implements SettingService {
     }
 
     private void validateOAuth2ProviderSettings(OAuth2ProviderSettingsUpdateDto settingsDto, boolean checkAvailability) {
-        if (settingsDto.getJwkSet() != null) {
-            try {
-                JWKSet.parse(new String(Base64.getDecoder().decode(settingsDto.getJwkSet())));
-            } catch (ParseException e) {
-                throw new ValidationException("Included JWK Set is invalid: " + e.getMessage());
-            }
-        }
+
+        if (settingsDto.getJwkSet() == null && settingsDto.getJwkSetUrl() == null) throw new ValidationException("Missing JWK Set URL or encoded JWK Set.");
+        checkJwkSetValidity(settingsDto);
         if (checkAvailability) {
-            for (String urlString : List.of(settingsDto.getJwkSetUrl(), settingsDto.getIssuerUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getLogoutUrl(), settingsDto.getTokenUrl(), settingsDto.getLogoutUrl())) {
+            for (String urlString : List.of(settingsDto.getJwkSetUrl(), settingsDto.getAuthorizationUrl(), settingsDto.getTokenUrl(), settingsDto.getLogoutUrl())) {
                 URL url;
                 try {
                     url = new URI(urlString).toURL();
@@ -388,6 +385,34 @@ public class SettingServiceImpl implements SettingService {
                 } catch (IOException | URISyntaxException e) {
                     throw new ValidationException("Could not verify if URL %s is reachable: %s".formatted(urlString, e.getCause().toString()));
                 }
+            }
+        }
+    }
+
+    private void checkJwkSetValidity(OAuth2ProviderSettingsUpdateDto settingsDto) {
+        String jwkSet;
+        if (settingsDto.getJwkSetUrl() != null) {
+            try {
+                URL url = new URI(settingsDto.getJwkSetUrl()).toURL();
+                URLConnection urlConnection = url.openConnection();
+                urlConnection.setConnectTimeout(5000);
+                urlConnection.setReadTimeout(5000);
+                try (InputStream stream = url.openStream()) {
+                    jwkSet = new String(stream.readAllBytes());
+                }
+            } catch (MalformedURLException | URISyntaxException e) {
+                throw new ValidationException("Unable to convert JWK Set URL to URL instance: " + e.getMessage());
+            } catch (IOException e) {
+                throw new ValidationException("Unable to open connection for JWK Set URL: " + e.getMessage());
+            }
+        } else {
+            jwkSet = new String(Base64.getDecoder().decode(settingsDto.getJwkSet()));
+        }
+        if (settingsDto.getJwkSet() != null) {
+            try {
+                JWKSet.parse(jwkSet);
+            } catch (ParseException e) {
+                throw new ValidationException("JWK Set is invalid: " + e.getMessage());
             }
         }
     }
