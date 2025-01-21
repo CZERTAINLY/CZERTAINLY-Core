@@ -99,6 +99,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
         providerSettings = new OAuth2ProviderSettingsUpdateDto();
         providerSettings.setIssuerUrl(ISSUER_URL);
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         tokenValue = createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000);
@@ -151,6 +152,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
     @Test
     void testJwkSetFromInput() {
+        providerSettings.setJwkSetUrl(null);
         providerSettings.setJwkSet(Base64.getEncoder().encodeToString(jwkSetJson.getBytes()));
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
         ResponseEntity<String> response = loginController.getJwkSet(PROVIDER_NAME);
@@ -180,7 +182,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
     @Test
     void testUnreachableJwkUrl() {
-        providerSettings.setJwkSetUrl(ISSUER_URL + "/realms/CZERTAINLY-realm/protocol/openid-connect/certs");
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         mockServer.resetAll();
