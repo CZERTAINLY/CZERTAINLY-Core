@@ -1,7 +1,7 @@
 package com.czertainly.core.security.oauth2;
 
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.core.auth.oauth2.LoginController;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -16,16 +16,13 @@ import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidationException;
 
 import java.math.BigInteger;
 import java.security.KeyPair;
@@ -46,6 +43,11 @@ class JwtDecoderTest extends BaseSpringBootTest {
     @Autowired
     private SettingService settingService;
 
+    @Autowired
+    private LoginController loginController;
+    
+    public static final String PROVIDER_NAME = "provider";
+
     private KeyPair keyPair;
 
     private static final String ISSUER_URL = "http://localhost:8082/realms/CZERTAINLY-realm";
@@ -55,6 +57,8 @@ class JwtDecoderTest extends BaseSpringBootTest {
     String tokenValue;
 
     WireMockServer mockServer;
+
+    String jwkSetJson;
 
 
     @BeforeEach
@@ -79,20 +83,24 @@ class JwtDecoderTest extends BaseSpringBootTest {
                                   "grant_types_supported": ["authorization_code", "implicit", "refresh_token"]
                                 }
                                 """, ISSUER_URL, ISSUER_URL, ISSUER_URL, ISSUER_URL))));
+
+        jwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}";
+
         mockServer.stubFor(WireMock.get("/realms/CZERTAINLY-realm/protocol/openid-connect/certs")
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}")));
+                        .withBody(jwkSetJson)));
+
+        mockServer.stubFor(WireMock.get("/api/oauth2/provider/jwkSet")
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(jwkSetJson)));
 
 
         providerSettings = new OAuth2ProviderSettingsUpdateDto();
-        providerSettings.setClientSecret("secret");
         providerSettings.setIssuerUrl(ISSUER_URL);
-        providerSettings.setClientId("client");
-        providerSettings.setClientSecret("secret");
-        providerSettings.setAuthorizationUrl("http");
-        providerSettings.setTokenUrl("http");
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         tokenValue = createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000);
 
@@ -116,17 +124,18 @@ class JwtDecoderTest extends BaseSpringBootTest {
     @Test
     void testJwtDecoderOnExpiredTokenWithoutAudiences() throws JOSEException {
         providerSettings.setSkew(0);
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
         String expiredToken = createJwtTokenValue(keyPair.getPrivate(), 1);
-        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
+        Assertions.assertTrue(exception.getMessage().contains("Jwt expired"));
     }
 
     @Test
     void testJwtDecoderOnTokenWithValidAudiences() {
         providerSettings.setAudiences(List.of("your-audience"));
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
@@ -135,9 +144,51 @@ class JwtDecoderTest extends BaseSpringBootTest {
     @Test
     void testJwtDecoderOnTokenWithInvalidAudiences() {
         providerSettings.setAudiences(List.of("different-audience"));
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
         SecurityContextHolder.clearContext();
-        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("The aud claim is not valid"));
+    }
+
+    @Test
+    void testJwkSetFromInput() {
+        providerSettings.setJwkSetUrl(null);
+        providerSettings.setJwkSet(Base64.getEncoder().encodeToString(jwkSetJson.getBytes()));
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
+        ResponseEntity<String> response = loginController.getJwkSet(PROVIDER_NAME);
+        Assertions.assertEquals(jwkSetJson, response.getBody());
+
+        SecurityContextHolder.clearContext();
+        Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
+    }
+
+    @Test
+    void testInvalidJwk() throws NoSuchAlgorithmException, JsonProcessingException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair invalidKeyPair = generator.generateKeyPair();
+
+        String invalidJwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) invalidKeyPair.getPublic()) + "]}";
+
+        mockServer.stubFor(WireMock.get("/realms/CZERTAINLY-realm/protocol/openid-connect/certs")
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(invalidJwkSetJson)));
+
+        SecurityContextHolder.clearContext();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Invalid signature"));
+    }
+
+    @Test
+    void testUnreachableJwkUrl() {
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
+
+        mockServer.resetAll();
+        SecurityContextHolder.clearContext();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Couldn't retrieve remote JWK set"));
     }
 
     private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {

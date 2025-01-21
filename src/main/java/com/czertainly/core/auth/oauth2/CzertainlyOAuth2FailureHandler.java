@@ -45,10 +45,12 @@ public class CzertainlyOAuth2FailureHandler implements AuthenticationFailureHand
             }
             auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessToken);
         }
+        Object contextPath = request.getSession().getAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE);
+        request.getSession().invalidate();
         logger.error(message);
 
         try {
-            response.sendRedirect(request.getSession().getAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE) + "/login?error=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8));
+            response.sendRedirect(contextPath + "/login?error=" + URLEncoder.encode(exception.getMessage(), StandardCharsets.UTF_8));
         } catch (IOException e) {
             logger.error("Error when redirecting to error page: {}", e.getMessage());
         }
