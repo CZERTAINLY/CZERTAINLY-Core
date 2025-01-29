@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Objects;
+import java.util.UUID;
 
 @Getter
 @Setter
@@ -51,6 +52,14 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
 
     @Column(name = "key_usage")
     private String keyUsage;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "key_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private CryptographicKey key;
+
+    @Column(name = "key_uuid")
+    private UUID keyUuid;
 
     public void setContent(String content) throws NoSuchAlgorithmException {
         this.content = content;

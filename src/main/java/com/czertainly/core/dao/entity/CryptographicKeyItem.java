@@ -133,7 +133,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         KeyItemDetailDto dto = new KeyItemDetailDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
-        dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        if (keyReferenceUuid != null) dto.setKeyReferenceUuid(keyReferenceUuid.toString());
         dto.setKeyAlgorithm(keyAlgorithm);
         dto.setType(type);
         dto.setLength(length);
@@ -150,7 +150,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         KeyItemDto dto = new KeyItemDto();
         dto.setName(name);
         dto.setUuid(uuid.toString());
-        dto.setKeyReferenceUuid(keyReferenceUuid.toString());
+        if (keyReferenceUuid != null) dto.setKeyReferenceUuid(keyReferenceUuid.toString());
         dto.setKeyAlgorithm(keyAlgorithm);
         dto.setType(type);
         dto.setLength(length);
@@ -169,8 +169,10 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
             dto.setOwner(cryptographicKey.getOwner().getOwnerUsername());
         }
         dto.setCreationTime(cryptographicKey.getCreated());
-        dto.setTokenInstanceName(cryptographicKey.getTokenInstanceReference().getName());
-        dto.setTokenInstanceUuid(cryptographicKey.getTokenInstanceReferenceUuid().toString());
+        if (cryptographicKey.getTokenInstanceReference() != null) {
+            dto.setTokenInstanceName(cryptographicKey.getTokenInstanceReference().getName());
+            dto.setTokenInstanceUuid(cryptographicKey.getTokenInstanceReferenceUuid().toString());
+        }
         if (cryptographicKey.getTokenProfile() != null) {
             dto.setTokenProfileName(cryptographicKey.getTokenProfile().getName());
             dto.setTokenProfileUuid(cryptographicKey.getTokenProfile().getUuid().toString());

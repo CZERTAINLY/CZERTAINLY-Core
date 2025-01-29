@@ -17,6 +17,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
+import java.security.PublicKey;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -309,4 +310,6 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return Key Item
      */
     CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType);
+
+    UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength);
 }

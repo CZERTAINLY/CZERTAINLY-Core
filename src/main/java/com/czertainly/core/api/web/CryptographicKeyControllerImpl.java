@@ -67,7 +67,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
     public KeyDetailDto getKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid) throws NotFoundException {
         return cryptographicKeyService.getKey(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
+                tokenInstanceUuid.equals("unknown") ? null : SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(uuid)
         );
     }

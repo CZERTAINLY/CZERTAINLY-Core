@@ -6,8 +6,6 @@ import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
@@ -103,8 +101,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
         }
-        dto.setTokenInstanceName(tokenInstanceReference.getName());
-        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if (tokenInstanceReference != null) {
+            dto.setTokenInstanceName(tokenInstanceReference.getName());
+            dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        }
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
@@ -127,8 +127,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
         }
-        dto.setTokenInstanceName(tokenInstanceReference.getName());
-        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if (tokenInstanceReference != null) {
+            dto.setTokenInstanceName(tokenInstanceReference.getName());
+            dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        }
         dto.setItems(getKeyItems());
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());

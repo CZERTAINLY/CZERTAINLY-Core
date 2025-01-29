@@ -5,12 +5,15 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
+import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.connector.cryptography.key.KeyData;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -29,6 +32,7 @@ import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
@@ -75,10 +79,8 @@ import java.io.*;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SignatureException;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -850,9 +852,13 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareIssuedCertificate(modal, certificate);
+        UUID keyUuid;
         if (modal.getKey() == null) {
-            UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
-            if (keyUuid != null) modal.setKeyUuid(keyUuid);
+            keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
+            if (keyUuid == null) {
+                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + modal.getCommonName(), certificate.getPublicKey(), modal.getPublicKeyAlgorithm(), modal.getKeySize());
+            }
+            modal.setKeyUuid(keyUuid);
         }
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
@@ -1237,8 +1243,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         List<ResponseAttributeDto> requestAttributes;
         List<ResponseAttributeDto> requestSignatureAttributes;
+        UUID publicKeyUuid;
         if (certificateRequestOptional.isPresent()) {
             certificateRequestEntity = certificateRequestOptional.get();
+            publicKeyUuid = certificateRequestEntity.getKeyUuid();
             // if no CSR attributes are assigned to CSR, update them with ones provided
             requestAttributes = attributeEngine.getObjectDataAttributesContent(
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
@@ -1261,6 +1269,11 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
             certificateRequestEntity.setContent(certificateRequest);
             certificateRequestEntity = certificateRequestRepository.save(certificateRequestEntity);
+            publicKeyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(request.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+            if (publicKeyUuid != null) certificateRequestEntity.setKeyUuid(publicKeyUuid);
+            else {
+                publicKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificateRequestEntity.getCommonName(), request.getPublicKey(), CertificateUtil.getAlgorithmFromProviderName(request.getPublicKey().getAlgorithm()), KeySizeUtil.getKeyLength(request.getPublicKey()));
+            }
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
@@ -1272,6 +1285,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
+        certificate.setKeyUuid(publicKeyUuid);
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {
