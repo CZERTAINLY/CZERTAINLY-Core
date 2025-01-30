@@ -582,6 +582,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testStringProperty() {
         certificate1.setCommonName("name1");
         certificate2.setCommonName("name2");
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.EQUALS, "name1")));
@@ -621,6 +623,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testEnumProperty() {
         certificate1.setState(CertificateState.FAILED);
         certificate2.setState(CertificateState.REVOKED);
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateState.FAILED.getCode()))));
@@ -652,6 +656,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testDateProperty() throws ParseException {
         certificate1.setNotAfter(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2025-05-16 22:10:15"));
         certificate2.setNotAfter(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2025-05-20 22:10:15"));
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.EQUALS, "2025-05-16")));
@@ -695,11 +701,13 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         cryptographicKeyItem.setType(KeyType.PRIVATE_KEY);
         cryptographicKeyItem.setCryptographicKey(cryptographicKey);
         cryptographicKeyItemRepository.save(cryptographicKeyItem);
+
+        cryptographicKey.getItems().add(cryptographicKeyItem);
+        cryptographicKey = cryptographicKeyRepository.save(cryptographicKey);
         certificate1.setKey(cryptographicKey);
 
         System.out.println("Key UUID: " + cryptographicKey.getUuid());
         System.out.println("Certificate Key UUID: " + certificate1.getKey().getUuid());
-
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.PRIVATE_KEY.name(), FilterConditionOperator.EQUALS, true)));
@@ -711,6 +719,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testListProperty() {
         certificate1.setKeySize(1);
         certificate2.setKeySize(2);
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_SIZE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(1))));
@@ -742,6 +752,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testBooleanProperty() {
         certificate1.setTrustedCa(true);
         certificate2.setTrustedCa(false);
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.TRUSTED_CA.name(), FilterConditionOperator.EQUALS, true)));

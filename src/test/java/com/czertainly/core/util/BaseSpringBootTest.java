@@ -16,28 +16,52 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.test.annotation.Rollback;
-import org.springframework.transaction.annotation.Transactional;
 
+import java.sql.Connection;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.UUID;
 
 @SpringBootTest
 @Import(SpringBootTestContext.class)
-@Transactional
-@Rollback
 public class BaseSpringBootTest {
 
     @Autowired
     OpaClient opaClient;
 
+    @Autowired
+    private JdbcTemplate jdbcTemplate;
+
+    private static String truncateTablesSql;
+
     @BeforeEach
-    public void setupAuth() {
+    public void setupAuth() throws SQLException {
         mockSuccessfulCheckResourceAccess();
         mockSuccessfulCheckObjectAccess();
         injectAuthentication();
+
+        try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+
+
+            var tables = connection.getMetaData().getTables(connection.getCatalog(), connection.getSchema(), null, new String[]{"TABLE"});
+            int counter = 0;
+            StringBuilder stringBuilder = new StringBuilder("TRUNCATE ");
+            while (tables.next()) {
+                String tableName = "\"%s\"".formatted(tables.getString("TABLE_NAME"));
+
+                if (counter == 0) {
+                    stringBuilder.append(tableName);
+                } else {
+                    stringBuilder.append(", ").append(tableName);
+                }
+                ++counter;
+            }
+//            stringBuilder.append(" CASCADE");
+            connection.prepareStatement(stringBuilder.toString()).execute();
+        }
     }
 
     protected void mockSuccessfulCheckResourceAccess() {
@@ -80,7 +104,7 @@ public class BaseSpringBootTest {
         try {
             rawData = objectMapper.writeValueAsString(userProfileDto);
         } catch (JsonProcessingException e) {
-            rawData = String.format("{\"user\":{\"uuid\":\"%s\", \"uuid\":\"%s\"}}",userDto.getUuid(), userDto.getUsername());
+            rawData = String.format("{\"user\":{\"uuid\":\"%s\", \"uuid\":\"%s\"}}", userDto.getUuid(), userDto.getUsername());
         }
 
         AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, userDto.getUuid(), userDto.getUsername(), List.of(), rawData);

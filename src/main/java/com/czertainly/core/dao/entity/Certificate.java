@@ -381,7 +381,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setKey(CryptographicKey key) {
         this.key = key;
-        if (key != null) this.keyUuid = uuid;
+        if (key != null) this.keyUuid = key.getUuid();
     }
 
     public Long getValidity() {

@@ -10,8 +10,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfile;
-import com.czertainly.core.dao.repository.ApprovalProfileRepository;
-import com.czertainly.core.dao.repository.ApprovalRecipientRepository;
 import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -24,7 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.Optional;
 import java.util.UUID;
 
-public class ApprovalServiceTest extends ApprovalProfileData {
+class ApprovalServiceTest extends ApprovalProfileData {
 
     private ApprovalService approvalService;
 
@@ -36,13 +34,13 @@ public class ApprovalServiceTest extends ApprovalProfileData {
     private ApprovalProfile approvalProfile;
 
     @BeforeEach
-    public void setUp() throws NotFoundException, AlreadyExistException {
+    void setUp() throws NotFoundException, AlreadyExistException {
         approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         approval = approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), UUID.randomUUID(), null);
     }
 
     @Test
-    public void testListOfApprovals() throws NotFoundException {
+    void testListOfApprovals() throws NotFoundException {
         UUID randomUserUuid = UUID.randomUUID();
         approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
         approvalService.createApproval(approvalProfile.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), randomUserUuid, null);
@@ -53,7 +51,7 @@ public class ApprovalServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testDetailOfApproval() throws NotFoundException {
+    void testDetailOfApproval() throws NotFoundException {
         final ApprovalDetailDto approvalDetailDto = approvalService.getApprovalDetail(approval.getUuid().toString());
 
         Assertions.assertEquals(approvalProfileRequestDto.getExpiry(), approvalDetailDto.getExpiry());
@@ -61,17 +59,19 @@ public class ApprovalServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testApprovalProfileHistoryVersion() throws NotFoundException {
+    void testApprovalProfileHistoryVersion() throws NotFoundException {
         approvalService.getApprovalDetail(approval.getUuid().toString());
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
 
-        final ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), 1);
+        ApprovalProfileDetailDto approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), 1);
+        Assertions.assertEquals(approvalProfileRequestDto.getDescription(), approvalProfileDetailDto.getDescription());
+        approvalProfileDetailDto = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
         Assertions.assertEquals(approvalProfileUpdateRequestDto.getDescription(), approvalProfileDetailDto.getDescription());
     }
 
     @Test
-    public void testApproveApproval() throws NotFoundException {
+    void testApproveApproval() throws NotFoundException {
         approvalService.approveApproval(approval.getUuid().toString());
         Optional<Approval> approvalOptional = approvalRepository.findByUuid(SecuredUUID.fromUUID(approval.getUuid()));
 
@@ -80,7 +80,7 @@ public class ApprovalServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testRejectApproval() throws NotFoundException {
+    void testRejectApproval() throws NotFoundException {
         approvalService.rejectApproval(approval.getUuid().toString());
         Optional<Approval> approvalOptional = approvalRepository.findByUuid(SecuredUUID.fromUUID(approval.getUuid()));
 
@@ -91,17 +91,17 @@ public class ApprovalServiceTest extends ApprovalProfileData {
     // SETTERs
 
     @Autowired
-    public void setApprovalRepository(ApprovalRepository approvalRepository) {
+    void setApprovalRepository(ApprovalRepository approvalRepository) {
         this.approvalRepository = approvalRepository;
     }
 
     @Autowired
-    public void setApprovalService(ApprovalService approvalService) {
+    void setApprovalService(ApprovalService approvalService) {
         this.approvalService = approvalService;
     }
 
     @Autowired
-    public void setApprovalProfileService(ApprovalProfileService approvalProfileService) {
+    void setApprovalProfileService(ApprovalProfileService approvalProfileService) {
         this.approvalProfileService = approvalProfileService;
     }
 }
