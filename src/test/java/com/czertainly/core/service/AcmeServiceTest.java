@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.acme.*;
@@ -85,6 +86,9 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private CertificateRepository certificateRepository;
 
     @Autowired
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
+
+    @Autowired
     private AcmeService acmeService;
 
     private AcmeNonce acmeValidNonce;
@@ -93,12 +97,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private JWSSigner newRsa2048Signer;
     private RSAKey newRsa2048PublicJWK;
     private String b64UrlCertificate;
-    private WireMockServer mockServer;
+    private String nonAcmeB64UrlCertificate;
 
     @BeforeEach
     void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
         // prepare mock server
-        mockServer = new WireMockServer(0);
+        WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -213,6 +217,35 @@ class AcmeServiceTest extends BaseSpringBootTest {
         acmeValidNonce.setExpires(expires);
         acmeNonceRepository.save(acmeValidNonce);
 
+        // associate certificate with ACME protocol association
+        CertificateProtocolAssociation certificateProtocolAssociation = new CertificateProtocolAssociation();
+        certificateProtocolAssociation.setCertificate(certificate);
+        certificateProtocolAssociation.setProtocol(CertificateProtocol.ACME);
+        certificateProtocolAssociation.setProtocolProfileUuid(acmeProfile.getUuid());
+        certificateProtocolAssociation.setAdditionalProtocolUuid(acmeAccount.getUuid());
+        certificateProtocolAssociationRepository.save(certificateProtocolAssociation);
+
+        certificate.setProtocolAssociation(certificateProtocolAssociation);
+        certificateRepository.save(certificate);
+
+        // create certificate without ACME protocol association
+        X509Certificate nonAcmeX509Certificate = CertificateUtil.generateRandomX509Certificate(keyPair);
+        String nonAcmeB64Certificate = Base64.getEncoder().encodeToString(nonAcmeX509Certificate.getEncoded());
+        nonAcmeB64UrlCertificate = Base64.getUrlEncoder().encodeToString(nonAcmeX509Certificate.getEncoded());
+
+        CertificateContent nonAcmeCertificateContent = new CertificateContent();
+        nonAcmeCertificateContent.setContent(nonAcmeB64Certificate);
+        nonAcmeCertificateContent = certificateContentRepository.save(nonAcmeCertificateContent);
+
+        Certificate nonAcmeCertificate = new Certificate();
+        nonAcmeCertificate.setCertificateContent(nonAcmeCertificateContent);
+        nonAcmeCertificate.setState(CertificateState.ISSUED);
+        nonAcmeCertificate.setValidationStatus(CertificateValidationStatus.VALID);
+        nonAcmeCertificate.setRaProfile(raProfile);
+        nonAcmeCertificate = certificateRepository.save(nonAcmeCertificate);
+
+        nonAcmeCertificateContent.setCertificate(nonAcmeCertificate);
+        certificateContentRepository.save(nonAcmeCertificateContent);
     }
 
     @Test
@@ -537,7 +570,67 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testRevokeCert_withPrivateKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withAccountKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        ResponseEntity<?> response = acmeService.revokeCertificate(
+                ACME_PROFILE_NAME,
+                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri, false);
+        assertRevokeCert_withAccountKey(response);
+    }
+
+    @Test
+    void testRevokeCert_withAccountKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+        String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        ResponseEntity<?> response = acmeService.revokeCertificate(
+                RA_PROFILE_NAME,
+                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri, true);
+        assertRevokeCert_withAccountKey(response);
+    }
+
+    @Test
+    void testRevokeCert_withAccountKey_nonAcmeCertificate() throws URISyntaxException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        AcmeProblemDocumentException thrown = Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.revokeCertificate(
+                        ACME_PROFILE_NAME,
+                        buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, false));
+        Assertions.assertEquals(thrown.getHttpStatusCode(), HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    void testRevokeCert_withAccountKey_nonAcmeCertificate_raProfileBased() throws URISyntaxException {
+        String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        AcmeProblemDocumentException thrown = Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.revokeCertificate(
+                        RA_PROFILE_NAME,
+                        buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, true));
+        Assertions.assertEquals(thrown.getHttpStatusCode(), HttpStatus.FORBIDDEN.value());
+    }
+
+    private String buildRevokeCertRequestJSON_withAccountKey(URI requestUri, String baseUri, String certificate) throws JOSEException {
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"" + certificate + "\",\"reason\":0}"));
+        jwsObjectJSON.sign(
+                new JWSHeader.Builder(JWSAlgorithm.RS256)
+                        .keyID(baseUri + "/acct/" + ACME_ACCOUNT_ID_VALID)
+                        .customParam(NONCE_HEADER_CUSTOM_PARAM, acmeValidNonce.getNonce())
+                        .customParam(URL_HEADER_CUSTOM_PARAM, requestUri.toString())
+                        .build(),
+                rsa2048Signer
+        );
+        return jwsObjectJSON.serializeFlattened();
+    }
+
+    private void assertRevokeCert_withAccountKey(ResponseEntity<?> response) {
+        // status code is 200
+        Assertions.assertEquals(HttpStatus.OK, response.getStatusCode());
+    }
+
+    @Test
+    public void testRevokeCert_withPrivateKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/revoke-cert");
         ResponseEntity<?> response = acmeService.revokeCertificate(
                 ACME_PROFILE_NAME,
