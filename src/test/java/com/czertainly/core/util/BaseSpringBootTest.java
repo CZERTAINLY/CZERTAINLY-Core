@@ -43,24 +43,33 @@ public class BaseSpringBootTest {
         mockSuccessfulCheckObjectAccess();
         injectAuthentication();
 
+        // clean DB tables data before each test
+        truncateTables();
+    }
+
+    private void truncateTables() throws SQLException {
+        if (jdbcTemplate.getDataSource() == null) {
+            throw new SQLException("JDBCTemplate does not have initialized data source");
+        }
+
         try (Connection connection = jdbcTemplate.getDataSource().getConnection()) {
+            if (truncateTablesSql == null) {
+                var tables = connection.getMetaData().getTables(connection.getCatalog(), connection.getSchema(), null, new String[]{"TABLE"});
+                int counter = 0;
+                StringBuilder stringBuilder = new StringBuilder("TRUNCATE ");
+                while (tables.next()) {
+                    String tableName = "\"%s\"".formatted(tables.getString("TABLE_NAME"));
 
-
-            var tables = connection.getMetaData().getTables(connection.getCatalog(), connection.getSchema(), null, new String[]{"TABLE"});
-            int counter = 0;
-            StringBuilder stringBuilder = new StringBuilder("TRUNCATE ");
-            while (tables.next()) {
-                String tableName = "\"%s\"".formatted(tables.getString("TABLE_NAME"));
-
-                if (counter == 0) {
-                    stringBuilder.append(tableName);
-                } else {
-                    stringBuilder.append(", ").append(tableName);
+                    if (counter == 0) {
+                        stringBuilder.append(tableName);
+                    } else {
+                        stringBuilder.append(", ").append(tableName);
+                    }
+                    ++counter;
                 }
-                ++counter;
+                truncateTablesSql = stringBuilder.toString();
             }
-//            stringBuilder.append(" CASCADE");
-            connection.prepareStatement(stringBuilder.toString()).execute();
+            connection.prepareStatement(truncateTablesSql).execute();
         }
     }
 

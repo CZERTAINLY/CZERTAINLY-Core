@@ -24,10 +24,10 @@ import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.cmp.*;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigInteger;
 import java.security.SecureRandom;
@@ -39,8 +39,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 
-@Disabled
-public class RevocationMessageHandlerITest extends BaseSpringBootTest {
+class RevocationMessageHandlerITest extends BaseSpringBootTest {
 
     @Autowired private CertificateContentRepository certificateContentRepository;
     @Autowired private CertificateRepository certificateRepository;
@@ -56,7 +55,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
     @Autowired private FunctionGroupRepository functionGroupRepository;
     @Autowired private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
-    @MockBean
+    @MockitoBean
     private PollFeature pollFeature;
 
     private RevocationMessageHandler testedHandler;
@@ -71,7 +70,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
     private X509Certificate x509Certificate;
 
     @BeforeEach
-    public void setUp() throws Exception {
+    void setUp() throws Exception {
         // -- GIVEN --
         mockServer = CmpTestUtil.createIssuingPlatform();
 
@@ -157,10 +156,6 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
         revokedCertificate.setIssuerCertificateUuid(intrCA.getUuid());
         revokedCertificate = certificateRepository.save(revokedCertificate);
 
-//        TestTransaction.flagForCommit();
-//        TestTransaction.end();
-//
-//        TestTransaction.start();
         cmpProfileSigPrt = cmpProfileRepository.saveAndFlush(
                 CmpEntityUtil.createCmpProfile(raProfile,
                         createSigningCertificateEntity(mockServer)));
@@ -172,14 +167,13 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    //@Sql(value = "/init.sql")
-    //@Rollback
-    public void test_handle_ir_3gpp_signature_protection() throws Exception {
+    @Transactional
+    void test_handle_ir_3gpp_signature_protection() throws Exception {
         String trxId= "777";
         PKIMessage request = CmpTestUtil.createSignatureBasedMessage(
                         trxId,
@@ -226,7 +220,7 @@ public class RevocationMessageHandlerITest extends BaseSpringBootTest {
     }
 
     @Test
-    public void test_handle_ir_3gpp_mac_protection() throws Exception {
+    void test_handle_ir_3gpp_mac_protection() throws Exception {
         // -- WHEN --
         String trxId= "779";
         PKIMessage request = CmpTestUtil.createMacBasedMessage(

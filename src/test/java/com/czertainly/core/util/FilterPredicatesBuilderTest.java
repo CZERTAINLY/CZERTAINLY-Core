@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateSubjectType;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -39,7 +40,6 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.predicate.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -523,7 +523,6 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
 
     @Test
-    @Disabled("Foreign key not working properly in test environment")
     void testFiltersOnGroups() throws NotFoundException {
         Group group1 = new Group();
         group1.setName("group 1");
@@ -693,18 +692,19 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("Foreign key not working properly in test environment")
     void testHasPrivateKey() {
         CryptographicKey cryptographicKey = new CryptographicKey();
         cryptographicKey = cryptographicKeyRepository.save(cryptographicKey);
         CryptographicKeyItem cryptographicKeyItem = new CryptographicKeyItem();
         cryptographicKeyItem.setType(KeyType.PRIVATE_KEY);
         cryptographicKeyItem.setCryptographicKey(cryptographicKey);
+        cryptographicKeyItem.setState(KeyState.ACTIVE);
         cryptographicKeyItemRepository.save(cryptographicKeyItem);
 
         cryptographicKey.getItems().add(cryptographicKeyItem);
         cryptographicKey = cryptographicKeyRepository.save(cryptographicKey);
         certificate1.setKey(cryptographicKey);
+        certificateRepository.save(certificate1);
 
         System.out.println("Key UUID: " + cryptographicKey.getUuid());
         System.out.println("Certificate Key UUID: " + certificate1.getKey().getUuid());

@@ -39,7 +39,6 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -344,7 +343,6 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
     }
 
-    @Disabled("Because Hibernate generating duplicates in foreign key constraint name")
     @Test
     void testSetCertificateGroup() throws RuleException {
         executionItem.setFieldSource(FilterFieldSource.PROPERTY);
