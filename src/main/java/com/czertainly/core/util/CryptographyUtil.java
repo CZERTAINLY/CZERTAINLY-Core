@@ -19,7 +19,6 @@ import org.bouncycastle.pqc.jcajce.provider.falcon.BCFalconPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPublicKey;
 
 import java.io.IOException;
-import java.security.PublicKey;
 import java.util.Base64;
 import java.util.List;
 

@@ -5,15 +5,12 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestDto;
-import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.connector.cryptography.key.KeyData;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -821,6 +818,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             CertificateUtil.prepareIssuedCertificate(entity, certificate);
+            uploadCertificateKey(certificate.getPublicKey(), entity);
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
@@ -852,20 +850,23 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareIssuedCertificate(modal, certificate);
-        UUID keyUuid;
-        if (modal.getKey() == null) {
-            keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
-            if (keyUuid == null) {
-                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + modal.getCommonName(), certificate.getPublicKey(), modal.getPublicKeyAlgorithm(), modal.getKeySize());
-            }
-            modal.setKeyUuid(keyUuid);
-        }
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(certificateContent);
         modal.setCertificateContentId(certificateContent.getId());
 
         return modal;
+    }
+
+    private void uploadCertificateKey(PublicKey publicKey, Certificate certificate) {
+        UUID keyUuid;
+        if (certificate.getKey() == null) {
+            keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
+            if (keyUuid == null) {
+                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificate.getCommonName(), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());
+            }
+            certificate.setKeyUuid(keyUuid);
+        }
     }
 
     @Override
@@ -897,6 +898,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         Certificate entity = createCertificateEntity(certificate);
+        uploadCertificateKey(certificate.getPublicKey(), entity);
         certificateRepository.save(entity);
 
         CertificateDetailDto dto = entity.mapToDto();
@@ -918,6 +920,7 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
+        uploadCertificateKey(x509Cert.getPublicKey(), entity);
         entity = certificateRepository.save(entity);
 
         // set owner of certificate to logged user
@@ -1272,7 +1275,7 @@ public class CertificateServiceImpl implements CertificateService {
             publicKeyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(request.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
             if (publicKeyUuid != null) certificateRequestEntity.setKeyUuid(publicKeyUuid);
             else {
-                publicKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificateRequestEntity.getCommonName(), request.getPublicKey(), CertificateUtil.getAlgorithmFromProviderName(request.getPublicKey().getAlgorithm()), KeySizeUtil.getKeyLength(request.getPublicKey()));
+                publicKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificateRequestEntity.getCommonName(), request.getPublicKey(), CertificateUtil.getAlgorithmFromProviderName(request.getPublicKey().getAlgorithm()), KeySizeUtil.getKeyLength(request.getPublicKey()), CertificateUtil.getThumbprint(request.getPublicKey().getEncoded()));
             }
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
