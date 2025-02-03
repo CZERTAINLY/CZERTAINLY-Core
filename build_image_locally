@@ -1,6 +1,15 @@
 #!/bin/bash
 
+# Name of the image to build (including tag)
 export IMAGE_NAME=3keycompany/czertainly-core:develop-latest
+# Dockerfile path for the main image
 export DOCKERFILE_PATH=Dockerfile
+
+# Maven directory that will be mounted to the container to cache dependencies
+# If not set, the container will download dependencies on every build
+# e.g. /Users/username/.m2
+export MAVEN_DIR=
+# true to skip tests, default is false
+export SKIP_TESTS=false
 
 sh hooks/build
