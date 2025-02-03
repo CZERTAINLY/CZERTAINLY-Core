@@ -19,7 +19,7 @@
         <hsqldb.version>2.7.3</hsqldb.version>
         <nimbus-jose-jwt.version>9.40</nimbus-jose-jwt.version>
         <mockwebserver.version>4.12.0</mockwebserver.version>
-        <commons-beanutils.version>1.9.4</commons-beanutils.version>
+        <commons-beanutils.version>1.10.0</commons-beanutils.version>
         <testcontainers-postgresql.version>1.20.1</testcontainers-postgresql.version>
         <java.version>21</java.version>
         <sonar.organization>czertainly</sonar.organization>
