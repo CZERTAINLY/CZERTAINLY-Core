@@ -48,23 +48,20 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     List<KeyDto> listKeyPairs(Optional<String> tokenInstanceUuid, SecurityFilter filter);
 
     /**
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the concerned Key
      * @return Detail of the key {@Link KeyDetailDto}
      * @throws NotFoundException  when the token profile or key is not found
-     * @throws ConnectorException when there are issues with connector communication
      */
-    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
+    KeyDetailDto getKey(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Get the detail of the key item
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid UUID of the parent key object
      * @param keyItemUuid UUID of the key item
      * @return Key Item detail
      * @throws NotFoundException when the key or token instance is not found
      */
-    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, String keyItemUuid) throws  NotFoundException;
+    KeyItemDetailDto getKeyItem(SecuredUUID uuid, String keyItemUuid) throws  NotFoundException;
 
     /**
      * @param request           DTO containing the information for creating a new key
@@ -84,13 +81,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to update the key details
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
      * @param request           Information regarding the update key
      * @return Updated token Instance details
      */
     KeyDetailDto editKey(
-            SecuredParentUUID tokenInstanceUuid,
             SecuredUUID uuid,
             EditKeyRequestDto request
     ) throws NotFoundException, AttributeException;
@@ -158,13 +153,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to delete the key
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
      * @param keyUuids          UUIDs of the items inside the key. If empty is provided, all the items will be deleted
      * @throws NotFoundException, ConnectorException
      */
     void deleteKey(
-            SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             List<String> keyUuids
     ) throws NotFoundException, ConnectorException;
@@ -311,5 +304,14 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      */
     CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType);
 
-    UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength);
+    /**
+     * Upload public key of existing certificate
+     * @param name Name of the cryptographic key
+     * @param publicKey Public Key to be uploaded
+     * @param keyAlgorithm Key Algorithm used in the Public Key
+     * @param keyLength Length of the Public Key
+     * @param fingerprint Unique fingerprint of the Public Key
+     * @return UUID of the uploaded Cryptographic Key
+     */
+    UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength, String fingerprint);
 }
