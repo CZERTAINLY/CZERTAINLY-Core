@@ -27,10 +27,7 @@ import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ComplianceService;
-import com.czertainly.core.service.TriggerService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
@@ -44,9 +41,12 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.concurrent.ConcurrentMap;
 
 @Service
 @Transactional
@@ -62,6 +62,7 @@ public class CertificateHandler {
     private ComplianceService complianceService;
     private CertificateService certificateService;
     private CertificateEventHistoryService certificateEventHistoryService;
+    private CryptographicKeyService cryptographicKeyService;
 
     private CertificateRepository certificateRepository;
     private DiscoveryRepository discoveryRepository;
@@ -123,6 +124,11 @@ public class CertificateHandler {
         this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
+    @Autowired
+    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
+        this.cryptographicKeyService = cryptographicKeyService;
+    }
+
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void validate(Certificate certificate) {
         certificateService.validate(certificate);
@@ -182,7 +188,7 @@ public class CertificateHandler {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void processDiscoveredCertificate(int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate) {
+    public void processDiscoveredCertificate(int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
         // Get X509 from discovered certificate and create certificate entity, do not save in database yet
         Certificate certificate;
         X509Certificate x509Cert;
@@ -221,6 +227,7 @@ public class CertificateHandler {
         }
 
         updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
+        keysToCertificatesMap.computeIfAbsent(x509Cert.getPublicKey(), k -> new ArrayList<>()).add(certificate.getUuid());
         discoveryCertificate.setProcessed(true);
 
         discoveryCertificateRepository.save(discoveryCertificate);
@@ -230,6 +237,19 @@ public class CertificateHandler {
             long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
             discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
             discoveryRepository.save(discovery);
+        }
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    public void uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(publicKey.getEncoded()));
+        List<Certificate> certificates = certificateRepository.findAllByUuidIn(certificateUuids);
+        Certificate firstCertificate = certificates.getFirst();
+        if (keyUuid == null) {
+            keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + firstCertificate.getCommonName(), publicKey, firstCertificate.getPublicKeyAlgorithm(), firstCertificate.getKeySize(), firstCertificate.getPublicKeyFingerprint());
+        }
+        for (Certificate certificate : certificates) {
+            certificate.setKeyUuid(keyUuid);
         }
     }
 
