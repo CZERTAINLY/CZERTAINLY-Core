@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21.0.4_7-jre-alpine
+FROM eclipse-temurin:21.0.6_7-jre-alpine
 
 LABEL org.opencontainers.image.authors="CZERTAINLY <support@czertainly.com>"
 
