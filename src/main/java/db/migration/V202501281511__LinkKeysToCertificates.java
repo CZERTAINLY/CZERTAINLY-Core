@@ -1,7 +1,9 @@
 package db.migration;
 
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.CryptographyUtil;
+import com.czertainly.core.util.DatabaseMigration;
 import com.czertainly.core.util.KeySizeUtil;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
@@ -16,6 +18,11 @@ import java.util.*;
 public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
 
     @Override
+    public Integer getChecksum() {
+        return DatabaseMigration.JavaMigrationChecksums.V202501281511__LinkKeysToCertificates.getChecksum();
+    }
+
+    @Override
     public void migrate(Context context) throws Exception {
         prepareDbForUploadedKeys(context);
         linkKeysToCertificates(context);
@@ -27,8 +34,8 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
         String addPkColumnToCsrQuery = "ALTER TABLE CERTIFICATE_REQUEST ADD COLUMN public_key_uuid uuid;";
         try (final Statement statement = context.getConnection().createStatement()) {
             statement.execute(alterCkTableQuery);
-            statement.executeQuery(alterCkiTableQuery);
-            statement.executeQuery(addPkColumnToCsrQuery);
+            statement.execute(alterCkiTableQuery);
+            statement.execute(addPkColumnToCsrQuery);
         }
     }
 
@@ -95,6 +102,7 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
                                             FROM certificate c
                                             INNER JOIN certificate_content cc
                                             ON c.certificate_content_id = cc.id
+                                            WHERE c.key_uuid IS NULL
                     """);
             while (certificatesWithoutKeyLink.next()) {
                 String certificateUuid = certificatesWithoutKeyLink.getString("certificate_uuid");
@@ -113,14 +121,21 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
                         insertCkPs.setString(3, keyName);
                         insertCkPs.addBatch();
 
+                        KeyAlgorithm keyAlgorithmEnumValue;
+                        try {
+                            keyAlgorithmEnumValue = KeyAlgorithm.valueOf(CertificateUtil.getAlgorithmFromProviderName(publicKey.getAlgorithm()));
+                        } catch (IllegalArgumentException e) {
+                            keyAlgorithmEnumValue = KeyAlgorithm.UNKNOWN;
+                        }
+
                         insertCkiPs.setObject(1, UUID.randomUUID(), Types.OTHER);
                         insertCkiPs.setString(2, keyName);
                         insertCkiPs.setObject(3, ckUuid, Types.OTHER);
-                        insertCkiPs.setString(4, CertificateUtil.getAlgorithmFromProviderName(publicKey.getAlgorithm()));
+                        insertCkiPs.setString(4, keyAlgorithmEnumValue.toString());
                         insertCkiPs.setString(5, CryptographyUtil.getPublicKeyFormat(publicKey.getEncoded()).toString());
-                        insertCkiPs.setString(5, Base64.getEncoder().encodeToString(publicKey.getEncoded()));
-                        insertCkiPs.setInt(6, KeySizeUtil.getKeyLength(publicKey));
-                        insertCkiPs.setString(7, publicKeyFingerprint);
+                        insertCkiPs.setString(6, Base64.getEncoder().encodeToString(publicKey.getEncoded()));
+                        insertCkiPs.setInt(7, KeySizeUtil.getKeyLength(publicKey));
+                        insertCkiPs.setString(8, publicKeyFingerprint);
                         insertCkiPs.addBatch();
 
                         fingeprintToKeyUuidMap.put(publicKeyFingerprint, String.valueOf(ckUuid));
@@ -133,6 +148,7 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
             }
             insertCkPs.executeBatch();
             insertCkiPs.executeBatch();
+            updatePublicKeyPs.executeBatch();
         }
     }
 
@@ -148,8 +164,8 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
         try (final Statement select = context.getConnection().createStatement()) {
             ResultSet resultSet = select.executeQuery(query);
             while (resultSet.next()) {
-                String fingerprint = resultSet.getString("cki.fingerprint");
-                String uuid = resultSet.getString("cki.uuid");
+                String fingerprint = resultSet.getString("fingerprint");
+                String uuid = resultSet.getString("uuid");
                 valueMap.put(fingerprint, uuid);
             }
         }
