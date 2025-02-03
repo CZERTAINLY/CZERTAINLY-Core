@@ -23,10 +23,6 @@ public abstract class UniquelyIdentifiedAndAudited extends Audited {
     @Column(name = "uuid", nullable = false, updatable = false)
     public UUID uuid;
 
-    public void setUuidFromString(String uuid) {
-        this.uuid = UUID.fromString(uuid);
-    }
-
     public SecuredUUID getSecuredUuid() {
         return SecuredUUID.fromUUID(uuid);
     }
@@ -46,8 +42,8 @@ public abstract class UniquelyIdentifiedAndAudited extends Audited {
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         UniquelyIdentifiedAndAudited that = (UniquelyIdentifiedAndAudited) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -55,6 +51,6 @@ public abstract class UniquelyIdentifiedAndAudited extends Audited {
 
     @Override
     public int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

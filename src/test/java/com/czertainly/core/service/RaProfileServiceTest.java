@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.MetaDefinitions;
@@ -24,10 +25,9 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.security.cert.CertificateException;
 import java.util.*;
 
-public class RaProfileServiceTest extends ApprovalProfileData {
+class RaProfileServiceTest extends ApprovalProfileData {
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
 
@@ -63,7 +63,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     private WireMockServer mockServer;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -113,12 +113,12 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    public void testListRaProfiles() {
+    void testListRaProfiles() {
         List<RaProfileDto> raProfiles = raProfileService.listRaProfiles(SecurityFilter.create(), Optional.of(true));
         Assertions.assertNotNull(raProfiles);
         Assertions.assertFalse(raProfiles.isEmpty());
@@ -127,19 +127,19 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testGetRaProfileByUuid() throws NotFoundException {
+    void testGetRaProfileByUuid() throws NotFoundException {
         RaProfileDto dto = raProfileService.getRaProfile(raProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(raProfile.getUuid().toString(), dto.getUuid());
     }
 
     @Test
-    public void testGetRaProfileByUuid_notFound() {
+    void testGetRaProfileByUuid_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -164,13 +164,14 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testAddRaProfile_validationFail() {
+    void testAddRaProfile_validationFail() {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
-        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), request));
+        SecuredParentUUID authorityInstanceUuid = authorityInstanceReference.getSecuredParentUuid();
+        Assertions.assertThrows(ValidationException.class, () -> raProfileService.addRaProfile(authorityInstanceUuid, request));
     }
 
     @Test
-    public void testAddRaProfile_alreadyExist() {
+    void testAddRaProfile_alreadyExist() {
         AddRaProfileRequestDto request = new AddRaProfileRequestDto();
         request.setName(RA_PROFILE_NAME); // raProfile with same username exist
 
@@ -178,7 +179,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testEditRaProfile() throws ConnectorException, AttributeException {
+    void testEditRaProfile() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -196,72 +197,72 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testEditRaProfile_notFound() {
+    void testEditRaProfile_notFound() {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
-    public void testRemoveRaProfile() throws NotFoundException {
+    void testRemoveRaProfile() throws NotFoundException {
         raProfileService.deleteRaProfile(raProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
-    public void testRemoveRaProfile_notFound() {
+    void testRemoveRaProfile_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.deleteRaProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testEnableRaProfile() throws NotFoundException, CertificateException {
+    void testEnableRaProfile() throws NotFoundException {
         raProfileService.enableRaProfile(raProfile.getSecuredParentUuid(), raProfile.getSecuredUuid());
         Assertions.assertEquals(true, raProfile.getEnabled());
     }
 
     @Test
-    public void testEnableRaProfile_notFound() {
+    void testEnableRaProfile_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.enableRaProfile(raProfile.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testDisableRaProfile() throws NotFoundException {
+    void testDisableRaProfile() throws NotFoundException {
         raProfileService.disableRaProfile(raProfile.getSecuredParentUuid(), raProfile.getSecuredUuid());
-        Assertions.assertEquals(false, raProfile.getEnabled());
+        Assertions.assertFalse(raProfileService.getRaProfile(raProfile.getSecuredUuid()).getEnabled());
     }
 
     @Test
-    public void testDisableRaProfile_notFound() {
+    void testDisableRaProfile_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.disableRaProfile(raProfile.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
 
     @Test
-    public void testBulkRemove() {
+    void testBulkRemove() {
         raProfileService.bulkDeleteRaProfile(List.of(raProfile.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.getRaProfile(raProfile.getSecuredUuid()));
     }
 
     @Test
-    public void testBulkEnable() {
+    void testBulkEnable() {
         raProfileService.bulkEnableRaProfile(List.of(raProfile.getSecuredUuid()));
         Assertions.assertTrue(raProfile.getEnabled());
     }
 
     @Test
-    public void testBulkDisable() {
+    void testBulkDisable() throws NotFoundException {
         raProfileService.bulkDisableRaProfile(List.of(raProfile.getSecuredUuid()));
-        Assertions.assertFalse(raProfile.getEnabled());
+        Assertions.assertFalse(raProfileService.getRaProfile(raProfile.getSecuredUuid()).getEnabled());
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = raProfileService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, dtos.size());
     }
 
     @Test
-    public void testAssociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
+    void testAssociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
 
@@ -272,7 +273,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testDisassociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
+    void testDisassociationRaProfileWithApprovalProfile() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
         Assertions.assertNotNull(approvalProfileRelation);
@@ -284,7 +285,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testListOfApprovalProfilesByRAProfile() throws NotFoundException, AlreadyExistException {
+    void testListOfApprovalProfilesByRAProfile() throws NotFoundException, AlreadyExistException {
         final SecurityFilter securityFilter = SecurityFilter.create();
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         final ApprovalProfileRelationDto approvalProfileRelation = raProfileService.associateApprovalProfile(raProfile.getAuthorityInstanceReferenceUuid().toString(), raProfile.getUuid().toString(), approvalProfile.getSecuredUuid());
@@ -299,7 +300,7 @@ public class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    public void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
                 .willReturn(WireMock.okJson("""
@@ -323,7 +324,10 @@ public class RaProfileServiceTest extends ApprovalProfileData {
         request.setDescription("some description");
         request.setAttributes(List.of());
         raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
-        Assertions.assertNotNull(raProfile.getAuthorityCertificateUuid());
+
+        RaProfile refreshedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElse(null);
+        Assertions.assertNotNull(refreshedRaProfile);
+        Assertions.assertNotNull(refreshedRaProfile.getAuthorityCertificateUuid());
 
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
@@ -333,17 +337,20 @@ public class RaProfileServiceTest extends ApprovalProfileData {
                             ]
                         }""")));
         raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request);
-        Assertions.assertNull(raProfile.getAuthorityCertificateUuid());
+
+        refreshedRaProfile = raProfileRepository.findByUuid(raProfile.getUuid()).orElse(null);
+        Assertions.assertNotNull(refreshedRaProfile);
+        Assertions.assertNull(refreshedRaProfile.getAuthorityCertificateUuid());
 
         AddRaProfileRequestDto requestAdd = new AddRaProfileRequestDto();
         requestAdd.setName("testRaProfile2");
         requestAdd.setAttributes(List.of());
         RaProfileDto dto = raProfileService.addRaProfile(authorityInstanceReference.getSecuredParentUuid(), requestAdd);
-        Assertions.assertEquals(raProfile.getAuthorityCertificateUuid(), raProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).get().getAuthorityCertificateUuid());
+        Assertions.assertEquals(refreshedRaProfile.getAuthorityCertificateUuid(), raProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).get().getAuthorityCertificateUuid());
     }
 
     @Test
-    public void testListIssueCertificateAttributes() throws ConnectorException {
+    void testListIssueCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("""

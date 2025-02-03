@@ -42,7 +42,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.Objects;
 
-public class AcmeServiceTest extends BaseSpringBootTest {
+class AcmeServiceTest extends BaseSpringBootTest {
 
     private static final String BASE_URI = "https://localhost:8443/api/acme/";
     private static final String RA_BASE_URI = BASE_URI + "raProfiles/";
@@ -100,7 +100,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     private String nonAcmeB64UrlCertificate;
 
     @BeforeEach
-    public void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+    void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
         // prepare mock server
         WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
@@ -249,14 +249,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetDirectory() throws AcmeProblemDocumentException, NotFoundException {
+    void testGetDirectory() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/directory");
         ResponseEntity<Directory> directory = acmeService.getDirectory(ACME_PROFILE_NAME, requestUri, false);
         assertGetDirectory(directory);
     }
 
     @Test
-    public void testGetDirectory_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
+    void testGetDirectory_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/directory");
         ResponseEntity<Directory> directory = acmeService.getDirectory(RA_PROFILE_NAME, requestUri, true);
         assertGetDirectory(directory);
@@ -275,14 +275,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetNonce() {
+    void testGetNonce() {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/new-nonce");
         ResponseEntity<?> response = acmeService.getNonce(ACME_PROFILE_NAME, true, requestUri, false);
         assertGetNonce(response);
     }
 
     @Test
-    public void testGetNonce_raProfileBased() {
+    void testGetNonce_raProfileBased() {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/new-nonce");
         ResponseEntity<?> response = acmeService.getNonce(RA_PROFILE_NAME, true, requestUri, true);
         assertGetNonce(response);
@@ -296,14 +296,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNewAccount() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
         ResponseEntity<Account> account = acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, false);
         assertNewAccount(account);
     }
 
     @Test
-    public void testNewAccount_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testNewAccount_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
         ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON(requestUri), requestUri, true);
         assertNewAccount(account);
@@ -332,14 +332,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNewAccount_fail() throws URISyntaxException {
+    void testNewAccount_fail() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.newAccount(ACME_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, false));
     }
 
     @Test
-    public void testNewAccount_fail_raProfileBased() throws URISyntaxException {
+    void testNewAccount_fail_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.newAccount(RA_PROFILE_NAME, buildNewAccountRequestJSON_fail(), requestUri, true));
@@ -357,7 +357,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testOnlyReturnExistingAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
+    void testOnlyReturnExistingAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
         ResponseEntity<Account> account = acmeService.newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON(requestUri), requestUri, true);
         Assertions.assertEquals(HttpStatus.OK, account.getStatusCode());
@@ -379,7 +379,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testOnlyReturnExistingAccount_fail() throws URISyntaxException {
+    void testOnlyReturnExistingAccount_fail() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-account");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.newAccount(RA_PROFILE_NAME, buildOnlyReturnExistingAccountJSON_fail(requestUri), requestUri, true));
@@ -399,7 +399,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNewOrder() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
+    void testNewOrder() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-order");
         ResponseEntity<Order> order = acmeService.newOrder(
                 ACME_PROFILE_NAME,
@@ -408,7 +408,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNewOrder_raProfileBased() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
+    void testNewOrder_raProfileBased() throws JOSEException, URISyntaxException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-order");
         ResponseEntity<Order> order = acmeService.newOrder(
                 RA_PROFILE_NAME,
@@ -439,14 +439,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testNewOrder_Fail() throws URISyntaxException {
+    void testNewOrder_Fail() throws URISyntaxException {
         URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME + "/new-order");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.newOrder(ACME_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, false));
     }
 
     @Test
-    public void testNewOrder_fail_raProfileBased() throws URISyntaxException {
+    void testNewOrder_fail_raProfileBased() throws URISyntaxException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/new-order");
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.newOrder(RA_PROFILE_NAME, buildNewOrderRequestJSON_fail(), requestUri, true));
@@ -463,7 +463,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testGetAuthorization() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/authz/" + AUTHORIZATION_ID_PENDING);
         ResponseEntity<Authorization> authorization = acmeService.getAuthorization(
@@ -473,7 +473,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAuthorization_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
+    void testGetAuthorization_raProfileBased() throws AcmeProblemDocumentException, NotFoundException, URISyntaxException, JOSEException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/authz/" + AUTHORIZATION_ID_PENDING);
         ResponseEntity<Authorization> authorization = acmeService.getAuthorization(
@@ -500,13 +500,13 @@ public class AcmeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(HttpStatus.OK, authorization.getStatusCode());
 
         Assertions.assertNotNull(authorization);
-        Assertions.assertEquals(0, Objects.requireNonNull(authorization.getBody()).getChallenges().size());
+        Assertions.assertEquals(1, Objects.requireNonNull(authorization.getBody()).getChallenges().size());
         // is pending
         Assertions.assertEquals(AuthorizationStatus.PENDING, authorization.getBody().getStatus());
     }
 
     @Test
-    public void testFinalize() throws URISyntaxException {
+    void testFinalize() throws URISyntaxException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
         Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
@@ -515,7 +515,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFinalize_raProfileBased() throws URISyntaxException {
+    void testFinalize_raProfileBased() throws URISyntaxException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
         Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
@@ -537,7 +537,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_fail() throws URISyntaxException {
+    void testRevokeCert_fail() throws URISyntaxException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         Assertions.assertThrows(NullPointerException.class,
@@ -547,7 +547,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_fail_raProfileBased() throws URISyntaxException {
+    void testRevokeCert_fail_raProfileBased() throws URISyntaxException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         Assertions.assertThrows(NullPointerException.class,
@@ -570,7 +570,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_withAccountKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withAccountKey() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         ResponseEntity<?> response = acmeService.revokeCertificate(
@@ -580,7 +580,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_withAccountKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withAccountKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         ResponseEntity<?> response = acmeService.revokeCertificate(
@@ -590,7 +590,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_withAccountKey_nonAcmeCertificate() throws URISyntaxException {
+    void testRevokeCert_withAccountKey_nonAcmeCertificate() throws URISyntaxException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         AcmeProblemDocumentException thrown = Assertions.assertThrows(AcmeProblemDocumentException.class,
@@ -601,7 +601,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_withAccountKey_nonAcmeCertificate_raProfileBased() throws URISyntaxException {
+    void testRevokeCert_withAccountKey_nonAcmeCertificate_raProfileBased() throws URISyntaxException {
         String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/revoke-cert");
         AcmeProblemDocumentException thrown = Assertions.assertThrows(AcmeProblemDocumentException.class,
@@ -639,7 +639,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCert_withPrivateKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
+    void testRevokeCert_withPrivateKey_raProfileBased() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, ConnectorException, CertificateException {
         URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME + "/revoke-cert");
         ResponseEntity<?> response = acmeService.revokeCertificate(
                 RA_PROFILE_NAME,
@@ -666,14 +666,14 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetOrderList() throws AcmeProblemDocumentException, NotFoundException {
+    void testGetOrderList() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
         ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
         assertGetOrderList(orders);
     }
 
     @Test
-    public void testGetOrderList_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
+    void testGetOrderList_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
         ResponseEntity<List<Order>> orders = acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, true);
         assertGetOrderList(orders);
@@ -686,28 +686,28 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetOrderListFail() {
+    void testGetOrderListFail() {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, false));
     }
 
     @Test
-    public void testGetOrderList_fail_isRaProfileBased() {
+    void testGetOrderList_fail_isRaProfileBased() {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_INVALID);
         Assertions.assertThrows(AcmeProblemDocumentException.class,
                 () -> acmeService.listOrders(RA_PROFILE_NAME, ACME_ACCOUNT_ID_INVALID, requestUri, true));
     }
 
     @Test
-    public void testGetOrder() throws AcmeProblemDocumentException, NotFoundException {
+    void testGetOrder() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/order/" + ORDER_ID_VALID);
         ResponseEntity<Order> orders = acmeService.getOrder(ACME_PROFILE_NAME, ORDER_ID_VALID, requestUri, false);
         assertGetOrder(orders);
     }
 
     @Test
-    public void testGetOrder_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
+    void testGetOrder_raProfileBased() throws AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/order/" + ORDER_ID_VALID);
         ResponseEntity<Order> orders = acmeService.getOrder(RA_PROFILE_NAME, ORDER_ID_VALID, requestUri, true);
         assertGetOrder(orders);
@@ -722,7 +722,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testKeyRollover() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
+    void testKeyRollover() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/key-change");
         ResponseEntity<?> response = acmeService.keyRollover(
                 ACME_PROFILE_NAME,
@@ -731,7 +731,7 @@ public class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testKeyRollover_raProfileBased() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
+    void testKeyRollover_raProfileBased() throws JOSEException, AcmeProblemDocumentException, NotFoundException {
         URI requestUri = URI.create(RA_BASE_URI + RA_PROFILE_NAME + "/key-change");
         ResponseEntity<?> response = acmeService.keyRollover(
                 RA_PROFILE_NAME,

@@ -35,10 +35,8 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.transaction.TestTransaction;
 
 import java.io.IOException;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.UUID;
@@ -86,7 +84,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
     @Test
-    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, InterruptedException, CertificateException, NoSuchAlgorithmException, RuleException, IOException {
+    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, CertificateException, IOException {
         // register custom attribute
         CustomAttribute certificateDomainAttr = new CustomAttribute();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
@@ -193,9 +191,6 @@ class SchedulerServiceTest extends BaseSpringBootTest {
 
         scheduledJobEntity = scheduledJobsRepository.save(scheduledJobEntity);
 
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-
         String discoveredCertificatesMockResponse = """
                 {
                     "uuid": "4bd64640-be29-4e14-aad8-5c0ffa55c5bd",
@@ -265,23 +260,5 @@ class SchedulerServiceTest extends BaseSpringBootTest {
             }
         }
         Assertions.assertTrue(matched);
-
-        // cleanup
-        TestTransaction.start();
-
-        triggerAssociationRepository.deleteAll();
-        discoveryCertificateRepository.deleteAll();
-        discoveryRepository.deleteAll();
-        certificateEventHistoryRepository.deleteAll();
-        certificateRepository.deleteAll();
-        attributeEngine.deleteAttributeDefinition(AttributeType.CUSTOM, UUID.fromString(certificateDomainAttr.getUuid()));
-        connector2FunctionGroupRepository.deleteAll();
-        functionGroupRepository.deleteAll();
-        connectorRepository.deleteAll();
-        scheduledJobHistoryRepository.deleteAll();
-        scheduledJobsRepository.deleteAll();
-
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
     }
 }

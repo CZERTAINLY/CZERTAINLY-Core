@@ -26,12 +26,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.security.cert.CertificateException;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class ScepProfileServiceTest extends BaseSpringBootTest {
+class ScepProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ScepProfileService scepProfileService;
@@ -67,7 +66,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     private Certificate certificate;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -158,7 +157,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListScepProfiles() {
+    void testListScepProfiles() {
         scepProfile.setEnabled(true);
         scepProfileRepository.save(scepProfile);
         List<ScepProfileDto> scepProfiles = scepProfileService.listScepProfile(SecurityFilter.create());
@@ -169,7 +168,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetScepProfileByUuid() throws NotFoundException {
+    void testGetScepProfileByUuid() throws NotFoundException {
         scepProfile.setEnabled(true);
         scepProfileRepository.save(scepProfile);
         ScepProfileDetailDto dto = scepProfileService.getScepProfile(scepProfile.getSecuredUuid());
@@ -178,12 +177,12 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetScepProfileByUuid_notFound() {
+    void testGetScepProfileByUuid_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddScepProfile() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddScepProfile() throws ConnectorException, AlreadyExistException, AttributeException {
 
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("Test");
@@ -198,13 +197,13 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddScepProfile_validationFail() {
+    void testAddScepProfile_validationFail() {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
     }
 
     @Test
-    public void testAddScepProfile_alreadyExist() {
+    void testAddScepProfile_alreadyExist() {
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("sameName");
 
@@ -212,7 +211,7 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditScepProfile() throws ConnectorException, AttributeException {
+    void testEditScepProfile() throws ConnectorException, AttributeException {
         scepProfile.setEnabled(false);
         scepProfileRepository.save(scepProfile);
 
@@ -226,35 +225,35 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditScepProfile_validationFail() {
+    void testEditScepProfile_validationFail() {
         ScepProfileEditRequestDto request = new ScepProfileEditRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> scepProfileService.editScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
-    public void testRemoveScepProfile() throws NotFoundException {
+    void testRemoveScepProfile() throws NotFoundException {
         scepProfileService.deleteScepProfile(scepProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(scepProfile.getSecuredUuid()));
     }
 
     @Test
-    public void testRemoveScepProfile_notFound() {
+    void testRemoveScepProfile_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testEnableScepProfile() throws NotFoundException, CertificateException {
+    void testEnableScepProfile() throws NotFoundException {
         scepProfileService.enableScepProfile(scepProfile.getSecuredUuid());
         Assertions.assertTrue(scepProfileService.getScepProfile(scepProfile.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testEnableScepProfile_notFound() {
+    void testEnableScepProfile_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.enableScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testDisableScepProfile() throws NotFoundException {
+    void testDisableScepProfile() throws NotFoundException {
         scepProfile.setEnabled(true);
         scepProfileRepository.save(scepProfile);
         scepProfileService.disableScepProfile(scepProfile.getSecuredUuid());
@@ -262,18 +261,18 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDisableScepProfile_notFound() {
+    void testDisableScepProfile_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.disableScepProfile(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testBulkRemove() {
+    void testBulkRemove() {
         scepProfileService.bulkDeleteScepProfile(List.of(scepProfile.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> scepProfileService.getScepProfile(scepProfile.getSecuredUuid()));
     }
 
     @Test
-    public void testBulkEnable() throws NotFoundException {
+    void testBulkEnable() throws NotFoundException {
         scepProfile.setEnabled(true);
         scepProfileRepository.save(scepProfile);
         scepProfileService.bulkEnableScepProfile(List.of(scepProfile.getSecuredUuid()));
@@ -281,13 +280,13 @@ public class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testBulkDisable() throws NotFoundException {
+    void testBulkDisable() throws NotFoundException {
         scepProfileService.bulkDisableScepProfile(List.of(scepProfile.getSecuredUuid()));
         Assertions.assertFalse(scepProfileService.getScepProfile(scepProfile.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = scepProfileService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, dtos.size());
     }
