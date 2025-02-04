@@ -39,7 +39,7 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
         }
     }
 
-    private void linkKeysToCertificates(Context context) throws SQLException, CertificateException, NoSuchAlgorithmException {
+    private void linkKeysToCertificates(Context context) throws SQLException, NoSuchAlgorithmException {
         String updatePublicKeyQuery = "UPDATE certificate SET key_uuid = ? WHERE uuid = ?";
         String createCkQuery = """
                 INSERT INTO cryptographic_key (
@@ -106,7 +106,13 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
                     """);
             while (certificatesWithoutKeyLink.next()) {
                 String certificateUuid = certificatesWithoutKeyLink.getString("certificate_uuid");
-                PublicKey publicKey = CertificateUtil.parseCertificate(certificatesWithoutKeyLink.getString("certificate_content")).getPublicKey();
+                PublicKey publicKey;
+                try {
+                    publicKey = CertificateUtil.parseCertificate(certificatesWithoutKeyLink.getString("certificate_content")).getPublicKey();
+                } catch (CertificateException e) {
+                    // log debug
+                    continue;
+                }
                 if (publicKey != null) {
                     UUID ckUuid;
                     String publicKeyFingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
@@ -150,6 +156,7 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
             insertCkiPs.executeBatch();
             updatePublicKeyPs.executeBatch();
         }
+        // log warn
     }
 
     private Map<String, String> getFingerprinToKeyUuidMap(Context context) throws SQLException {

@@ -860,7 +860,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void uploadCertificateKey(PublicKey publicKey, Certificate certificate) {
         UUID keyUuid;
-        if (certificate.getKey() == null) {
+        if (certificate.getKeyUuid() == null) {
             keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             if (keyUuid == null) {
                 keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificate.getCommonName(), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());

@@ -151,7 +151,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     void testGetKeyByUuid() throws NotFoundException {
         KeyDetailDto dto = cryptographicKeyService.getKey(
-                tokenInstanceReference.getSecuredParentUuid(),
                 SecuredUUID.fromUUID(key.getUuid())
         );
         Assertions.assertNotNull(dto);
@@ -164,7 +163,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
-                        tokenInstanceReference.getSecuredParentUuid(),
                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"))
         );
     }
@@ -257,7 +255,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertEquals(
                 KeyState.DESTROYED,
-                cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content.getUuid().toString()).getState()
+                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content.getUuid().toString()).getState()
         );
     }
 
@@ -266,7 +264,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
-                        tokenInstanceReference.getSecuredParentUuid(),
                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
                 )
         );
@@ -298,7 +295,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         cryptographicKeyService.destroyKey(List.of(key.getUuid().toString()));
 
-        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content.getUuid().toString());
+        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content.getUuid().toString());
         Assertions.assertEquals(KeyState.DESTROYED, keyItemDetailDto.getState());
         Assertions.assertNull(keyItemDetailDto.getKeyData());
     }
@@ -318,11 +315,11 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertEquals(
                 KeyState.COMPROMISED,
-                cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content.getUuid().toString()).getState()
+                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content.getUuid().toString()).getState()
         );
         Assertions.assertEquals(
                 KeyState.COMPROMISED,
-                cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content1.getUuid().toString()).getState()
+                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content1.getUuid().toString()).getState()
         );
     }
 
@@ -331,7 +328,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicKeyService.getKey(
-                        tokenInstanceReference.getSecuredParentUuid(),
                         SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")
                 )
         );
@@ -368,9 +364,9 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     void testCompromisedKey_parentKeyObject() throws NotFoundException {
         cryptographicKeyService.compromiseKey(new BulkCompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_SUBSTITUTION, List.of(key.getUuid())));
-        Assertions.assertEquals(KeyState.COMPROMISED, cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content.getUuid().toString()).getState());
+        Assertions.assertEquals(KeyState.COMPROMISED, cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content.getUuid().toString()).getState());
         Assertions.assertNotEquals(null, content.getKeyData());
-        Assertions.assertEquals(KeyState.COMPROMISED, cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content1.getUuid().toString()).getState());
+        Assertions.assertEquals(KeyState.COMPROMISED, cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content1.getUuid().toString()).getState());
         Assertions.assertNotEquals(null, content1.getKeyData());
     }
 
@@ -386,7 +382,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         Assertions.assertEquals(
                 1,
-                cryptographicKeyService.getKeyItem(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid(), content.getUuid().toString()).getUsage().size()
+                cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content.getUuid().toString()).getUsage().size()
         );
     }
 
@@ -397,12 +393,11 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         request.setDescription("updatedDescription");
 
         cryptographicKeyService.editKey(
-                tokenInstanceReference.getSecuredParentUuid(),
                 key.getSecuredUuid(),
                 request
         );
 
-        KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(tokenInstanceReference.getSecuredParentUuid(), key.getSecuredUuid());
+        KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(key.getSecuredUuid());
         Assertions.assertEquals(request.getName(), keyDetailDto.getName());
         Assertions.assertEquals(request.getDescription(), keyDetailDto.getDescription());
     }

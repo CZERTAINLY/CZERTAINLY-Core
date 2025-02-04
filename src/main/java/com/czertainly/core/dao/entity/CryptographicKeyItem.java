@@ -61,7 +61,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Enumerated(EnumType.STRING)
     private KeyFormat format;
 
-    @Column(name = "keyData")
+    @Column(name = "keyData", length = Integer.MAX_VALUE)
     private String keyData;
 
     @Column(name = "length")

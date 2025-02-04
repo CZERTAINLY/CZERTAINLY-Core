@@ -61,7 +61,7 @@ public class DatabaseMigration {
         V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276),
         V202408231055__DuplicateCertificates(-1714171989),
         V202411141900__CreateLocalhostUserAndPermissions(1923994081),
-        V202501281511__LinkKeysToCertificates(2077538196);
+        V202501281511__LinkKeysToCertificates(1044352943);
 
       
         private final int checksum;

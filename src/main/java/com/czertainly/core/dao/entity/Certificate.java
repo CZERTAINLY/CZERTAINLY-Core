@@ -162,7 +162,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private ComplianceStatus complianceStatus;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @ToString.Exclude
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 

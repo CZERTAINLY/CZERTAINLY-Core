@@ -37,6 +37,7 @@ import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -398,6 +399,17 @@ class CertificateServiceTest extends BaseSpringBootTest {
         testDownloadInternal(CertificateFormat.RAW, CertificateFormatEncoding.DER);
         testDownloadInternal(CertificateFormat.PKCS7, CertificateFormatEncoding.PEM);
         testDownloadInternal(CertificateFormat.PKCS7, CertificateFormatEncoding.DER);
+    }
+
+    @Test
+    void testUploadCertificateKey() throws com.czertainly.api.exception.CertificateException, CertificateEncodingException, NotFoundException {
+        Certificate certificateWithKey = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        UUID keyUuid = certificateWithKey.getKeyUuid();
+        Assertions.assertNotNull(keyUuid);
+        // Check if key already in DB is assigned to the certificate
+        certificateService.deleteCertificate(certificateWithKey.getSecuredUuid());
+        certificateWithKey = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        Assertions.assertEquals(keyUuid, certificateWithKey.getKeyUuid());
     }
 
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
