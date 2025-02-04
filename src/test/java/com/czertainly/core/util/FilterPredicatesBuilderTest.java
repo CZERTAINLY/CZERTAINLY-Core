@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateSubjectType;
+import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -39,7 +40,6 @@ import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.predicate.*;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -98,8 +98,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     private Root<Certificate> root;
 
-    private final String TEST_VALUE = "test";
-    private final String TEST_DATE_VALUE = "2022-01-01";
+    private final String testValue = "test";
+    private final String testDateValue = "2022-01-01";
 
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
@@ -158,7 +158,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmComparisonPredicate.class, predicateTest);
         Assertions.assertEquals(ComparisonOperator.EQUAL, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
-        Assertions.assertEquals(TEST_VALUE, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+        Assertions.assertEquals(testValue, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
     }
 
     @Test
@@ -172,7 +172,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
             Assertions.assertTrue(predicate instanceof SqmComparisonPredicate || predicate instanceof SqmNullnessPredicate);
             if (predicate instanceof SqmComparisonPredicate) {
                 Assertions.assertEquals(ComparisonOperator.NOT_EQUAL, ((SqmComparisonPredicate) predicate).getSqmOperator());
-                Assertions.assertEquals(TEST_VALUE, ((SqmComparisonPredicate) predicate).getRightHandExpression().toHqlString());
+                Assertions.assertEquals(testValue, ((SqmComparisonPredicate) predicate).getRightHandExpression().toHqlString());
             } else {
                 Assertions.assertFalse(predicate.isNull().isNegated());
             }
@@ -183,7 +183,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testContainsPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.CONTAINS)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
-        testLikePredicate(predicateTest, "%" + TEST_VALUE + "%");
+        testLikePredicate(predicateTest, "%" + testValue + "%");
     }
 
     @Test
@@ -197,7 +197,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
             Assertions.assertTrue(predicate instanceof SqmLikePredicate || predicate instanceof SqmNullnessPredicate);
             if (predicate instanceof SqmLikePredicate) {
                 Assertions.assertTrue(predicate.isNegated());
-                Assertions.assertEquals("%" + TEST_VALUE + "%", ((SqmLikePredicate) predicate).getPattern().toHqlString());
+                Assertions.assertEquals("%" + testValue + "%", ((SqmLikePredicate) predicate).getPattern().toHqlString());
             } else {
                 Assertions.assertFalse(predicate.isNull().isNegated());
             }
@@ -208,14 +208,14 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testStartWithPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.STARTS_WITH)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
-        testLikePredicate(predicateTest, TEST_VALUE + "%");
+        testLikePredicate(predicateTest, testValue + "%");
     }
 
     @Test
     void testEndWithPredicate() {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.ENDS_WITH)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
-        testLikePredicate(predicateTest, "%" + TEST_VALUE);
+        testLikePredicate(predicateTest, "%" + testValue);
     }
 
     @Test
@@ -239,7 +239,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.GREATER)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertEquals(ComparisonOperator.GREATER_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
-        Assertions.assertEquals(TEST_DATE_VALUE, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+        Assertions.assertEquals(testDateValue, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
     }
 
     @Test
@@ -247,7 +247,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.LESSER)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertEquals(ComparisonOperator.LESS_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
-        Assertions.assertEquals(TEST_DATE_VALUE, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+        Assertions.assertEquals(testDateValue, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
     }
 
     @Test
@@ -350,7 +350,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testBooleanAttribute() throws AlreadyExistException, AttributeException, NotFoundException {
+    void testBooleanAttribute() {
         final String ATTR_IDENTIFIER = "boolean|BOOLEAN";
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.EQUALS, true)));
@@ -523,7 +523,6 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
 
     @Test
-    @Disabled("Foreign key not working properly in test environment")
     void testFiltersOnGroups() throws NotFoundException {
         Group group1 = new Group();
         group1.setName("group 1");
@@ -545,15 +544,11 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("{ \"username\": \"owner1\"}")
-        ));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("{ \"username\": \"owner1\"}")));
 
         certificateService.updateOwner(certificate1.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("{ \"username\": \"owner2\"}")
-        ));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(WireMock.okJson("{ \"username\": \"owner2\"}")));
 
         certificateService.updateOwner(certificate2.getSecuredUuid(), String.valueOf(UUID.randomUUID()));
 
@@ -586,6 +581,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testStringProperty() {
         certificate1.setCommonName("name1");
         certificate2.setCommonName("name2");
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.EQUALS, "name1")));
@@ -625,6 +622,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testEnumProperty() {
         certificate1.setState(CertificateState.FAILED);
         certificate2.setState(CertificateState.REVOKED);
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CERTIFICATE_STATE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateState.FAILED.getCode()))));
@@ -656,6 +655,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testDateProperty() throws ParseException {
         certificate1.setNotAfter(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2025-05-16 22:10:15"));
         certificate2.setNotAfter(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2025-05-20 22:10:15"));
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.EQUALS, "2025-05-16")));
@@ -691,19 +692,22 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("Foreign key not working properly in test environment")
     void testHasPrivateKey() {
         CryptographicKey cryptographicKey = new CryptographicKey();
         cryptographicKey = cryptographicKeyRepository.save(cryptographicKey);
         CryptographicKeyItem cryptographicKeyItem = new CryptographicKeyItem();
         cryptographicKeyItem.setType(KeyType.PRIVATE_KEY);
         cryptographicKeyItem.setCryptographicKey(cryptographicKey);
+        cryptographicKeyItem.setState(KeyState.ACTIVE);
         cryptographicKeyItemRepository.save(cryptographicKeyItem);
+
+        cryptographicKey.getItems().add(cryptographicKeyItem);
+        cryptographicKey = cryptographicKeyRepository.save(cryptographicKey);
         certificate1.setKey(cryptographicKey);
+        certificateRepository.save(certificate1);
 
         System.out.println("Key UUID: " + cryptographicKey.getUuid());
         System.out.println("Certificate Key UUID: " + certificate1.getKey().getUuid());
-
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.PRIVATE_KEY.name(), FilterConditionOperator.EQUALS, true)));
@@ -715,6 +719,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testListProperty() {
         certificate1.setKeySize(1);
         certificate2.setKeySize(2);
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_SIZE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(1))));
@@ -746,6 +752,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     void testBooleanProperty() {
         certificate1.setTrustedCa(true);
         certificate2.setTrustedCa(false);
+        certificateRepository.save(certificate1);
+        certificateRepository.save(certificate2);
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.TRUSTED_CA.name(), FilterConditionOperator.EQUALS, true)));
@@ -781,25 +789,30 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         SearchFilterRequestDTODummy dummy = null;
         switch (condition) {
             case EQUALS ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.EQUALS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.EQUALS, testValue);
             case NOT_EQUALS ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_EQUALS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_EQUALS, testValue);
             case CONTAINS ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.CONTAINS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.CONTAINS, testValue);
             case NOT_CONTAINS ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_CONTAINS, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_CONTAINS, testValue);
             case STARTS_WITH ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.STARTS_WITH, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.STARTS_WITH, testValue);
             case ENDS_WITH ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.ENDS_WITH, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.ENDS_WITH, testValue);
             case EMPTY ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.EMPTY, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.EMPTY, testValue);
             case NOT_EMPTY ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_EMPTY, TEST_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_EMPTY, testValue);
             case GREATER ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_AFTER, FilterConditionOperator.GREATER, TEST_DATE_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_AFTER, FilterConditionOperator.GREATER, testDateValue);
+            case GREATER_OR_EQUAL ->
+                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_AFTER, FilterConditionOperator.GREATER_OR_EQUAL, testDateValue);
             case LESSER ->
-                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_BEFORE, FilterConditionOperator.LESSER, TEST_DATE_VALUE);
+                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_BEFORE, FilterConditionOperator.LESSER, testDateValue);
+            case LESSER_OR_EQUAL ->
+                    dummy = new SearchFilterRequestDTODummy(FilterField.NOT_AFTER, FilterConditionOperator.LESSER_OR_EQUAL, testDateValue);
+            default -> dummy = null;
         }
         return dummy;
     }
@@ -853,10 +866,12 @@ class SearchFilterRequestDTODummy extends SearchFilterRequestDto {
         return fieldTest;
     }
 
+    @Override
     public FilterConditionOperator getCondition() {
         return conditionTest;
     }
 
+    @Override
     public Serializable getValue() {
         return valueTest;
     }

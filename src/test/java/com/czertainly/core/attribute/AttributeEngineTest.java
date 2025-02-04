@@ -118,7 +118,8 @@ public class AttributeEngineTest extends BaseSpringBootTest {
         ownerAssociation.setOwnerUsername("ownerName");
         ownerAssociation.setResource(Resource.CERTIFICATE);
         ownerAssociation.setObjectUuid(certificate.getUuid());
-        ownerAssociationRepository.saveAndFlush(ownerAssociation);
+        ownerAssociation.setCertificate(certificate);
+        ownerAssociation = ownerAssociationRepository.saveAndFlush(ownerAssociation);
 
         certificate.setOwner(ownerAssociation);
         certificateRepository.save(certificate);

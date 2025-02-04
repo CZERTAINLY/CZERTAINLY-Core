@@ -28,7 +28,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class DiscoveryServiceTest extends BaseSpringBootTest {
+class DiscoveryServiceTest extends BaseSpringBootTest {
 
     private static final String DISCOVERY_NAME = "testDiscovery1";
 
@@ -50,7 +50,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -86,12 +86,12 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    public void testListDiscoveries() {
+    void testListDiscoveries() {
         final DiscoveryResponseDto discoveryHistoryDTO = discoveryService.listDiscoveries(SecurityFilter.create(), new SearchRequestDto());
         final List<DiscoveryHistoryDto> discoveries = discoveryHistoryDTO.getDiscoveries();
         Assertions.assertNotNull(discoveries);
@@ -101,7 +101,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetDiscovery() throws NotFoundException {
+    void testGetDiscovery() throws NotFoundException {
         DiscoveryHistoryDetailDto dto = discoveryService.getDiscovery(discovery.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(discovery.getUuid().toString(), dto.getUuid());
@@ -109,12 +109,12 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetDiscovery_notFound() {
+    void testGetDiscovery_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddDiscovery() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddDiscovery() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -135,7 +135,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddDiscovery_notFound() {
+    void testAddDiscovery_notFound() {
         DiscoveryDto request = new DiscoveryDto();
         request.setName("Demo");
         // connector uui not set
@@ -143,7 +143,7 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddDiscovery_alreadyExist() {
+    void testAddDiscovery_alreadyExist() {
         DiscoveryDto request = new DiscoveryDto();
         request.setName(DISCOVERY_NAME); // discovery with same name exist
 
@@ -151,26 +151,15 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("Currently there is not valid input parameters")
-    public void testDiscoverCertificates() throws ConnectorException, AlreadyExistException {
-        mockServer.stubFor(WireMock
-                .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
-                .willReturn(WireMock.okJson("true")));
-
-        // TODO createDiscovery is async - currently not tested properly
-        discoveryService.runDiscovery(discovery.getUuid(), null);
-    }
-
-    @Test
     @Disabled("Async method is not throwing exception")
-    public void testDiscoverCertificates_notFound() {
+    void testDiscoverCertificates_notFound() {
         // connector uui not set
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.runDiscovery(discovery.getUuid(), null));
     }
 
     @Test
     @Disabled("Async method is not throwing exception")
-    public void testDiscoverCertificates_validationFailed() throws ConnectorException, AlreadyExistException {
+    void testDiscoverCertificates_validationFailed() {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
                 .willReturn(WireMock.okJson("false")));
@@ -179,18 +168,18 @@ public class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRemoveDiscovery() throws NotFoundException {
+    void testRemoveDiscovery() throws NotFoundException {
         discoveryService.deleteDiscovery(discovery.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getSecuredUuid()));
     }
 
     @Test
-    public void testRemoveDiscovery_notFound() {
+    void testRemoveDiscovery_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.deleteDiscovery(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testBulkRemove() throws NotFoundException {
+    void testBulkRemove() throws NotFoundException {
         discoveryService.bulkRemoveDiscovery(List.of(discovery.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getSecuredUuid()));
     }

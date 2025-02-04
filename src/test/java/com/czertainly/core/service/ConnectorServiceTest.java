@@ -248,14 +248,18 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testApproveConnector() throws NotFoundException {
+    void testApproveConnector() throws ConnectorException {
         Connector waitingConnector = new Connector();
         waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
         waitingConnector = connectorRepository.save(waitingConnector);
 
         connectorService.approve(waitingConnector.getSecuredUuid());
 
-        Assertions.assertEquals(ConnectorStatus.CONNECTED, waitingConnector.getStatus());
+        mockServer.stubFor(WireMock
+                .get("/v1")
+                .willReturn(WireMock.okJson("[]")));
+
+        Assertions.assertEquals(ConnectorStatus.CONNECTED, connectorService.getConnector(connector.getSecuredUuid()).getStatus());
     }
 
     @Test
@@ -380,8 +384,9 @@ class ConnectorServiceTest extends BaseSpringBootTest {
                 )
         );
 
+        SecuredUUID connectorUuid = connector.getSecuredUuid();
         Assertions.assertThrows(ValidationException.class,
-                () -> connectorService.validateAttributes(connector.getSecuredUuid(), code, List.of(), kind));
+                () -> connectorService.validateAttributes(connectorUuid, code, List.of(), kind));
     }
 
     @Test

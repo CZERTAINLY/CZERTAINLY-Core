@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -589,7 +590,7 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     @Override
-    public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId, URI requestUri, boolean isRaProfileBased) throws NotFoundException, AcmeProblemDocumentException {
+    public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         AcmeOrder order = validateOrder(orderId);
         LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid().toString(), order.getOrderId());
         if (order.getAcmeAccount() != null) {
@@ -648,7 +649,8 @@ public class AcmeServiceImpl implements AcmeService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);
         }
 
-        if (jwsRequest.isJwkPresent()) {
+        if (jwsRequest.isJwkPresent()) { // signed with the key pair of the certificate
+            logger.debug("Validating revocation request signed with the key pair of the certificate");
             PublicKey certPublicKey = x509Certificate.getPublicKey();
             PublicKey jwsPublicKey = jwsRequest.getPublicKey();
 
@@ -656,6 +658,25 @@ public class AcmeServiceImpl implements AcmeService {
             String pemPubKeyJws = AcmePublicKeyProcessor.publicKeyPemStringFromObject(jwsPublicKey);
             if (!pemPubKeyCert.equals(pemPubKeyJws)) { // check that the public key of the certificate matches the public key of the JWS
                 throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_PUBLIC_KEY);
+            }
+        }
+
+        AcmeAccount acmeAccount = null;
+        if (jwsRequest.isKidPresent()) { // signed with the account key pair
+            logger.debug("Validating revocation request signed with the account key pair");
+            // check that the associated protocol is ACME
+            if (cert.getProtocolAssociation() == null) {
+                throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.UNAUTHORIZED, "Certificate is not associated with protocol");
+            } else if (cert.getProtocolAssociation().getProtocol() != CertificateProtocol.ACME) {
+                throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.UNAUTHORIZED, "Certificate is not associated with ACME protocol");
+            }
+            // check that the ACME account ID of the certificate matches the account ID in the request
+            acmeAccount = acmeAccountRepository.findByUuid(cert.getProtocolAssociation().getAdditionalProtocolUuid())
+                    .orElseThrow(() -> new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.UNAUTHORIZED, "Unable to find the ACME account that is associated with the certificate"));
+            String kid = jwsRequest.getKid();
+            String requestAccountId = kid.split("/")[kid.split("/").length - 1];
+            if (!acmeAccount.getAccountId().equals(requestAccountId)) {
+                throw new AcmeProblemDocumentException(HttpStatus.FORBIDDEN, Problem.UNAUTHORIZED, "Account does not match the certificate associated ACME Account");
             }
         }
 
@@ -668,8 +689,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
 
         revokeRequest.setReason(reason);
-        // TODO: acme account should be identified from certificate, now empty revocation attributes are always used
-        revokeRequest.setAttributes(getClientOperationAttributes(true, null, isRaProfileBased));
+        revokeRequest.setAttributes(getClientOperationAttributes(true, acmeAccount, isRaProfileBased));
 
         try {
             clientOperationService.revokeCertificate(SecuredParentUUID.fromUUID(cert.getRaProfile().getAuthorityInstanceReferenceUuid()), cert.getRaProfile().getSecuredUuid(), cert.getUuid().toString(), revokeRequest);

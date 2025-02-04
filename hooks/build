@@ -14,15 +14,39 @@ echo "PreBuild build"
 docker build --build-arg SERVER_USERNAME=$SERVER_USERNAME --build-arg SERVER_PASSWORD=$SERVER_PASSWORD -f $DOCKERFILE_PATH-pre -t prebuild .
 
 echo "MVN Build"
+
+# Construct optional arguments
+MAVEN_VOLUME_ARG=""
+SKIP_TESTS_ARG=""
+
+if [[ -n "$MAVEN_DIR" ]]; then
+  MAVEN_VOLUME_ARG="-v $MAVEN_DIR:/root/.m2"
+  echo "Maven directory detected: $MAVEN_DIR"
+fi
+
+if [[ "${SKIP_TESTS}" == "true" ]]; then
+  SKIP_TESTS_ARG="-DskipTests"
+  echo "Skipping tests as SKIP_TESTS is true"
+else
+  echo "Running tests as SKIP_TESTS is not true or unset (default: false)"
+fi
+
 if [[ "$OSTYPE" == "darwin"* ]]; then
   echo "MacOS detected, using TESTCONTAINERS_HOST_OVERRIDE"
-  docker run -e TESTCONTAINERS_HOST_OVERRIDE=docker.for.mac.host.internal -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+  docker run -e TESTCONTAINERS_HOST_OVERRIDE=docker.for.mac.host.internal \
+    -v /var/run/docker.sock:/var/run/docker.sock \
+    $MAVEN_VOLUME_ARG \
+    --name czertainlycont -i prebuild \
+    mvn -f /home/app/pom.xml clean package $SKIP_TESTS_ARG
 else
-  docker run -v /var/run/docker.sock:/var/run/docker.sock --name czertainlycont -i prebuild mvn -f /home/app/pom.xml clean package
+  docker run -v /var/run/docker.sock:/var/run/docker.sock \
+    $MAVEN_VOLUME_ARG \
+    --name czertainlycont -i prebuild \
+    mvn -f /home/app/pom.xml clean package $SKIP_TESTS_ARG
 fi
 
 echo "Starting czertainlycont"
-docker start -d --restart=always czertainlycont
+docker start czertainlycont
 
 echo "Copy jar back to Tmp"
 docker cp czertainlycont:/home/app/target data/target

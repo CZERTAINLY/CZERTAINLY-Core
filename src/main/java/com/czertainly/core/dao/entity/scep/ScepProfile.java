@@ -30,13 +30,13 @@ import java.util.UUID;
 @Table(name = "scep_profile")
 public class ScepProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ScepProfileDto>, ObjectAccessControlMapper<NameAndUuidDto>, Securable {
 
-    @Column(name="name")
+    @Column(name = "name")
     private String name;
 
-    @Column(name="description")
+    @Column(name = "description")
     private String description;
 
-    @Column(name="enabled")
+    @Column(name = "enabled")
     private Boolean isEnabled;
 
     @Column(name = "require_manual_approval")
@@ -87,7 +87,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Override
     public ScepProfileDto mapToDto() {
         ScepProfileDto scepProfileDto = new ScepProfileDto();
-        if(raProfile != null) {
+        if (raProfile != null) {
             scepProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
@@ -105,7 +105,7 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public ScepProfileDetailDto mapToDetailDto() {
         ScepProfileDetailDto scepProfileDto = new ScepProfileDetailDto();
-        if(raProfile != null) {
+        if (raProfile != null) {
             scepProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
         }
         scepProfileDto.setDescription(description);
@@ -115,8 +115,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setIncludeCaCertificate(includeCaCertificate);
         scepProfileDto.setIncludeCaCertificateChain(includeCaCertificateChain);
         scepProfileDto.setRenewThreshold(renewalThreshold);
-        if(caCertificate != null) scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
-        if(raProfile != null) {
+        if (caCertificate != null) scepProfileDto.setCaCertificate(caCertificate.mapToListDto());
+        if (raProfile != null) {
             scepProfileDto.setScepUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + ScepServiceImpl.SCEP_URL_PREFIX + "/" + name + "/pkiclient.exe");
         }
@@ -142,13 +142,13 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
     }
 
     public void setCaCertificate(Certificate caCertificate) {
         this.caCertificate = caCertificate;
-        if(caCertificate != null) this.setCaCertificateUuid( caCertificate.getUuid() );
+        if (caCertificate != null) this.setCaCertificateUuid(caCertificate.getUuid());
     }
 
     public String getChallengePassword() {
@@ -170,8 +170,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         ScepProfile that = (ScepProfile) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -179,6 +179,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }
