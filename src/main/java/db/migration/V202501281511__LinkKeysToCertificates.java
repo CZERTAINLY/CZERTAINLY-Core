@@ -31,7 +31,7 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
     private void prepareDbForUploadedKeys(Context context) throws SQLException {
         String alterCkTableQuery = "ALTER TABLE cryptographic_key ALTER COLUMN token_instance_uuid DROP NOT NULL;";
         String alterCkiTableQuery = "ALTER TABLE cryptographic_key_item ALTER COLUMN key_reference_uuid DROP NOT NULL;";
-        String addPkColumnToCsrQuery = "ALTER TABLE CERTIFICATE_REQUEST ADD COLUMN public_key_uuid uuid;";
+        String addPkColumnToCsrQuery = "ALTER TABLE CERTIFICATE_REQUEST ADD COLUMN key_uuid uuid;";
         try (final Statement statement = context.getConnection().createStatement()) {
             statement.execute(alterCkTableQuery);
             statement.execute(alterCkiTableQuery);
