@@ -46,6 +46,7 @@ public class DatabaseMigration {
     /**
      * Stores the checksum of a Java-based migration.
      */
+    @SuppressWarnings("java:S115")
     public enum JavaMigrationChecksums {
         V202206151000__AttributeChanges(595685930),
         V202209211100__Access_Control(-2127987777),
