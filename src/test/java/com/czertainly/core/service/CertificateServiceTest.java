@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -257,6 +258,13 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals("CLIENT1", dto.getCommonName());
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", dto.getSerialNumber());
+
+        // test for presence of created public key
+        var certificate = certificateRepository.findWithAssociationsByUuid(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(certificate.isPresent());
+        Assertions.assertEquals("certKey_%s".formatted(dto.getCommonName()), certificate.get().getKey().getName());
+        Assertions.assertEquals(1, certificate.get().getKey().getItems().size());
+        Assertions.assertEquals(KeyType.PUBLIC_KEY, certificate.get().getKey().getItems().stream().findFirst().get().getType());
     }
 
     @Test
