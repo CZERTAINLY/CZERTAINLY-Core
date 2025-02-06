@@ -52,7 +52,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-    @OneToOne(fetch = FetchType.LAZY, mappedBy = "cryptographicKey")
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "key")
     @ToString.Exclude
     private OwnerAssociation owner;
 

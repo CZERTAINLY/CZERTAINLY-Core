@@ -136,7 +136,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         ownerAssociation.setOwnerUsername("ownerName");
         ownerAssociation.setResource(Resource.CRYPTOGRAPHIC_KEY);
         ownerAssociation.setObjectUuid(key.getUuid());
-        ownerAssociation.setCryptographicKey(key);
+        ownerAssociation.setKey(key);
         ownerAssociationRepository.saveAndFlush(ownerAssociation);
 
         key.setOwner(ownerAssociation);

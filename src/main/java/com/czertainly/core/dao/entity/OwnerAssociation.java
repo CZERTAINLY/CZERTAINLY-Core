@@ -33,7 +33,7 @@ public class OwnerAssociation extends ResourceObjectAssociation {
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "object_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
     @SQLRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
-    private CryptographicKey cryptographicKey;
+    private CryptographicKey key;
 
     @Override
     public final boolean equals(Object o) {

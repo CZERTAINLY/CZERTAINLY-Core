@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.core.dao.AggregateResultDto;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import com.czertainly.core.dao.entity.CryptographicKeyItem_;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -240,7 +241,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             if (filter.getResourceFilter().getResource().hasOwner()) {
                 try {
                     NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
-                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "cryptographicKey.owner" : "owner";
+                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "%s.owner".formatted(CryptographicKeyItem_.key.getName()) : "owner";
                     Join fromOwner = FilterPredicatesBuilder.prepareJoin(root, ownerAttributePath);
                     combinedObjectAccessPredicates.add(cb.equal(FilterPredicatesBuilder.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
                 } catch (ValidationException e) {
@@ -260,7 +261,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     private Predicate getPredicateBySecurityResourceFilter(Root<T> root, SecurityResourceFilter resourceFilter, String attributeName) {
         Predicate predicate = null;
         if (root.getJavaType().equals(CryptographicKeyItem.class)) {
-            attributeName = "cryptographicKey." + attributeName;
+            attributeName = "%s.%s".formatted(CryptographicKeyItem_.key.getName(), attributeName);
         }
 
         if (resourceFilter != null) {
