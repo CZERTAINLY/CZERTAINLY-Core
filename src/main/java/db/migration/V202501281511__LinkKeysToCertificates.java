@@ -15,6 +15,7 @@ import java.security.cert.CertificateException;
 import java.sql.*;
 import java.util.*;
 
+@SuppressWarnings("java:S101")
 public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
 
     @Override
@@ -65,8 +66,8 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
                     uuid,
                     name,
                     type,
-                    cryptographic_key_uuid,
-                    cryptographic_algorithm,
+                    key_uuid,
+                    key_algorithm,
                     format,
                     key_data,
                     state,
@@ -170,7 +171,7 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
                 cki.fingerprint
                 FROM cryptographic_key ck
                 INNER JOIN cryptographic_key_item cki
-                ON ck.uuid = cki.cryptographic_key_uuid
+                ON ck.uuid = cki.key_uuid
                 """;
         try (final Statement select = context.getConnection().createStatement()) {
             ResultSet resultSet = select.executeQuery(query);
