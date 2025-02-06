@@ -260,11 +260,11 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", dto.getSerialNumber());
 
         // test for presence of created public key
-        var certificate = certificateRepository.findWithAssociationsByUuid(UUID.fromString(dto.getUuid()));
-        Assertions.assertTrue(certificate.isPresent());
-        Assertions.assertEquals("certKey_%s".formatted(dto.getCommonName()), certificate.get().getKey().getName());
-        Assertions.assertEquals(1, certificate.get().getKey().getItems().size());
-        Assertions.assertEquals(KeyType.PUBLIC_KEY, certificate.get().getKey().getItems().stream().findFirst().get().getType());
+        var newCertificate = certificateRepository.findWithAssociationsByUuid(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(newCertificate.isPresent());
+        Assertions.assertEquals("certKey_%s".formatted(dto.getCommonName()), newCertificate.get().getKey().getName());
+        Assertions.assertEquals(1, newCertificate.get().getKey().getItems().size());
+        Assertions.assertEquals(KeyType.PUBLIC_KEY, newCertificate.get().getKey().getItems().stream().findFirst().get().getType());
     }
 
     @Test
