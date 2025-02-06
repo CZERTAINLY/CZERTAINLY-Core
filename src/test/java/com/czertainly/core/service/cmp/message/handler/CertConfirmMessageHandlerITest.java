@@ -291,7 +291,7 @@ public class CertConfirmMessageHandlerITest extends BaseSpringBootTest {
         ckPrivateKey.setType(KeyType.PRIVATE_KEY);
         ckPrivateKey.setFingerprint("7d903217b49fcf947f9b45ba239d4236b99fb75baf7ede08ce53a55c06678f1e");
         ckPrivateKey.setEnabled(true);
-        ckPrivateKey.setCryptographicKey(key);
+        ckPrivateKey.setKey(key);
         ckPrivateKey.setKeyAlgorithm(KeyAlgorithm.ECDSA);
         cryptographicKeyItemRepository.save(ckPrivateKey);
         Set<CryptographicKeyItem> items = new HashSet<>();

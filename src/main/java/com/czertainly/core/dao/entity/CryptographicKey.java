@@ -52,12 +52,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-    @OneToOne(fetch = FetchType.LAZY, mappedBy = "cryptographicKey")
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "key")
     @ToString.Exclude
     private OwnerAssociation owner;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "key", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
@@ -97,8 +97,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
         }
-        dto.setTokenInstanceName(tokenInstanceReference.getName());
-        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if (tokenInstanceReference != null) {
+            dto.setTokenInstanceName(tokenInstanceReference.getName());
+            dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        }
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
@@ -121,8 +123,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
         }
-        dto.setTokenInstanceName(tokenInstanceReference.getName());
-        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if (tokenInstanceReference != null) {
+            dto.setTokenInstanceName(tokenInstanceReference.getName());
+            dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        }
         dto.setItems(getKeyItems());
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());

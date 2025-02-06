@@ -697,7 +697,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         cryptographicKey = cryptographicKeyRepository.save(cryptographicKey);
         CryptographicKeyItem cryptographicKeyItem = new CryptographicKeyItem();
         cryptographicKeyItem.setType(KeyType.PRIVATE_KEY);
-        cryptographicKeyItem.setCryptographicKey(cryptographicKey);
+        cryptographicKeyItem.setKey(cryptographicKey);
         cryptographicKeyItem.setState(KeyState.ACTIVE);
         cryptographicKeyItemRepository.save(cryptographicKeyItem);
 

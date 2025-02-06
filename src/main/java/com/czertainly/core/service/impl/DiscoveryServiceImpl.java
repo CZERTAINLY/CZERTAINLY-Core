@@ -66,6 +66,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
@@ -623,6 +624,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private void processDiscoveredCertificates(DiscoveryHistory discovery) {
         // Get newly discovered certificates
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
+        ConcurrentMap<PublicKey, List<UUID>> keyToCertificates = new ConcurrentHashMap<>();
 
         logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
 
@@ -643,7 +645,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                                     processCertSemaphore.acquire();
                                     logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
 
-                                    certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate);
+                                    certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates);
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
                                     logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
@@ -663,6 +665,16 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             // Wait for all tasks to complete
             future.join();
         }
+
+        // Upload certificate keys out of parallel processing to avoid collisions
+        for (Map.Entry<PublicKey, List<UUID>> entry : keyToCertificates.entrySet()) {
+            try {
+                certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
+            } catch (NoSuchAlgorithmException e) {
+                logger.error("Could not create public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
+            }
+        }
+
     }
 
     private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttribute> metadata) {

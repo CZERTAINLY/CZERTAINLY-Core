@@ -158,8 +158,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.EncryptDataResponseDto response = cryptographicOperationsApiClient.encryptData(
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
@@ -213,8 +213,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto response = cryptographicOperationsApiClient.decryptData(
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto);
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.SUCCESS,
@@ -278,8 +278,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto response = cryptographicOperationsApiClient.signData(
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
@@ -341,8 +341,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         logger.debug("Request to the connector: {}", requestDto);
         try {
             com.czertainly.api.model.connector.cryptography.operations.VerifyDataResponseDto response = cryptographicOperationsApiClient.verifyData(
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
-                    key.getCryptographicKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
+                    key.getKey().getTokenProfile().getTokenInstanceReference().getConnector().mapToDto(),
+                    key.getKey().getTokenProfile().getTokenInstanceReferenceUuid().toString(),
                     key.getKeyReferenceUuid().toString(),
                     requestDto
             );
@@ -480,10 +480,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyItem getKeyItemEntity(UUID uuid) throws NotFoundException {
         logger.debug("UUID of the key to get the entity: {}", uuid);
         CryptographicKeyItem key = cryptographicKeyItemRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, uuid));
-        if (key.getCryptographicKey().getTokenProfile().getTokenInstanceReference() == null) {
+        if (key.getKey().getTokenProfile().getTokenInstanceReference() == null) {
             throw new NotFoundException("Token Instance associated with the Key is not found");
         }
-        if (key.getCryptographicKey().getTokenProfile().getTokenInstanceReference().getConnector() == null) {
+        if (key.getKey().getTokenProfile().getTokenInstanceReference().getConnector() == null) {
             throw new NotFoundException(("Connector associated to the Key is not found"));
         }
         logger.debug("Key Instance: {}", key);
@@ -500,8 +500,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
         ContentSigner signer = new TokenContentSigner(
                 cryptographicOperationsApiClient,
-                privateKeyItem.getCryptographicKey().getTokenInstanceReference().getConnector().mapToDto(),
-                privateKeyItem.getCryptographicKey().getTokenInstanceReferenceUuid(),
+                privateKeyItem.getKey().getTokenInstanceReference().getConnector().mapToDto(),
+                privateKeyItem.getKey().getTokenInstanceReferenceUuid(),
                 privateKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyData(),

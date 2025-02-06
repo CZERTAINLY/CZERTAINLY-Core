@@ -5,10 +5,12 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
+import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
@@ -124,5 +126,15 @@ public class CryptographyUtil {
 
     public static AlgorithmIdentifier getAlgorithmIdentifierInstance(String algorithm) {
         return new DefaultSignatureAlgorithmIdentifierFinder().find(algorithm);
+    }
+
+    public static KeyFormat getPublicKeyFormat(byte[] encodedPublicKey) {
+        try {
+            SubjectPublicKeyInfo spki = SubjectPublicKeyInfo.getInstance(ASN1Primitive.fromByteArray(encodedPublicKey));
+            return spki != null ? KeyFormat.SPKI : KeyFormat.RAW;
+        } catch (IOException | IllegalArgumentException e) {
+            return KeyFormat.RAW;
+        }
+
     }
 }

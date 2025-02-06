@@ -162,7 +162,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private ComplianceStatus complianceStatus;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @ToString.Exclude
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
@@ -265,6 +265,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             certificateRequestDto.setPublicKeyAlgorithm(this.certificateRequestEntity.getPublicKeyAlgorithm());
             certificateRequestDto.setCertificateRequestFormat(this.certificateRequestEntity.getCertificateRequestFormat());
             certificateRequestDto.setSubjectAlternativeNames(MetaDefinitions.deserialize(this.certificateRequestEntity.getSubjectAlternativeNames()));
+            certificateRequestDto.setKeyUuid(this.certificateRequestEntity.getKeyUuid() != null ? this.certificateRequestEntity.getKeyUuid().toString() : null);
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()

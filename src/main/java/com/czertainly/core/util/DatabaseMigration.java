@@ -46,6 +46,7 @@ public class DatabaseMigration {
     /**
      * Stores the checksum of a Java-based migration.
      */
+    @SuppressWarnings("java:S115")
     public enum JavaMigrationChecksums {
         V202206151000__AttributeChanges(595685930),
         V202209211100__Access_Control(-2127987777),
@@ -60,7 +61,8 @@ public class DatabaseMigration {
         V202404021100__CreateCmpUserAndPermissions(-264892945),
         V202404120915__AssignObjectsOwnerAndMultipleGroupsMigration(-305812276),
         V202408231055__DuplicateCertificates(-1714171989),
-        V202411141900__CreateLocalhostUserAndPermissions(1923994081);
+        V202411141900__CreateLocalhostUserAndPermissions(1923994081),
+        V202501281511__LinkKeysToCertificates(-1169157739);
 
       
         private final int checksum;

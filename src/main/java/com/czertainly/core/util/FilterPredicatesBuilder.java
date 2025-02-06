@@ -297,7 +297,7 @@ public class FilterPredicatesBuilder {
         final Join joinGroup = subqueryRoot.join(GroupAssociation_.group);
         subquery.select(criteriaBuilder.literal(1)).where(
                 criteriaBuilder.equal(subqueryRoot.get(ResourceObjectAssociation_.resource), resource),
-                criteriaBuilder.equal(subqueryRoot.get(ResourceObjectAssociation_.objectUuid), resource == Resource.CRYPTOGRAPHIC_KEY ? originalRoot.get(CryptographicKeyItem_.cryptographicKeyUuid) : originalRoot.get(UniquelyIdentified_.uuid)),
+                criteriaBuilder.equal(subqueryRoot.get(ResourceObjectAssociation_.objectUuid), resource == Resource.CRYPTOGRAPHIC_KEY ? originalRoot.get(CryptographicKeyItem_.keyUuid) : originalRoot.get(UniquelyIdentified_.uuid)),
                 joinGroup.get(fieldAttribute.getName()).in(filterValues));
 
         return criteriaBuilder.not(criteriaBuilder.exists(subquery));

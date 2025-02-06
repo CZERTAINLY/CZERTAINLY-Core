@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -37,6 +38,7 @@ import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -256,6 +258,13 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals("CLIENT1", dto.getCommonName());
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", dto.getSerialNumber());
+
+        // test for presence of created public key
+        var newCertificate = certificateRepository.findWithAssociationsByUuid(UUID.fromString(dto.getUuid()));
+        Assertions.assertTrue(newCertificate.isPresent());
+        Assertions.assertEquals("certKey_%s".formatted(dto.getCommonName()), newCertificate.get().getKey().getName());
+        Assertions.assertEquals(1, newCertificate.get().getKey().getItems().size());
+        Assertions.assertEquals(KeyType.PUBLIC_KEY, newCertificate.get().getKey().getItems().stream().findFirst().get().getType());
     }
 
     @Test
@@ -398,6 +407,17 @@ class CertificateServiceTest extends BaseSpringBootTest {
         testDownloadInternal(CertificateFormat.RAW, CertificateFormatEncoding.DER);
         testDownloadInternal(CertificateFormat.PKCS7, CertificateFormatEncoding.PEM);
         testDownloadInternal(CertificateFormat.PKCS7, CertificateFormatEncoding.DER);
+    }
+
+    @Test
+    void testUploadCertificateKey() throws com.czertainly.api.exception.CertificateException, CertificateEncodingException, NotFoundException {
+        Certificate certificateWithKey = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        UUID keyUuid = certificateWithKey.getKeyUuid();
+        Assertions.assertNotNull(keyUuid);
+        // Check if key already in DB is assigned to the certificate
+        certificateService.deleteCertificate(certificateWithKey.getSecuredUuid());
+        certificateWithKey = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        Assertions.assertEquals(keyUuid, certificateWithKey.getKeyUuid());
     }
 
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
