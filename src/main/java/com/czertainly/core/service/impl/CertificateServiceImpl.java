@@ -1278,7 +1278,7 @@ public class CertificateServiceImpl implements CertificateService {
             );
         }
 
-        if (keyUuid != null) certificateRequestEntity.setKeyUuid(keyUuid);
+        if (keyUuid != null && certificateRequestEntity.getKeyUuid() == null) certificateRequestEntity.setKeyUuid(keyUuid);
         else {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }
@@ -1324,11 +1324,11 @@ public class CertificateServiceImpl implements CertificateService {
 
         String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(csrPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
         UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
-        if (keyUuid != null) certificateRequest.setKeyUuid(keyUuid);
-        else {
+        if (keyUuid == null) {
             keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificateRequest.getCommonName(), certificateRequest.getFingerprint()),
                     csrPublicKey, CertificateUtil.getAlgorithmFromProviderName(csrPublicKey.getAlgorithm()), KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
         }
+        certificateRequest.setKeyUuid(keyUuid);
         return keyUuid;
     }
 
