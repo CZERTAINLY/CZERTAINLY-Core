@@ -7,6 +7,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.custom.CustomCertificateRepository;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.EntityGraph;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -23,6 +24,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     Optional<Certificate> findByUuid(UUID uuid);
 
     List<Certificate> findAllByUuidIn(List<UUID> uuids);
+
+    Certificate findFirstByUuidIn(List<UUID> uuids);
 
     @EntityGraph(attributePaths = {"certificateContent", "groups", "owner"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
@@ -79,4 +82,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findByValidationStatusAndCertificateContentDiscoveryCertificatesDiscoveryUuid(CertificateValidationStatus validationStatus, UUID discoveryUuid);
 
     List<Certificate> findByValidationStatusAndLocationsLocationUuid(CertificateValidationStatus validationStatus, UUID locationUuid);
+
+    @Modifying
+    @Query("UPDATE Certificate c SET c.keyUuid = ?1 WHERE c.uuid IN ?2")
+    void setKeyUuid(UUID keyUuid, List<UUID> uuids);
 }

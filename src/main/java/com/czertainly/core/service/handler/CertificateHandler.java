@@ -243,14 +243,11 @@ public class CertificateHandler {
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
         UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(publicKey.getEncoded()));
-        List<Certificate> certificates = certificateRepository.findAllByUuidIn(certificateUuids);
-        Certificate firstCertificate = certificates.getFirst();
+        Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
         if (keyUuid == null) {
             keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + firstCertificate.getCommonName(), publicKey, firstCertificate.getPublicKeyAlgorithm(), firstCertificate.getKeySize(), firstCertificate.getPublicKeyFingerprint());
         }
-        for (Certificate certificate : certificates) {
-            certificate.setKeyUuid(keyUuid);
-        }
+        certificateRepository.setKeyUuid(keyUuid, certificateUuids);
     }
 
     private void processTriggers(UUID discoveryUuid, Certificate certificate, DiscoveryCertificate discoveryCertificate, List<Trigger> ignoreTriggers, List<Trigger> orderedTriggers) throws RuleException {

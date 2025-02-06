@@ -15,7 +15,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
 
     Optional<CryptographicKeyItem> findByFingerprint(String fingerprint);
 
-    Optional<CryptographicKeyItem> findByUuidAndCryptographicKey(UUID uuid, CryptographicKey cryptographicKey);
+    Optional<CryptographicKeyItem> findByUuidAndKey(UUID uuid, CryptographicKey cryptographicKey);
 
     List<CryptographicKeyItem> findByKeyReferenceUuid(UUID keyReferenceUuid);
 }

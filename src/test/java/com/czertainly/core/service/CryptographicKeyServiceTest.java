@@ -94,8 +94,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // Create and Save CryptographicKeyItem - Private Key
         content = new CryptographicKeyItem();
         content.setLength(1024);
-        content.setCryptographicKey(key);
-        content.setCryptographicKeyUuid(key.getUuid());
+        content.setKey(key);
+        content.setKeyUuid(key.getUuid());
         content.setType(KeyType.PRIVATE_KEY);
         content.setKeyData("some/encrypted/data");
         content.setFormat(KeyFormat.PRKI);
@@ -107,8 +107,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         // Create and Save CryptographicKeyItem - Public Key
         content1 = new CryptographicKeyItem();
         content1.setLength(1024);
-        content1.setCryptographicKey(key);
-        content1.setCryptographicKeyUuid(key.getUuid());
+        content1.setKey(key);
+        content1.setKeyUuid(key.getUuid());
         content1.setType(KeyType.PUBLIC_KEY);
         content1.setKeyData("some/encrypted/data");
         content1.setFormat(KeyFormat.SPKI);

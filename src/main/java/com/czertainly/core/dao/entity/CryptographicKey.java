@@ -57,7 +57,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     private OwnerAssociation owner;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "key", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<CryptographicKeyItem> items = new HashSet<>();
 

@@ -35,15 +35,13 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Column(name = "name")
     private String name;
 
-    // TODO: change name of the column to key_uuid
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cryptographic_key_uuid", insertable = false, updatable = false, nullable = false)
+    @JoinColumn(name = "key_uuid", insertable = false, updatable = false, nullable = false)
     @ToString.Exclude
-    private CryptographicKey cryptographicKey;
+    private CryptographicKey key;
 
-    // TODO: change name of the column to key_uuid
-    @Column(name = "cryptographic_key_uuid")
-    private UUID cryptographicKeyUuid;
+    @Column(name = "key_uuid")
+    private UUID keyUuid;
 
     @Column(name = "key_reference_uuid")
     private UUID keyReferenceUuid;
@@ -52,8 +50,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Enumerated(EnumType.STRING)
     private KeyType type;
 
-    // TODO: change name of the column to key_algorithm
-    @Column(name = "cryptographic_algorithm")
+    @Column(name = "key_algorithm")
     @Enumerated(EnumType.STRING)
     private KeyAlgorithm keyAlgorithm;
 
@@ -92,9 +89,9 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @LastModifiedDate
     protected LocalDateTime updatedAt;
 
-    public void setCryptographicKey(CryptographicKey cryptographicKey) {
-        this.cryptographicKey = cryptographicKey;
-        if (cryptographicKey != null) this.cryptographicKeyUuid = cryptographicKey.getUuid();
+    public void setKey(CryptographicKey key) {
+        this.key = key;
+        if (key != null) this.keyUuid = key.getUuid();
     }
 
     public void setKeyData(KeyFormat keyFormat, KeyValue value) {
@@ -158,24 +155,24 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setState(state);
         dto.setEnabled(enabled);
         dto.setUsage(getUsage());
-        dto.setKeyWrapperUuid(cryptographicKey.getUuid().toString());
-        dto.setAssociations((cryptographicKey.getItems().size() - 1) + cryptographicKey.getCertificates().size());
-        dto.setDescription(cryptographicKey.getDescription());
-        if (cryptographicKey.getGroups() != null) {
-            dto.setGroups(cryptographicKey.getGroups().stream().map(Group::mapToDto).toList());
+        dto.setKeyWrapperUuid(key.getUuid().toString());
+        dto.setAssociations((key.getItems().size() - 1) + key.getCertificates().size());
+        dto.setDescription(key.getDescription());
+        if (key.getGroups() != null) {
+            dto.setGroups(key.getGroups().stream().map(Group::mapToDto).toList());
         }
-        if (cryptographicKey.getOwner() != null) {
-            dto.setOwnerUuid(cryptographicKey.getOwner().getOwnerUuid().toString());
-            dto.setOwner(cryptographicKey.getOwner().getOwnerUsername());
+        if (key.getOwner() != null) {
+            dto.setOwnerUuid(key.getOwner().getOwnerUuid().toString());
+            dto.setOwner(key.getOwner().getOwnerUsername());
         }
-        dto.setCreationTime(cryptographicKey.getCreated());
-        if (cryptographicKey.getTokenInstanceReference() != null) {
-            dto.setTokenInstanceName(cryptographicKey.getTokenInstanceReference().getName());
-            dto.setTokenInstanceUuid(cryptographicKey.getTokenInstanceReferenceUuid().toString());
+        dto.setCreationTime(key.getCreated());
+        if (key.getTokenInstanceReference() != null) {
+            dto.setTokenInstanceName(key.getTokenInstanceReference().getName());
+            dto.setTokenInstanceUuid(key.getTokenInstanceReferenceUuid().toString());
         }
-        if (cryptographicKey.getTokenProfile() != null) {
-            dto.setTokenProfileName(cryptographicKey.getTokenProfile().getName());
-            dto.setTokenProfileUuid(cryptographicKey.getTokenProfile().getUuid().toString());
+        if (key.getTokenProfile() != null) {
+            dto.setTokenProfileName(key.getTokenProfile().getName());
+            dto.setTokenProfileUuid(key.getTokenProfile().getUuid().toString());
         }
         return dto;
     }

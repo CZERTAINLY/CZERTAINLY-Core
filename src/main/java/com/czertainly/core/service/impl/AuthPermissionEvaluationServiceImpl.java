@@ -22,6 +22,10 @@ public class AuthPermissionEvaluationServiceImpl implements PermissionEvaluator 
     public void tokenInstance(SecuredUUID uuid) throws NotFoundException { }
 
     @Override
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.MEMBERS)
+    public void tokenInstanceMembers(SecuredUUID uuid) { }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public void certificate(SecuredUUID uuid) throws NotFoundException { }
 

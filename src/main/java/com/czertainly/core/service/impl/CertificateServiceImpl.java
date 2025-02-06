@@ -863,7 +863,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificate.getKeyUuid() == null) {
             keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             if (keyUuid == null) {
-                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificate.getCommonName(), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());
+                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());
             }
             certificate.setKeyUuid(keyUuid);
         }
@@ -1228,7 +1228,6 @@ public class CertificateServiceImpl implements CertificateService {
         // prepare certificate request data for certificate
         CertificateUtil.prepareCsrObject(certificate, request);
 
-        certificate.setKeyUuid(keyUuid);
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
@@ -1246,10 +1245,9 @@ public class CertificateServiceImpl implements CertificateService {
 
         List<ResponseAttributeDto> requestAttributes;
         List<ResponseAttributeDto> requestSignatureAttributes;
-        UUID publicKeyUuid;
         if (certificateRequestOptional.isPresent()) {
             certificateRequestEntity = certificateRequestOptional.get();
-            publicKeyUuid = certificateRequestEntity.getKeyUuid();
+            if (keyUuid == null) keyUuid = certificateRequestEntity.getKeyUuid();
             // if no CSR attributes are assigned to CSR, update them with ones provided
             requestAttributes = attributeEngine.getObjectDataAttributesContent(
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
@@ -1272,10 +1270,13 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
             certificateRequestEntity.setContent(certificateRequest);
             certificateRequestEntity = certificateRequestRepository.save(certificateRequestEntity);
-            publicKeyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(request.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
-            if (publicKeyUuid != null) certificateRequestEntity.setKeyUuid(publicKeyUuid);
-            else {
-                publicKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + certificateRequestEntity.getCommonName(), request.getPublicKey(), CertificateUtil.getAlgorithmFromProviderName(request.getPublicKey().getAlgorithm()), KeySizeUtil.getKeyLength(request.getPublicKey()), CertificateUtil.getThumbprint(request.getPublicKey().getEncoded()));
+            if (keyUuid == null) {
+                keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(request.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
+                if (keyUuid != null) certificateRequestEntity.setKeyUuid(keyUuid);
+                else {
+                    keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificateRequestEntity.getCommonName(), certificateRequestEntity.getFingerprint()),
+                            request.getPublicKey(), CertificateUtil.getAlgorithmFromProviderName(request.getPublicKey().getAlgorithm()), KeySizeUtil.getKeyLength(request.getPublicKey()), CertificateUtil.getThumbprint(request.getPublicKey().getEncoded()));
+                }
             }
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
@@ -1288,7 +1289,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
-        certificate.setKeyUuid(publicKeyUuid);
+        certificate.setKeyUuid(keyUuid);
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {

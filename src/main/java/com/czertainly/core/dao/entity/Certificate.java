@@ -265,7 +265,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             certificateRequestDto.setPublicKeyAlgorithm(this.certificateRequestEntity.getPublicKeyAlgorithm());
             certificateRequestDto.setCertificateRequestFormat(this.certificateRequestEntity.getCertificateRequestFormat());
             certificateRequestDto.setSubjectAlternativeNames(MetaDefinitions.deserialize(this.certificateRequestEntity.getSubjectAlternativeNames()));
-            certificateRequestDto.setKeyUuid(String.valueOf(this.certificateRequestEntity.getKeyUuid()));
+            certificateRequestDto.setKeyUuid(this.certificateRequestEntity.getKeyUuid() != null ? this.certificateRequestEntity.getKeyUuid().toString() : EMPTY_COMMON_NAME);
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()

@@ -32,10 +32,14 @@ public class V202501281511__LinkKeysToCertificates extends BaseJavaMigration {
         String alterCkTableQuery = "ALTER TABLE cryptographic_key ALTER COLUMN token_instance_uuid DROP NOT NULL;";
         String alterCkiTableQuery = "ALTER TABLE cryptographic_key_item ALTER COLUMN key_reference_uuid DROP NOT NULL;";
         String addPkColumnToCsrQuery = "ALTER TABLE CERTIFICATE_REQUEST ADD COLUMN key_uuid uuid;";
+        String renameKeyUuidColumn = "ALTER TABLE cryptographic_key_item RENAME COLUMN cryptographic_key_uuid TO key_uuid;";
+        String renameKeyAlgorithmColumn = "ALTER TABLE cryptographic_key_item RENAME COLUMN cryptographic_algorithm TO key_algorithm;";
         try (final Statement statement = context.getConnection().createStatement()) {
             statement.execute(alterCkTableQuery);
             statement.execute(alterCkiTableQuery);
             statement.execute(addPkColumnToCsrQuery);
+            statement.execute(renameKeyAlgorithmColumn);
+            statement.execute(renameKeyUuidColumn);
         }
     }
 
