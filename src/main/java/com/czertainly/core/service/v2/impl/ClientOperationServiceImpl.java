@@ -41,6 +41,7 @@ import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import jakarta.transaction.Transactional;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -928,7 +929,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private void validateSubjectDnForCertificate(String certificateContent, CertificateRequest certificateRequest) {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
-            if (!certificate.getSubjectX500Principal().getName().equals(certificateRequest.getSubject().toString())) {
+
+            // convert subjects to normalized form to compare them
+            String normalizedRequestSubject = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, certificateRequest.getSubject().getEncoded()).toString();
+            String normalizedCertificateSubject = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, certificate.getSubjectX500Principal().getEncoded()).toString();
+
+            if (!normalizedCertificateSubject.equals(normalizedRequestSubject)) {
                 throw new Exception("Subject DN of certificate and CSR does not match");
             }
         } catch (Exception e) {
