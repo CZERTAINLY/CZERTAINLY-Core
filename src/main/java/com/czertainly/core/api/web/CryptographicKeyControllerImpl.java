@@ -65,12 +65,18 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
+    public KeyDetailDto getKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid) throws NotFoundException {
+        return cryptographicKeyService.getKey(SecuredUUID.fromString(uuid));
+    }
+
+    @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DETAIL)
     public KeyDetailDto getKey(@LogResource(uuid = true) String uuid) throws NotFoundException {
         return cryptographicKeyService.getKey(SecuredUUID.fromString(uuid));
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DETAIL)
     public KeyItemDetailDto getKeyItem(
             String uuid,
             @LogResource(uuid = true) String keyItemUuid
@@ -79,6 +85,12 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
                 SecuredUUID.fromString(uuid),
                 keyItemUuid
         );
+    }
+
+    @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
+    public KeyItemDetailDto getKeyItem(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String uuid,@LogResource(uuid = true) String keyItemUuid) throws NotFoundException {
+        return cryptographicKeyService.getKeyItem(SecuredUUID.fromString(uuid), keyItemUuid);
     }
 
     @Override
@@ -93,7 +105,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.UPDATE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.UPDATE)
     public KeyDetailDto editKey(@LogResource(uuid = true) String uuid, EditKeyRequestDto request) throws ConnectorException, AttributeException {
         return cryptographicKeyService.editKey(
                 SecuredUUID.fromString(uuid),
@@ -162,8 +174,17 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DELETE)
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DELETE)
     public void deleteKey(@LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException {
+        cryptographicKeyService.deleteKey(
+                UUID.fromString(uuid),
+                keyItemUuids
+        );
+    }
+
+    @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DELETE)
+    public void deleteKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.deleteKey(
                 UUID.fromString(uuid),
                 keyItemUuids
