@@ -477,18 +477,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                         CryptographicKeyItem.class
                                 )
                         );
-                if (key.getTokenInstanceReference() != null) {
-                    try {
-                        keyManagementApiClient.destroyKey(
-                                key.getTokenInstanceReference().getConnector().mapToDto(),
-                                key.getTokenInstanceReference().getTokenInstanceUuid(),
-                                keyItem.getKeyReferenceUuid().toString()
-                        );
-                        logger.info("Key item destroyed in the connector. Removing from the core now.");
-                    } catch (NotFoundException e) {
-                        logger.info("Key item already destroyed in the connector.");
-                    }
-                }
+                if (key.getTokenInstanceReference() != null) destroyKeyFromConnector(key.getTokenInstanceReference(), keyItem.getKeyReferenceUuid());
                 key.getItems().remove(keyItem);
                 attributeEngine.deleteAllObjectAttributeContent(Resource.CRYPTOGRAPHIC_KEY, keyItem.getUuid());
                 cryptographicKeyItemRepository.delete(keyItem);
@@ -501,6 +490,19 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             deleteKey(List.of(uuid.toString()));
         }
         logger.info("Key deleted: {}", uuid);
+    }
+
+    private void destroyKeyFromConnector(TokenInstanceReference tokenInstanceReference, UUID keyReferenceUuid) throws ConnectorException {
+        try {
+            keyManagementApiClient.destroyKey(
+                    tokenInstanceReference.getConnector().mapToDto(),
+                    tokenInstanceReference.getTokenInstanceUuid(),
+                   keyReferenceUuid.toString()
+            );
+            logger.info("Key item destroyed in the connector. Removing from the core now.");
+        } catch (NotFoundException e) {
+            logger.info("Key item already destroyed in the connector.");
+        }
     }
 
     @Override
