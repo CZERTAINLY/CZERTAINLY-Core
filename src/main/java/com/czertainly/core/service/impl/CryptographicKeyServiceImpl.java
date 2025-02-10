@@ -822,7 +822,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         if (keyItem.isEmpty()) throw new NotFoundException("Key Item has not been found for Key with UUID %s.".formatted(keyUuid));
         keyItem.get().setName(editKeyItemDto.getName());
         cryptographicKeyItemRepository.save(keyItem.get());
-        cryptographicKeyRepository.save(key);
         return keyItem.get().mapToDto();
     }
 
