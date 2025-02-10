@@ -27,8 +27,15 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
         run: mvn -B -U verify
-      - name: Upload code coverage
+      # Upload compiled classes
+      - name: Upload Compiled Classes
         uses: actions/upload-artifact@v4
         with:
-          name: jacoco-report
+          name: compiled-classes
+          path: target/classes
+      # Upload Jacoco XML report(s)
+      - name: Upload Coverage Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-reports
           path: target/site/jacoco/jacoco.xml
