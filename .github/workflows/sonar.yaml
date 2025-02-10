@@ -32,4 +32,6 @@ jobs:
             -Dsonar.pullrequest.key=${{ github.event.workflow_run.pull_requests[0].number }} \
             -Dsonar.pullrequest.branch=${{ github.event.workflow_run.pull_requests[0].head.ref }} \
             -Dsonar.pullrequest.base=${{ github.event.workflow_run.pull_requests[0].base.ref }} \
-            -Dsonar.java.binaries=target/classes
+            -Dsonar.java.binaries=target/classes \
+            -Dsonar.exclusions=**/*.java \
+            -Dsonar.coverage.jacoco.xmlReportPaths=**/jacoco.xml
