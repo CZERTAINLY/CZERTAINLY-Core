@@ -37,11 +37,9 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: pr-number
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          run-id: ${{ github.event.workflow_run.id }}
           path: .
-      - name: Debug PR number
-        run: |
-          PR_NUMBER=$(cat pr-number.txt)
-          echo "We got PR number: ${PR_NUMBER}"
       - name: SonarCloud Scan
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
