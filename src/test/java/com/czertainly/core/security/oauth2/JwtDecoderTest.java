@@ -15,6 +15,7 @@ import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSSigner;
 import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.PlainJWT;
 import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -45,7 +46,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
     @Autowired
     private LoginController loginController;
-    
+
     public static final String PROVIDER_NAME = "provider";
 
     private KeyPair keyPair;
@@ -190,6 +191,40 @@ class JwtDecoderTest extends BaseSpringBootTest {
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
         Assertions.assertTrue(exception.getMessage().contains("Couldn't retrieve remote JWK set"));
     }
+
+    @Test
+    void testJWTWithoutUsername() throws JOSEException {
+        SecurityContextHolder.clearContext();
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                .subject("your-subject")
+                .audience("your-audience")
+                .expirationTime(new Date(System.currentTimeMillis() + 3600 * 1000)) // 1 hour
+                .issuer(ISSUER_URL)
+                .build();
+
+        SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claimsSet);
+        JWSSigner signer = new RSASSASigner(keyPair.getPrivate());
+        signedJWT.sign(signer);
+        tokenValue = signedJWT.serialize();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Username claim is not present in JWT"));
+    }
+
+    @Test
+    void testUnsignedJwt() {
+        SecurityContextHolder.clearContext();
+        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
+                .subject("your-subject")
+                .audience("your-audience")
+                .expirationTime(new Date(System.currentTimeMillis() + 3600 * 1000)) // 1 hour
+                .issuer(ISSUER_URL)
+                .build();
+
+        tokenValue = new PlainJWT(claimsSet).serialize();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Incoming Token is not an instance of Signed JWT"));
+    }
+
 
     private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
