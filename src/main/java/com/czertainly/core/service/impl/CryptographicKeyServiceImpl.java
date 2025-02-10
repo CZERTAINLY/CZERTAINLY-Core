@@ -813,6 +813,19 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         getCryptographicKeyEntity(uuid.getValue());
     }
 
+    @Override
+    @ExternalAuthorization(resource=Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DETAIL)
+    public KeyItemDetailDto editKeyItem(SecuredUUID keyUuid, UUID keyItemUuid, EditKeyItemDto editKeyItemDto) throws NotFoundException {
+        CryptographicKey key = getCryptographicKeyEntityWithAssociations(keyUuid.getValue());
+        if (key.getTokenInstanceReferenceUuid() != null) permissionEvaluator.tokenInstance(key.getTokenInstanceReference().getSecuredUuid());
+        Optional<CryptographicKeyItem> keyItem = key.getItems().stream().filter(cki -> cki.getUuid().equals(keyItemUuid)).findFirst();
+        if (keyItem.isEmpty()) throw new NotFoundException("Key Item has not been found for Key with UUID %s.".formatted(keyUuid));
+        keyItem.get().setName(editKeyItemDto.getName());
+        cryptographicKeyItemRepository.save(keyItem.get());
+        cryptographicKeyRepository.save(key);
+        return keyItem.get().mapToDto();
+    }
+
     private void createKeyAndItems(UUID connectorUuid, TokenInstanceReference tokenInstanceReference, String key, List<KeyDataResponseDto> items) throws AttributeException {
         //Iterate through the items for a specific key
         if (checkKeyAlreadyExists(tokenInstanceReference.getUuid(), items)) {
