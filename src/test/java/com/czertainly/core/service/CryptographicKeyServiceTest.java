@@ -548,4 +548,15 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         Assertions.assertEquals(5, cryptographicKeyItemRepository.count());
     }
+
+    @Test
+    void testEditKeyItem() throws NotFoundException {
+        final String NEW_NAME = "new name";
+        EditKeyItemDto request = new EditKeyItemDto();
+        request.setName(NEW_NAME);
+        cryptographicKeyService.editKeyItem(SecuredUUID.fromUUID(key.getUuid()), content.getUuid(), request);
+        content = cryptographicKeyItemRepository.findByUuid(content.getUuid()).orElse(null);
+        Assertions.assertNotNull(content);
+        Assertions.assertEquals(NEW_NAME, content.getName());
+    }
 }
