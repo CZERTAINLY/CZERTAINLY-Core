@@ -9,6 +9,7 @@ import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -52,17 +53,32 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         if (!isAuthenticationNeeded()) {
             return null;
         }
-        String issuerUri;
+        SignedJWT signedJWT;
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.TOKEN);
         try {
-            issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
+            signedJWT = SignedJWT.parse(token);
         } catch (ParseException e) {
-            String message = "Could not extract issuer from JWT token";
+            String message = "Incoming Token in not an instance of Signed JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
+        JWTClaimsSet claimsSet;
+        try {
+            claimsSet = signedJWT.getJWTClaimsSet();
+        } catch (ParseException e) {
+            String message = "Could not extract claims from JWT";
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
+            throw new CzertainlyAuthenticationException(message);
+        }
+        String issuerUri = claimsSet.getIssuer();
         if (issuerUri == null) {
-            String message = "Issuer URI is not present in JWT token";
+            String message = "Issuer URI is not present in JWT";
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
+            throw new CzertainlyAuthenticationException(message);
+        }
+
+        if (claimsSet.getClaim("username") == null) {
+            String message = "Username claim is not present in JWT";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
@@ -92,14 +108,8 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
-        OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
-        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
-        // Add audience validation
-        if (!audiences.isEmpty()) {
-            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
-        }
 
-        OAuth2TokenValidator<Jwt> combinedValidator = JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));
+        OAuth2TokenValidator<Jwt> combinedValidator = getJwtOAuth2TokenValidator(skew, audiences, issuerUri);
         jwtDecoder.setJwtValidator(combinedValidator);
         try {
             return jwtDecoder.decode(token);
@@ -108,6 +118,18 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
+    }
+
+    private static OAuth2TokenValidator<Jwt> getJwtOAuth2TokenValidator(int skew, List<String> audiences, String issuerUri) {
+        OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
+        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
+
+        // Add audience validation
+        if (!audiences.isEmpty()) {
+            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
+        }
+
+        return JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));
     }
 
     private boolean isAuthenticationNeeded() {
