@@ -58,7 +58,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         try {
             signedJWT = SignedJWT.parse(token);
         } catch (ParseException e) {
-            String message = "Incoming Token in not an instance of Signed JWT.";
+            String message = "Incoming Token is not an instance of Signed JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
@@ -66,19 +66,19 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         try {
             claimsSet = signedJWT.getJWTClaimsSet();
         } catch (ParseException e) {
-            String message = "Could not extract claims from JWT";
+            String message = "Could not extract claims from JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
         String issuerUri = claimsSet.getIssuer();
         if (issuerUri == null) {
-            String message = "Issuer URI is not present in JWT";
+            String message = "Issuer URI is not present in JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
 
         if (claimsSet.getClaim("username") == null) {
-            String message = "Username claim is not present in JWT";
+            String message = "Username claim is not present in JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
