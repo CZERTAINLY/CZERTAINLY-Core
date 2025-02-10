@@ -32,6 +32,9 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           run-id: ${{ github.event.workflow_run.id }}
           path: target/site/jacoco
+      - name: Debug PR data
+        run: |
+          echo "Pull Requests: ${{ toJson(github.event.workflow_run.pull_requests) }}"
       - name: SonarCloud Scan
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
