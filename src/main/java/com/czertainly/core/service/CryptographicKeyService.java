@@ -314,4 +314,14 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      * @return UUID of the uploaded Cryptographic Key
      */
     UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength, String fingerprint);
+
+    /**
+     * Edit Key Item
+     * @param keyUuid UUID of parent Key of Key Item
+     * @param keyItemUuid UUID of Key Item
+     * @param editKeyItemDto Request for editing the Key Item
+     * @return Key Item which has been deleted
+     * @throws NotFoundException Key has not been found
+     */
+    KeyItemDetailDto editKeyItem(SecuredUUID keyUuid, UUID keyItemUuid, EditKeyItemDto editKeyItemDto) throws NotFoundException;
 }

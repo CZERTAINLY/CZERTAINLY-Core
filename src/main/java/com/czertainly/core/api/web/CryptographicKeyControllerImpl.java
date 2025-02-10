@@ -76,6 +76,11 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    public KeyItemDetailDto editKeyItem(String uuid, String keyItemUuid, EditKeyItemDto request) throws NotFoundException {
+        return cryptographicKeyService.editKeyItem(SecuredUUID.fromString(uuid), UUID.fromString(keyItemUuid), request);
+    }
+
+    @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.DETAIL)
     public KeyItemDetailDto getKeyItem(
             String uuid,

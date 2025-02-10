@@ -1,12 +1,11 @@
-name: Build
+name: Build PR
 on:
-  push:
+  pull_request:
     branches: [develop]
-  workflow_dispatch:
 
 jobs:
   build:
-    if: github.event_name != 'pull_request'
+    if: github.event_name != 'push'
     name: Build
     runs-on: ubuntu-latest
     steps:
@@ -24,8 +23,12 @@ jobs:
           path: ~/.m2
           key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
           restore-keys: ${{ runner.os }}-m2
-      - name: Build and analyze
+      - name: Build
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}  # Needed to get PR information, if any
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        run: mvn -B -U verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar
+        run: mvn -B -U verify
+      - name: Upload code coverage
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: target/site/jacoco/jacoco.xml
