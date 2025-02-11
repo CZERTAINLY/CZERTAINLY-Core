@@ -9,6 +9,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.core.dao.entity.Notification;
 import com.czertainly.core.dao.entity.NotificationRecipient;
+import com.czertainly.core.dao.repository.NotificationRecipientRepository;
 import com.czertainly.core.dao.repository.NotificationRepository;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -19,6 +20,7 @@ import com.czertainly.core.util.RequestValidatorHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -30,14 +32,30 @@ public class NotificationServiceImpl implements NotificationService {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationServiceImpl.class);
 
-    @Autowired
-    NotificationRepository notificationRepository;
-
-    @Autowired
+    private NotificationRepository notificationRepository;
+    private NotificationRecipientRepository notificationRecipientRepository;
     private UserManagementApiClient userManagementApiClient;
+    private RoleManagementApiClient roleManagementApiClient;
 
     @Autowired
-    private RoleManagementApiClient roleManagementApiClient;
+    public void setNotificationRepository(NotificationRepository notificationRepository) {
+        this.notificationRepository = notificationRepository;
+    }
+
+    @Autowired
+    public void setNotificationRecipientRepository(NotificationRecipientRepository notificationRecipientRepository) {
+        this.notificationRecipientRepository = notificationRecipientRepository;
+    }
+
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
+    @Autowired
+    public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
+        this.roleManagementApiClient = roleManagementApiClient;
+    }
 
     @Override
     public NotificationDto createNotificationForUser(String message, String detail, String userUuid, Resource target, String targetUuids) throws ValidationException {
@@ -86,19 +104,16 @@ public class NotificationServiceImpl implements NotificationService {
         final Pageable pageable = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserProfile().getUser().getUuid());
 
-        final List<Notification> notifications = request.isUnread()
-                ? notificationRepository.findByNotificationRecipients_UserUuid_AndNotificationRecipients_ReadAtIsNullOrderBySentAtDesc(loggedUserUuid, pageable)
-                : notificationRepository.findByNotificationRecipients_UserUuidOrderBySentAtDesc(loggedUserUuid, pageable);
-        final long totalItems = request.isUnread()
-                ? notificationRepository.countByNotificationRecipients_UserUuid_AndNotificationRecipients_ReadAtIsNull(loggedUserUuid)
-                : notificationRepository.countByNotificationRecipients_UserUuid(loggedUserUuid);
+        final Page<NotificationDto> pagedNotifications = request.isUnread()
+                ? notificationRecipientRepository.findUnreadByUserUuid(loggedUserUuid, pageable)
+                : notificationRecipientRepository.findByUserUuid(loggedUserUuid, pageable);
 
         final NotificationResponseDto responseDto = new NotificationResponseDto();
-        responseDto.setItems(notifications.stream().map(Notification::mapToDto).toList());
+        responseDto.setItems(pagedNotifications.getContent());
         responseDto.setItemsPerPage(request.getItemsPerPage());
         responseDto.setPageNumber(request.getPageNumber());
-        responseDto.setTotalItems(totalItems);
-        responseDto.setTotalPages((int) Math.ceil((double) totalItems / request.getItemsPerPage()));
+        responseDto.setTotalItems(pagedNotifications.getTotalElements());
+        responseDto.setTotalPages(pagedNotifications.getTotalPages());
 
         return responseDto;
     }
