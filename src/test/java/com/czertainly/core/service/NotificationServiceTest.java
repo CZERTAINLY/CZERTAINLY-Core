@@ -54,7 +54,7 @@ class NotificationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateNotificationsForRole() throws NotFoundException {
+    void testNotificationsOperations() throws NotFoundException {
         setupAuthServiceMock();
 
         notificationService.createNotificationForRole("TestMessage", null, MOCK_ROLE_UUID, Resource.DISCOVERY, UUID.randomUUID().toString());
@@ -76,6 +76,11 @@ class NotificationServiceTest extends BaseSpringBootTest {
         listingResponse = notificationService.listNotifications(notificationRequestDto);
 
         Assertions.assertEquals(2, listingResponse.getItems().size());
+
+        notificationService.bulkDeleteNotifications(notificationRecipientRepository.findAll().stream().map(n -> n.getNotificationUuid().toString()).toList());
+
+        // all notifications that are present in DB are send to bulk delete, but deleted should be only those of logged user
+        Assertions.assertEquals(3, notificationRecipientRepository.findAll().size());
 
         mockServer.shutdown();
     }
