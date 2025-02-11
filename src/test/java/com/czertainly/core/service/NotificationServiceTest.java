@@ -26,13 +26,13 @@ import java.util.UUID;
 @Rollback
 class NotificationServiceTest extends BaseSpringBootTest {
 
-    private static final int authServiceMockPort = 10001;
-    private static final String mockRoleUuid = UUID.randomUUID().toString();
+    private static final int AUTH_SERVICE_MOCK_PORT = 10001;
+    private static final String MOCK_ROLE_UUID = UUID.randomUUID().toString();
     private String mockUser1Uuid;
-    private static final String mockUser2Uuid = UUID.randomUUID().toString();
-    private static final String mockUser3Uuid = UUID.randomUUID().toString();
-    private static final String mockGroup1Uuid = UUID.randomUUID().toString();
-    private static final String mockGroup2Uuid = UUID.randomUUID().toString();
+    private static final String MOCK_USER_2_UUID = UUID.randomUUID().toString();
+    private static final String MOCK_USER_3_UUID = UUID.randomUUID().toString();
+    private static final String MOCK_GROUP_1_UUID = UUID.randomUUID().toString();
+    private static final String MOCK_GROUP_2_UUID = UUID.randomUUID().toString();
 
     private WireMockServer mockServer;
 
@@ -44,7 +44,7 @@ class NotificationServiceTest extends BaseSpringBootTest {
 
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:" + authServiceMockPort);
+        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
     }
 
     @BeforeEach
@@ -57,8 +57,8 @@ class NotificationServiceTest extends BaseSpringBootTest {
     void testCreateNotificationsForRole() throws NotFoundException {
         setupAuthServiceMock();
 
-        notificationService.createNotificationForRole("TestMessage", null, mockRoleUuid, Resource.DISCOVERY, UUID.randomUUID().toString());
-        notificationService.createNotificationForGroup("TestMessage2", null, mockGroup1Uuid, Resource.DISCOVERY, "%s,%s".formatted(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
+        notificationService.createNotificationForRole("TestMessage", null, MOCK_ROLE_UUID, Resource.DISCOVERY, UUID.randomUUID().toString());
+        notificationService.createNotificationForGroup("TestMessage2", null, MOCK_GROUP_1_UUID, Resource.DISCOVERY, "%s,%s".formatted(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
         notificationService.createNotificationForUser("TestMessage3", null, mockUser1Uuid, Resource.DISCOVERY, UUID.randomUUID().toString());
 
         Assertions.assertEquals(6, notificationRecipientRepository.findAll().size());
@@ -81,7 +81,7 @@ class NotificationServiceTest extends BaseSpringBootTest {
     }
 
     private void setupAuthServiceMock() {
-        mockServer = new WireMockServer(authServiceMockPort);
+        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
@@ -130,7 +130,7 @@ class NotificationServiceTest extends BaseSpringBootTest {
                          "systemUser": false
                      }
                 ]
-                """.formatted(mockUser1Uuid, mockGroup1Uuid, mockGroup2Uuid, mockUser2Uuid, mockGroup1Uuid, mockUser3Uuid, mockGroup2Uuid);
+                """.formatted(mockUser1Uuid, MOCK_GROUP_1_UUID, MOCK_GROUP_2_UUID, MOCK_USER_2_UUID, MOCK_GROUP_1_UUID, MOCK_USER_3_UUID, MOCK_GROUP_2_UUID);
 
         String paginatedListUsersMockResponse = """
                 {
@@ -147,10 +147,10 @@ class NotificationServiceTest extends BaseSpringBootTest {
                   "users": %s,
                   "customAttributes": []
                 }
-                """.formatted(mockRoleUuid, listUsersMockResponse);
+                """.formatted(MOCK_ROLE_UUID, listUsersMockResponse);
 
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(WireMock.okJson(paginatedListUsersMockResponse)));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/%s".formatted(mockRoleUuid))).willReturn(WireMock.okJson(roleDetailMockResponse)));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/%s/users".formatted(mockRoleUuid))).willReturn(WireMock.okJson(listUsersMockResponse)));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/%s".formatted(MOCK_ROLE_UUID))).willReturn(WireMock.okJson(roleDetailMockResponse)));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/%s/users".formatted(MOCK_ROLE_UUID))).willReturn(WireMock.okJson(listUsersMockResponse)));
     }
 }
