@@ -382,6 +382,8 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
         Assertions.assertEquals("ownerName", owner.getName());
+
+        mockServer.shutdown();
     }
 
     @Test

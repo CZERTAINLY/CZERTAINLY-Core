@@ -24,15 +24,17 @@ import java.util.UUID;
 @SpringBootTest
 @Transactional
 @Rollback
-public class NotificationServiceTest extends BaseSpringBootTest {
+class NotificationServiceTest extends BaseSpringBootTest {
 
-    private static int authServiceMockPort = 10001;
-    private static String mockRoleUuid = UUID.randomUUID().toString();
+    private static final int authServiceMockPort = 10001;
+    private static final String mockRoleUuid = UUID.randomUUID().toString();
     private String mockUser1Uuid;
-    private static String mockUser2Uuid = UUID.randomUUID().toString();
-    private static String mockUser3Uuid = UUID.randomUUID().toString();
-    private static String mockGroup1Uuid = UUID.randomUUID().toString();
-    private static String mockGroup2Uuid = UUID.randomUUID().toString();
+    private static final String mockUser2Uuid = UUID.randomUUID().toString();
+    private static final String mockUser3Uuid = UUID.randomUUID().toString();
+    private static final String mockGroup1Uuid = UUID.randomUUID().toString();
+    private static final String mockGroup2Uuid = UUID.randomUUID().toString();
+
+    private WireMockServer mockServer;
 
     @Autowired
     private NotificationService notificationService;
@@ -52,7 +54,7 @@ public class NotificationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCreateNotificationsForRole() throws NotFoundException {
+    void testCreateNotificationsForRole() throws NotFoundException {
         setupAuthServiceMock();
 
         notificationService.createNotificationForRole("TestMessage", null, mockRoleUuid, Resource.DISCOVERY, UUID.randomUUID().toString());
@@ -74,10 +76,12 @@ public class NotificationServiceTest extends BaseSpringBootTest {
         listingResponse = notificationService.listNotifications(notificationRequestDto);
 
         Assertions.assertEquals(2, listingResponse.getItems().size());
+
+        mockServer.shutdown();
     }
 
     private void setupAuthServiceMock() {
-        WireMockServer mockServer = new WireMockServer(authServiceMockPort);
+        mockServer = new WireMockServer(authServiceMockPort);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
