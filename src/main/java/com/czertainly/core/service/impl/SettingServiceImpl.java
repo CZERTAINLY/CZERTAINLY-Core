@@ -63,9 +63,11 @@ public class SettingServiceImpl implements SettingService {
         this.mapper = mapper;
         this.settingsCache = settingsCache;
         this.settingRepository = settingRepository;
+
+        refreshCache();
     }
 
-    @Scheduled(fixedRateString ="${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS)
+    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
     public void refreshCache() {
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
         settingsCache.cacheSettings(SettingsSection.LOGGING, getLoggingSettings());
