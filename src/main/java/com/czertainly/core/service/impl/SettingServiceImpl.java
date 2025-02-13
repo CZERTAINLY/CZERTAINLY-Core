@@ -27,7 +27,9 @@ import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -35,6 +37,7 @@ import java.io.InputStream;
 import java.net.*;
 import java.text.ParseException;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 
 @Service
 @Transactional
@@ -61,6 +64,11 @@ public class SettingServiceImpl implements SettingService {
         this.settingsCache = settingsCache;
         this.settingRepository = settingRepository;
 
+        refreshCache();
+    }
+
+    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
+    public void refreshCache() {
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
         settingsCache.cacheSettings(SettingsSection.LOGGING, getLoggingSettings());
         settingsCache.cacheSettings(SettingsSection.NOTIFICATIONS, getNotificationSettings());
