@@ -55,14 +55,11 @@ public class ActionListener {
             final Optional<List<ApprovalProfileRelation>> approvalProfileRelationOptional = approvalProfileRelationRepository.findByResourceUuidAndResource(actionMessage.getApprovalProfileResourceUuid(), actionMessage.getApprovalProfileResource());
             if (approvalProfileRelationOptional.isPresent() && !approvalProfileRelationOptional.get().isEmpty()) {
                 try {
-                    final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().getFirst();
-                    if (approvalProfileRelation.getApprovalProfile().isEnabled()) {
-                        final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
-                        final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
-                        logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
-                        processApprovalCreated(actionMessage);
-                        return;
-                    }
+                    final ApprovalProfileRelation approvalProfileRelation = approvalProfileRelationOptional.get().get(0);
+                    final ApprovalProfileVersion approvalProfileVersion = approvalProfileRelation.getApprovalProfile().getTheLatestApprovalProfileVersion();
+                    final Approval approval = approvalService.createApproval(approvalProfileVersion, actionMessage.getResource(), actionMessage.getResourceAction(), actionMessage.getResourceUuid(), actionMessage.getUserUuid(), actionMessage.getData());
+                    logger.info("Created new Approval {} for object {}", approval.getUuid(), actionMessage.getResourceUuid());
+                    processApprovalCreated(actionMessage);
                 } catch (Exception e) {
                     String errorMessage = String.format("Cannot create new approval to approve %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
                     logger.error("{}: {}", errorMessage, e.getMessage());
@@ -70,6 +67,7 @@ public class ActionListener {
                             NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
                     throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
+                return;
             }
         }
 
