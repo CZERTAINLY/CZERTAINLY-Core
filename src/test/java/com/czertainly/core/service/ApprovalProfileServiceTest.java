@@ -39,7 +39,6 @@ class ApprovalProfileServiceTest extends ApprovalProfileData {
 
         final ApprovalProfile approvalProfileDB = approvalProfileOptional.get();
         Assertions.assertEquals(1, approvalProfileDB.getApprovalProfileVersions().size());
-        Assertions.assertTrue(approvalProfileDB.isEnabled());
 
         final ApprovalProfileDetailDto approvalProfileVersion = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
         Assertions.assertEquals(1, approvalProfileVersion.getVersion());
@@ -63,7 +62,6 @@ class ApprovalProfileServiceTest extends ApprovalProfileData {
         final ApprovalProfile approvalProfileDB = approvalProfileOptional.get();
 
         Assertions.assertEquals(2, approvalProfileDB.getApprovalProfileVersions().size());
-        Assertions.assertTrue(approvalProfileDB.isEnabled());
 
         final ApprovalProfileDetailDto approvalProfileVersion = approvalProfileService.getApprovalProfile(approvalProfile.getSecuredUuid(), null);
         Assertions.assertEquals(2, approvalProfileVersion.getVersion());
@@ -72,30 +70,8 @@ class ApprovalProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testDisableEnableApprovalProfile() throws NotFoundException, AlreadyExistException {
-        final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        Assertions.assertTrue(approvalProfile.isEnabled());
-
-        approvalProfileService.disableApprovalProfile(approvalProfile.getSecuredUuid());
-
-        final Optional<ApprovalProfile> approvalProfileDBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
-        final ApprovalProfile approvalProfileDB = approvalProfileDBOptional.get();
-
-        Assertions.assertFalse(approvalProfileDB.isEnabled());
-
-        approvalProfileService.enableApprovalProfile(approvalProfile.getSecuredUuid());
-
-        final Optional<ApprovalProfile> approvalProfile2DBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
-        final ApprovalProfile approvalProfile2DB = approvalProfile2DBOptional.get();
-
-        Assertions.assertTrue(approvalProfile2DB.isEnabled());
-    }
-
-    @Test
     void testDeleteApprovalProfile() throws NotFoundException, AlreadyExistException {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
-        Assertions.assertTrue(approvalProfile.isEnabled());
-
         approvalProfileService.deleteApprovalProfile(approvalProfile.getSecuredUuid());
 
         final Optional<ApprovalProfile> approvalProfileDBOptional = approvalProfileRepository.findByUuid(SecuredUUID.fromUUID(approvalProfile.getUuid()));
@@ -107,8 +83,6 @@ class ApprovalProfileServiceTest extends ApprovalProfileData {
         final ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
         approvalProfileService.editApprovalProfile(approvalProfile.getSecuredUuid(), approvalProfileUpdateRequestDto);
-
-        Assertions.assertTrue(approvalProfile.isEnabled());
 
         ApprovalProfileResponseDto approvalProfileResponseDto = approvalProfileService.listApprovalProfiles(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(1, approvalProfileResponseDto.getApprovalProfiles().size());
