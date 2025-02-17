@@ -73,6 +73,12 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
 
         Map<String, Object> claims = OAuth2Util.mergeClaims(source.getClaims(), null, userInfoClaims);
 
+        if (!claims.containsKey(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)) {
+            String message = "The username claim could not be retrieved from the Access Token or User Info Endpoint for user authenticating with Access Token %s".formatted(source.getTokenValue());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, source.getTokenValue());
+            throw new CzertainlyAuthenticationException(message);
+        }
+
         ObjectMapper objectMapper = new ObjectMapper();
         JavaTimeModule module = new JavaTimeModule();
         objectMapper.registerModule(module);

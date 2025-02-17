@@ -77,12 +77,6 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
             throw new CzertainlyAuthenticationException(message);
         }
 
-        if (claimsSet.getClaim("username") == null) {
-            String message = "Username claim is not present in JWT.";
-            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
-            throw new CzertainlyAuthenticationException(message);
-        }
-
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(issuerUri)).findFirst().orElse(null);
 
