@@ -58,12 +58,9 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
         // Try to get additional information about user from User Info endpoint
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(source.getIssuer().toString())).findFirst().orElse(null);
-        if (providerSettings == null) {
-            String message = "No OAuth2 Provider with issuer URI '%s' configured for authentication with JWT token".formatted(source.getIssuer());
-            throw new CzertainlyAuthenticationException(message);
-        }
+
         Map<String, Object> userInfoClaims = null;
-        if (providerSettings.getUserInfoUrl() != null) {
+        if (providerSettings != null && providerSettings.getUserInfoUrl() != null) {
             try {
                 userInfoClaims = OAuth2Util.getUserInfo(providerSettings.getUserInfoUrl(), source.getTokenValue());
             } catch (Exception e) {
@@ -94,7 +91,7 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
         AuthenticationInfo authInfo = authenticationClient.authenticate(headers, false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authInfo);
         // Provider settings will not be null, otherwise converter would not have been reached from decoder
-        logger.debug("User '{}' has been authenticated using JWT from OAuth2 Provider '{}'.", userDetails.getUsername(), providerSettings.getName());
+        logger.debug("User '{}' has been authenticated using JWT from OAuth2 Provider '{}'.", userDetails.getUsername(), providerSettings == null ? " " : providerSettings.getName());
         return new CzertainlyAuthenticationToken(userDetails);
     }
 }

@@ -8,6 +8,8 @@ import lombok.Setter;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
 
+import java.util.Map;
+
 @Setter
 @Getter
 public class AuthenticationRequestDto {
@@ -19,7 +21,7 @@ public class AuthenticationRequestDto {
     private String certificateContent;
 
     @Schema(description = "Authentication Token User Claims")
-    private String authenticationTokenUserClaims;
+    private Map<String, Object> authenticationTokenUserClaims;
 
     @Schema(description = "System Username")
     private String systemUsername;
@@ -38,7 +40,7 @@ public class AuthenticationRequestDto {
         } : switch (authMethod) {
             case NONE -> null;
             case CERTIFICATE -> certificateContent;
-            case TOKEN, SESSION -> authenticationTokenUserClaims;
+            case TOKEN, SESSION -> authenticationTokenUserClaims.toString();
             case API_KEY -> null;
             case USER_PROXY -> systemUsername != null ? systemUsername : userUuid;
         };
