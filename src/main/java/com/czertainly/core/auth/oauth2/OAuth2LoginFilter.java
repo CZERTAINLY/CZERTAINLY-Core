@@ -200,6 +200,13 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
         Map<String, Object> claims = OAuth2Util.mergeClaims(accessTokenClaims, oidcUser.getIdToken().getClaims(), userInfoClaims);
 
+        if (!claims.containsKey(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)) {
+            session.invalidate();
+            String message = "The username claim could not be retrieved from the Access Token, User Info Endpoint, or ID Token for user authenticating with Access Token %s".formatted(accessTokenValue);
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
+            throw new CzertainlyAuthenticationException(message);
+        }
+
         ObjectMapper objectMapper = new ObjectMapper();
         JavaTimeModule module = new JavaTimeModule();
         objectMapper.registerModule(module);

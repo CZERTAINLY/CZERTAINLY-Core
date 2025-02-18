@@ -18,8 +18,8 @@ public class AuthenticationRequestDto {
     @Schema(description = "Base64 Content of the certificate")
     private String certificateContent;
 
-    @Schema(description = "Authentication Token Claims")
-    private String authenticationTokenClaims;
+    @Schema(description = "Authentication Token User Claims")
+    private String authenticationTokenUserClaims;
 
     @Schema(description = "System Username")
     private String systemUsername;
@@ -32,13 +32,13 @@ public class AuthenticationRequestDto {
         return withLabel ? switch (authMethod) {
             case NONE -> "";
             case CERTIFICATE -> "Certificate: " + certificateContent;
-            case TOKEN, SESSION -> "Token: " + authenticationTokenClaims;
+            case TOKEN, SESSION -> "Token: " + authenticationTokenUserClaims;
             case API_KEY -> "";
             case USER_PROXY -> systemUsername != null ? "System username: " + systemUsername : "User UUID: " + userUuid;
         } : switch (authMethod) {
             case NONE -> null;
             case CERTIFICATE -> certificateContent;
-            case TOKEN, SESSION -> authenticationTokenClaims;
+            case TOKEN, SESSION -> authenticationTokenUserClaims;
             case API_KEY -> null;
             case USER_PROXY -> systemUsername != null ? systemUsername : userUuid;
         };
@@ -46,6 +46,6 @@ public class AuthenticationRequestDto {
 
     @Override
     public String toString() {
-        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("certificateContent", certificateContent).append("authenticationTokenClaims", authenticationTokenClaims).append("systemUsername", systemUsername).append("userUuid", userUuid).toString();
+        return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE).append("certificateContent", certificateContent).append("authenticationTokenUserClaims", authenticationTokenUserClaims).append("systemUsername", systemUsername).append("userUuid", userUuid).toString();
     }
 }
