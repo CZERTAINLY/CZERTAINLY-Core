@@ -70,7 +70,6 @@ public class ApprovalProfileVersion extends UniquelyIdentifiedAndAudited {
     private void setCommonFields(ApprovalProfileDto approvalProfileDto) {
         approvalProfileDto.setUuid(this.getApprovalProfile().getUuid().toString());
         approvalProfileDto.setDescription(this.description);
-        approvalProfileDto.setEnabled(this.getApprovalProfile().isEnabled());
         approvalProfileDto.setName(this.getApprovalProfile().getName());
         approvalProfileDto.setExpiry(this.expiry);
         approvalProfileDto.setVersion(this.version);
