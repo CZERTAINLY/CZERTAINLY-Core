@@ -205,16 +205,22 @@ public class UserManagementServiceImpl implements UserManagementService {
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException {
         AuthenticationRequestDto authenticationRequest = new AuthenticationRequestDto();
-        authenticationRequest.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
-        Map<String, Object> userClaims;
-        SignedJWT signedJWT;
-        try {
-            signedJWT = SignedJWT.parse(request.getAuthenticationToken());
-            userClaims = signedJWT.getJWTClaimsSet().getClaims();
-        } catch (ParseException e) {
-            throw new ValidationException("Could extract claims from Authentication Token: " + e.getMessage());
+        if (request.getCertificateContent() != null) {
+            authenticationRequest.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
+        } else if (request.getAuthenticationToken() != null) {
+            Map<String, Object> userClaims;
+            SignedJWT signedJWT;
+            try {
+                signedJWT = SignedJWT.parse(request.getAuthenticationToken());
+                userClaims = signedJWT.getJWTClaimsSet().getClaims();
+            } catch (ParseException e) {
+                throw new ValidationException("Could not extract claims from Authentication Token: " + e.getMessage());
+            }
+            authenticationRequest.setAuthenticationTokenUserClaims(userClaims);
+        } else {
+            throw new ValidationException("User cannot be identified without providing certificate or JWT token");
         }
-        authenticationRequest.setAuthenticationTokenUserClaims(userClaims);
+
         UserDetailDto dto = userManagementApiClient.identifyUser(authenticationRequest);
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(dto.getUuid())));
         return dto;
