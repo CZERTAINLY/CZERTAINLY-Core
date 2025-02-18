@@ -19,9 +19,6 @@ public class ApprovalProfile extends UniquelyIdentifiedAndAudited {
     @Column(name = "name")
     private String name;
 
-    @Column(name = "enabled")
-    private boolean enabled;
-
     @JsonBackReference
     @OneToMany(mappedBy = "approvalProfile", fetch = FetchType.LAZY)
     @ToString.Exclude
