@@ -11,7 +11,6 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.dao.entity.ApprovalProfile;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -45,18 +44,6 @@ public class ApprovalProfileControllerImpl implements ApprovalProfileController 
     @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.DELETE)
     public void deleteApprovalProfile(@LogResource(uuid = true) final String uuid) throws NotFoundException, ValidationException {
         approvalProfileService.deleteApprovalProfile(SecuredUUID.fromString(uuid));
-    }
-
-    @Override
-    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.ENABLE)
-    public void enableApprovalProfile(@LogResource(uuid = true) final String uuid) throws NotFoundException, ValidationException {
-        approvalProfileService.enableApprovalProfile(SecuredUUID.fromString(uuid));
-    }
-
-    @Override
-    @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL_PROFILE, operation = Operation.DISABLE)
-    public void disableApprovalProfile(@LogResource(uuid = true) final String uuid) throws NotFoundException, ValidationException {
-        approvalProfileService.disableApprovalProfile(SecuredUUID.fromString(uuid));
     }
 
     @Override
