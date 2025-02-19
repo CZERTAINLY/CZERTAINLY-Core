@@ -21,22 +21,21 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
-import org.springframework.security.web.FilterInvocation;
+import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.WebAuthenticationDetails;
 import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
 
 import java.util.List;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.access.AccessDecisionVoter.ACCESS_ABSTAIN;
-import static org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
-import static org.springframework.security.access.AccessDecisionVoter.ACCESS_GRANTED;
 
 @ExtendWith(MockitoExtension.class)
-class ExternalFilterAuthorizationVoterTest {
+class ExternalFilterAuthorizationManagerTest {
 
     @Mock
     OpaClient opaClient;
@@ -48,15 +47,19 @@ class ExternalFilterAuthorizationVoterTest {
     ObjectMapper om = new ObjectMapper();
 
     @InjectMocks
-    ExternalFilterAuthorizationVoter voter;
+    ExternalFilterAuthorizationManager manager;
 
     CzertainlyAuthenticationToken authentication = createCzertainlyAuthentication();
 
-    FilterInvocation fi = new FilterInvocation("/v1/groups", "GET");
+    RequestAuthorizationContext authorizationContext;
 
     @BeforeEach
     void setUp() {
-        voter = new ExternalFilterAuthorizationVoter(opaClient, new ObjectMapper(), new AuditLogServiceImpl());
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setRequestURI("/v1/groups");
+        authorizationContext = new RequestAuthorizationContext(request);
+        manager = new ExternalFilterAuthorizationManager(opaClient, new ObjectMapper(), new AuditLogServiceImpl());
     }
 
     @Test
@@ -66,10 +69,10 @@ class ExternalFilterAuthorizationVoterTest {
                 .thenReturn(accessGranted());
 
         // when
-        int result = voter.vote(authentication, fi, List.of());
+        AuthorizationResult result = manager.authorize(() -> authentication, authorizationContext);
 
         // then
-        assertEquals(ACCESS_GRANTED, result);
+        assertTrue(result.isGranted());
     }
 
     @Test
@@ -79,10 +82,10 @@ class ExternalFilterAuthorizationVoterTest {
                 .thenReturn(OpaResourceAccessResult.unauthorized());
 
         // when
-        int result = voter.vote(authentication, fi, List.of());
+        AuthorizationResult result = manager.authorize(() -> authentication, authorizationContext);
 
         // then
-        assertEquals(ACCESS_DENIED, result);
+        assertFalse(result.isGranted());
     }
 
     @Test
@@ -92,15 +95,12 @@ class ExternalFilterAuthorizationVoterTest {
         when(opaClient.checkResourceAccess(any(), resourceCaptor.capture(), any(), any()))
                 .thenReturn(accessGranted());
 
-        // given
-        FilterInvocation fi = new FilterInvocation("/v1/groups", "GET");
-
         // when
-        voter.vote(authentication, fi, List.of());
+        manager.authorize(() -> authentication, authorizationContext);
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
-        assertEquals(List.of("v1", "groups"), resource.getUrl());
+        assertTrue( resource.getUrl().containsAll(List.of("v1", "groups")));
     }
 
     @Test
@@ -115,11 +115,11 @@ class ExternalFilterAuthorizationVoterTest {
         authentication.setDetails(details);
 
         // when
-        voter.vote(authentication, fi, List.of());
+        manager.authorize(() -> authentication, authorizationContext);
 
         // then
-        OpaRequestDetails details = detailsCaptor.getValue();
-        assertEquals("127.0.0.1", details.getRemoteAddress());
+        OpaRequestDetails opaRequestDetails = detailsCaptor.getValue();
+        assertEquals("127.0.0.1", opaRequestDetails.getRemoteAddress());
     }
 
     @Test
@@ -129,23 +129,26 @@ class ExternalFilterAuthorizationVoterTest {
                 .thenThrow(new RuntimeException("Ooops..."));
 
         // when
-        int result = voter.vote(authentication, fi, List.of());
+        AuthorizationResult result = manager.authorize(() -> authentication, authorizationContext);
 
         // then
-        assertEquals(ACCESS_DENIED, result);
+        assertFalse(result.isGranted());
     }
 
     @Test
     void abstainsIfCantDecideForGivenUrl() {
         // given
-        voter.setToAuthorizeRequestsMatcher(new AntPathRequestMatcher("/my/url"));
-        FilterInvocation fi = new FilterInvocation("/another/url", "GET");
+        manager.setToAuthorizeRequestsMatcher(new AntPathRequestMatcher("/my/url"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setRequestURI("/another/url");
+        authorizationContext = new RequestAuthorizationContext(request);
 
         // when
-        int result = voter.vote(authentication, fi, List.of());
+        AuthorizationResult result = manager.authorize(() -> authentication, authorizationContext);
 
         // then
-        assertEquals(ACCESS_ABSTAIN, result);
+        assertFalse(result.isGranted());
     }
 
     @Test
@@ -156,10 +159,10 @@ class ExternalFilterAuthorizationVoterTest {
                 .thenReturn(accessGranted());
 
         // given
-        Authentication authentication = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
+        Authentication anonymousAuthenticationToken = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
 
         // when
-        voter.vote(authentication, fi, List.of());
+        manager.authorize(() -> anonymousAuthenticationToken, authorizationContext);
 
         // then
         String principal = principalCaptor.getValue();
@@ -169,15 +172,18 @@ class ExternalFilterAuthorizationVoterTest {
     @Test
     void anonymousRequestIsNotAuthorizedWhenExplicitlyExcluded() {
         // given
-        Authentication authentication = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
-        voter.setDoNotAuthorizeAnonymousRequestsMatcher(new AntPathRequestMatcher("/error"));
-        FilterInvocation fi = new FilterInvocation("/error", "GET");
+        Authentication anonymousToken = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
+        manager.setDoNotAuthorizeAnonymousRequestsMatcher(new AntPathRequestMatcher("/error"));
+        MockHttpServletRequest request = new MockHttpServletRequest();
+        request.setMethod("GET");
+        request.setRequestURI("/error");
+        authorizationContext = new RequestAuthorizationContext(request);
 
         // when
-        int result = voter.vote(authentication, fi, List.of());
+        AuthorizationResult result = manager.authorize(() -> anonymousToken, authorizationContext);
 
         // then
-        assertEquals(ACCESS_ABSTAIN, result);
+        assertFalse(result.isGranted());
     }
 
     CzertainlyAuthenticationToken createCzertainlyAuthentication() {
