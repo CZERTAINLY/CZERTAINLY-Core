@@ -32,6 +32,7 @@ import reactor.core.publisher.Mono;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.util.HashMap;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -111,7 +112,12 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         final List<String> authTokenHeaderNameList = headers.get(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
         if (authTokenHeaderNameList != null) {
             hasAuthenticationMethod = true;
-            requestDto.setAuthenticationToken(authTokenHeaderNameList.getFirst());
+            try {
+                // Temporary solution to make it work with current Auth Service, will be changed when refactoring
+                requestDto.setAuthenticationTokenUserClaims(new ObjectMapper().readValue(authTokenHeaderNameList.getFirst(), HashMap.class));
+            } catch (JsonProcessingException e) {
+                throw new CzertainlyAuthenticationException("Could not convert JSON to map.");
+            }
             if (requestDto.getAuthMethod() == AuthMethod.NONE) {
                 requestDto.setAuthMethod(AuthMethod.TOKEN);
             }

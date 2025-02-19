@@ -40,6 +40,7 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     static void authServiceProperties(DynamicPropertyRegistry registry) {
         registry.add("auth-service.base-url", () -> "http://localhost:10003");
     }
+
     private static final String CERTIFICATE_USER_USERNAME = "certificate-user";
     private static final String CERTIFICATE_HEADER_VALUE = "certificate";
     private static final String TOKEN = "mock-token";
@@ -47,8 +48,6 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     private static final String TOKEN_USER_USERNAME = "token-user";
 
     Jwt mockJwt;
-
-
     WireMockServer mockServer;
 
     @BeforeEach
@@ -106,9 +105,10 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
         mockJwt = Jwt.withTokenValue(TOKEN)
                 .header("alg", "RS256")
                 .claim("username", TOKEN_USER_USERNAME)
+                .issuer("http://issuer")
                 .build();
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth"))
-                .withRequestBody(WireMock.containing(mockJwt.getTokenValue()))
+                .withRequestBody(WireMock.containing("{\"iss\":\"http://issuer\",\"username\":\"token-user\"}"))
                 .willReturn(
                         WireMock.okJson(String.format("""        
                                 {

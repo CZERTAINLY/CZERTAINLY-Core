@@ -1,12 +1,12 @@
 package com.czertainly.core.security.authn.client;
 
-import com.czertainly.api.model.client.auth.UserIdentificationRequestDto;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.SubjectPermissionsDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserRequestDto;
 import com.czertainly.api.model.core.auth.UserUpdateRequestDto;
 import com.czertainly.api.model.core.auth.UserWithPaginationDto;
+import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import org.springframework.http.HttpMethod;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
@@ -54,7 +54,7 @@ public class UserManagementApiClient extends CzertainlyBaseAuthenticationClient 
                 request);
     }
 
-    public UserDetailDto identifyUser(UserIdentificationRequestDto requestDto) {
+    public UserDetailDto identifyUser(AuthenticationRequestDto requestDto) {
         WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
 
         return processRequest(r -> r

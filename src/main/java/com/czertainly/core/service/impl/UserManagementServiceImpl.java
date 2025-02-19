@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -26,6 +27,7 @@ import com.czertainly.core.service.GroupService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
+import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -34,8 +36,10 @@ import org.springframework.stereotype.Service;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.*;
 import java.security.cert.CertificateException;
+import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -200,8 +204,24 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.DETAIL)
     public UserDetailDto identifyUser(UserIdentificationRequestDto request) throws NotFoundException {
-        request.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
-        UserDetailDto dto = userManagementApiClient.identifyUser(request);
+        AuthenticationRequestDto authenticationRequest = new AuthenticationRequestDto();
+        if (request.getCertificateContent() != null) {
+            authenticationRequest.setCertificateContent(CertificateUtil.normalizeCertificateContent(request.getCertificateContent()));
+        } else if (request.getAuthenticationToken() != null) {
+            Map<String, Object> userClaims;
+            SignedJWT signedJWT;
+            try {
+                signedJWT = SignedJWT.parse(request.getAuthenticationToken());
+                userClaims = signedJWT.getJWTClaimsSet().getClaims();
+            } catch (ParseException e) {
+                throw new ValidationException("Could not extract claims from Authentication Token: " + e.getMessage());
+            }
+            authenticationRequest.setAuthenticationTokenUserClaims(userClaims);
+        } else {
+            throw new ValidationException("User cannot be identified without providing certificate or JWT token");
+        }
+
+        UserDetailDto dto = userManagementApiClient.identifyUser(authenticationRequest);
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.USER, UUID.fromString(dto.getUuid())));
         return dto;
     }

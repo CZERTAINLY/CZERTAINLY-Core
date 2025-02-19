@@ -14,6 +14,10 @@ import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.OAuth2Util;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -23,6 +27,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,12 +39,15 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 
 @Component
 public class OAuth2LoginFilter extends OncePerRequestFilter {
@@ -73,20 +81,13 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
-            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-            OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
-            if (providerSettings == null) {
-                request.getSession().invalidate();
-                String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(oauthToken.getAuthorizedClientRegistrationId());
-                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
-                throw new CzertainlyAuthenticationException(message);
-            }
+            OAuth2ProviderSettingsDto providerSettings = getProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), request.getSession(), oauth2AccessToken);
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), oauth2AccessToken, (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
@@ -115,23 +116,10 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             }
 
             HttpHeaders headers = new HttpHeaders();
-            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
-            AuthenticationInfo authInfo;
-            try {
-                authInfo = authenticationClient.authenticate(headers, false);
-                CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
-            } catch (AuthenticationException e) {
-                // invalidate session when authentication fails
-                request.getSession().invalidate();
-                SecurityContextHolder.clearContext();
-                if (e instanceof CzertainlyAuthenticationException) {
-                    LOGGER.warn("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
-                } else {
-                    throw e;
-                }
-            }
+            String claimsHeader = getClaimsHeader(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oauthToken, request.getSession());
+            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, claimsHeader);
+
+            authenticate(request, headers, clientRegistration);
         }
 
         try {
@@ -139,6 +127,25 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         } catch (IOException | ServletException e) {
             request.getSession().invalidate();
             LOGGER.error("Error when proceeding with OAuth2Login filter: {}", e.getMessage());
+        }
+    }
+
+    private void authenticate(HttpServletRequest request, HttpHeaders headers, ClientRegistration clientRegistration) {
+        AuthenticationInfo authInfo;
+        try {
+            authInfo = authenticationClient.authenticate(headers, false);
+            CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
+        } catch (AuthenticationException e) {
+            // invalidate session when authentication fails
+            request.getSession().invalidate();
+            SecurityContextHolder.clearContext();
+            if (e instanceof CzertainlyAuthenticationException) {
+                LOGGER.warn("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
+            } else {
+                throw e;
+            }
         }
     }
 
@@ -168,6 +175,61 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         } else {
             throw new CzertainlyAuthenticationException("Refresh token is not available.");
         }
+    }
+
+    private String getClaimsHeader(OAuth2ProviderSettingsDto providerSettings, String accessTokenValue, OAuth2AuthenticationToken token, HttpSession session) {
+        Map<String, Object> userInfoClaims = null;
+        if (providerSettings.getUserInfoUrl() != null) {
+            try {
+                userInfoClaims = OAuth2Util.getUserInfo(providerSettings.getUserInfoUrl(), accessTokenValue);
+            } catch (Exception e) {
+                LOGGER.warn("Could not access User Info Endpoint: {}", e.getMessage());
+            }
+        }
+
+        OidcUser oidcUser = (OidcUser) token.getPrincipal();
+        Map<String, Object> accessTokenClaims;
+        try {
+            accessTokenClaims = SignedJWT.parse(accessTokenValue).getJWTClaimsSet().getClaims();
+        } catch (ParseException e) {
+            session.invalidate();
+            String message = "Could not convert access token to JWT and extract claims: %s".formatted(e.getMessage());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
+            throw new CzertainlyAuthenticationException(message);
+        }
+
+        Map<String, Object> claims = OAuth2Util.mergeClaims(accessTokenClaims, oidcUser.getIdToken().getClaims(), userInfoClaims);
+
+        if (!claims.containsKey(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)) {
+            session.invalidate();
+            String message = "The username claim could not be retrieved from the Access Token, User Info Endpoint, or ID Token for user authenticating with Access Token %s".formatted(accessTokenValue);
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
+            throw new CzertainlyAuthenticationException(message);
+        }
+
+        ObjectMapper objectMapper = new ObjectMapper();
+        JavaTimeModule module = new JavaTimeModule();
+        objectMapper.registerModule(module);
+        try {
+            return objectMapper.writeValueAsString(claims);
+        } catch (JsonProcessingException e) {
+            session.invalidate();
+            String message = "Could convert claims to JSON: %s".formatted(e.getMessage());
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
+            throw new CzertainlyAuthenticationException(message);
+        }
+    }
+
+    private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(clientRegistrationId);
+        if (providerSettings == null) {
+            session.invalidate();
+            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(clientRegistrationId);
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
+            throw new CzertainlyAuthenticationException(message);
+        }
+        return providerSettings;
     }
 
 }

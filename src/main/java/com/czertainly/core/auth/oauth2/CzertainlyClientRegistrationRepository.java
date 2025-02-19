@@ -52,7 +52,6 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
                 .authorizationUri(clientSettings.getAuthorizationUrl())
                 .tokenUri(clientSettings.getTokenUrl())
                 .jwkSetUri(clientSettings.getJwkSetUrl() != null ? clientSettings.getJwkSetUrl() : protocol + "://localhost:" + port + context + "/oauth2/" + registrationId + "/jwkSet")
-                .userInfoUri(clientSettings.getUserInfoUrl())
                 .providerConfigurationMetadata(configMetadata)
                 .build();
     }

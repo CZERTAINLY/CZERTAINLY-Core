@@ -10,13 +10,8 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.JWSSigner;
-import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.PlainJWT;
-import com.nimbusds.jwt.SignedJWT;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -29,7 +24,6 @@ import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.*;
 
@@ -38,6 +32,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 @SpringBootTest
 class JwtDecoderTest extends BaseSpringBootTest {
 
+    public static final String AUDIENCE = "your-audience";
     @Autowired
     private JwtDecoder jwtDecoder;
 
@@ -103,7 +98,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
-        tokenValue = createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000);
+        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE);
 
     }
 
@@ -117,7 +112,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
 
-        String almostExpiredToken = createJwtTokenValue(keyPair.getPrivate(), 1);
+        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE);
         // Test if 30 s skew is added to the time and therefore the token should be successfully validated
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(almostExpiredToken));
     }
@@ -128,14 +123,14 @@ class JwtDecoderTest extends BaseSpringBootTest {
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
-        String expiredToken = createJwtTokenValue(keyPair.getPrivate(), 1);
+        String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE);
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
         Assertions.assertTrue(exception.getMessage().contains("Jwt expired"));
     }
 
     @Test
     void testJwtDecoderOnTokenWithValidAudiences() {
-        providerSettings.setAudiences(List.of("your-audience"));
+        providerSettings.setAudiences(List.of(AUDIENCE));
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
@@ -193,29 +188,11 @@ class JwtDecoderTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testJWTWithoutUsername() throws JOSEException {
-        SecurityContextHolder.clearContext();
-        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                .subject("your-subject")
-                .audience("your-audience")
-                .expirationTime(new Date(System.currentTimeMillis() + 3600 * 1000)) // 1 hour
-                .issuer(ISSUER_URL)
-                .build();
-
-        SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claimsSet);
-        JWSSigner signer = new RSASSASigner(keyPair.getPrivate());
-        signedJWT.sign(signer);
-        tokenValue = signedJWT.serialize();
-        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
-        Assertions.assertTrue(exception.getMessage().contains("Username claim is not present in JWT"));
-    }
-
-    @Test
     void testUnsignedJwt() {
         SecurityContextHolder.clearContext();
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject("your-subject")
-                .audience("your-audience")
+                .audience(AUDIENCE)
                 .expirationTime(new Date(System.currentTimeMillis() + 3600 * 1000)) // 1 hour
                 .issuer(ISSUER_URL)
                 .build();
@@ -223,22 +200,6 @@ class JwtDecoderTest extends BaseSpringBootTest {
         tokenValue = new PlainJWT(claimsSet).serialize();
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
         Assertions.assertTrue(exception.getMessage().contains("Incoming Token is not an instance of Signed JWT"));
-    }
-
-
-    private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {
-        JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                .subject("your-subject")
-                .audience("your-audience")
-                .expirationTime(new Date(System.currentTimeMillis() + expiryInMilliseconds)) // 1 hour
-                .claim("username", "username")
-                .issuer(ISSUER_URL)
-                .build();
-
-        SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claimsSet);
-        JWSSigner signer = new RSASSASigner(privateKey);
-        signedJWT.sign(signer);
-        return signedJWT.serialize();
     }
 
     private String convertRSAPrivateKeyToJWK(RSAPublicKey publicKey) throws JsonProcessingException {
