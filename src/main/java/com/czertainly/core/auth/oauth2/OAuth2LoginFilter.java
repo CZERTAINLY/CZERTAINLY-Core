@@ -115,11 +115,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 }
             }
 
-            HttpHeaders headers = new HttpHeaders();
-            String claimsHeader = getClaimsHeader(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oauthToken, request.getSession());
-            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, claimsHeader);
-
-            authenticate(request, headers, clientRegistration);
+            Map<String, Object> claims = getClaims(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oauthToken, request.getSession());
+            authenticate(request, claims, clientRegistration);
         }
 
         try {
@@ -130,10 +127,10 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         }
     }
 
-    private void authenticate(HttpServletRequest request, HttpHeaders headers, ClientRegistration clientRegistration) {
+    private void authenticate(HttpServletRequest request, Map<String, Object> claims, ClientRegistration clientRegistration) {
         AuthenticationInfo authInfo;
         try {
-            authInfo = authenticationClient.authenticate(headers, false);
+            authInfo = authenticationClient.authenticate(AuthMethod.TOKEN, claims, false);
             CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
             SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
@@ -177,7 +174,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         }
     }
 
-    private String getClaimsHeader(OAuth2ProviderSettingsDto providerSettings, String accessTokenValue, OAuth2AuthenticationToken token, HttpSession session) {
+    private Map<String, Object> getClaims(OAuth2ProviderSettingsDto providerSettings, String accessTokenValue, OAuth2AuthenticationToken token, HttpSession session) {
         Map<String, Object> userInfoClaims = null;
         if (providerSettings.getUserInfoUrl() != null) {
             try {
@@ -207,17 +204,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             throw new CzertainlyAuthenticationException(message);
         }
 
-        ObjectMapper objectMapper = new ObjectMapper();
-        JavaTimeModule module = new JavaTimeModule();
-        objectMapper.registerModule(module);
-        try {
-            return objectMapper.writeValueAsString(claims);
-        } catch (JsonProcessingException e) {
-            session.invalidate();
-            String message = "Could convert claims to JSON: %s".formatted(e.getMessage());
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
-            throw new CzertainlyAuthenticationException(message);
-        }
+        return claims;
     }
 
     private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {

@@ -1,9 +1,8 @@
 package com.czertainly.core.config;
 
 import com.czertainly.core.auth.oauth2.*;
-import com.czertainly.core.security.authn.CzertainlyAuthenticationConverter;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
-import com.czertainly.core.security.authn.CzertainlyAuthenticationProvider;
+import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.security.authz.ExternalFilterAuthorizationVoter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,8 +12,6 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.access.AccessDecisionManager;
 import org.springframework.security.access.AccessDecisionVoter;
 import org.springframework.security.access.vote.AffirmativeBased;
-import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -35,8 +32,6 @@ import java.util.List;
 @EnableWebSecurity
 public class SecurityConfig {
 
-    CzertainlyAuthenticationProvider czertainlyAuthenticationProvider;
-
     ExternalFilterAuthorizationVoter filterAuthorizationVoter;
 
     ProtocolValidationFilter protocolValidationFilter;
@@ -48,6 +43,8 @@ public class SecurityConfig {
     private OAuth2LoginFilter oauth2LoginFilter;
 
     private JwtDecoder jwtDecoder;
+
+    private CzertainlyAuthenticationClient authenticationClient;
 
 
 
@@ -131,12 +128,6 @@ public class SecurityConfig {
         return new CzertainlyJwtAuthenticationConverter();
     }
 
-
-    @Bean
-    public AuthenticationManager authenticationManager() {
-        return new ProviderManager(czertainlyAuthenticationProvider);
-    }
-
     protected AccessDecisionManager accessDecisionManager() {
         // This configuration controls access to api endpoints. Important here is the order in which the individual
         // voters are registered. The first one must always be ExternalAuthorizationFilter.
@@ -168,7 +159,7 @@ public class SecurityConfig {
     }
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
-        return new CzertainlyAuthenticationFilter(authenticationManager(), new CzertainlyAuthenticationConverter(), environment.getProperty("management.endpoints.web.base-path"), environment.getProperty("server.ssl.certificate-header-name"));
+        return new CzertainlyAuthenticationFilter(authenticationClient, environment.getProperty("management.endpoints.web.base-path"), environment.getProperty("server.ssl.certificate-header-name"));
     }
 
     // SETTERs
@@ -178,10 +169,6 @@ public class SecurityConfig {
         this.environment = environment;
     }
 
-    @Autowired
-    public void setCzertainlyAuthenticationProvider(CzertainlyAuthenticationProvider czertainlyAuthenticationProvider) {
-        this.czertainlyAuthenticationProvider = czertainlyAuthenticationProvider;
-    }
 
     @Autowired
     public void setFilterAuthorizationVoter(ExternalFilterAuthorizationVoter filterAuthorizationVoter) {
@@ -191,5 +178,10 @@ public class SecurityConfig {
     @Autowired
     public void setProtocolValidationFilter(ProtocolValidationFilter protocolValidationFilter) {
         this.protocolValidationFilter = protocolValidationFilter;
+    }
+
+    @Autowired
+    public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
+        this.authenticationClient = authenticationClient;
     }
 }

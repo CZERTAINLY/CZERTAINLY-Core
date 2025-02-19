@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.ActorType;
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.logging.LoggingHelper;
@@ -72,14 +73,11 @@ public class AuthHelper {
     }
 
     public void authenticateAsSystemUser(String username) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(SYSTEM_USER_HEADER_NAME, username);
-
         // update MDC for actor logging
         ActorType actorType = protocolUsers.contains(username) ? ActorType.PROTOCOL : ActorType.CORE;
         LoggingHelper.putActorInfoWhenNull(actorType, null, username);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(AuthMethod.USER_PROXY, username,false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
@@ -87,13 +85,10 @@ public class AuthHelper {
     }
 
     public void authenticateAsUser(UUID userUuid) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
-
         // update MDC for actor logging
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, userUuid.toString(), null);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(AuthMethod.USER_PROXY, userUuid, false);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
         logger.debug("User with username '{}' has been successfully authenticated as user proxy.", authUserInfo.getUsername());
