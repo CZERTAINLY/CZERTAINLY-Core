@@ -37,6 +37,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -232,15 +233,21 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
                 notificationInstanceDto);
     }
 
-    private void updateMappedAttributes(NotificationInstanceReference savedInstance, List<AttributeMappingDto> request) {
-        savedInstance.setMappedAttributes(request.stream().map(attributeMappingDto -> {
-            NotificationInstanceMappedAttributes mappedAttribute = new NotificationInstanceMappedAttributes();
-            mappedAttribute.setNotificationInstanceRefUuid(savedInstance.getUuid());
-            mappedAttribute.setAttributeDefinitionUuid(UUID.fromString(attributeMappingDto.getCustomAttributeUuid()));
-            mappedAttribute.setMappingAttributeUuid(UUID.fromString(attributeMappingDto.getMappingAttributeUuid()));
-            mappedAttribute.setMappingAttributeName(attributeMappingDto.getMappingAttributeName());
-            return mappedAttribute;
-        }).toList());
+    private void updateMappedAttributes(NotificationInstanceReference savedInstance, List<AttributeMappingDto> attributeMappings) {
+        List<NotificationInstanceMappedAttributes> mappedAttributes = new ArrayList<>();
+
+        if (attributeMappings != null) {
+            for (AttributeMappingDto attributeMapping : attributeMappings) {
+                NotificationInstanceMappedAttributes mappedAttribute = new NotificationInstanceMappedAttributes();
+                mappedAttribute.setNotificationInstanceRefUuid(savedInstance.getUuid());
+                mappedAttribute.setAttributeDefinitionUuid(UUID.fromString(attributeMapping.getCustomAttributeUuid()));
+                mappedAttribute.setMappingAttributeUuid(UUID.fromString(attributeMapping.getMappingAttributeUuid()));
+                mappedAttribute.setMappingAttributeName(attributeMapping.getMappingAttributeName());
+                mappedAttributes.add(mappedAttribute);
+            }
+        }
+
+        savedInstance.setMappedAttributes(mappedAttributes);
     }
 
     private void removeNotificationInstance(NotificationInstanceReference notificationInstanceRef) throws ValidationException {
