@@ -618,6 +618,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
             }
         }
 
+        cryptographicKeyService.disableKey(key.getUuid(), List.of(privateKeyItem.getUuid().toString()));
         cryptographicKeyService.enableKey(List.of(key.getUuid().toString()));
         keyDetailDto = cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid()));
         Assertions.assertEquals(2, keyDetailDto.getItems().size());
