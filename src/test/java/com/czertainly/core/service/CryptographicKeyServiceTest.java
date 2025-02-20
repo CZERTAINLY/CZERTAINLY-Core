@@ -22,7 +22,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.bouncycastle.pqc.legacy.crypto.rainbow.util.GF2Field;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -58,6 +57,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     private TokenProfile tokenProfile;
     private TokenProfile tokenProfile2;
     private CryptographicKey key;
+    private CryptographicKey keyWithoutToken;
     private CryptographicKeyItem publicKeyItem;
     private CryptographicKeyItem privateKeyItem;
     private WireMockServer mockServer;
@@ -152,6 +152,25 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         key.setItems(items);
         cryptographicKeyRepository.saveAndFlush(key);
 
+        // Create and Save CryptographicKey without token
+        keyWithoutToken = new CryptographicKey();
+        keyWithoutToken.setName("testKeyWithoutToken");
+        keyWithoutToken.setDescription("testKeyWithoutToken");
+        keyWithoutToken = cryptographicKeyRepository.saveAndFlush(keyWithoutToken);
+
+        // Create and Save CryptographicKeyItem - Public Key
+        CryptographicKeyItem pk = new CryptographicKeyItem();
+        pk.setLength(1024);
+        pk.setKey(keyWithoutToken);
+        pk.setKeyUuid(keyWithoutToken.getUuid());
+        pk.setType(KeyType.PUBLIC_KEY);
+        pk.setKeyData("some/encrypted/data");
+        pk.setFormat(KeyFormat.SPKI);
+        pk.setState(KeyState.ACTIVE);
+        pk.setEnabled(true);
+        pk.setKeyAlgorithm(KeyAlgorithm.ECDSA);
+        cryptographicKeyItemRepository.saveAndFlush(pk);
+
         // Ensure OwnerAssociation is created and associated
         OwnerAssociation ownerAssociation = new OwnerAssociation();
         ownerAssociation.setOwnerUuid(UUID.randomUUID()); // Set a proper UUID
@@ -195,6 +214,9 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
+                .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
         mockServer.stubFor(WireMock
@@ -204,11 +226,17 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes/validate"))
                 .willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret/attributes/validate"))
+                .willReturn(WireMock.ok()));
+        mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair"))
                 .willReturn(WireMock.okJson("{\"privateKeyData\":{\"name\":\"privateKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120002\", \"keyData\":{\"type\":\"Private\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something\"}}, \"publicKeyData\":{\"name\":\"publicKey\", \"uuid\":\"149db148-8c51-11ed-a1eb-0242ac120003\",  \"keyData\":{\"type\":\"Private\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something\"}}}")));
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/secret"))
+                .willReturn(WireMock.okJson("{\"name\":\"secretkeyitem\", \"uuid\":\"149db149-8c51-11ed-a1eb-0242ac120003\", \"keyData\":{\"type\":\"Secret\", \"algorithm\":\"RSA\", \"format\":\"Raw\", \"value\":\"something secret\"}}}")));
 
         KeyRequestDto request = new KeyRequestDto();
-        request.setName("testRaProfile2");
+        request.setName("testKeyPairKey");
         request.setDescription("sampleDescription");
         request.setAttributes(List.of());
         request.setGroupUuids(List.of(group.getUuid().toString()));
@@ -222,6 +250,21 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(2, dto.getItems().size());
+        Assertions.assertEquals(1, dto.getGroups().size());
+        Assertions.assertEquals(group.getUuid().toString(), dto.getGroups().getFirst().getUuid());
+
+        // create secret key type
+        request.setName("testSecretKey");
+        dto = cryptographicKeyService.createKey(
+                tokenInstanceReference.getUuid(),
+                tokenProfile.getSecuredParentUuid(),
+                KeyRequestType.SECRET,
+                request
+        );
+
+        Assertions.assertNotNull(dto);
+        Assertions.assertEquals(request.getName(), dto.getName());
+        Assertions.assertEquals(1, dto.getItems().size());
         Assertions.assertEquals(1, dto.getGroups().size());
         Assertions.assertEquals(group.getUuid().toString(), dto.getGroups().getFirst().getUuid());
     }
@@ -507,7 +550,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         cryptographicKeyService.syncKeys(tokenInstanceReference.getSecuredParentUuid());
 
-        Assertions.assertEquals(7, cryptographicKeyItemRepository.count());
+        Assertions.assertEquals(8, cryptographicKeyItemRepository.count());
     }
 
     @Test
@@ -580,7 +623,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
         cryptographicKeyService.syncKeys(tokenInstanceReference.getSecuredParentUuid());
 
-        Assertions.assertEquals(5, cryptographicKeyItemRepository.count());
+        Assertions.assertEquals(6, cryptographicKeyItemRepository.count());
     }
 
     @Test
@@ -595,7 +638,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListingKeys() {
+    void testListingKeys() throws NotFoundException {
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setItemsPerPage(10);
         searchRequestDto.setPageNumber(1);
@@ -605,10 +648,15 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.CKI_TYPE.toString(), FilterConditionOperator.EQUALS, KeyType.PUBLIC_KEY.getCode())));
         response = cryptographicKeyService.listCryptographicKeys(SecurityFilter.create(), searchRequestDto);
-        Assertions.assertEquals(1, response.getTotalItems());
+        Assertions.assertEquals(2, response.getTotalItems());
 
-        List<KeyDto> keyPairs = cryptographicKeyService.listKeyPairs(Optional.empty(), SecurityFilter.create());
+        List<KeyDto> keyPairs = cryptographicKeyService.listKeyPairs(Optional.ofNullable(tokenProfile.getUuid().toString()), SecurityFilter.create());
         Assertions.assertEquals(1, keyPairs.size());
+
+        publicKeyItem.setState(KeyState.DEACTIVATED);
+        cryptographicKeyItemRepository.saveAndFlush(publicKeyItem);
+        keyPairs = cryptographicKeyService.listKeyPairs(Optional.empty(), SecurityFilter.create());
+        Assertions.assertEquals(0, keyPairs.size());
     }
 
     @Test
@@ -650,5 +698,21 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         for (KeyItemDetailDto keyItemDto : keyDetailDto.getItems()) {
             Assertions.assertTrue(keyItemDto.isEnabled());
         }
+    }
+
+    @Test
+    void testKeyWithoutTokenOperations() throws ConnectorException {
+        KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(keyWithoutToken.getSecuredUuid());
+        Assertions.assertEquals(1, keyDetailDto.getItems().size());
+
+        String keyItemUuid = keyDetailDto.getItems().getFirst().getUuid();
+        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
+
+        cryptographicKeyService.disableKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
+        cryptographicKeyService.enableKey(keyWithoutToken.getUuid(), null);
+
+        cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
+
+        Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
     }
 }
