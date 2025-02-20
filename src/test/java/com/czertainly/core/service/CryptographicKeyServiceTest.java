@@ -22,6 +22,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.bouncycastle.pqc.legacy.crypto.rainbow.util.GF2Field;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -41,6 +42,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Autowired
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
     @Autowired
+    private GroupRepository groupRepository;
+    @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
     private TokenProfileRepository tokenProfileRepository;
@@ -49,6 +52,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
 
+    private Group group;
+    private Connector connector;
     private TokenInstanceReference tokenInstanceReference;
     private TokenProfile tokenProfile;
     private TokenProfile tokenProfile2;
@@ -65,18 +70,25 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         // Create and Save Connector
-        Connector connector = new Connector();
+        connector = new Connector();
         connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.saveAndFlush(connector); // Ensure immediate persistence
 
-        // Create and Save TokenInstanceReference
+        // create and save group
+        group = new Group();
+        group.setName("TestGroup");
+        group.setDescription("Desc");
+        groupRepository.save(group);
+
+        // Create and Save TokenInstanceReferences
         tokenInstanceReference = new TokenInstanceReference();
+        tokenInstanceReference.setName("Token");
         tokenInstanceReference.setTokenInstanceUuid("1l");
         tokenInstanceReference.setConnector(connector);
         tokenInstanceReferenceRepository.saveAndFlush(tokenInstanceReference);
 
-        // Create and Save TokenProfile
+        // Create and Save TokenProfiles
         tokenProfile = new TokenProfile();
         tokenProfile.setName("profile1");
         tokenProfile.setTokenInstanceReference(tokenInstanceReference);
@@ -85,7 +97,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenProfile.setTokenInstanceName("testInstance");
         tokenProfileRepository.saveAndFlush(tokenProfile);
 
-        // Create and Save TokenProfile
         tokenProfile2 = new TokenProfile();
         tokenProfile2.setName("profile2");
         tokenProfile2.setTokenInstanceReference(tokenInstanceReference);
@@ -200,6 +211,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         request.setName("testRaProfile2");
         request.setDescription("sampleDescription");
         request.setAttributes(List.of());
+        request.setGroupUuids(List.of(group.getUuid().toString()));
 
         KeyDetailDto dto = cryptographicKeyService.createKey(
                 tokenInstanceReference.getUuid(),
@@ -210,6 +222,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(2, dto.getItems().size());
+        Assertions.assertEquals(1, dto.getGroups().size());
+        Assertions.assertEquals(group.getUuid().toString(), dto.getGroups().getFirst().getUuid());
     }
 
     @Test
@@ -399,16 +413,27 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         request.setName("updatedName");
         request.setDescription("updatedDescription");
         request.setTokenProfileUuid(tokenProfile2.getUuid().toString());
+        request.setGroupUuids(List.of(group.getUuid().toString()));
 
-        cryptographicKeyService.editKey(
-                key.getSecuredUuid(),
-                request
-        );
+        cryptographicKeyService.editKey(key.getSecuredUuid(), request);
 
         KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(key.getSecuredUuid());
         Assertions.assertEquals(request.getName(), keyDetailDto.getName());
         Assertions.assertEquals(request.getDescription(), keyDetailDto.getDescription());
         Assertions.assertEquals(request.getTokenProfileUuid(), keyDetailDto.getTokenProfileUuid());
+        Assertions.assertEquals(1, keyDetailDto.getGroups().size());
+        Assertions.assertEquals(group.getUuid().toString(), keyDetailDto.getGroups().getFirst().getUuid());
+
+        TokenInstanceReference tokenInstanceReference2 = new TokenInstanceReference();
+        tokenInstanceReference2.setName("Token2");
+        tokenInstanceReference2.setTokenInstanceUuid("2l");
+        tokenInstanceReference2.setConnector(connector);
+        tokenInstanceReferenceRepository.saveAndFlush(tokenInstanceReference2);
+
+        tokenProfile2.setTokenInstanceReference(tokenInstanceReference2);
+        tokenProfileRepository.saveAndFlush(tokenProfile2);
+
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.editKey(key.getSecuredUuid(), request));
     }
 
     @Test
@@ -618,7 +643,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
             }
         }
 
-        cryptographicKeyService.disableKey(key.getUuid(), List.of(privateKeyItem.getUuid().toString()));
+        cryptographicKeyService.disableKeyItems(List.of(privateKeyItem.getUuid().toString()));
         cryptographicKeyService.enableKey(List.of(key.getUuid().toString()));
         keyDetailDto = cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid()));
         Assertions.assertEquals(2, keyDetailDto.getItems().size());

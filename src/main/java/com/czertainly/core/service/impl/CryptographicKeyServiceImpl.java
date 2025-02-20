@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import static java.util.function.Predicate.not;
 
 @Service
-@Transactional(noRollbackFor = ValidationException.class)
+@Transactional
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyServiceImpl.class);
@@ -329,7 +329,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         // set owner of certificate to logged user
         objectAssociationService.setOwnerFromProfile(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
         if(request.getGroupUuids() != null) {
-            objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet()));
+            key.setGroups(objectAssociationService.setGroups(Resource.CRYPTOGRAPHIC_KEY, key.getUuid(), request.getGroupUuids().stream().map(UUID::fromString).collect(Collectors.toSet())));
         }
 
         logger.debug("Key creation is successful. UUID is {}", key.getUuid());
