@@ -58,8 +58,8 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
-    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.LIST)
-    public List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid) {
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN_PROFILE, operation = Operation.LIST)
+    public List<KeyDto> listKeyPairs(@LogResource(uuid = true, affiliated = true) Optional<String> tokenProfileUuid) {
         return cryptographicKeyService.listKeyPairs(tokenProfileUuid, SecurityFilter.create());
     }
 
@@ -94,7 +94,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY_ITEM, affiliatedResource = Resource.TOKEN, operation = Operation.DETAIL)
-    public KeyItemDetailDto getKeyItem(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String uuid,@LogResource(uuid = true) String keyItemUuid) throws NotFoundException {
+    public KeyItemDetailDto getKeyItem(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String uuid, @LogResource(uuid = true) String keyItemUuid) throws NotFoundException {
         return cryptographicKeyService.getKeyItem(SecuredUUID.fromString(uuid), keyItemUuid);
     }
 
