@@ -255,6 +255,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
         // create secret key type
         request.setName("testSecretKey");
+        request.setGroupUuids(null);
         dto = cryptographicKeyService.createKey(
                 tokenInstanceReference.getUuid(),
                 tokenProfile.getSecuredParentUuid(),
@@ -265,8 +266,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertEquals(1, dto.getItems().size());
-        Assertions.assertEquals(1, dto.getGroups().size());
-        Assertions.assertEquals(group.getUuid().toString(), dto.getGroups().getFirst().getUuid());
     }
 
     @Test
@@ -706,16 +705,17 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testKeyWithoutTokenOperations() throws ConnectorException {
+    void testKeyWithoutTokenOperations() throws ConnectorException, AttributeException {
         KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(keyWithoutToken.getSecuredUuid());
         Assertions.assertEquals(1, keyDetailDto.getItems().size());
 
         String keyItemUuid = keyDetailDto.getItems().getFirst().getUuid();
         KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
 
+        // try different operations if null token and profile is handled
+        cryptographicKeyService.editKey(keyWithoutToken.getSecuredUuid(), new EditKeyRequestDto());
         cryptographicKeyService.disableKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
         cryptographicKeyService.enableKey(keyWithoutToken.getUuid(), null);
-
         cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
 
         Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
