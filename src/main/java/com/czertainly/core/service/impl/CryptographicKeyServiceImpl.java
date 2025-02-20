@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 import static java.util.function.Predicate.not;
 
 @Service
-@Transactional
+@Transactional(noRollbackFor = ValidationException.class)
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private static final Logger logger = LoggerFactory.getLogger(CryptographicKeyServiceImpl.class);
