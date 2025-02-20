@@ -1,35 +1,40 @@
 package com.czertainly.core.config;
 
-import com.czertainly.core.security.authz.ExternalMethodAuthorizationVoter;
+import com.czertainly.core.security.authz.ExternalAuthorization;
+import com.czertainly.core.security.authz.ExternalMethodAuthorizationManager;
+import org.aopalliance.intercept.MethodInvocation;
+import org.springframework.aop.Advisor;
+import org.springframework.aop.support.annotation.AnnotationMatchingPointcut;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.access.AccessDecisionManager;
-import org.springframework.security.access.AccessDecisionVoter;
-import org.springframework.security.access.annotation.SecuredAnnotationSecurityMetadataSource;
-import org.springframework.security.access.method.MethodSecurityMetadataSource;
-import org.springframework.security.access.vote.AffirmativeBased;
-import org.springframework.security.config.annotation.method.configuration.EnableGlobalMethodSecurity;
-import org.springframework.security.config.annotation.method.configuration.GlobalMethodSecurityConfiguration;
+import org.springframework.context.annotation.Role;
+import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.method.AuthorizationManagerBeforeMethodInterceptor;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 
-import java.util.List;
+import static org.springframework.beans.factory.config.BeanDefinition.ROLE_INFRASTRUCTURE;
 
 @Configuration
-@EnableGlobalMethodSecurity
-public class MethodSecurityConfig extends GlobalMethodSecurityConfiguration {
-    @Autowired
-    ExternalMethodAuthorizationVoter externalMethodAuthorizationVoter;
+@EnableMethodSecurity()
+public class MethodSecurityConfig {
 
-    @Autowired
-    OpaSecuredAnnotationMetadataExtractor opaSecuredAnnotationMetadataExtractor;
+    ExternalMethodAuthorizationManager externalMethodAuthorizationManager;
 
-    @Override
-    protected AccessDecisionManager accessDecisionManager() {
-        List<AccessDecisionVoter<?>> voters = List.of(externalMethodAuthorizationVoter);
-        return new AffirmativeBased(voters);
+    @Bean
+    public AuthorizationManager<MethodInvocation> authorizationManager() {
+        return externalMethodAuthorizationManager;
     }
 
-    @Override
-    protected MethodSecurityMetadataSource customMethodSecurityMetadataSource() {
-        return new SecuredAnnotationSecurityMetadataSource(opaSecuredAnnotationMetadataExtractor);
+    @Bean
+    @Role(ROLE_INFRASTRUCTURE)
+    public Advisor authorizationManagerBeforeMethodInterception(AuthorizationManager<MethodInvocation> authorizationManager) {
+        AnnotationMatchingPointcut pointcut = new AnnotationMatchingPointcut(null, ExternalAuthorization.class);
+        return new AuthorizationManagerBeforeMethodInterceptor(pointcut, authorizationManager);
+    }
+
+    @Autowired
+    public void setExternalMethodAuthorizationManager(ExternalMethodAuthorizationManager externalMethodAuthorizationManager) {
+        this.externalMethodAuthorizationManager = externalMethodAuthorizationManager;
     }
 }

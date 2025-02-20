@@ -3,14 +3,11 @@ package com.czertainly.core.config;
 import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
-import com.czertainly.core.security.authz.ExternalFilterAuthorizationManager;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.env.Environment;
-import org.springframework.security.authorization.AuthorizationManager;
-import org.springframework.security.authorization.AuthorizationManagers;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
@@ -19,20 +16,12 @@ import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationF
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.SecurityFilterChain;
-import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
-import org.springframework.security.web.access.intercept.RequestAuthorizationContext;
 import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
-import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
-import org.springframework.security.web.util.matcher.RequestMatcher;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
-
-
-    ExternalFilterAuthorizationManager filterAuthorizationManager;
-
 
     ProtocolValidationFilter protocolValidationFilter;
 
@@ -78,8 +67,8 @@ public class SecurityConfig {
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/login", "/oauth2/**").permitAll()
-                        .anyRequest().access(requestAuthorization())
+                        .requestMatchers("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register").permitAll()
+                        .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
@@ -126,25 +115,6 @@ public class SecurityConfig {
         return new CzertainlyJwtAuthenticationConverter();
     }
 
-    AuthorizationManager<RequestAuthorizationContext> requestAuthorization() {
-        return AuthorizationManagers.anyOf(externalFilterAuthorizationManager(), new WebExpressionAuthorizationManager("isAuthenticated()"));
-    }
-
-    protected ExternalFilterAuthorizationManager externalFilterAuthorizationManager() {
-        // filterAuthorizationVoter is configured so that only requests to local controller are authorized against OPA.
-        // For other request we only require users to be authenticated (this is checked by WebExpressionVoter) as
-        // Controllers mostly only delegate to a Service and any call to a Service method should be always authorized by
-        // OPA. Doing this, we do not lose much of the security but save one call to OPA for each request. Anonymous
-        // request will always be authorized against OPA if not explicitly excluded.
-        RequestMatcher toAuthorize = new AntPathRequestMatcher("/v?/local/**");
-        filterAuthorizationManager.setToAuthorizeRequestsMatcher(toAuthorize);
-
-        // Exclude the error endpoint from authorization when accessed by anonymous user
-        RequestMatcher doNotAuthorize = new AntPathRequestMatcher("/error");
-        filterAuthorizationManager.setDoNotAuthorizeAnonymousRequestsMatcher(doNotAuthorize);
-        return filterAuthorizationManager;
-    }
-
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
         return new CzertainlyAuthenticationFilter(authenticationClient, environment.getProperty("management.endpoints.web.base-path"), environment.getProperty("server.ssl.certificate-header-name"));
     }
@@ -164,10 +134,5 @@ public class SecurityConfig {
     @Autowired
     public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
         this.authenticationClient = authenticationClient;
-    }
-
-    @Autowired
-    public void setFilterAuthorizationManager(ExternalFilterAuthorizationManager filterAuthorizationManager) {
-        this.filterAuthorizationManager = filterAuthorizationManager;
     }
 }

@@ -31,16 +31,16 @@ public abstract class AbstractExternalAuthorizationManager<T> implements Authori
         }
 
         if (authentication instanceof CzertainlyAuthenticationToken token) {
-            return voteInternal(token, object);
+            return checkInternal(token, object);
         } else {
-            return voteInternal((AnonymousAuthenticationToken) authentication, object);
+            return checkInternal((AnonymousAuthenticationToken) authentication, object);
         }
 
     }
 
-    protected abstract AuthorizationDecision voteInternal(CzertainlyAuthenticationToken authentication, T object);
+    protected abstract AuthorizationDecision checkInternal(CzertainlyAuthenticationToken authentication, T object);
 
-    protected abstract AuthorizationDecision voteInternal(AnonymousAuthenticationToken authenticationToken, T object);
+    protected abstract AuthorizationDecision checkInternal(AnonymousAuthenticationToken authenticationToken, T object);
 
     protected abstract boolean canDecide(Authentication auth, T object);
 }
