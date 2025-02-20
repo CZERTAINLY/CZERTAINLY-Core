@@ -51,6 +51,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
 
     private TokenInstanceReference tokenInstanceReference;
     private TokenProfile tokenProfile;
+    private TokenProfile tokenProfile2;
     private CryptographicKey key;
     private CryptographicKeyItem publicKeyItem;
     private CryptographicKeyItem privateKeyItem;
@@ -83,6 +84,15 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenProfile.setEnabled(true);
         tokenProfile.setTokenInstanceName("testInstance");
         tokenProfileRepository.saveAndFlush(tokenProfile);
+
+        // Create and Save TokenProfile
+        tokenProfile2 = new TokenProfile();
+        tokenProfile2.setName("profile2");
+        tokenProfile2.setTokenInstanceReference(tokenInstanceReference);
+        tokenProfile2.setDescription("sample description2");
+        tokenProfile2.setEnabled(true);
+        tokenProfile2.setTokenInstanceName("testInstance");
+        tokenProfileRepository.saveAndFlush(tokenProfile2);
 
         // Create and Save CryptographicKey
         key = new CryptographicKey();
@@ -388,6 +398,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         EditKeyRequestDto request = new EditKeyRequestDto();
         request.setName("updatedName");
         request.setDescription("updatedDescription");
+        request.setTokenProfileUuid(tokenProfile2.getUuid().toString());
 
         cryptographicKeyService.editKey(
                 key.getSecuredUuid(),
@@ -397,6 +408,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(key.getSecuredUuid());
         Assertions.assertEquals(request.getName(), keyDetailDto.getName());
         Assertions.assertEquals(request.getDescription(), keyDetailDto.getDescription());
+        Assertions.assertEquals(request.getTokenProfileUuid(), keyDetailDto.getTokenProfileUuid());
     }
 
     @Test
@@ -604,6 +616,13 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
             } else {
                 Assertions.assertFalse(keyItemDto.isEnabled());
             }
+        }
+
+        cryptographicKeyService.enableKey(List.of(key.getUuid().toString()));
+        keyDetailDto = cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid()));
+        Assertions.assertEquals(2, keyDetailDto.getItems().size());
+        for (KeyItemDetailDto keyItemDto : keyDetailDto.getItems()) {
+            Assertions.assertTrue(keyItemDto.isEnabled());
         }
     }
 }
