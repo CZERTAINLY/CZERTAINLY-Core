@@ -375,11 +375,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         UpdateKeyUsageRequestDto request = new UpdateKeyUsageRequestDto();
         request.setUuids(List.of(content.getUuid()));
         request.setUsage(List.of(KeyUsage.DECRYPT));
-        cryptographicKeyService.updateKeyUsages(
-                tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid(),
-                request
-        );
+        cryptographicKeyService.updateKeyUsages(key.getUuid(), request);
         Assertions.assertEquals(
                 1,
                 cryptographicKeyService.getKeyItem(key.getSecuredUuid(), content.getUuid().toString()).getUsage().size()
