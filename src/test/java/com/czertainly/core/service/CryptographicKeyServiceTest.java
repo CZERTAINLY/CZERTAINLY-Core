@@ -476,7 +476,12 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenProfile2.setTokenInstanceReference(tokenInstanceReference2);
         tokenProfileRepository.saveAndFlush(tokenProfile2);
 
+        request.setName("");
         Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.editKey(key.getSecuredUuid(), request));
+
+        EditKeyRequestDto requestEmpty = new EditKeyRequestDto();
+        keyDetailDto = cryptographicKeyService.editKey(key.getSecuredUuid(), requestEmpty);
+        Assertions.assertEquals("updatedName", keyDetailDto.getName());
     }
 
     @Test

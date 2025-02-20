@@ -14,7 +14,6 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
@@ -36,32 +35,20 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     @Autowired
     private CryptographicKeyController keyController;
 
-    @BeforeEach
-    public void setUp() {
-        LoggingSettingsDto loggingSettingsDto = new LoggingSettingsDto();
-
-        AuditLoggingSettingsDto auditLoggingSettingsDto = new AuditLoggingSettingsDto();
-        auditLoggingSettingsDto.setOutput(AuditLogOutput.ALL);
-        auditLoggingSettingsDto.setLogAllModules(true);
-        auditLoggingSettingsDto.setLogAllResources(true);
-        loggingSettingsDto.setAuditLogs(auditLoggingSettingsDto);
-
-        ResourceLoggingSettingsDto eventLoggingSettingsDto = new ResourceLoggingSettingsDto();
-        eventLoggingSettingsDto.setLogAllModules(true);
-        eventLoggingSettingsDto.setLogAllResources(true);
-        loggingSettingsDto.setEventLogs(eventLoggingSettingsDto);
-
-        settingService.updateLoggingSettings(loggingSettingsDto);
-    }
-
     @Test
     void testListKeyPairsAudit() throws ConnectorException {
+        keyController.listKeyPairs(Optional.empty());
+        List<AuditLog> auditLogs = auditLogRepository.findAll();
+        Assertions.assertEquals(0, auditLogs.size());
+
+        turnOnLogging();
+
         keyController.listKeyPairs(Optional.empty());
         keyController.listKeyPairs(Optional.ofNullable(UUID.randomUUID().toString()));
         keyController.deleteKeys(List.of(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
         settingController.getLoggingSettings();
 
-        var auditLogs = auditLogRepository.findAll();
+        auditLogs = auditLogRepository.findAll();
         Assertions.assertEquals(4, auditLogs.size());
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
@@ -79,6 +66,23 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         AuditLog auditLogWithNamedResource = auditLogs.get(3);
         Assertions.assertEquals(Resource.SETTINGS, auditLogWithNamedResource.getLogRecord().resource().type());
         Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResource.getLogRecord().resource().names().getFirst());
+    }
+
+    private void turnOnLogging() {
+        LoggingSettingsDto loggingSettingsDto = new LoggingSettingsDto();
+
+        AuditLoggingSettingsDto auditLoggingSettingsDto = new AuditLoggingSettingsDto();
+        auditLoggingSettingsDto.setOutput(AuditLogOutput.ALL);
+        auditLoggingSettingsDto.setLogAllModules(true);
+        auditLoggingSettingsDto.setLogAllResources(true);
+        loggingSettingsDto.setAuditLogs(auditLoggingSettingsDto);
+
+        ResourceLoggingSettingsDto eventLoggingSettingsDto = new ResourceLoggingSettingsDto();
+        eventLoggingSettingsDto.setLogAllModules(true);
+        eventLoggingSettingsDto.setLogAllResources(true);
+        loggingSettingsDto.setEventLogs(eventLoggingSettingsDto);
+
+        settingService.updateLoggingSettings(loggingSettingsDto);
     }
 
 }
