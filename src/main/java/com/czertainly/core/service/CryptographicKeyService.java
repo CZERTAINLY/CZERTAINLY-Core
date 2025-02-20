@@ -32,10 +32,6 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      */
     CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request);
 
-    /**
-     * TODO lukas.rejha - fill it
-     * @return
-     */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
     /**
@@ -93,13 +89,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to disable a key
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
      * @throws NotFoundException   when the key is not found
      * @throws ValidationException when the key is already disabled
      */
     void disableKey(
-            SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             List<String> keyUuids
     ) throws NotFoundException, ValidationException;
@@ -107,13 +101,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to enable a disabled key
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
      * @throws NotFoundException   when the key with given uuid is not found
      * @throws ValidationException when the key is already active
      */
     void enableKey(
-            SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             List<String> keyUuids
     ) throws NotFoundException, ValidationException;
@@ -265,11 +257,10 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Update the key usages for multiple keys and its items
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
      * @param request           Request containing the details for the key usage updates
      */
-    void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
+    void updateKeyUsages(UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
 
     /**
      * Function to update the usages for the key items
@@ -281,12 +272,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Get the list of actions and events done of the provided key item
      *
-     * @param tokenInstanceUuid UUID of the token Instance
      * @param uuid              Key UUID
      * @param keyItemUuid       UUID of the key Item
      * @return
      */
-    List<KeyEventHistoryDto> getEventHistory(SecuredParentUUID tokenInstanceUuid, UUID uuid, UUID keyItemUuid) throws NotFoundException;
+    List<KeyEventHistoryDto> getEventHistory(UUID uuid, UUID keyItemUuid) throws NotFoundException;
 
     /**
      * Function to get the key based on the sha 256 key fingerprint
