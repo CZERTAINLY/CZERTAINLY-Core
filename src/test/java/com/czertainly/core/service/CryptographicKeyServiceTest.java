@@ -710,7 +710,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, keyDetailDto.getItems().size());
 
         String keyItemUuid = keyDetailDto.getItems().getFirst().getUuid();
-        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
+        cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
 
         // try different operations if null token and profile is handled
         cryptographicKeyService.editKey(keyWithoutToken.getSecuredUuid(), new EditKeyRequestDto());
