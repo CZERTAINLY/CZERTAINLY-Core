@@ -42,6 +42,9 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     void testListKeyPairsAudit() throws ConnectorException {
         keyController.listKeyPairs(Optional.empty());
         List<AuditLog> auditLogs = auditLogRepository.findAll();
+
+        Assertions.assertThrows(NotFoundException.class, () -> keyController.destroyKey(UUID.randomUUID().toString(), null));
+        Assertions.assertThrows(NotFoundException.class, () -> keyController.compromiseKey(UUID.randomUUID().toString(), null));
         Assertions.assertEquals(0, auditLogs.size());
 
         turnOnLogging();

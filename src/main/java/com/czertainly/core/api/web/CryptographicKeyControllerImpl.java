@@ -127,10 +127,18 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.COMPROMISE)
+    public void compromiseKey(@LogResource(uuid = true) String uuid, CompromiseKeyRequestDto request) throws NotFoundException {
+        cryptographicKeyService.compromiseKey(
+                UUID.fromString(uuid),
+                request
+        );
+    }
+
+    @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.COMPROMISE)
     public void compromiseKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, CompromiseKeyRequestDto request) throws NotFoundException {
         cryptographicKeyService.compromiseKey(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
                 UUID.fromString(uuid),
                 request
         );
@@ -153,11 +161,19 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
     }
 
     @Override
+    @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DESTROY)
+    public void destroyKey(String uuid, List<String> keyItemUuids) throws ConnectorException {
+        cryptographicKeyService.destroyKey(
+                UUID.fromString(uuid),
+                keyItemUuids
+        );
+    }
+
+    @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DESTROY)
     public void destroyKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException {
         cryptographicKeyService.destroyKey(
-                SecuredParentUUID.fromString(tokenInstanceUuid),
-                uuid,
+                UUID.fromString(uuid),
                 keyItemUuids
         );
     }
