@@ -3,6 +3,7 @@ package com.czertainly.core.config;
 import com.czertainly.core.auth.oauth2.*;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationFilter;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.util.AuthHelper;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +12,7 @@ import org.springframework.core.env.Environment;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -34,7 +36,6 @@ public class SecurityConfig {
     private JwtDecoder jwtDecoder;
 
     private CzertainlyAuthenticationClient authenticationClient;
-
 
 
     @Autowired
@@ -67,18 +68,19 @@ public class SecurityConfig {
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register").permitAll()
+                        .requestMatchers(AuthHelper.getPermitAllEndpoints()).permitAll()
                         .anyRequest().authenticated()
                 )
                 .exceptionHandling(exceptionHandling -> exceptionHandling
                         .accessDeniedHandler((request, response, accessDeniedException) -> response.sendError(HttpServletResponse.SC_FORBIDDEN))
                         .authenticationEntryPoint((request, response, authException) -> response.sendError(HttpServletResponse.SC_UNAUTHORIZED))
                 )
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .csrf(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
-                .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
+                .addFilterBefore(configureProtocolValidationFilter(), X509AuthenticationFilter.class)
                 .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.decoder(jwtDecoder)
@@ -116,7 +118,12 @@ public class SecurityConfig {
     }
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
-        return new CzertainlyAuthenticationFilter(authenticationClient, environment.getProperty("management.endpoints.web.base-path"), environment.getProperty("server.ssl.certificate-header-name"));
+        return new CzertainlyAuthenticationFilter(authenticationClient, environment.getProperty("server.ssl.certificate-header-name"), environment.getProperty("server.servlet.context-path"));
+    }
+
+    private ProtocolValidationFilter configureProtocolValidationFilter() {
+        protocolValidationFilter.setRestApiPrefix(environment.getProperty("management.endpoints.web.base-path"));
+        return protocolValidationFilter;
     }
 
     // SETTERs

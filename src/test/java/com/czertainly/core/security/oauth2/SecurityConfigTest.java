@@ -11,11 +11,12 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.http.MediaType;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
@@ -23,6 +24,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
@@ -32,13 +34,17 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     @Autowired
     private MockMvc mvc;
 
-    @MockBean
+    @MockitoBean
     private JwtDecoder jwtDecoder;
 
 
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
         registry.add("auth-service.base-url", () -> "http://localhost:10003");
+        registry.add("server.servlet.context-path", () -> "");
+        registry.add("management.endpoints.web.base-path", () -> "/v1/");
+        registry.add("management.endpoints.web.exposure.include", () -> "health");
+        registry.add("management.endpoint.health.probes.enabled", () -> true);
     }
 
     private static final String CERTIFICATE_USER_USERNAME = "certificate-user";
@@ -172,6 +178,16 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
                 .header("X-APP-CERTIFICATE", CERTIFICATE_HEADER_VALUE)
                 .header("Authorization", TOKEN_HEADER_VALUE)).andReturn();
         Assertions.assertTrue(result.getResponse().getContentAsString().contains(CERTIFICATE_USER_USERNAME));
+    }
+
+    @Test
+    void testPermitAllEndpoint() throws Exception {
+        mvc.perform(post(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/connector/register").content("""
+                {
+                    "name": "name",
+                    "url": "http://network-discovery-provicer:8080",
+                    "authType": "none"
+                }""").contentType(MediaType.APPLICATION_JSON)).andExpect(status().is5xxServerError());
     }
 
 
