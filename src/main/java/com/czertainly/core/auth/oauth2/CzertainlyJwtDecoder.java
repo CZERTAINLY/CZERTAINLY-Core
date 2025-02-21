@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.logging.LoggingHelper;
+import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
@@ -15,7 +16,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -128,7 +128,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
     private boolean isAuthenticationNeeded() {
         SecurityContext context = SecurityContextHolder.getContext();
-        return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken);
+        return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof CzertainlyAnonymousToken anonymousToken && !anonymousToken.isAccessingPermitAllEndpoint());
     }
 
 }
