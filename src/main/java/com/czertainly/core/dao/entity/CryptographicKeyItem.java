@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.util.CryptographicHelper;
 import com.czertainly.core.util.DtoMapper;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -88,6 +89,11 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Column(name = "updated_at", nullable = false)
     @LastModifiedDate
     protected LocalDateTime updatedAt;
+
+    @JsonBackReference
+    @OneToMany(mappedBy = "key", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
+    @ToString.Exclude
+    private Set<CryptographicKeyEventHistory> eventHistories = new HashSet<>();
 
     public void setKey(CryptographicKey key) {
         this.key = key;
