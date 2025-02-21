@@ -19,6 +19,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClient;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.web.authentication.AuthenticationSuccessHandler;
 import org.springframework.stereotype.Component;
 
@@ -52,7 +53,6 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(authenticationToken.getAuthorizedClientRegistrationId());
         if (providerSettings == null) {
-            request.getSession().invalidate();
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(authenticationToken.getAuthorizedClientRegistrationId());
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, authorizedClient.getAccessToken().getTokenValue());
             throw new CzertainlyAuthenticationException(message);
@@ -60,9 +60,16 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         try {
             OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
         } catch (CzertainlyAuthenticationException e) {
-            request.getSession().invalidate();
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
+            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
             throw e;
+        }
+
+        try {
+            OidcUser oidcUser = (OidcUser) authenticationToken.getPrincipal();
+            OAuth2Util.getAllClaimsAvailable(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oidcUser.getIdToken());
+        } catch (CzertainlyAuthenticationException e) {
+            auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
+            throw new CzertainlyAuthenticationException(e.getMessage());
         }
 
         request.getSession().setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, authorizedClient.getAccessToken());

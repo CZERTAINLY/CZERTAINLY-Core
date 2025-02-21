@@ -60,7 +60,9 @@ public class AuthHelper {
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
 
-    public static final List<String> PERMITTED_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register");
+    public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
+    public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register");
+
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
@@ -210,13 +212,21 @@ public class AuthHelper {
     }
 
     public static String[] getPermitAllEndpoints() {
-        return PERMITTED_ENDPOINTS.toArray(new String[0]);
+        List<String> allEndpoints = new ArrayList<>(PERMITTED_ENDPOINTS);
+        allEndpoints.addAll(OAUTH2_ENDPOINTS);
+        return allEndpoints.toArray(new String[0]);
     }
 
     public static boolean permitAllEndpointInRequest(String requestUri, String context) {
         String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
         AntPathMatcher pathMatcher = new AntPathMatcher();
         return PERMITTED_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
+    }
+
+    public static boolean oauth2EndpointInRequest(String requestUri, String context) {
+        String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
+        AntPathMatcher pathMatcher = new AntPathMatcher();
+        return OAUTH2_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
     }
 
 

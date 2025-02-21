@@ -14,10 +14,6 @@ import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.OAuth2Util;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import com.nimbusds.jwt.SignedJWT;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -26,7 +22,6 @@ import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
@@ -44,7 +39,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.text.ParseException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Map;
@@ -82,6 +76,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) {
+
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
@@ -114,8 +110,15 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     throw e;
                 }
             }
-
-            Map<String, Object> claims = getClaims(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oauthToken, request.getSession());
+            Map<String, Object> claims;
+            try {
+                OidcUser oidcUser = (OidcUser) oauthToken.getPrincipal();
+                claims = OAuth2Util.getAllClaimsAvailable(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oidcUser.getIdToken());
+            } catch (CzertainlyAuthenticationException e) {
+                request.getSession().invalidate();
+                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
+                throw e;
+            }
             authenticate(request, claims, clientRegistration);
         }
 
@@ -172,39 +175,6 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         } else {
             throw new CzertainlyAuthenticationException("Refresh token is not available.");
         }
-    }
-
-    private Map<String, Object> getClaims(OAuth2ProviderSettingsDto providerSettings, String accessTokenValue, OAuth2AuthenticationToken token, HttpSession session) {
-        Map<String, Object> userInfoClaims = null;
-        if (providerSettings.getUserInfoUrl() != null) {
-            try {
-                userInfoClaims = OAuth2Util.getUserInfo(providerSettings.getUserInfoUrl(), accessTokenValue);
-            } catch (Exception e) {
-                LOGGER.warn("Could not access User Info Endpoint: {}", e.getMessage());
-            }
-        }
-
-        OidcUser oidcUser = (OidcUser) token.getPrincipal();
-        Map<String, Object> accessTokenClaims;
-        try {
-            accessTokenClaims = SignedJWT.parse(accessTokenValue).getJWTClaimsSet().getClaims();
-        } catch (ParseException e) {
-            session.invalidate();
-            String message = "Could not convert access token to JWT and extract claims: %s".formatted(e.getMessage());
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
-            throw new CzertainlyAuthenticationException(message);
-        }
-
-        Map<String, Object> claims = OAuth2Util.mergeClaims(accessTokenClaims, oidcUser.getIdToken().getClaims(), userInfoClaims);
-
-        if (!claims.containsKey(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)) {
-            session.invalidate();
-            String message = "The username claim could not be retrieved from the Access Token, User Info Endpoint, or ID Token for user authenticating with Access Token %s".formatted(accessTokenValue);
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, accessTokenValue);
-            throw new CzertainlyAuthenticationException(message);
-        }
-
-        return claims;
     }
 
     private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {

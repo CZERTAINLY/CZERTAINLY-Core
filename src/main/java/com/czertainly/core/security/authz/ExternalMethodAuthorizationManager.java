@@ -61,7 +61,7 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
     protected AuthorizationDecision checkInternal(CzertainlyAuthenticationToken auth, MethodInvocation methodInvocation) {
         ExternalAuthorization annotation = AnnotationUtils.findAnnotation(methodInvocation.getMethod(), ExternalAuthorization.class);
         List<ExternalAuthorizationConfigAttribute> attributes = metadataExtractor.extractAttributes(annotation);
-        AuthorizationDecision result = this.vote(auth.getPrincipal().getRawData(), methodInvocation, attributes);
+        AuthorizationDecision result = this.check(auth.getPrincipal().getRawData(), methodInvocation, attributes);
         if (!result.isGranted()) {
             return checkGroupOwnerAssociations(auth.getPrincipal(), methodInvocation, attributes);
         }
@@ -73,9 +73,9 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
         ExternalAuthorization annotation = AnnotationUtils.findAnnotation(methodInvocation.getMethod(), ExternalAuthorization.class);
         List<ExternalAuthorizationConfigAttribute> attributes = metadataExtractor.extractAttributes(annotation);
         try {
-            return this.vote(om.writeValueAsString(new AnonymousPrincipal(authenticationToken.getName())), methodInvocation, attributes);
+            return this.check(om.writeValueAsString(new AnonymousPrincipal(authenticationToken.getName())), methodInvocation, attributes);
         } catch (JsonProcessingException e) {
-            log.error("An error occurred during voting. Access will be denied.", e);
+            log.error("An error occurred during authorization on method %s. Access will be denied.".formatted(methodInvocation.getMethod().getName()), e);
             return new AuthorizationDecision(false);
         }
     }
@@ -160,7 +160,7 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
         return null;
     }
 
-    private AuthorizationDecision vote(String principal, MethodInvocation methodInvocation, List<ExternalAuthorizationConfigAttribute> attributes) {
+    private AuthorizationDecision check(String principal, MethodInvocation methodInvocation, List<ExternalAuthorizationConfigAttribute> attributes) {
 
         try {
             Map<String, String> properties = attributes
@@ -170,33 +170,33 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
 
             Optional<ParentUUIDGetter> parentUUIDGetter = getParentUUIDGetter(attributes);
             if (!Resource.NONE.getCode().equals(properties.get(PARENT_NAME_PROP_NAME))) {
-                AuthorizationDecision result = voteResource(principal, methodInvocation, properties, parentUUIDGetter, true);
+                AuthorizationDecision result = checkResource(principal, methodInvocation, properties, parentUUIDGetter, true);
                 if (!result.isGranted()) {
                     AuthHelper.setDeniedPermissionResourceAction(properties.get(PARENT_NAME_PROP_NAME), properties.get(PARENT_ACTION_PROP_NAME));
                     return result;
                 }
             }
 
-            return voteResource(principal, methodInvocation, properties, parentUUIDGetter, false);
+            return checkResource(principal, methodInvocation, properties, parentUUIDGetter, false);
         } catch (Exception e) {
             log.error(String.format("Unable verify access to the method '%s'. Voting to deny access.", methodInvocation.getMethod().getName()), e);
             return new AuthorizationDecision(false);
         }
     }
 
-    private AuthorizationDecision voteResource(String principal, MethodInvocation methodInvocation, Map<String, String> properties, Optional<ParentUUIDGetter> parentUUIDGetter, boolean parentResource) {
-        Map<String, String> voteProperties = properties;
+    private AuthorizationDecision checkResource(String principal, MethodInvocation methodInvocation, Map<String, String> properties, Optional<ParentUUIDGetter> parentUUIDGetter, boolean parentResource) {
+        Map<String, String> checkProperties = properties;
 
         if (parentResource) {
             Map<String, String> parentProperties = properties.entrySet().stream().collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
             parentProperties.put(NAME_PROP_NAME, properties.get(PARENT_NAME_PROP_NAME));
             parentProperties.put(ACTION_PROP_NAME, properties.get(PARENT_ACTION_PROP_NAME));
-            voteProperties = parentProperties;
+            checkProperties = parentProperties;
         }
-        voteProperties.remove(PARENT_NAME_PROP_NAME);
-        voteProperties.remove(PARENT_ACTION_PROP_NAME);
+        checkProperties.remove(PARENT_NAME_PROP_NAME);
+        checkProperties.remove(PARENT_ACTION_PROP_NAME);
 
-        OpaRequestedResource resource = new OpaRequestedResource(voteProperties);
+        OpaRequestedResource resource = new OpaRequestedResource(checkProperties);
 
         // UUIDs of objects the operation is executed on
         List<SecuredUUID> objectUUIDs = parentResource ? extractParentUUIDsFromMethodArguments(methodInvocation) : extractUUIDsFromMethodArguments(methodInvocation);
@@ -204,8 +204,8 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
         // Parent UUID Getter not used for now, remove later
         if (!parentResource && parentUUIDGetter.isPresent()) {
             if (objectUUIDs.isEmpty()) {
-                log.error("ParentUUIDGetter specified but no object uuids were found. Access will be denied.");
-                AuthHelper.setDeniedPermissionResourceAction(voteProperties.get(NAME_PROP_NAME), voteProperties.get(ACTION_PROP_NAME));
+                log.error("ParentUUIDGetter specified but no object uuids were found. Access to method %s will be denied.".formatted(methodInvocation.getMethod().getName()));
+                AuthHelper.setDeniedPermissionResourceAction(checkProperties.get(NAME_PROP_NAME), checkProperties.get(ACTION_PROP_NAME));
                 return new AuthorizationDecision(false);
             } else {
                 List<String> parentsUUIDs = parentUUIDGetter.get().getParentsUUID(
@@ -223,10 +223,10 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
         }
 
         OpaResourceAccessResult result = this.checkAccess(principal, resource);
-        return decideBasedOnOpaResult(methodInvocation, result, voteProperties);
+        return decideBasedOnOpaResult(methodInvocation, result, checkProperties);
     }
 
-    private AuthorizationDecision decideBasedOnOpaResult(MethodInvocation methodInvocation, OpaResourceAccessResult result, Map<String, String> voteProperties) {
+    private AuthorizationDecision decideBasedOnOpaResult(MethodInvocation methodInvocation, OpaResourceAccessResult result, Map<String, String> checkProperties) {
         if (result.isAuthorized()) {
             log.trace(
                     String.format(
@@ -238,7 +238,7 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
             return new AuthorizationDecision(true);
         } else {
             log.trace(String.format("Access to the method '%s' has been denied.", methodInvocation.getMethod().getName()));
-            AuthHelper.setDeniedPermissionResourceAction(voteProperties.get(NAME_PROP_NAME), voteProperties.get(ACTION_PROP_NAME));
+            AuthHelper.setDeniedPermissionResourceAction(checkProperties.get(NAME_PROP_NAME), checkProperties.get(ACTION_PROP_NAME));
             return new AuthorizationDecision(false);
         }
     }

@@ -13,7 +13,6 @@ import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
-import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.OAuth2Util;
 import jakarta.annotation.Nullable;
 import org.slf4j.Logger;
@@ -52,25 +51,15 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
             return (AbstractAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
         }
 
-        // Try to get additional information about user from User Info endpoint
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(source.getIssuer().toString())).findFirst().orElse(null);
 
-        Map<String, Object> userInfoClaims = null;
-        if (providerSettings != null && providerSettings.getUserInfoUrl() != null) {
-            try {
-                userInfoClaims = OAuth2Util.getUserInfo(providerSettings.getUserInfoUrl(), source.getTokenValue());
-            } catch (Exception e) {
-                logger.warn("Could not retrieve User Info for JWT: {}", e.getMessage());
-            }
-        }
-
-        Map<String, Object> claims = OAuth2Util.mergeClaims(source.getClaims(), null, userInfoClaims);
-
-        if (!claims.containsKey(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME)) {
-            String message = "The username claim could not be retrieved from the Access Token or User Info Endpoint for user authenticating with Access Token %s".formatted(source.getTokenValue());
-            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, source.getTokenValue());
-            throw new CzertainlyAuthenticationException(message);
+        Map<String, Object> claims;
+        try {
+            claims = OAuth2Util.getAllClaimsAvailable(providerSettings, source.getTokenValue(), null);
+        } catch (CzertainlyAuthenticationException e) {
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), source.getTokenValue());
+            throw e;
         }
 
         AuthenticationInfo authInfo = authenticationClient.authenticate(AuthMethod.TOKEN, claims, false);

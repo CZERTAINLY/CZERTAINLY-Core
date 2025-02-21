@@ -86,20 +86,20 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
     }
 
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
+        SecurityContext securityContext = SecurityContextHolder.getContext();
 
-        if (AuthHelper.permitAllEndpointInRequest(request.getRequestURI(), context)) {
+        if (AuthHelper.permitAllEndpointInRequest(request.getRequestURI(), context) || (AuthHelper.oauth2EndpointInRequest(request.getRequestURI(), context) && securityContext.getAuthentication() == null)) {
             log.trace("Endpoint {} does not need authentication, using anonymous user.", request.getRequestURI());
             AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
             CzertainlyAnonymousToken authentication = new CzertainlyAnonymousToken(UUID.randomUUID().toString(), authenticationInfo, authenticationInfo.getAuthorities());
             authentication.setAccessingPermitAllEndpoint(true);
-            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
-            securityContext.setAuthentication(authentication);
-            SecurityContextHolder.setContext(securityContext);
+            SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
+            emptyContext.setAuthentication(authentication);
+            SecurityContextHolder.setContext(emptyContext);
             return false;
         }
 
         // User is already authenticated and is not anonymous user
-        SecurityContext securityContext = SecurityContextHolder.getContext();
         if (securityContext != null && securityContext.getAuthentication() != null && securityContext.getAuthentication().isAuthenticated()) {
             log.trace("The user {} is already authenticated. Will not re-authenticate.", securityContext.getAuthentication().getName());
             return false;

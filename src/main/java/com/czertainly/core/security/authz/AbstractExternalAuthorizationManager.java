@@ -21,7 +21,7 @@ public abstract class AbstractExternalAuthorizationManager<T> implements Authori
     public AuthorizationDecision check(Supplier<Authentication> authenticationSupplier, T object) {
         Authentication authentication = authenticationSupplier.get();
         if (!(authentication instanceof CzertainlyAuthenticationToken || authentication instanceof AnonymousAuthenticationToken)) {
-            logger.trace("Authentication is not of type 'CzertainlyAuthenticationToken' or 'AnonymousAuthenticationToken'. Abstaining from voting.");
+            logger.trace("Authentication is not of type 'CzertainlyAuthenticationToken' or 'AnonymousAuthenticationToken'. Cannot authorize.");
             return new AuthorizationDecision(false);
         }
 
