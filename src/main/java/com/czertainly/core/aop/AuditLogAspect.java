@@ -163,9 +163,14 @@ public class AuditLogAspect {
     private List<UUID> getResourceUuidsFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
         if (logResource != null) {
             if (logResource.uuid()) {
+                if (parameterValue instanceof Optional<?> optional) {
+                    if (optional.isEmpty()) return null;
+                    parameterValue = optional.get();
+                }
+
                 return parameterValue instanceof List<?> listValues
                         ? listValues.stream().map(v -> UUID.fromString(v.toString())).toList()
-                        : List.of(UUID.fromString(parameterValue.toString()));
+                        : (parameterValue instanceof Optional<?> optional && optional.isPresent() ? List.of(UUID.fromString(optional.get().toString())) : List.of(UUID.fromString(parameterValue.toString())));
             }
             return null;
         }
