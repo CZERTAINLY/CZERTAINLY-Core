@@ -313,8 +313,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         cryptographicKeyItemRepository.save(publicKeyItem);
 
         cryptographicKeyService.destroyKey(
-                tokenInstanceReference.getSecuredParentUuid(),
-                key.getUuid().toString(),
+                key.getUuid(),
                 List.of(
                         privateKeyItem.getUuid().toString(),
                         publicKeyItem.getUuid().toString()
@@ -340,12 +339,10 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     void testDestroyKey_validationError() {
         mockServer.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
 
-        String keyUuid = key.getUuid().toString();
-        SecuredParentUUID tokenInstanceReferenceUuid = tokenInstanceReference.getSecuredParentUuid();
         List<String> keyItemsUuids = List.of(privateKeyItem.getUuid().toString(), publicKeyItem.getUuid().toString());
         Assertions.assertThrows(
                 ValidationException.class,
-                () -> cryptographicKeyService.destroyKey(tokenInstanceReferenceUuid, keyUuid, keyItemsUuids)
+                () -> cryptographicKeyService.destroyKey(key.getUuid(), keyItemsUuids)
         );
     }
 
@@ -370,7 +367,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     void testCompromiseKey() throws ConnectorException {
         cryptographicKeyService.compromiseKey(
-                tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid(),
                 new CompromiseKeyRequestDto(
                         KeyCompromiseReason.UNAUTHORIZED_DISCLOSURE,
@@ -403,7 +399,6 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     @Test
     void testCompromiseKey_validationError() throws ConnectorException {
         cryptographicKeyService.compromiseKey(
-                tokenInstanceReference.getSecuredParentUuid(),
                 key.getUuid(),
                 new CompromiseKeyRequestDto(
                         KeyCompromiseReason.UNAUTHORIZED_MODIFICATION,
@@ -415,13 +410,11 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         );
 
         UUID keyUuid = key.getUuid();
-        SecuredParentUUID tokenInstanceReferenceUuid = tokenInstanceReference.getSecuredParentUuid();
         List<UUID> keyItemsUuids = List.of(privateKeyItem.getUuid(), publicKeyItem.getUuid());
         CompromiseKeyRequestDto keyRequestDto = new CompromiseKeyRequestDto(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION, keyItemsUuids);
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicKeyService.compromiseKey(
-                        tokenInstanceReferenceUuid,
                         keyUuid,
                         keyRequestDto
                 )
@@ -642,7 +635,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testListingKeys() throws NotFoundException {
+    void testListingKeys() {
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         searchRequestDto.setItemsPerPage(10);
         searchRequestDto.setPageNumber(1);
@@ -716,8 +709,19 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         cryptographicKeyService.editKey(keyWithoutToken.getSecuredUuid(), new EditKeyRequestDto());
         cryptographicKeyService.disableKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
         cryptographicKeyService.enableKey(keyWithoutToken.getUuid(), null);
-        cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
 
+        CompromiseKeyRequestDto compromiseKeyRequestDto = new CompromiseKeyRequestDto();
+        compromiseKeyRequestDto.setReason(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION);
+        cryptographicKeyService.compromiseKey(keyWithoutToken.getUuid(), compromiseKeyRequestDto);
+        KeyItemDetailDto keyItemDetailDto = cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
+        Assertions.assertEquals(KeyState.COMPROMISED, keyItemDetailDto.getState());
+        Assertions.assertEquals(KeyCompromiseReason.UNAUTHORIZED_MODIFICATION, keyItemDetailDto.getReason());
+
+        cryptographicKeyService.destroyKey(keyWithoutToken.getUuid(), null);
+        keyItemDetailDto = cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid);
+        Assertions.assertEquals(KeyState.DESTROYED_COMPROMISED, keyItemDetailDto.getState());
+
+        cryptographicKeyService.deleteKey(keyWithoutToken.getUuid(), List.of(keyItemUuid));
         Assertions.assertThrows(NotFoundException.class, () -> cryptographicKeyService.getKeyItem(keyWithoutToken.getSecuredUuid(), keyItemUuid));
     }
 }

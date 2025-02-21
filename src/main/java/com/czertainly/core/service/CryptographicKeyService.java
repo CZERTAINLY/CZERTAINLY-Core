@@ -148,12 +148,12 @@ public interface CryptographicKeyService extends ResourceExtensionService {
      *
      * @param uuid     UUID of the key
      * @param keyUuids UUIDs of the items inside the key. If empty is provided, all the items will be deleted
-     * @throws NotFoundException, ConnectorException
+     * @throws ConnectorException connector issue
      */
     void deleteKey(
             UUID uuid,
             List<String> keyUuids
-    ) throws NotFoundException, ConnectorException;
+    ) throws ConnectorException;
 
     /**
      * Function to delete multiple key
@@ -176,13 +176,12 @@ public interface CryptographicKeyService extends ResourceExtensionService {
     /**
      * Destroy a key
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the concerned key
      * @param keyUuids          List of uuids that are part of the key object
      * @throws NotFoundException  when the token profile or the key uuid is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    void destroyKey(SecuredParentUUID tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException;
+    void destroyKey(UUID uuid, List<String> keyUuids) throws ConnectorException;
 
     /**
      * Destroy multiple keys
@@ -227,12 +226,11 @@ public interface CryptographicKeyService extends ResourceExtensionService {
     /**
      * Function to mark the key as compromised
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
      * @param request           UUIDs of the sub items inside the key. If empty list is provided
      *                          then all the items inside the key will be marked as compromised
      */
-    void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, CompromiseKeyRequestDto request) throws NotFoundException;
+    void compromiseKey(UUID uuid, CompromiseKeyRequestDto request) throws NotFoundException;
 
     /**
      * Function to mark the keys as compromised
