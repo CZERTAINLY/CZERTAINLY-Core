@@ -339,10 +339,11 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     void testDestroyKey_validationError() {
         mockServer.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+")));
 
+        UUID keyUuid = key.getUuid();
         List<String> keyItemsUuids = List.of(privateKeyItem.getUuid().toString(), publicKeyItem.getUuid().toString());
         Assertions.assertThrows(
                 ValidationException.class,
-                () -> cryptographicKeyService.destroyKey(key.getUuid(), keyItemsUuids)
+                () -> cryptographicKeyService.destroyKey(keyUuid, keyItemsUuids)
         );
     }
 
@@ -469,7 +470,8 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         tokenProfileRepository.saveAndFlush(tokenProfile2);
 
         request.setName("");
-        Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.editKey(key.getSecuredUuid(), request));
+        SecuredUUID securedUuid = key.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.editKey(securedUuid, request));
 
         EditKeyRequestDto requestEmpty = new EditKeyRequestDto();
         keyDetailDto = cryptographicKeyService.editKey(key.getSecuredUuid(), requestEmpty);
