@@ -27,15 +27,15 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
     private static final Logger log = LoggerFactory.getLogger(CzertainlyAuthenticationFilter.class);
 
-    private final String healthCheckRequest;
-
     private final String certificateHeaderName;
     private final CzertainlyAuthenticationClient authClient;
 
+    private final String context;
 
-    public CzertainlyAuthenticationFilter(CzertainlyAuthenticationClient authClient, final String restApiPrefix, final String certificateHeaderName) {
+
+    public CzertainlyAuthenticationFilter(CzertainlyAuthenticationClient authClient, final String certificateHeaderName, final String context) {
         this.authClient = authClient;
-        this.healthCheckRequest = "/api" + restApiPrefix + "health";
+        this.context = context;
         this.certificateHeaderName = certificateHeaderName;
     }
 
@@ -45,8 +45,6 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
             log.trace("Going to authenticate the '{}' request on '{}'.", request.getMethod(), request.getRequestURI());
 
             try {
-
-                logger.trace("Going to authenticate users against the Czertainly Authentication Service.");
 
                 AuthMethod authMethod = AuthMethod.NONE;
                 Object authData = null;
@@ -65,9 +63,9 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
                     authentication = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
                 }
 
-                SecurityContext context = SecurityContextHolder.createEmptyContext();
-                context.setAuthentication(authentication);
-                SecurityContextHolder.setContext(context);
+                SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+                securityContext.setAuthentication(authentication);
+                SecurityContextHolder.setContext(securityContext);
                 CzertainlyUserDetails userDetails = (CzertainlyUserDetails) authentication.getPrincipal();
                 if (userDetails.getAuthMethod() == AuthMethod.CERTIFICATE) {
                     log.debug("User with username '{}' has been successfully authenticated with certificate.", userDetails.getUsername());
@@ -89,15 +87,20 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
     private boolean isAuthenticationNeeded(final HttpServletRequest request) {
 
-        if (request.getRequestURI().startsWith(healthCheckRequest)) {
-            log.trace("Actuator health checks are automatically authenticated. Will skip authentication.");
+        if (AuthHelper.permitAllEndpointInRequest(request.getRequestURI(), context)) {
+            log.trace("Endpoint {} does not need authentication, using anonymous user.", request.getRequestURI());
+            AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
+            Authentication authentication = new AnonymousAuthenticationToken(UUID.randomUUID().toString(), authenticationInfo, authenticationInfo.getAuthorities());
+            SecurityContext securityContext = SecurityContextHolder.createEmptyContext();
+            securityContext.setAuthentication(authentication);
+            SecurityContextHolder.setContext(securityContext);
             return false;
         }
 
         // User is already authenticated and is not anonymous user
-        SecurityContext context = SecurityContextHolder.getContext();
-        if (context != null && context.getAuthentication() != null && context.getAuthentication().isAuthenticated()) {
-            log.trace("The user {} is already authenticated. Will not re-authenticate.", context.getAuthentication().getName());
+        SecurityContext securityContext = SecurityContextHolder.getContext();
+        if (securityContext != null && securityContext.getAuthentication() != null && securityContext.getAuthentication().isAuthenticated()) {
+            log.trace("The user {} is already authenticated. Will not re-authenticate.", securityContext.getAuthentication().getName());
             return false;
         }
 
@@ -106,7 +109,7 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
 
     }
 
-    private boolean isLocalhostAddress(HttpServletRequest request){
+    private boolean isLocalhostAddress(HttpServletRequest request) {
         boolean isLocalhostAddress;
         String ipAddress = AuthHelper.getClientIPAddress(request);
         try {

@@ -28,11 +28,15 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.web.util.matcher.RequestMatcher;
+import org.springframework.security.web.util.matcher.RequestMatchers;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
@@ -55,6 +59,8 @@ public class AuthHelper {
     public static final String ACME_USERNAME = "acme";
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
+
+    public static final List<String> PERMITTED_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register");
 
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
@@ -202,4 +208,16 @@ public class AuthHelper {
         }
         auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authData);
     }
+
+    public static String[] getPermitAllEndpoints() {
+        return PERMITTED_ENDPOINTS.toArray(new String[0]);
+    }
+
+    public static boolean permitAllEndpointInRequest(String requestUri, String context) {
+        String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
+        AntPathMatcher pathMatcher = new AntPathMatcher();
+        return PERMITTED_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
+    }
+
+
 }

@@ -16,7 +16,7 @@ import org.springframework.security.config.annotation.method.configuration.Enabl
 import static org.springframework.beans.factory.config.BeanDefinition.ROLE_INFRASTRUCTURE;
 
 @Configuration
-@EnableMethodSecurity()
+@EnableMethodSecurity
 public class MethodSecurityConfig {
 
     ExternalMethodAuthorizationManager externalMethodAuthorizationManager;

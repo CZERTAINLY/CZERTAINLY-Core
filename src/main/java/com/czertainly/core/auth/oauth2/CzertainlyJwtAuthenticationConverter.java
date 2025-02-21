@@ -49,7 +49,7 @@ public class CzertainlyJwtAuthenticationConverter implements Converter<Jwt, Abst
     @Override
     public AbstractAuthenticationToken convert(@Nullable Jwt source) {
         if (source == null) {
-            return (CzertainlyAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
+            return (AbstractAuthenticationToken) SecurityContextHolder.getContext().getAuthentication();
         }
 
         // Try to get additional information about user from User Info endpoint
