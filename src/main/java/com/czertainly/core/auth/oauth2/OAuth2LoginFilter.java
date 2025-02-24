@@ -75,8 +75,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) {
-
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws IOException {
 
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
@@ -100,24 +99,30 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     request.getSession().invalidate();
                     String message = ("Could not refresh token: %s for access token : %s").formatted(e.getMessage(), oauth2AccessToken.getTokenValue());
                     auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
-                    throw new CzertainlyAuthenticationException(message);
+                    logger.error(e.getMessage());
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                    return;
                 }
                 try {
                     OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
                 } catch (CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
                     auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), oauth2AccessToken.getTokenValue());
-                    throw e;
+                    logger.error(e.getMessage());
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                    return;
                 }
             }
             Map<String, Object> claims;
             try {
                 OidcUser oidcUser = (OidcUser) oauthToken.getPrincipal();
-                claims = OAuth2Util.getAllClaimsAvailable(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oidcUser.getIdToken());
+                claims = OAuth2Util.getAllClaimsAvailable(providerSettings, "bla", oidcUser.getIdToken());
             } catch (CzertainlyAuthenticationException e) {
                 request.getSession().invalidate();
                 auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
-                throw e;
+                logger.error(e.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                return;
             }
             authenticate(request, claims, clientRegistration);
         }
