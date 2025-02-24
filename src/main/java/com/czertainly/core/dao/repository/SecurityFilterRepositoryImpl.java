@@ -124,6 +124,22 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
+    public int deleteUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete, Predicate> additionalWhereClause) {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaDelete<T> cd = cb.createCriteriaDelete(entity);
+        final Root<T> root = cd.from(entity);
+
+        Predicate additionalWhereClausePredicate = additionalWhereClause.apply(root, cb, cd);
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClausePredicate, root, cb);
+        if(!predicates.isEmpty()) {
+            cd = cd.where(predicates.toArray(new Predicate[]{}));
+        }
+
+        return entityManager.createQuery(cd).executeUpdate();
+    }
+
+    @Override
     public List<T> findUsingSecurityFilterByCustomCriteriaQuery(SecurityFilter filter, Root<T> root, CriteriaQuery<T> criteriaQuery, Predicate customPredicates) {
         List<Predicate> predicates = new ArrayList<>();
         if (filter.getResourceFilter() != null) {
@@ -211,10 +227,10 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return joinedAssociationsMap;
     }
 
-    private List<Predicate> getPredicates(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb, CriteriaQuery cr) {
+    private List<Predicate> getPredicates(SecurityFilter filter, Predicate additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
         List<Predicate> predicates = new ArrayList<>();
         if (additionalWhereClause != null) {
-            predicates.add(additionalWhereClause.apply(root, cb, cr));
+            predicates.add(additionalWhereClause);
         }
 
         if (filter.getParentResourceFilter() != null && filter.getParentRefProperty() == null) {
@@ -256,6 +272,15 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             predicates.add(combinedObjectAccessPredicates.size() == 1 ? combinedObjectAccessPredicates.get(0) : cb.or(combinedObjectAccessPredicates.toArray(new Predicate[0])));
         }
         return predicates;
+    }
+
+    private List<Predicate> getPredicates(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb, CriteriaQuery cr) {
+        Predicate additionalWhereClausePredicate = null;
+        if (additionalWhereClause != null) {
+            additionalWhereClausePredicate = additionalWhereClause.apply(root, cb, cr);
+        }
+
+        return getPredicates(filter, additionalWhereClausePredicate, root, cb);
     }
 
     private Predicate getPredicateBySecurityResourceFilter(Root<T> root, SecurityResourceFilter resourceFilter, String attributeName) {

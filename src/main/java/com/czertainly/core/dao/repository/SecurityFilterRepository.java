@@ -37,5 +37,7 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause);
 
+    int deleteUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete, Predicate> additionalWhereClause);
+
     List<T> findUsingSecurityFilterByCustomCriteriaQuery(SecurityFilter filter, Root<T> root, CriteriaQuery<T> criteriaQuery, Predicate customPredicates);
 }
