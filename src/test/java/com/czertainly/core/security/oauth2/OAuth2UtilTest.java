@@ -25,8 +25,8 @@ class OAuth2UtilTest {
         KeyPair keyPair = generator.generateKeyPair();
 
         OAuth2ProviderSettingsDto providerSettingsDto = new OAuth2ProviderSettingsDto();
-        OAuth2AccessToken accessTokenCorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "expected"), Instant.now(), Instant.now().plusMillis(200));
-        OAuth2AccessToken accessTokenIncorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "unexpected"), Instant.now(), Instant.now().plusMillis(200));
+        OAuth2AccessToken accessTokenCorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "expected", ""), Instant.now(), Instant.now().plusMillis(200));
+        OAuth2AccessToken accessTokenIncorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "unexpected", ""), Instant.now(), Instant.now().plusMillis(200));
 
 
         providerSettingsDto.setAudiences(List.of("expected"));

@@ -1,8 +1,11 @@
 package com.czertainly.core.security.oauth2;
 
 import com.czertainly.core.util.BaseSpringBootTestNoAuth;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import com.nimbusds.jose.JOSEException;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -21,6 +24,9 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
+import java.security.NoSuchAlgorithmException;
 import java.util.UUID;
 
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -44,17 +50,17 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
         registry.add("server.servlet.context-path", () -> "");
     }
 
-    private static final String CERTIFICATE_USER_USERNAME = "certificate-user";
-    private static final String CERTIFICATE_HEADER_VALUE = "certificate";
-    private static final String TOKEN = "mock-token";
-    private static final String TOKEN_HEADER_VALUE = "Bearer " + TOKEN;
-    private static final String TOKEN_USER_USERNAME = "token-user";
+    static final String CERTIFICATE_USER_USERNAME = "certificate-user";
+    static final String CERTIFICATE_HEADER_VALUE = "certificate";
+    static final String TOKEN_USER_USERNAME = "token-user";
 
     Jwt mockJwt;
+    String tokenValue;
+    String tokenHeaderValue;
     WireMockServer mockServer;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws NoSuchAlgorithmException, JOSEException, JsonProcessingException {
         mockServer = new WireMockServer(10003);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
@@ -105,7 +111,12 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
         ));
 
         String tokenUserUuid = UUID.randomUUID().toString();
-        mockJwt = Jwt.withTokenValue(TOKEN)
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair keyPair = generator.generateKeyPair();
+        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), null, "http://issuer", null, TOKEN_USER_USERNAME);
+        tokenHeaderValue =  "Bearer " + tokenValue;
+        mockJwt = Jwt.withTokenValue(tokenValue)
                 .header("alg", "RS256")
                 .claim("username", TOKEN_USER_USERNAME)
                 .issuer("http://issuer")
@@ -161,19 +172,19 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
 
     @Test
     void authorizeUsingJwtToken() throws Exception {
-        Mockito.when(jwtDecoder.decode(TOKEN)).thenReturn(mockJwt);
+        Mockito.when(jwtDecoder.decode(tokenValue)).thenReturn(mockJwt);
         MvcResult result = mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile")
-                .header("Authorization", TOKEN_HEADER_VALUE)).andReturn();
+                .header("Authorization", tokenHeaderValue)).andReturn();
         Assertions.assertTrue(result.getResponse().getContentAsString().contains(TOKEN_USER_USERNAME));
 
     }
 
     @Test
     void authorizeWithCertificateAndToken() throws Exception {
-        Mockito.when(jwtDecoder.decode(TOKEN)).thenReturn(null);
+        Mockito.when(jwtDecoder.decode(tokenValue)).thenReturn(null);
         MvcResult result = mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile")
                 .header("X-APP-CERTIFICATE", CERTIFICATE_HEADER_VALUE)
-                .header("Authorization", TOKEN_HEADER_VALUE)).andReturn();
+                .header("Authorization", tokenHeaderValue)).andReturn();
         Assertions.assertTrue(result.getResponse().getContentAsString().contains(CERTIFICATE_USER_USERNAME));
     }
 

@@ -98,7 +98,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
-        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE);
+        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE, "");
 
     }
 
@@ -112,7 +112,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
 
-        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE);
+        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
         // Test if 30 s skew is added to the time and therefore the token should be successfully validated
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(almostExpiredToken));
     }
@@ -123,7 +123,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
-        String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE);
+        String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
         Assertions.assertTrue(exception.getMessage().contains("Jwt expired"));
     }
@@ -199,7 +199,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
         tokenValue = new PlainJWT(claimsSet).serialize();
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
-        Assertions.assertTrue(exception.getMessage().contains("Incoming Token is not an instance of Signed JWT"));
+        Assertions.assertTrue(exception.getMessage().contains("Token is not an instance of Signed JWT"));
     }
 
     private String convertRSAPrivateKeyToJWK(RSAPublicKey publicKey) throws JsonProcessingException {
