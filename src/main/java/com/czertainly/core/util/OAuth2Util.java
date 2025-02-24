@@ -37,17 +37,17 @@ public class OAuth2Util {
         try {
             tokenAudiences = SignedJWT.parse(accessToken.getTokenValue()).getJWTClaimsSet().getAudience();
         } catch (ParseException e) {
-            throw new CzertainlyAuthenticationException("Could not parse JWT Access Token.");
+            throw new CzertainlyAuthenticationException("Could not parse JWT Access Token " + accessToken.getTokenValue());
         }
 
         if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
-            String errorMessage = "User was not authenticated: audiences %s in access token issued by OAuth2 Provider do not match any of audiences %s set for the provider in settings. Token: %s".formatted(StringUtils.join(tokenAudiences), StringUtils.join(clientAudiences), accessToken.getTokenValue());
+            String errorMessage = "User was not authenticated: audiences %s in access token issued by OAuth2 Provider %s do not match any of audiences %s set for the provider in settings. Token: %s".formatted(StringUtils.join(tokenAudiences), providerSettings.getName(), StringUtils.join(clientAudiences), accessToken.getTokenValue());
             throw new CzertainlyAuthenticationException(errorMessage);
         }
 
     }
 
-    public static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
+    private static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
         RestTemplate restTemplate = new RestTemplate();
         restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
         HttpMethod httpMethod = HttpMethod.GET;
@@ -89,7 +89,7 @@ public class OAuth2Util {
         try {
             accessTokenClaims = SignedJWT.parse(accessTokenValue).getJWTClaimsSet().getClaims();
         } catch (ParseException e) {
-            String message = "Could not convert access token to JWT and extract claims: %s".formatted(e.getMessage());
+            String message = "Could not convert access token to JWT and extract claims. Reason: %s Token: %s".formatted(e.getMessage(), accessTokenValue);
             throw new CzertainlyAuthenticationException(message);
         }
 

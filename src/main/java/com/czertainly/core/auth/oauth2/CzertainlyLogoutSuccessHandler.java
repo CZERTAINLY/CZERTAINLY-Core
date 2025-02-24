@@ -3,6 +3,7 @@ package com.czertainly.core.auth.oauth2;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.service.AuditLogService;
+import com.czertainly.core.util.AuthHelper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -43,15 +44,16 @@ public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuc
         // Set the post logout redirect URI dynamically
         this.setPostLogoutRedirectUri(redirectUri);
 
+        String username = oauth2Token.getPrincipal().getAttribute("username");
+
         // Call the parent method to complete the logout process
         try {
             super.onLogoutSuccess(request, response, authentication);
         } catch (IOException | ServletException e) {
-            LOGGER.error("Error occurred when logging out from OAuth2 Provider: {}", e.getMessage());
+            LOGGER.error("Error occurred when logging out user {} from OAuth2 Provider {}: {}", username, oauth2Token.getAuthorizedClientRegistrationId(), e.getMessage());
         }
 
-        String username = oauth2Token.getPrincipal().getAttribute("username");
-        String message = "Logout of user '%s' from OAuth2 Provider successful".formatted(username);
+        String message = "Logout of user '%s' from OAuth2 Provider %s successful".formatted(username, oauth2Token.getAuthorizedClientRegistrationId());
         auditLogService.logAuthentication(Operation.LOGOUT, OperationResult.SUCCESS, message, null);
         LOGGER.debug("{}, redirecting to {}", message, redirectUri);
     }

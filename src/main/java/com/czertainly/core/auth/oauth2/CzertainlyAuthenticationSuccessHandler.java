@@ -82,7 +82,7 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         try {
             response.sendRedirect(redirectUrl);
         } catch (IOException e) {
-            logger.error("Error occurred when sending redirect to {} after authentication via OAuth2. ", redirectUrl);
+            logger.error("Error occurred when sending redirect user {} to {} after authentication via OAuth2. ", authenticationToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME), redirectUrl);
             return;
         }
         logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", authenticationToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME), redirectUrl);

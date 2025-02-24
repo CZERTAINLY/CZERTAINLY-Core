@@ -98,7 +98,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                     refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
                 } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
-                    String message = "Could not refresh token: %s".formatted(e.getMessage());
+                    String message = ("Could not refresh token: %s for access token : %s").formatted(e.getMessage(), oauth2AccessToken.getTokenValue());
                     auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
                     throw new CzertainlyAuthenticationException(message);
                 }

@@ -58,7 +58,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         try {
             signedJWT = SignedJWT.parse(token);
         } catch (ParseException e) {
-            String message = "Incoming Token is not an instance of Signed JWT.";
+            String message = "Token is not an instance of Signed JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
