@@ -67,8 +67,6 @@ class AuditLogServiceTest extends BaseSpringBootTest {
 
     @Test
     void testPurgeAuditLogs() {
-
-
         auditLogController.listAuditLogs(new SearchRequestDto());
         auditLogController.listAuditLogs(new SearchRequestDto());
         auditLogController.listAuditLogs(new SearchRequestDto());
