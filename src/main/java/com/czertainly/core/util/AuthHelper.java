@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.ActorType;
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.logging.LoggingHelper;
@@ -27,11 +28,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.util.AntPathMatcher;
 import org.springframework.web.context.request.RequestAttributes;
 import org.springframework.web.context.request.RequestContextHolder;
 
@@ -55,6 +56,10 @@ public class AuthHelper {
     public static final String SCEP_USERNAME = "scep";
     public static final String CMP_USERNAME = "cmp";
 
+    public static final List<String> PERMITTED_ENDPOINTS = List.of("/v?/health/**", "/v?/connector/register");
+    public static final List<String> OAUTH2_ENDPOINTS = List.of("/login", "/oauth2/**", "/v?/health/**", "/v?/connector/register");
+
+
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
     private OpaClient opaClient;
@@ -72,14 +77,11 @@ public class AuthHelper {
     }
 
     public void authenticateAsSystemUser(String username) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(SYSTEM_USER_HEADER_NAME, username);
-
         // update MDC for actor logging
         ActorType actorType = protocolUsers.contains(username) ? ActorType.PROTOCOL : ActorType.CORE;
         LoggingHelper.putActorInfoWhenNull(actorType, null, username);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(AuthMethod.USER_PROXY, username,false);
         CzertainlyUserDetails userDetails = new CzertainlyUserDetails(authUserInfo);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(userDetails));
@@ -87,13 +89,10 @@ public class AuthHelper {
     }
 
     public void authenticateAsUser(UUID userUuid) {
-        HttpHeaders headers = new HttpHeaders();
-        headers.add(USER_UUID_HEADER_NAME, userUuid.toString());
-
         // update MDC for actor logging
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, userUuid.toString(), null);
 
-        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(headers, false);
+        AuthenticationInfo authUserInfo = czertainlyAuthenticationClient.authenticate(AuthMethod.USER_PROXY, userUuid, false);
         SecurityContext securityContext = SecurityContextHolder.getContext();
         securityContext.setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authUserInfo)));
         logger.debug("User with username '{}' has been successfully authenticated as user proxy.", authUserInfo.getUsername());
@@ -207,4 +206,24 @@ public class AuthHelper {
         }
         auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, authData);
     }
+
+    public static String[] getPermitAllEndpoints() {
+        List<String> allEndpoints = new ArrayList<>(PERMITTED_ENDPOINTS);
+        allEndpoints.addAll(OAUTH2_ENDPOINTS);
+        return allEndpoints.toArray(new String[0]);
+    }
+
+    public static boolean permitAllEndpointInRequest(String requestUri, String context) {
+        String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
+        AntPathMatcher pathMatcher = new AntPathMatcher();
+        return PERMITTED_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
+    }
+
+    public static boolean oauth2EndpointInRequest(String requestUri, String context) {
+        String requestUriWithoutContextPath = requestUri.replaceFirst(context, "");
+        AntPathMatcher pathMatcher = new AntPathMatcher();
+        return OAUTH2_ENDPOINTS.stream().anyMatch(endpoint -> pathMatcher.match(endpoint, requestUriWithoutContextPath));
+    }
+
+
 }

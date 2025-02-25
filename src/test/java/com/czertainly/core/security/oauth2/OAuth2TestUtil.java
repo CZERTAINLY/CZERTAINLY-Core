@@ -1,5 +1,6 @@
 package com.czertainly.core.security.oauth2;
 
+import com.czertainly.core.util.OAuth2Constants;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSAlgorithm;
 import com.nimbusds.jose.JWSHeader;
@@ -13,12 +14,11 @@ import java.util.Date;
 
 public class OAuth2TestUtil {
 
-    public static String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds, String issuerUrl, String audience) throws JOSEException {
+    public static String createJwtTokenValue(PrivateKey privateKey, Integer expiryInMilliseconds, String issuerUrl, String audience, String username) throws JOSEException {
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
-                .subject("your-subject")
                 .audience(audience)
-                .expirationTime(new Date(System.currentTimeMillis() + expiryInMilliseconds))
-                .claim("username", "username")
+                .expirationTime(expiryInMilliseconds == null ? null : new Date(System.currentTimeMillis() + expiryInMilliseconds))
+                .claim(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME, username)
                 .issuer(issuerUrl)
                 .build();
 

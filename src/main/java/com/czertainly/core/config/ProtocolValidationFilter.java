@@ -6,8 +6,10 @@ import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
@@ -32,24 +34,31 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
         this.resolver = resolver;
     }
 
+    @Value("${server.servlet.context-path}")
+    private String context;
+
+    @Setter
+    private String restApiPrefix;
+
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         CustomHttpServletRequestWrapper requestWrapper = new CustomHttpServletRequestWrapper(request);
         CustomHttpServletResponseWrapper responseWrapper = new CustomHttpServletResponseWrapper(response);
         String requestUri = request.getRequestURI();
+        String prefix = "%s%s/protocols/".formatted(context, restApiPrefix);
 
-        if (!requestUri.startsWith("/api/v1/protocols/")) {
+        if (!requestUri.startsWith(prefix)) {
             filterChain.doFilter(requestWrapper, responseWrapper);
-        } else if (requestUri.startsWith("/api/v1/protocols/scep/")) {
+        } else if (requestUri.startsWith(prefix + "scep/")) {
             logger.info("SCEP Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
-        } else if (requestUri.startsWith("/api/v1/protocols/acme/")) {
+        } else if (requestUri.startsWith(prefix + "acme/")) {
             logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.ACME_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
-        } else if (requestUri.startsWith("/api/v1/protocols/cmp/")) {
+        } else if (requestUri.startsWith(prefix + "cmp/")) {
             logger.info("CMPv2 Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.CMP_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
