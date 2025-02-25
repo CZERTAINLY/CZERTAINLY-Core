@@ -139,24 +139,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return entityManager.createQuery(cd).executeUpdate();
     }
 
-    @Override
-    public List<T> findUsingSecurityFilterByCustomCriteriaQuery(SecurityFilter filter, Root<T> root, CriteriaQuery<T> criteriaQuery, Predicate customPredicates) {
-        List<Predicate> predicates = new ArrayList<>();
-        if (filter.getResourceFilter() != null) {
-            if (filter.getResourceFilter().areOnlySpecificObjectsAllowed()) {
-                predicates.add(root.get("objectUuid").in(filter.getResourceFilter().getAllowedObjects()));
-            } else {
-                if (!filter.getResourceFilter().getForbiddenObjects().isEmpty()) {
-                    predicates.add(root.get("objectUuid").in(filter.getResourceFilter().getForbiddenObjects()).not());
-                }
-            }
-        }
-        predicates.add(customPredicates);
-        criteriaQuery.where(predicates.toArray(new Predicate[]{}));
-
-        return entityManager.createQuery(criteriaQuery).getResultList();
-    }
-
     private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -202,29 +184,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 }
             }
         }
-    }
-
-    private Map<String, From> joinAssociations(Root<T> root, List<String> fetchAssociations, Map<String, From> joinedAssociationsMap) {
-        if (joinedAssociationsMap == null) {
-            joinedAssociationsMap = new HashMap<>();
-        }
-        for (String fetchAssociation : fetchAssociations) {
-            From from = root;
-            String associationFullName = null;
-            final StringTokenizer stz = new StringTokenizer(fetchAssociation, ".");
-            while (stz.hasMoreTokens()) {
-                String associationName = stz.nextToken();
-                associationFullName = associationFullName == null ? associationName : associationFullName + "." + associationName;
-                if (joinedAssociationsMap.get(associationFullName) == null) {
-                    from = from.join(associationName, JoinType.LEFT);
-                    joinedAssociationsMap.put(associationFullName, from);
-                } else {
-                    from = joinedAssociationsMap.get(associationFullName);
-                }
-            }
-        }
-
-        return joinedAssociationsMap;
     }
 
     private List<Predicate> getPredicates(SecurityFilter filter, Predicate additionalWhereClause, Root<T> root, CriteriaBuilder cb) {
