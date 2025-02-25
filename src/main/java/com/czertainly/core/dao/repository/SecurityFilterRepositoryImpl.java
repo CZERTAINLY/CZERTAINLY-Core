@@ -237,7 +237,6 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             throw new ValidationException(ValidationError.create("Unknown parent ref property to filter by parent resource " + filter.getParentResourceFilter().getResource()));
         }
 
-        List<Predicate> combinedObjectAccessPredicates = new ArrayList<>();
         Predicate resourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getResourceFilter(), "uuid");
         Predicate parentResourceFilterPredicate = getPredicateBySecurityResourceFilter(root, filter.getParentResourceFilter(), filter.getParentRefProperty());
 
@@ -246,30 +245,18 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             return predicates;
         }
 
-        combinedObjectAccessPredicates.add(resourceFilterPredicate != null && parentResourceFilterPredicate != null ? cb.and(resourceFilterPredicate, parentResourceFilterPredicate) : (resourceFilterPredicate != null ? resourceFilterPredicate : parentResourceFilterPredicate));
-        if (filter.getResourceFilter() != null) {
-            // check for group membership predicate
-            if (filter.getResourceFilter().getResource().hasGroups()
-                    && (filter.getResourceFilter().getResourceAction() == ResourceAction.LIST || filter.getResourceFilter().getResourceAction() == ResourceAction.DETAIL)) {
-                combinedObjectAccessPredicates.add(getPredicateBySecurityResourceFilter(root, filter.getGroupMembersFilter(), "groups.uuid"));
-            }
-            // check for owner association predicate
-            if (filter.getResourceFilter().getResource().hasOwner()) {
-                try {
-                    NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
-                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "%s.owner".formatted(CryptographicKeyItem_.key.getName()) : "owner";
-                    Join fromOwner = FilterPredicatesBuilder.prepareJoin(root, ownerAttributePath);
-                    combinedObjectAccessPredicates.add(cb.equal(FilterPredicatesBuilder.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
-                } catch (ValidationException e) {
-                    // cannot apply filter predicate for anonymous user
-                }
-            }
-        }
+        // add object permissions from security filter resources
+        List<Predicate> objectAccessPredicates = new ArrayList<>();
+        objectAccessPredicates.add(resourceFilterPredicate != null && parentResourceFilterPredicate != null ? cb.and(resourceFilterPredicate, parentResourceFilterPredicate) : (resourceFilterPredicate != null ? resourceFilterPredicate : parentResourceFilterPredicate));
 
-        combinedObjectAccessPredicates = combinedObjectAccessPredicates.stream().filter(Objects::nonNull).toList();
+        // add owner and group based object access permissions
+        getObjectGroupOwnerAccessPredicates(objectAccessPredicates, filter, root, cb);
 
-        if (!combinedObjectAccessPredicates.isEmpty()) {
-            predicates.add(combinedObjectAccessPredicates.size() == 1 ? combinedObjectAccessPredicates.get(0) : cb.or(combinedObjectAccessPredicates.toArray(new Predicate[0])));
+        // remove null predicates
+        objectAccessPredicates = objectAccessPredicates.stream().filter(Objects::nonNull).toList();
+
+        if (!objectAccessPredicates.isEmpty()) {
+            predicates.add(objectAccessPredicates.size() == 1 ? objectAccessPredicates.getFirst() : cb.or(objectAccessPredicates.toArray(new Predicate[0])));
         }
         return predicates;
     }
@@ -281,6 +268,27 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         }
 
         return getPredicates(filter, additionalWhereClausePredicate, root, cb);
+    }
+
+    private void getObjectGroupOwnerAccessPredicates(List<Predicate> objectAccessPredicates, SecurityFilter filter, Root<T> root, CriteriaBuilder cb) {
+        if (filter.getResourceFilter() != null) {
+            // check for group membership predicate
+            if (filter.getResourceFilter().getResource().hasGroups()
+                    && (filter.getResourceFilter().getResourceAction() == ResourceAction.LIST || filter.getResourceFilter().getResourceAction() == ResourceAction.DETAIL)) {
+                objectAccessPredicates.add(getPredicateBySecurityResourceFilter(root, filter.getGroupMembersFilter(), "groups.uuid"));
+            }
+            // check for owner association predicate
+            if (filter.getResourceFilter().getResource().hasOwner()) {
+                try {
+                    NameAndUuidDto userInformation = AuthHelper.getUserIdentification();
+                    String ownerAttributePath = root.getJavaType().equals(CryptographicKeyItem.class) ? "%s.owner".formatted(CryptographicKeyItem_.key.getName()) : "owner";
+                    Join fromOwner = FilterPredicatesBuilder.prepareJoin(root, ownerAttributePath);
+                    objectAccessPredicates.add(cb.equal(FilterPredicatesBuilder.prepareExpression(fromOwner, "ownerUsername"), userInformation.getName()));
+                } catch (ValidationException e) {
+                    // cannot apply filter predicate for anonymous user but anonymous user should not have access here anyway and anyway will be filtered out by SecurityFilter with no permissions
+                }
+            }
+        }
     }
 
     private Predicate getPredicateBySecurityResourceFilter(Root<T> root, SecurityResourceFilter resourceFilter, String attributeName) {
