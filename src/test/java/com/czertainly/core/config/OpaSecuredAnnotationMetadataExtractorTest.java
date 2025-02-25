@@ -57,7 +57,7 @@ class OpaSecuredAnnotationMetadataExtractorTest {
 
     void assertAttributePresent(String attributeName, Object attributeValue, Collection<ExternalAuthorizationConfigAttribute> attributes) {
         boolean isAttributePresent = attributes.stream()
-                .anyMatch(a -> Objects.equals(a.getAttributeName(), attributeName) && Objects.equals(a.getAttributeValue(), attributeValue));
+                .anyMatch(a -> Objects.equals(a.attributeName(), attributeName) && Objects.equals(a.attributeValue(), attributeValue));
         if (!isAttributePresent) {
             throw new AssertionFailedError(
                     "Config attribute '%s=%s' not found.".formatted(attributeName, attributeValue)
@@ -68,7 +68,7 @@ class OpaSecuredAnnotationMetadataExtractorTest {
     @SuppressWarnings("SameParameterValue")
     void assertAttributeNotPresent(String attributeName, Collection<ExternalAuthorizationConfigAttribute> attributes) {
         boolean isAttributePresent = attributes.stream()
-                .anyMatch(a -> Objects.equals(a.getAttributeName(), attributeName));
+                .anyMatch(a -> Objects.equals(a.attributeName(), attributeName));
         if (isAttributePresent) {
             throw new AssertionFailedError(
                     "Config attribute '%s' should not be present in collection.".formatted(attributeName)

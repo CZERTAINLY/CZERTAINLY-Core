@@ -2,7 +2,9 @@ package com.czertainly.core.security.oauth2;
 
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.auth.oauth2.LoginController;
+import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -16,6 +18,7 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
@@ -98,7 +101,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
-        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE);
+        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE, "");
 
     }
 
@@ -108,11 +111,43 @@ class JwtDecoderTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testAuthenticationOnlyIfNeeded() {
+        Assertions.assertNull(jwtDecoder.decode(tokenValue));
+
+        AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
+        CzertainlyAnonymousToken authentication = new CzertainlyAnonymousToken(UUID.randomUUID().toString(), authenticationInfo, authenticationInfo.getAuthorities());
+        SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
+        emptyContext.setAuthentication(authentication);
+        SecurityContextHolder.setContext(emptyContext);
+        Assertions.assertNotNull(jwtDecoder.decode(tokenValue));
+
+        authentication.setAccessingPermitAllEndpoint(true);
+        Assertions.assertNull(jwtDecoder.decode(tokenValue));
+    }
+
+    @Test
+    void testNullIssuer() throws JOSEException {
+        SecurityContextHolder.clearContext();
+        String token = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, null, null);
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(token));
+        Assertions.assertTrue(exception.getMessage().contains("Issuer URI is not present in JWT."));
+    }
+
+    @Test
+    void testNoOauth2Provider() {
+        settingService.removeOAuth2Provider(PROVIDER_NAME);
+        SecurityContextHolder.clearContext();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("No OAuth2 Provider with issuer URI"));
+    }
+
+
+    @Test
     void testJwtDecoderOnValidTokenWithoutAudiences() throws JOSEException {
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
 
-        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE);
+        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
         // Test if 30 s skew is added to the time and therefore the token should be successfully validated
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(almostExpiredToken));
     }
@@ -123,7 +158,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
-        String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE);
+        String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
         Assertions.assertTrue(exception.getMessage().contains("Jwt expired"));
     }
@@ -199,7 +234,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
         tokenValue = new PlainJWT(claimsSet).serialize();
         Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
-        Assertions.assertTrue(exception.getMessage().contains("Incoming Token is not an instance of Signed JWT"));
+        Assertions.assertTrue(exception.getMessage().contains("Token is not an instance of Signed JWT"));
     }
 
     private String convertRSAPrivateKeyToJWK(RSAPublicKey publicKey) throws JsonProcessingException {

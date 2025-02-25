@@ -1,6 +1,7 @@
 package com.czertainly.core.security.authz;
 
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
+import com.czertainly.core.config.OpaSecuredAnnotationMetadataExtractor;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -12,6 +13,8 @@ import com.czertainly.core.util.AuthenticationTokenTestHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.aopalliance.intercept.MethodInvocation;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
@@ -19,31 +22,32 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.Spy;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.access.ConfigAttribute;
+import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.util.SimpleMethodInvocation;
 
 import java.util.*;
-import java.util.stream.Collectors;
 
+import static org.junit.Assert.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
-import static org.springframework.security.access.AccessDecisionVoter.ACCESS_DENIED;
-import static org.springframework.security.access.AccessDecisionVoter.ACCESS_GRANTED;
 
 @ExtendWith(MockitoExtension.class)
-class ExternalMethodAuthorizationVoterTest {
+class ExternalMethodAuthorizationManagerTest {
 
     @Mock
     OpaClient opaClient;
+
+    @Mock
+    OpaSecuredAnnotationMetadataExtractor metadataExtractor;
 
     @Spy
     ObjectMapper om = new ObjectMapper();
 
     @InjectMocks
-    ExternalMethodAuthorizationVoter voter;
+    ExternalMethodAuthorizationManager manager;
 
     CzertainlyAuthenticationToken authentication = createCzertainlyAuthentication();
 
@@ -53,11 +57,13 @@ class ExternalMethodAuthorizationVoterTest {
         when(opaClient.checkResourceAccess(any(), any(), any(), any()))
                 .thenReturn(accessGranted());
 
+        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
+
         // when
-        int result = voter.vote(authentication, methodInvocationWithoutSecuredUUIDs(), List.of());
+        AuthorizationDecision result = manager.check(() -> authentication, methodInvocationWithoutSecuredUUIDs());
 
         // then
-        assertEquals(ACCESS_GRANTED, result);
+        Assertions.assertTrue(result.isGranted());
     }
 
     @Test
@@ -66,13 +72,14 @@ class ExternalMethodAuthorizationVoterTest {
         when(opaClient.checkResourceAccess(any(), any(), any(), any()))
                 .thenReturn(OpaResourceAccessResult.unauthorized());
 
+        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
+
         // when
-        int result = voter.vote(authentication, methodInvocationWithoutSecuredUUIDs(), List.of());
+        AuthorizationDecision result = manager.check(() -> authentication, methodInvocationWithoutSecuredUUIDs());
 
         // then
-        assertEquals(ACCESS_DENIED, result);
+        Assertions.assertFalse(result.isGranted());
     }
-
 
     @Test
     void accessIsDeniedWhenRequestToOpaFails() throws NoSuchMethodException {
@@ -80,40 +87,13 @@ class ExternalMethodAuthorizationVoterTest {
         when(opaClient.checkResourceAccess(any(), any(), any(), any()))
                 .thenThrow(new RuntimeException("Ooops..."));
 
-        // when
-        int result = voter.vote(authentication, methodInvocationWithoutSecuredUUIDs(), List.of());
-
-        // then
-        assertEquals(ACCESS_DENIED, result);
-    }
-
-    @Test
-    void doesNotSendCustomObjectTypeAttributesToOpa() throws NoSuchMethodException {
-        // setup
-        ArgumentCaptor<OpaRequestedResource> resourceCaptor = ArgumentCaptor.forClass(OpaRequestedResource.class);
-        when(opaClient.checkResourceAccess(any(), resourceCaptor.capture(), any(), any()))
-                .thenReturn(accessGranted());
-
-        // given
-        Collection<ConfigAttribute> attributes = new ArrayList<>();
-        attributes.add(new ExternalAuthorizationConfigAttribute("string", "GROUPS"));
-        attributes.add(new ExternalAuthorizationConfigAttribute("boolean", true));
-        attributes.add(new ExternalAuthorizationConfigAttribute("int", 42));
-        attributes.add(new ExternalAuthorizationConfigAttribute("float", 3.14f));
-        attributes.add(new ExternalAuthorizationConfigAttribute("double", 3.14d));
-        attributes.add(new ExternalAuthorizationConfigAttribute("object", new Object()));
+        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
 
         // when
-        voter.vote(authentication, methodInvocationWithoutSecuredUUIDs(), attributes);
+        AuthorizationDecision result = manager.check(() -> authentication, methodInvocationWithoutSecuredUUIDs());
 
         // then
-        Map<String, String> properties = resourceCaptor.getValue().getProperties();
-        assertEquals("GROUPS", properties.get("string"));
-        assertEquals("true", properties.get("boolean"));
-        assertEquals("42", properties.get("int"));
-        assertEquals("3.14", properties.get("float"));
-        assertEquals("3.14", properties.get("double"));
-        assertEquals(5, properties.size());
+        Assertions.assertFalse(result.isGranted());
     }
 
     @Test
@@ -122,12 +102,13 @@ class ExternalMethodAuthorizationVoterTest {
         ArgumentCaptor<OpaRequestedResource> resourceCaptor = ArgumentCaptor.forClass(OpaRequestedResource.class);
         when(opaClient.checkResourceAccess(any(), resourceCaptor.capture(), any(), any()))
                 .thenReturn(accessGranted());
+        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
 
         // given
         MethodInvocation mi = methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002");
 
         // when
-        voter.vote(authentication, mi, List.of());
+        manager.check(() -> authentication, mi);
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
@@ -140,12 +121,13 @@ class ExternalMethodAuthorizationVoterTest {
         ArgumentCaptor<OpaRequestedResource> resourceCaptor = ArgumentCaptor.forClass(OpaRequestedResource.class);
         when(opaClient.checkResourceAccess(any(), resourceCaptor.capture(), any(), any()))
                 .thenReturn(accessGranted());
+        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
 
         // given
         MethodInvocation mi = methodInvocationWithListOfSecuredUUIDs("abfbc322-29e1-11ed-a261-0242ac120002", "abfbc322-29e1-11ed-a261-0242ac120003");
 
         // when
-        voter.vote(authentication, mi, List.of());
+        manager.check(() -> authentication, mi);
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
@@ -160,11 +142,12 @@ class ExternalMethodAuthorizationVoterTest {
                 .thenReturn(accessGranted());
 
         // given
-        Collection<ConfigAttribute> attributes = new ArrayList<>();
+        List<ExternalAuthorizationConfigAttribute> attributes = new ArrayList<>();
         attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDsGetter", TestParentUUIDGetter.class));
+        when(metadataExtractor.extractAttributes(any())).thenReturn(attributes);
 
         // when
-        voter.vote(authentication, methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002"), attributes);
+        manager.check(() -> authentication, methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002"));
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
@@ -172,18 +155,19 @@ class ExternalMethodAuthorizationVoterTest {
     }
 
     @Test
-    void NoOpUUIDGetterIsIgnored() throws NoSuchMethodException {
+    void noOpUUIDGetterIsIgnored() throws NoSuchMethodException {
         // setup
         ArgumentCaptor<OpaRequestedResource> resourceCaptor = ArgumentCaptor.forClass(OpaRequestedResource.class);
         when(opaClient.checkResourceAccess(any(), resourceCaptor.capture(), any(), any()))
                 .thenReturn(accessGranted());
 
         // given
-        Collection<ConfigAttribute> attributes = new ArrayList<>();
+        List<ExternalAuthorizationConfigAttribute> attributes = new ArrayList<>();
         attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDsGetter", NoOpParentUUIDGetter.class));
+        when(metadataExtractor.extractAttributes(any())).thenReturn(attributes);
 
         // when
-        voter.vote(authentication, methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002"), attributes);
+        manager.check(() -> authentication, methodInvocationWithSecuredUUID("abfbc322-29e1-11ed-a261-0242ac120002"));
 
         // then
         OpaRequestedResource resource = resourceCaptor.getValue();
@@ -193,15 +177,16 @@ class ExternalMethodAuthorizationVoterTest {
     @Test
     void accessIsDeniedWhenParentUUIDGetterProvidedAndObjectUUIDsAreMissing() throws NoSuchMethodException {
         // given
-        Collection<ConfigAttribute> attributes = new ArrayList<>();
+        List<ExternalAuthorizationConfigAttribute> attributes = new ArrayList<>();
         attributes.add(new ExternalAuthorizationConfigAttribute("parentUUIDsGetter", TestParentUUIDGetter.class));
+        when(metadataExtractor.extractAttributes(any())).thenReturn(attributes);
         MethodInvocation mi = methodInvocationWithoutSecuredUUIDs();
 
         // when
-        int result = voter.vote(authentication, mi, attributes);
+        AuthorizationDecision result = manager.check(() -> authentication, mi);
 
         // then
-        assertEquals(ACCESS_DENIED, result);
+        assertFalse(result.isGranted());
     }
 
     @Test
@@ -210,12 +195,13 @@ class ExternalMethodAuthorizationVoterTest {
         ArgumentCaptor<String> principalCaptor = ArgumentCaptor.forClass(String.class);
         when(opaClient.checkResourceAccess(any(), any(), principalCaptor.capture(), any()))
                 .thenReturn(accessGranted());
+        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
 
         // given
-        Authentication authentication = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
+        Authentication anonymousToken = AuthenticationTokenTestHelper.getAnonymousToken("anonymousUser");
 
         // when
-        voter.vote(authentication, methodInvocationWithoutSecuredUUIDs(), List.of());
+        manager.check(() -> anonymousToken, methodInvocationWithoutSecuredUUIDs());
 
         // then
         String principal = principalCaptor.getValue();
@@ -258,28 +244,31 @@ class ExternalMethodAuthorizationVoterTest {
         return new SimpleMethodInvocation(
                 new Object(),
                 TestClass.class.getMethod("methodWithListOfSecuredUUIDs", List.class),
-                Arrays.stream(uuids).map(SecuredUUID::new).collect(Collectors.toList())
-        );
+                Arrays.stream(uuids).map(SecuredUUID::new).toList());
     }
 
 
     static class TestClass {
 
         public void ordinaryMethod() {
+            // Test method
         }
 
         @SuppressWarnings("unused")
         public void methodWithSecuredUUID(SecuredUUID uuid) {
+            // Test method
         }
 
         @SuppressWarnings("unused")
         public void methodWithListOfSecuredUUIDs(List<SecuredUUID> uuids) {
+            // Test method
         }
     }
 
     static class TestParentUUIDGetter implements ParentUUIDGetter {
 
         public TestParentUUIDGetter() {
+            // Test method
         }
 
         @Override

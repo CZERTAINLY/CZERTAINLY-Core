@@ -13,14 +13,12 @@ import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.OAuth2Constants;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
@@ -32,8 +30,8 @@ import reactor.core.publisher.Mono;
 
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
-import java.util.HashMap;
-import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Component
@@ -55,14 +53,9 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         this.customAuthServiceBaseUrl = customAuthServiceBaseUrl;
     }
 
-    public AuthenticationInfo authenticate(HttpHeaders headers, boolean isLocalhostRequest) throws AuthenticationException {
-        if (logger.isTraceEnabled()) {
-            logger.trace("Calling authentication service with the following headers [{}].", headers.entrySet().stream()
-                    .map(e -> String.format("%s='%s'", e.getKey(), String.join(", ", e.getValue())))
-                    .collect(Collectors.joining(",")));
-        }
+    public AuthenticationInfo authenticate(AuthMethod authMethod, Object authData, boolean isLocalhostRequest) throws AuthenticationException {
 
-        AuthenticationRequestDto authRequest = getAuthPayload(headers, isLocalhostRequest);
+        AuthenticationRequestDto authRequest = getAuthPayload(authMethod, authData, isLocalhostRequest);
         if (logger.isDebugEnabled()) {
             ActorType actorType = LoggingHelper.getActorType();
             logger.debug("Going to authenticate {}user with {} auth method. {}", actorType == null || actorType == ActorType.USER ? "" : actorType.getLabel() + " ", authRequest.getAuthMethod().getLabel(), authRequest.getAuthData(true));
@@ -97,52 +90,30 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         }
     }
 
-    private AuthenticationRequestDto getAuthPayload(HttpHeaders headers, boolean isLocalhostRequest) {
-        boolean hasAuthenticationMethod = false;
+    private AuthenticationRequestDto getAuthPayload(AuthMethod authMethod, Object authData, boolean isLocalhostRequest) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
-        requestDto.setAuthMethod(AuthMethod.NONE);
-        final List<String> certificateHeaderNameList = headers.get(certificateHeaderName);
-        if (certificateHeaderNameList != null) {
-            hasAuthenticationMethod = true;
-            String certificateInHeader = URLDecoder.decode(certificateHeaderNameList.getFirst(), StandardCharsets.UTF_8);
-            requestDto.setAuthMethod(AuthMethod.CERTIFICATE);
-            requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
-        }
-
-        final List<String> authTokenHeaderNameList = headers.get(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER);
-        if (authTokenHeaderNameList != null) {
-            hasAuthenticationMethod = true;
-            try {
-                // Temporary solution to make it work with current Auth Service, will be changed when refactoring
-                requestDto.setAuthenticationTokenUserClaims(new ObjectMapper().readValue(authTokenHeaderNameList.getFirst(), HashMap.class));
-            } catch (JsonProcessingException e) {
-                throw new CzertainlyAuthenticationException("Could not convert JSON to map.");
+        requestDto.setAuthMethod(authMethod);
+        switch (authMethod) {
+            case NONE -> checkLocalhostUser(requestDto, isLocalhostRequest);
+            case CERTIFICATE -> {
+                try {
+                    String certificateInHeader = URLDecoder.decode((String) authData, StandardCharsets.UTF_8);
+                    requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
+                } catch (Exception e) {
+                    LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.CERTIFICATE);
+                    String message = "Could not parse certificate for authentication. Certificate: " + authData;
+                    AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, authData.toString());
+                    throw new CzertainlyAuthenticationException(message);
+                }
             }
-            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
-                requestDto.setAuthMethod(AuthMethod.TOKEN);
+            case TOKEN -> requestDto.setAuthenticationTokenUserClaims((Map<String, Object>) authData);
+            case USER_PROXY -> {
+                if (authData instanceof UUID) requestDto.setUserUuid(authData.toString());
+                else requestDto.setSystemUsername((String) authData);
             }
-        }
-
-        final List<String> systemUserHeaderNameList = headers.get(AuthHelper.SYSTEM_USER_HEADER_NAME);
-        if (systemUserHeaderNameList != null) {
-            hasAuthenticationMethod = true;
-            requestDto.setSystemUsername(systemUserHeaderNameList.getFirst());
-            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
-                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+            default -> {
+                // No action required for other authentication methods
             }
-        }
-
-        final List<String> userUuidHeaderNameList = headers.get(AuthHelper.USER_UUID_HEADER_NAME);
-        if (userUuidHeaderNameList != null) {
-            hasAuthenticationMethod = true;
-            requestDto.setUserUuid(userUuidHeaderNameList.getFirst());
-            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
-                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
-            }
-        }
-
-        if (!hasAuthenticationMethod && isLocalhostRequest) {
-            checkLocalhostUser(requestDto);
         }
 
         // update MDC for actor logging before authentication
@@ -151,11 +122,11 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         return requestDto;
     }
 
-    private void checkLocalhostUser(AuthenticationRequestDto requestDto) {
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        if (!authenticationSettings.isDisableLocalhostUser()) {
-            requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
-            if (requestDto.getAuthMethod() == AuthMethod.NONE) {
+    private void checkLocalhostUser(AuthenticationRequestDto requestDto, boolean isLocalhostRequest) {
+        if (isLocalhostRequest) {
+            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            if (!authenticationSettings.isDisableLocalhostUser()) {
+                requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
                 requestDto.setAuthMethod(AuthMethod.USER_PROXY);
             }
         }
