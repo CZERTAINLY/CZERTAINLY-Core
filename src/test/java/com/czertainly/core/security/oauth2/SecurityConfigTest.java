@@ -1,8 +1,6 @@
 package com.czertainly.core.security.oauth2;
 
 import com.czertainly.core.util.BaseSpringBootTestNoAuth;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
@@ -60,7 +58,7 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     WireMockServer mockServer;
 
     @BeforeEach
-    void setUp() throws NoSuchAlgorithmException, JOSEException, JsonProcessingException {
+    void setUp() throws NoSuchAlgorithmException, JOSEException {
         mockServer = new WireMockServer(10003);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
@@ -197,6 +195,4 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
                     "authType": "none"
                 }""").contentType(MediaType.APPLICATION_JSON)).andExpect(status().is5xxServerError());
     }
-
-
 }

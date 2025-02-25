@@ -116,7 +116,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             Map<String, Object> claims;
             try {
                 OidcUser oidcUser = (OidcUser) oauthToken.getPrincipal();
-                claims = OAuth2Util.getAllClaimsAvailable(providerSettings, "bla", oidcUser.getIdToken());
+                claims = OAuth2Util.getAllClaimsAvailable(providerSettings, oauth2AccessToken.getTokenValue(), oidcUser.getIdToken());
             } catch (CzertainlyAuthenticationException e) {
                 request.getSession().invalidate();
                 auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
