@@ -37,7 +37,7 @@ public class OAuth2Util {
         try {
             tokenAudiences = SignedJWT.parse(accessToken.getTokenValue()).getJWTClaimsSet().getAudience();
         } catch (ParseException e) {
-            throw new CzertainlyAuthenticationException("Could not parse JWT Access Token " + accessToken.getTokenValue());
+            throw new CzertainlyAuthenticationException("Could not parse JWT Access Token to validate audiences " + accessToken.getTokenValue());
         }
 
         if (!(clientAudiences == null || clientAudiences.isEmpty() || tokenAudiences != null && tokenAudiences.stream().anyMatch(clientAudiences::contains))) {
