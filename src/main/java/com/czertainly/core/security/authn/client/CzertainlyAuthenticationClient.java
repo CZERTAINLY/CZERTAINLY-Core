@@ -94,9 +94,7 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
         requestDto.setAuthMethod(authMethod);
         switch (authMethod) {
-            case NONE -> {
-                if (isLocalhostRequest) checkLocalhostUser(requestDto);
-            }
+            case NONE -> checkLocalhostUser(requestDto, isLocalhostRequest);
             case CERTIFICATE -> {
                 try {
                     String certificateInHeader = URLDecoder.decode((String) authData, StandardCharsets.UTF_8);
@@ -124,11 +122,13 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
         return requestDto;
     }
 
-    private void checkLocalhostUser(AuthenticationRequestDto requestDto) {
-        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        if (!authenticationSettings.isDisableLocalhostUser()) {
-            requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
-            requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+    private void checkLocalhostUser(AuthenticationRequestDto requestDto, boolean isLocalhostRequest) {
+        if (isLocalhostRequest) {
+            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            if (!authenticationSettings.isDisableLocalhostUser()) {
+                requestDto.setSystemUsername(AuthHelper.LOCALHOST_USERNAME);
+                requestDto.setAuthMethod(AuthMethod.USER_PROXY);
+            }
         }
     }
 
