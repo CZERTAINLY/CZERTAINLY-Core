@@ -92,15 +92,21 @@ public class CzertainlyAuthenticationClient extends CzertainlyBaseAuthentication
 
     private AuthenticationRequestDto getAuthPayload(AuthMethod authMethod, Object authData, boolean isLocalhostRequest) {
         AuthenticationRequestDto requestDto = new AuthenticationRequestDto();
-        requestDto.setAuthMethod(AuthMethod.NONE);
         requestDto.setAuthMethod(authMethod);
         switch (authMethod) {
             case NONE -> {
                 if (isLocalhostRequest) checkLocalhostUser(requestDto);
             }
             case CERTIFICATE -> {
-                String certificateInHeader = URLDecoder.decode((String) authData, StandardCharsets.UTF_8);
-                requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
+                try {
+                    String certificateInHeader = URLDecoder.decode((String) authData, StandardCharsets.UTF_8);
+                    requestDto.setCertificateContent(CertificateUtil.normalizeCertificateContent(certificateInHeader));
+                } catch (Exception e) {
+                    LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.CERTIFICATE);
+                    String message = "Could not parse certificate for authentication. Certificate: " + authData;
+                    AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, authData.toString());
+                    throw new CzertainlyAuthenticationException(message);
+                }
             }
             case TOKEN -> requestDto.setAuthenticationTokenUserClaims((Map<String, Object>) authData);
             case USER_PROXY -> {
