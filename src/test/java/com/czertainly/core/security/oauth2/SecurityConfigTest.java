@@ -1,40 +1,48 @@
 package com.czertainly.core.security.oauth2;
 
 import com.czertainly.core.util.BaseSpringBootTestNoAuth;
+import com.czertainly.core.util.OAuth2Constants;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockHttpServletRequest;
+import org.springframework.mock.web.MockHttpSession;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.Statement;
 import java.util.UUID;
 
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 
 @AutoConfigureMockMvc
-@SpringBootTest
+@SpringBootTest(properties = "spring.autoconfigure.exclude=org.springframework.boot.autoconfigure.session.SessionAutoConfiguration")
 class SecurityConfigTest extends BaseSpringBootTestNoAuth {
+
     @Autowired
     private MockMvc mvc;
 
@@ -195,4 +203,15 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
                     "authType": "none"
                 }""").contentType(MediaType.APPLICATION_JSON)).andExpect(status().is5xxServerError());
     }
+
+    @Test
+    void testOauth2Login() throws Exception {
+        MockHttpServletRequest mockHttpServletRequest = new MockHttpServletRequest();
+        MockHttpSession mockHttpSession = new MockHttpSession();
+        mockHttpSession.setAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE, "token");
+        mockHttpServletRequest.setSession(mockHttpSession);
+        mvc.perform(get(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/v1/auth/profile").with(SecurityMockMvcRequestPostProcessors.oauth2Login()).session(mockHttpSession));
+    }
+
+
 }
