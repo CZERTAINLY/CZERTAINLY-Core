@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
@@ -57,19 +58,24 @@ public class FilterPredicatesBuilder {
         final Join joinContentItem = subqueryRoot.join(AttributeContent2Object_.attributeContentItem, JoinType.INNER);
         final Join joinDefinition = joinContentItem.join(AttributeContentItem_.attributeDefinition, JoinType.INNER);
 
-        final Resource resource = ResourceToClass.getResourceByClass(root.getJavaType());
+        final AttributeType attributeType = filterDto.getFieldSource().getAttributeType();
         final String identifier = filterDto.getFieldIdentifier();
         final String[] fieldIdentifier = identifier.split("\\|");
         final AttributeContentType contentType = AttributeContentType.valueOf(fieldIdentifier[1]);
         final String attributeName = fieldIdentifier[0];
         final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY).contains(filterDto.getCondition());
 
+        // attributes content for cryptographic key items are stored under resource CRYPTOGRAPHIC_KEY, but for meta attributes, object uuid is uuid of cryptographic key item and for custom and data attribute it is uuid of cryptographic key
+        // place for improvement is to consolidate resource for attributes content
+        final Resource resource = root.getJavaType().equals(CryptographicKeyItem.class) ? Resource.CRYPTOGRAPHIC_KEY : ResourceToClass.getResourceByClass(root.getJavaType());
+        final String objectUuidPath = resource == Resource.CRYPTOGRAPHIC_KEY && (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA) ? CryptographicKeyItem_.keyUuid.getName() : UniquelyIdentified_.uuid.getName();
+
         List<Predicate> predicates = new ArrayList<>();
-        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), filterDto.getFieldSource().getAttributeType()));
+        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), attributeType));
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.contentType), contentType));
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.name), attributeName));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
-        predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(UniquelyIdentified_.uuid.getName())));
+        predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
