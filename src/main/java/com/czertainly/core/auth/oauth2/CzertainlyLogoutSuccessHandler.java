@@ -3,7 +3,6 @@ package com.czertainly.core.auth.oauth2;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.service.AuditLogService;
-import com.czertainly.core.util.AuthHelper;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;

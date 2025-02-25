@@ -96,38 +96,6 @@ class ExternalMethodAuthorizationManagerTest {
         Assertions.assertFalse(result.isGranted());
     }
 
-    // Is the test necessary?
-    @Test
-    @Disabled
-    void doesNotSendCustomObjectTypeAttributesToOpa() throws NoSuchMethodException {
-        // setup
-        ArgumentCaptor<OpaRequestedResource> resourceCaptor = ArgumentCaptor.forClass(OpaRequestedResource.class);
-        when(opaClient.checkResourceAccess(any(), resourceCaptor.capture(), any(), any()))
-                .thenReturn(accessGranted());
-
-        // given
-        List<ExternalAuthorizationConfigAttribute> attributes = new ArrayList<>();
-        attributes.add(new ExternalAuthorizationConfigAttribute("string", "GROUPS"));
-        attributes.add(new ExternalAuthorizationConfigAttribute("boolean", true));
-        attributes.add(new ExternalAuthorizationConfigAttribute("int", 42));
-        attributes.add(new ExternalAuthorizationConfigAttribute("float", 3.14f));
-        attributes.add(new ExternalAuthorizationConfigAttribute("double", 3.14d));
-        attributes.add(new ExternalAuthorizationConfigAttribute("object", new Object()));
-        when(metadataExtractor.extractAttributes(any())).thenReturn(List.of());
-
-        // when
-        manager.check(() -> authentication, methodInvocationWithoutSecuredUUIDs());
-
-        // then
-        Map<String, String> properties = resourceCaptor.getValue().getProperties();
-        assertEquals("GROUPS", properties.get("string"));
-        assertEquals("true", properties.get("boolean"));
-        assertEquals("42", properties.get("int"));
-        assertEquals("3.14", properties.get("float"));
-        assertEquals("3.14", properties.get("double"));
-        assertEquals(5, properties.size());
-    }
-
     @Test
     void sendsSecuredUUIDToOpa() throws NoSuchMethodException {
         // setup

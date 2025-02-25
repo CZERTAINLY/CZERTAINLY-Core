@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn;
 
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
@@ -9,6 +10,7 @@ import java.util.Collection;
 
 @Getter
 @Setter
+@EqualsAndHashCode(callSuper = true)
 public class CzertainlyAnonymousToken extends AnonymousAuthenticationToken {
 
 
@@ -25,5 +27,7 @@ public class CzertainlyAnonymousToken extends AnonymousAuthenticationToken {
     public CzertainlyAnonymousToken(String key, Object principal, Collection<? extends GrantedAuthority> authorities) {
         super(key, principal, authorities);
     }
+
+
 
 }
