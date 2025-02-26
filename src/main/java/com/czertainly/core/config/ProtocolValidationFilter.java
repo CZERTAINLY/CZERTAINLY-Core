@@ -46,7 +46,7 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
         CustomHttpServletRequestWrapper requestWrapper = new CustomHttpServletRequestWrapper(request);
         CustomHttpServletResponseWrapper responseWrapper = new CustomHttpServletResponseWrapper(response);
         String requestUri = request.getRequestURI();
-        String prefix = "%s%s/protocols/".formatted(context, restApiPrefix);
+        String prefix = "%s%sprotocols/".formatted(context, restApiPrefix);
 
         if (!requestUri.startsWith(prefix)) {
             filterChain.doFilter(requestWrapper, responseWrapper);
