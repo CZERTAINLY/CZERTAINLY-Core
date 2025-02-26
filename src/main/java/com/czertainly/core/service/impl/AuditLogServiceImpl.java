@@ -34,6 +34,7 @@ import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.persistence.criteria.CriteriaBuilder;
+import jakarta.persistence.criteria.CriteriaDelete;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Root;
 import org.apache.commons.lang3.function.TriFunction;
@@ -90,7 +91,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<AuditLogDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(AuditLog_.loggedAt)))
+        final List<AuditLogDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(AuditLog_.id)))
                 .stream()
                 .map(AuditLog::mapToDto).toList();
         final Long totalItems = auditLogRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
@@ -160,9 +161,9 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(final List<SearchFilterRequestDto> filters) {
-        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
-        final List<AuditLog> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause);
-        auditLogRepository.deleteAll(auditLogs);
+        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaDelete<AuditLog>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cd) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cd, root, filters);
+        final int deletedCount = auditLogRepository.deleteUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+        logger.getLogger().debug("Deleted {} audit logs", deletedCount);
     }
 
     @Override

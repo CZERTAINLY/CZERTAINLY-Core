@@ -37,7 +37,7 @@ public class FilterPredicatesBuilder {
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
 
-    public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
+    public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
 
         List<Predicate> predicates = new ArrayList<>();
@@ -52,7 +52,7 @@ public class FilterPredicatesBuilder {
         return criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
     }
 
-    private static <T> Predicate getAttributeFilterPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final SearchFilterRequestDto filterDto) {
+    private static <T> Predicate getAttributeFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final SearchFilterRequestDto filterDto) {
         final Subquery<Integer> subquery = query.subquery(Integer.class);
         final Root<AttributeContent2Object> subqueryRoot = subquery.from(AttributeContent2Object.class);
         final Join joinContentItem = subqueryRoot.join(AttributeContent2Object_.attributeContentItem, JoinType.INNER);
@@ -149,7 +149,7 @@ public class FilterPredicatesBuilder {
         return preparedFilterValues;
     }
 
-    private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
+    private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
         final FilterField filterField = FilterField.valueOf(filterDto.getFieldIdentifier());
 
         From from = getJoinedAssociation(root, joinedAssociations, filterField);
@@ -297,7 +297,7 @@ public class FilterPredicatesBuilder {
         return preparedFilterValues;
     }
 
-    private static Predicate getGroupNotExistPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, Root originalRoot, Attribute fieldAttribute, List<Object> filterValues, Resource resource) {
+    private static Predicate getGroupNotExistPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, Root originalRoot, Attribute fieldAttribute, List<Object> filterValues, Resource resource) {
         final Subquery<Integer> subquery = query.subquery(Integer.class);
         final Root<GroupAssociation> subqueryRoot = subquery.from(GroupAssociation.class);
         final Join joinGroup = subqueryRoot.join(GroupAssociation_.group);

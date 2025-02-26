@@ -1629,7 +1629,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void setupSecurityFilter(SecurityFilter filter) {
-        filter.setParentRefProperty("raProfileUuid");
+        filter.setParentRefProperty(Certificate_.raProfileUuid.getName());
     }
 
     private ICertificateValidator getCertificateValidator(CertificateType certificateType) {
