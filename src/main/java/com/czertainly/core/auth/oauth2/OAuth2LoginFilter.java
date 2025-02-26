@@ -178,7 +178,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 throw new CzertainlyAuthenticationException("Failed to refresh the access token.");
             }
         } else {
-            throw new CzertainlyAuthenticationException("Refresh token is not available.");
+            throw new CzertainlyAuthenticationException("Refresh token is not available ");
         }
     }
 
