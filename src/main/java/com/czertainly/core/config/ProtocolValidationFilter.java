@@ -37,28 +37,25 @@ public class ProtocolValidationFilter extends OncePerRequestFilter {
     @Value("${server.servlet.context-path}")
     private String context;
 
-    @Setter
-    private String restApiPrefix;
-
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws ServletException, IOException {
 
         CustomHttpServletRequestWrapper requestWrapper = new CustomHttpServletRequestWrapper(request);
         CustomHttpServletResponseWrapper responseWrapper = new CustomHttpServletResponseWrapper(response);
         String requestUri = request.getRequestURI();
-        String prefix = "%s%sprotocols/".formatted(context, restApiPrefix);
+        String prefixRegex = "^%s/v\\d*/protocols/".formatted(context);
 
-        if (!requestUri.startsWith(prefix)) {
+        if (!requestUri.matches(prefixRegex + ".*$")) {
             filterChain.doFilter(requestWrapper, responseWrapper);
-        } else if (requestUri.startsWith(prefix + "scep/")) {
+        } else if (requestUri.matches(prefixRegex + "scep/.*$")) {
             logger.info("SCEP Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.SCEP_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
-        } else if (requestUri.startsWith(prefix + "acme/")) {
+        } else if (requestUri.matches(prefixRegex + "acme/.*$")) {
             logger.info("ACME Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.ACME_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
-        } else if (requestUri.startsWith(prefix + "cmp/")) {
+        } else if (requestUri.matches(prefixRegex + "cmp/.*$")) {
             logger.info("CMPv2 Request from " + request.getRemoteAddr() + " for " + requestUri);
             authHelper.authenticateAsSystemUser(AuthHelper.CMP_USERNAME);
             filterChain.doFilter(requestWrapper, responseWrapper);
