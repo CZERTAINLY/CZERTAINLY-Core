@@ -1,6 +1,7 @@
 package com.czertainly.core.repository;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -10,6 +11,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.service.ResourceObjectAssociationService;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
@@ -41,6 +43,9 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
     private RaProfileRepository raProfileRepository;
 
     @Autowired
+    private OwnerAssociationRepository ownerAssociationRepository;
+
+    @Autowired
     private ResourceObjectAssociationService resourceObjectAssociationService;
 
     private Group group;
@@ -48,13 +53,16 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
     private RaProfile raProfile2;
 
     private Certificate certificateGroup;
+    private Certificate certificateOwner;
     private Certificate certificateRaProfile;
     private Certificate certificateRaProfile2;
+
+    private static final String TEST_SERIAL_NUMBER = "1122334455";
 
     @BeforeEach
     public void setUp() throws NotFoundException {
         CertificateContent certificateContent = new CertificateContent();
-        certificateContent.setContent("123456");
+        certificateContent.setContent("1234567890");
         certificateContent = certificateContentRepository.save(certificateContent);
 
         group = new Group();
@@ -72,7 +80,7 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         certificateGroup = new Certificate();
         certificateGroup.setSubjectDn("CN=testCertificateGroup");
         certificateGroup.setIssuerDn("CN=testCercertificateGroupIssuer");
-        certificateGroup.setSerialNumber("123456");
+        certificateGroup.setSerialNumber(TEST_SERIAL_NUMBER);
         certificateGroup.setState(CertificateState.ISSUED);
         certificateGroup.setValidationStatus(CertificateValidationStatus.VALID);
         certificateGroup.setCertificateContent(certificateContent);
@@ -80,10 +88,28 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         certificateGroup = certificateRepository.save(certificateGroup);
         resourceObjectAssociationService.addGroup(Resource.CERTIFICATE, certificateGroup.getUuid(), group.getUuid());
 
+        certificateOwner = new Certificate();
+        certificateOwner.setSubjectDn("CN=testCertificateOwner");
+        certificateOwner.setIssuerDn("CN=testCercertificateOwnerIssuer");
+        certificateOwner.setSerialNumber("1234567");
+        certificateOwner.setState(CertificateState.ISSUED);
+        certificateOwner.setValidationStatus(CertificateValidationStatus.VALID);
+        certificateOwner.setCertificateContent(certificateContent);
+        certificateOwner.setCertificateContentId(certificateContent.getId());
+        certificateOwner = certificateRepository.save(certificateOwner);
+
+        NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
+        OwnerAssociation association = new OwnerAssociation();
+        association.setResource(Resource.CERTIFICATE);
+        association.setObjectUuid(certificateOwner.getUuid());
+        association.setOwnerUuid(UUID.fromString(userInfo.getUuid()));
+        association.setOwnerUsername(userInfo.getName());
+        ownerAssociationRepository.save(association);
+
         certificateRaProfile = new Certificate();
         certificateRaProfile.setSubjectDn("CN=testCertificateRA");
         certificateRaProfile.setIssuerDn("CN=testCertificateRAIssuer");
-        certificateRaProfile.setSerialNumber("123456");
+        certificateRaProfile.setSerialNumber(TEST_SERIAL_NUMBER);
         certificateRaProfile.setState(CertificateState.ISSUED);
         certificateRaProfile.setValidationStatus(CertificateValidationStatus.VALID);
         certificateRaProfile.setCertificateContent(certificateContent);
@@ -94,7 +120,7 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         certificateRaProfile2 = new Certificate();
         certificateRaProfile2.setSubjectDn("CN=testCertificateRA2");
         certificateRaProfile2.setIssuerDn("CN=testCertificateRAIssuer2");
-        certificateRaProfile2.setSerialNumber("1234567");
+        certificateRaProfile2.setSerialNumber("12345678");
         certificateRaProfile2.setState(CertificateState.ISSUED);
         certificateRaProfile2.setValidationStatus(CertificateValidationStatus.VALID);
         certificateRaProfile2.setCertificateContent(certificateContent);
@@ -120,7 +146,7 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         filter.setParentRefProperty(Certificate_.raProfileUuid.getName());
 
         // test permissions for all RA profiles with additional where clause
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), certificateRaProfile.getSerialNumber());
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), TEST_SERIAL_NUMBER);
         List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(Certificate_.raProfile.getName()), additionalWhereClause);
         Assertions.assertEquals(1, certificates.size());
         Assertions.assertEquals(certificateRaProfile.getUuid().toString(), certificates.getFirst().getUuid().toString());
@@ -137,8 +163,9 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
 
         certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(), null);
         List<UUID> foundUuids = certificates.stream().map(UniquelyIdentifiedAndAudited::getUuid).toList();
-        Assertions.assertEquals(2, certificates.size());
+        Assertions.assertEquals(3, certificates.size());
         Assertions.assertTrue(foundUuids.contains(certificateRaProfile2.getUuid()));
         Assertions.assertTrue(foundUuids.contains(certificateGroup.getUuid()));
+        Assertions.assertTrue(foundUuids.contains(certificateOwner.getUuid()));
     }
 }

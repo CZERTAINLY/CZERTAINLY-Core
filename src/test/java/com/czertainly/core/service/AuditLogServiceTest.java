@@ -1,13 +1,19 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.interfaces.core.web.AuditLogController;
+import com.czertainly.api.interfaces.core.web.SettingController;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
 import com.czertainly.core.dao.repository.AuditLogRepository;
+import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -27,6 +33,9 @@ class AuditLogServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AuditLogRepository auditLogRepository;
+
+    @Autowired
+    private SettingController settingController;
 
     @Autowired
     private SettingService settingService;
@@ -67,9 +76,21 @@ class AuditLogServiceTest extends BaseSpringBootTest {
 
     @Test
     void testPurgeAuditLogs() {
+
         auditLogController.listAuditLogs(new SearchRequestDto());
         auditLogController.listAuditLogs(new SearchRequestDto());
         auditLogController.listAuditLogs(new SearchRequestDto());
+        settingController.getLoggingSettings();
+        settingController.getPlatformSettings();
+
+        Assertions.assertEquals(5, auditLogRepository.findAll().size());
+
+        SearchFilterRequestDto searchFilter = new SearchFilterRequestDto();
+        searchFilter.setFieldSource(FilterFieldSource.PROPERTY);
+        searchFilter.setCondition(FilterConditionOperator.EQUALS);
+        searchFilter.setFieldIdentifier(FilterField.AUDIT_LOG_RESOURCE.toString());
+        searchFilter.setValue(Resource.SETTINGS.getCode());
+        auditLogService.purgeAuditLogs(List.of(searchFilter));
 
         Assertions.assertEquals(3, auditLogRepository.findAll().size());
 
