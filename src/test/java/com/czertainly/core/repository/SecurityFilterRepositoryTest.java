@@ -54,7 +54,7 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
 
     private Certificate certificateGroup;
     private Certificate certificateOwner;
-    private Certificate certificateRaProfile;
+    private Certificate certificateRaProfile1;
     private Certificate certificateRaProfile2;
 
     private static final String TEST_SERIAL_NUMBER = "1122334455";
@@ -106,16 +106,16 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         association.setOwnerUsername(userInfo.getName());
         ownerAssociationRepository.save(association);
 
-        certificateRaProfile = new Certificate();
-        certificateRaProfile.setSubjectDn("CN=testCertificateRA");
-        certificateRaProfile.setIssuerDn("CN=testCertificateRAIssuer");
-        certificateRaProfile.setSerialNumber(TEST_SERIAL_NUMBER);
-        certificateRaProfile.setState(CertificateState.ISSUED);
-        certificateRaProfile.setValidationStatus(CertificateValidationStatus.VALID);
-        certificateRaProfile.setCertificateContent(certificateContent);
-        certificateRaProfile.setCertificateContentId(certificateContent.getId());
-        certificateRaProfile.setRaProfile(raProfile);
-        certificateRaProfile = certificateRepository.save(certificateRaProfile);
+        certificateRaProfile1 = new Certificate();
+        certificateRaProfile1.setSubjectDn("CN=testCertificateRA1");
+        certificateRaProfile1.setIssuerDn("CN=testCertificateRA1Issuer");
+        certificateRaProfile1.setSerialNumber(TEST_SERIAL_NUMBER);
+        certificateRaProfile1.setState(CertificateState.ISSUED);
+        certificateRaProfile1.setValidationStatus(CertificateValidationStatus.VALID);
+        certificateRaProfile1.setCertificateContent(certificateContent);
+        certificateRaProfile1.setCertificateContentId(certificateContent.getId());
+        certificateRaProfile1.setRaProfile(raProfile);
+        certificateRaProfile1 = certificateRepository.save(certificateRaProfile1);
 
         certificateRaProfile2 = new Certificate();
         certificateRaProfile2.setSubjectDn("CN=testCertificateRA2");
@@ -130,7 +130,8 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSecurityFilter() {
+    void testSecurityFilterWithCertificates() {
+        // test allow all and deny one RA profile
         SecurityFilter filter = SecurityFilter.create();
         SecurityResourceFilter resourceFilter = SecurityResourceFilter.create();
         resourceFilter.setResource(Resource.CERTIFICATE);
@@ -138,18 +139,25 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         SecurityResourceFilter parentResourceFilter = SecurityResourceFilter.create();
         parentResourceFilter.setResource(Resource.RA_PROFILE);
         parentResourceFilter.setResourceAction(ResourceAction.MEMBERS);
-        parentResourceFilter.setAreOnlySpecificObjectsAllowed(true);
-        parentResourceFilter.addAllowedObjects(List.of(raProfile.getUuid().toString(), raProfile2.getUuid().toString()));
-
+        parentResourceFilter.addDeniedObjects(List.of(raProfile.getUuid().toString()));
         filter.setResourceFilter(resourceFilter);
         filter.setParentResourceFilter(parentResourceFilter);
         filter.setParentRefProperty(Certificate_.raProfileUuid.getName());
 
+        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter);
+        List<UUID> foundUuids = certificates.stream().map(UniquelyIdentifiedAndAudited::getUuid).toList();
+        Assertions.assertEquals(2, certificates.size());
+        Assertions.assertFalse(foundUuids.contains(certificateRaProfile1.getUuid()));
+
         // test permissions for all RA profiles with additional where clause
+        parentResourceFilter.getForbiddenObjects().clear();
+        parentResourceFilter.setAreOnlySpecificObjectsAllowed(true);
+        parentResourceFilter.addAllowedObjects(List.of(raProfile.getUuid().toString(), raProfile2.getUuid().toString()));
+
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), TEST_SERIAL_NUMBER);
-        List<Certificate> certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(Certificate_.raProfile.getName()), additionalWhereClause);
+        certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(Certificate_.raProfile.getName()), additionalWhereClause);
         Assertions.assertEquals(1, certificates.size());
-        Assertions.assertEquals(certificateRaProfile.getUuid().toString(), certificates.getFirst().getUuid().toString());
+        Assertions.assertEquals(certificateRaProfile1.getUuid().toString(), certificates.getFirst().getUuid().toString());
 
         // test permissions for single RA Profile and group membership
         parentResourceFilter.getAllowedObjects().clear();
@@ -161,11 +169,27 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         groupResourceFilter.addAllowedObjects(List.of(group.getUuid().toString()));
         filter.setGroupMembersFilter(groupResourceFilter);
 
-        certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(), null);
-        List<UUID> foundUuids = certificates.stream().map(UniquelyIdentifiedAndAudited::getUuid).toList();
+        certificates = certificateRepository.findUsingSecurityFilter(filter);
+        foundUuids = certificates.stream().map(UniquelyIdentifiedAndAudited::getUuid).toList();
         Assertions.assertEquals(3, certificates.size());
         Assertions.assertTrue(foundUuids.contains(certificateRaProfile2.getUuid()));
         Assertions.assertTrue(foundUuids.contains(certificateGroup.getUuid()));
         Assertions.assertTrue(foundUuids.contains(certificateOwner.getUuid()));
+    }
+
+    @Test
+    void testSecurityFilterWithGroups() {
+        SecurityFilter filter = SecurityFilter.create();
+        SecurityResourceFilter resourceFilter = SecurityResourceFilter.create();
+        resourceFilter.setResource(Resource.GROUP);
+        resourceFilter.setResourceAction(ResourceAction.LIST);
+        filter.setResourceFilter(resourceFilter);
+
+        List<Group> groups = groupRepository.findUsingSecurityFilter(filter);
+        Assertions.assertEquals(1, groups.size());
+
+        final TriFunction<Root<Group>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Group_.name), "ABCD");
+        groups = groupRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause);
+        Assertions.assertEquals(0, groups.size());
     }
 }

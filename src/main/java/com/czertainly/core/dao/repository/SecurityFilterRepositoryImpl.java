@@ -204,9 +204,8 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
             return predicates;
         }
 
-        // add object permissions from security filter resources
-        List<Predicate> objectAccessPredicates = new ArrayList<>();
-        objectAccessPredicates.add(resourceFilterPredicate != null && parentResourceFilterPredicate != null ? cb.and(resourceFilterPredicate, parentResourceFilterPredicate) : (resourceFilterPredicate != null ? resourceFilterPredicate : parentResourceFilterPredicate));
+        // init object permissions predicates from resource security filters
+        List<Predicate> objectAccessPredicates = initObjectAccessPredicates(resourceFilterPredicate, parentResourceFilterPredicate, cb);
 
         // add owner and group based object access permissions
         getObjectGroupOwnerAccessPredicates(objectAccessPredicates, filter, root, cb);
@@ -227,6 +226,19 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         }
 
         return getPredicates(filter, additionalWhereClausePredicate, root, cb);
+    }
+
+    private List<Predicate> initObjectAccessPredicates(Predicate resourceFilterPredicate, Predicate parentResourceFilterPredicate, CriteriaBuilder cb) {
+        List<Predicate> objectAccessPredicates = new ArrayList<>();
+        if(resourceFilterPredicate != null && parentResourceFilterPredicate != null) {
+            objectAccessPredicates.add(cb.and(resourceFilterPredicate, parentResourceFilterPredicate));
+        } else if (resourceFilterPredicate != null) {
+            objectAccessPredicates.add(resourceFilterPredicate);
+        } else {
+            objectAccessPredicates.add(parentResourceFilterPredicate);
+        }
+
+        return objectAccessPredicates;
     }
 
     private void getObjectGroupOwnerAccessPredicates(List<Predicate> objectAccessPredicates, SecurityFilter filter, Root<T> root, CriteriaBuilder cb) {
