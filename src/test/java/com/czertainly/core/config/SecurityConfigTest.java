@@ -1,8 +1,8 @@
-package com.czertainly.core.security.oauth2;
+package com.czertainly.core.config;
 
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.core.security.oauth2.OAuth2TestUtil;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.*;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -31,10 +31,7 @@ import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
 import java.security.PrivateKey;
 import java.time.Instant;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.oidcLogin;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -196,19 +193,7 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
     }
 
     void cacheProviderSettings(String userInfoUrl) {
-        OAuth2ProviderSettingsDto providerSettingsDto = new OAuth2ProviderSettingsDto();
-        providerSettingsDto.setName("test");
-        providerSettingsDto.setClientId("client");
-        providerSettingsDto.setAuthorizationUrl("http://auth");
-        providerSettingsDto.setTokenUrl("http://localhost:" + mockServer.port() + "/token");
-        providerSettingsDto.setScope(List.of("openid"));
-        providerSettingsDto.setSkew(0);
-        providerSettingsDto.setUserInfoUrl(userInfoUrl);
-        providerSettingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString("secret", SecretEncodingVersion.V1));
-        AuthenticationSettingsDto authenticationSettingsDto = new AuthenticationSettingsDto();
-        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
-        providers.put("test", providerSettingsDto);
-        authenticationSettingsDto.setOAuth2Providers(providers);
+        AuthenticationSettingsDto authenticationSettingsDto = OAuth2TestUtil.getAuthenticationSettings(userInfoUrl, mockServer.port(), new ArrayList<>());
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, authenticationSettingsDto);
     }
 
@@ -270,8 +255,5 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
                                 """.formatted(userInfoUsername))
         ));
     }
-
-
-
 
 }
