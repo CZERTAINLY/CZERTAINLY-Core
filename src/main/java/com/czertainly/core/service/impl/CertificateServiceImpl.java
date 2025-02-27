@@ -1305,10 +1305,10 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-//        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
-//                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-//                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
-//        );
+        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+        );
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
                 "Certificate request created", ""
