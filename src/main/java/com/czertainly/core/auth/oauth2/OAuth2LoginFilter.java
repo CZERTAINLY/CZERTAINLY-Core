@@ -94,7 +94,8 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             // If the access token is expired, try to refresh it
             if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
                 try {
-                    refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
+                    authorizedClient = refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
+                    oauth2AccessToken = authorizedClient.getAccessToken();
                 } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
                     String message = ("Could not refresh token: %s for access token : %s").formatted(e.getMessage(), oauth2AccessToken.getTokenValue());
@@ -154,7 +155,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         }
     }
 
-    private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
+    private OAuth2AuthorizedClient refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
         if (authorizedClient.getRefreshToken() != null) {
             // Refresh the token
             OAuth2AuthorizationContext context = OAuth2AuthorizationContext.withAuthorizedClient(authorizedClient)
@@ -180,6 +181,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         } else {
             throw new CzertainlyAuthenticationException("Refresh token is not available ");
         }
+        return authorizedClient;
     }
 
     private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
