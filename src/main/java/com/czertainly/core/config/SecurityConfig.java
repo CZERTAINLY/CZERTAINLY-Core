@@ -36,32 +36,11 @@ public class SecurityConfig {
 
     private CzertainlyAuthenticationClient authenticationClient;
 
+    private CzertainlyAuthenticationSuccessHandler authenticationSuccessHandler;
 
-    @Autowired
-    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
-        this.clientRegistrationRepository = clientRegistrationRepository;
-    }
+    private CzertainlyOAuth2FailureHandler failureHandler;
 
-    @Autowired
-    public void setOauth2LoginFilter(OAuth2LoginFilter oauth2LoginFilter) {
-        this.oauth2LoginFilter = oauth2LoginFilter;
-    }
-
-    @Autowired
-    public void setJwtDecoder(JwtDecoder jwtDecoder) {
-        this.jwtDecoder = jwtDecoder;
-    }
-
-
-    @Bean
-    public CzertainlyAuthenticationSuccessHandler customAuthenticationSuccessHandler() {
-        return new CzertainlyAuthenticationSuccessHandler();
-    }
-
-    @Bean
-    public CzertainlyOAuth2FailureHandler failureHandler() {
-        return new CzertainlyOAuth2FailureHandler();
-    }
+    private CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter;
 
     @Bean
     protected SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -83,7 +62,7 @@ public class SecurityConfig {
                 .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.decoder(jwtDecoder)
-                                .jwtAuthenticationConverter(czertainlyJwtAuthenticationConverter())
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter)
                         )
                 )
                 .logout(logout -> logout
@@ -95,8 +74,8 @@ public class SecurityConfig {
                 )
                 .oauth2Login(oauth2
                         ->
-                        oauth2.successHandler(customAuthenticationSuccessHandler())
-                                .failureHandler(failureHandler())
+                        oauth2.successHandler(authenticationSuccessHandler)
+                                .failureHandler(failureHandler)
                 )
                 .oauth2Client(oauth2client -> oauth2client.clientRegistrationRepository(clientRegistrationRepository))
                 .addFilterAfter(oauth2LoginFilter, OAuth2LoginAuthenticationFilter.class)
@@ -109,11 +88,6 @@ public class SecurityConfig {
     @Bean
     public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrationRepository) {
         return new CzertainlyLogoutSuccessHandler(clientRegistrationRepository);
-    }
-
-    @Bean
-    public CzertainlyJwtAuthenticationConverter czertainlyJwtAuthenticationConverter() {
-        return new CzertainlyJwtAuthenticationConverter();
     }
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
@@ -135,5 +109,35 @@ public class SecurityConfig {
     @Autowired
     public void setAuthenticationClient(CzertainlyAuthenticationClient authenticationClient) {
         this.authenticationClient = authenticationClient;
+    }
+
+    @Autowired
+    public void setAuthenticationSuccessHandler(CzertainlyAuthenticationSuccessHandler authenticationSuccessHandler) {
+        this.authenticationSuccessHandler = authenticationSuccessHandler;
+    }
+
+    @Autowired
+    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
+
+    @Autowired
+    public void setOauth2LoginFilter(OAuth2LoginFilter oauth2LoginFilter) {
+        this.oauth2LoginFilter = oauth2LoginFilter;
+    }
+
+    @Autowired
+    public void setJwtDecoder(JwtDecoder jwtDecoder) {
+        this.jwtDecoder = jwtDecoder;
+    }
+
+    @Autowired
+    public void setFailureHandler(CzertainlyOAuth2FailureHandler failureHandler) {
+        this.failureHandler = failureHandler;
+    }
+
+    @Autowired
+    public void setJwtAuthenticationConverter(CzertainlyJwtAuthenticationConverter jwtAuthenticationConverter) {
+        this.jwtAuthenticationConverter = jwtAuthenticationConverter;
     }
 }

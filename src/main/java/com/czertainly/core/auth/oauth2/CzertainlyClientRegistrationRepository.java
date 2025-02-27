@@ -31,10 +31,10 @@ public class CzertainlyClientRegistrationRepository implements ClientRegistratio
     public ClientRegistration findByRegistrationId(String registrationId) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         OAuth2ProviderSettingsDto clientSettings = authenticationSettings.getOAuth2Providers().get(registrationId);
-        return convertJsonToClientRegistration(clientSettings, registrationId);
+        return convertSettingsToClientRegistration(clientSettings, registrationId);
     }
 
-    private ClientRegistration convertJsonToClientRegistration(OAuth2ProviderSettingsDto clientSettings, String registrationId) {
+    private ClientRegistration convertSettingsToClientRegistration(OAuth2ProviderSettingsDto clientSettings, String registrationId) {
         if (clientSettings == null) {
             return null;
         }
