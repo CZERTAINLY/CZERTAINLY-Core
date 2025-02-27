@@ -2,6 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
@@ -36,7 +37,7 @@ public class FilterPredicatesBuilder {
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
 
-    public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
+    public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
 
         List<Predicate> predicates = new ArrayList<>();
@@ -51,25 +52,30 @@ public class FilterPredicatesBuilder {
         return criteriaBuilder.and(predicates.toArray(new Predicate[]{}));
     }
 
-    private static <T> Predicate getAttributeFilterPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, final SearchFilterRequestDto filterDto) {
+    private static <T> Predicate getAttributeFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final SearchFilterRequestDto filterDto) {
         final Subquery<Integer> subquery = query.subquery(Integer.class);
         final Root<AttributeContent2Object> subqueryRoot = subquery.from(AttributeContent2Object.class);
         final Join joinContentItem = subqueryRoot.join(AttributeContent2Object_.attributeContentItem, JoinType.INNER);
         final Join joinDefinition = joinContentItem.join(AttributeContentItem_.attributeDefinition, JoinType.INNER);
 
-        final Resource resource = ResourceToClass.getResourceByClass(root.getJavaType());
+        final AttributeType attributeType = filterDto.getFieldSource().getAttributeType();
         final String identifier = filterDto.getFieldIdentifier();
         final String[] fieldIdentifier = identifier.split("\\|");
         final AttributeContentType contentType = AttributeContentType.valueOf(fieldIdentifier[1]);
         final String attributeName = fieldIdentifier[0];
         final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY).contains(filterDto.getCondition());
 
+        // attributes content for cryptographic key items are stored under resource CRYPTOGRAPHIC_KEY, but for meta attributes, object uuid is uuid of cryptographic key item and for custom and data attribute it is uuid of cryptographic key
+        // place for improvement is to consolidate resource for attributes content
+        final Resource resource = root.getJavaType().equals(CryptographicKeyItem.class) ? Resource.CRYPTOGRAPHIC_KEY : ResourceToClass.getResourceByClass(root.getJavaType());
+        final String objectUuidPath = resource == Resource.CRYPTOGRAPHIC_KEY && (attributeType == AttributeType.CUSTOM || attributeType == AttributeType.DATA) ? CryptographicKeyItem_.keyUuid.getName() : UniquelyIdentified_.uuid.getName();
+
         List<Predicate> predicates = new ArrayList<>();
-        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), filterDto.getFieldSource().getAttributeType()));
+        predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.type), attributeType));
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.contentType), contentType));
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.name), attributeName));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
-        predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(UniquelyIdentified_.uuid.getName())));
+        predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
@@ -143,7 +149,7 @@ public class FilterPredicatesBuilder {
         return preparedFilterValues;
     }
 
-    private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
+    private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
         final FilterField filterField = FilterField.valueOf(filterDto.getFieldIdentifier());
 
         From from = getJoinedAssociation(root, joinedAssociations, filterField);
@@ -291,7 +297,7 @@ public class FilterPredicatesBuilder {
         return preparedFilterValues;
     }
 
-    private static Predicate getGroupNotExistPredicate(final CriteriaBuilder criteriaBuilder, final CriteriaQuery query, Root originalRoot, Attribute fieldAttribute, List<Object> filterValues, Resource resource) {
+    private static Predicate getGroupNotExistPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, Root originalRoot, Attribute fieldAttribute, List<Object> filterValues, Resource resource) {
         final Subquery<Integer> subquery = query.subquery(Integer.class);
         final Root<GroupAssociation> subqueryRoot = subquery.from(GroupAssociation.class);
         final Join joinGroup = subqueryRoot.join(GroupAssociation_.group);

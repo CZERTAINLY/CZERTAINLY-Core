@@ -58,7 +58,7 @@ public class SecurityConfig {
                 .httpBasic(AbstractHttpConfigurer::disable)
                 .formLogin(AbstractHttpConfigurer::disable)
                 .x509(AbstractHttpConfigurer::disable)
-                .addFilterBefore(configureProtocolValidationFilter(), X509AuthenticationFilter.class)
+                .addFilterBefore(protocolValidationFilter, X509AuthenticationFilter.class)
                 .addFilterBefore(createCzertainlyAuthenticationFilter(), BearerTokenAuthenticationFilter.class)
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.decoder(jwtDecoder)
@@ -92,11 +92,6 @@ public class SecurityConfig {
 
     protected CzertainlyAuthenticationFilter createCzertainlyAuthenticationFilter() {
         return new CzertainlyAuthenticationFilter(authenticationClient, environment.getProperty("server.ssl.certificate-header-name"), environment.getProperty("server.servlet.context-path"));
-    }
-
-    private ProtocolValidationFilter configureProtocolValidationFilter() {
-        protocolValidationFilter.setRestApiPrefix(environment.getProperty("management.endpoints.web.base-path"));
-        return protocolValidationFilter;
     }
 
     // SETTERs
