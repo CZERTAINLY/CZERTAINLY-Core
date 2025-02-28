@@ -314,15 +314,15 @@ public class CertificateServiceImpl implements CertificateService {
         // If there is some CRL for this certificate, set its CA certificate UUID to null
         for (Crl crl : crlService.findCrlsForCaCertificate(uuid.getValue())) crl.setCaCertificateUuid(null);
 
+        objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
+        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
+
         CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null) : null;
         certificateRepository.delete(certificate);
         if (content != null) {
             certificateContentRepository.delete(content);
             certificate.setCertificateContent(null);
         }
-
-        objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
     }
 
     @Override
