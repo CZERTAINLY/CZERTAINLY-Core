@@ -90,7 +90,7 @@ public class CzertainlyAuthenticationFilter extends OncePerRequestFilter {
         if (AuthHelper.permitAllEndpointInRequest(request.getRequestURI(), context) || (AuthHelper.oauth2EndpointInRequest(request.getRequestURI(), context) && securityContext.getAuthentication() == null)) {
             log.trace("Endpoint {} does not need authentication, using anonymous user.", request.getRequestURI());
             AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
-            CzertainlyAnonymousToken authentication = new CzertainlyAnonymousToken(UUID.randomUUID().toString(), authenticationInfo, authenticationInfo.getAuthorities());
+            CzertainlyAnonymousToken authentication = new CzertainlyAnonymousToken(UUID.randomUUID().toString(), new CzertainlyUserDetails(authenticationInfo), authenticationInfo.getAuthorities());
             authentication.setAccessingPermitAllEndpoint(true);
             SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
             emptyContext.setAuthentication(authentication);
