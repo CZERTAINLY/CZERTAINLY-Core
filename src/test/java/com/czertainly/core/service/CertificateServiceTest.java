@@ -1,9 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -178,6 +175,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         raProfile = raProfileRepository.save(raProfile);
 
         group = new Group();
+        group.setName("TestGroup");
         group = groupRepository.save(group);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
@@ -418,6 +416,28 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificateService.deleteCertificate(certificateWithKey.getSecuredUuid());
         certificateWithKey = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
         Assertions.assertEquals(keyUuid, certificateWithKey.getKeyUuid());
+    }
+
+    @Test
+    void testDeleteCertificateWithUser() throws CertificateEncodingException, com.czertainly.api.exception.CertificateException {
+        Certificate certificate = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        certificate.setUserUuid(UUID.randomUUID());
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.deleteCertificate(certificate.getSecuredUuid()));
+    }
+
+    @Test
+    void bulkUpdate() throws CertificateException, com.czertainly.api.exception.CertificateException, NotFoundException, IOException {
+        Certificate certificate = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+
+        MultipleCertificateObjectUpdateDto request = new MultipleCertificateObjectUpdateDto();
+        request.setCertificateUuids(List.of(certificate.getUuid().toString()));
+        request.setGroupUuids(List.of(group.getUuid().toString()));
+        certificateService.bulkUpdateCertificatesObjects(SecurityFilter.create(), request);
+
+        CertificateDetailDto detailDto = certificateService.getCertificate(certificate.getSecuredUuid());
+        Assertions.assertEquals(1, detailDto.getGroups().size());
+        Assertions.assertEquals(group.getUuid().toString(), detailDto.getGroups().getFirst().getUuid());
     }
 
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
