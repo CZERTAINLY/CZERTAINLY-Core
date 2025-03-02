@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.ColumnDefault;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
@@ -20,11 +21,12 @@ public class CertificateContent implements Serializable {
 
     @Id
     @Column(name = "id")
+    @ColumnDefault("nextval('certificate_content_id_seq'::regclass)")
     @GeneratedValue(strategy = GenerationType.SEQUENCE, generator = "certificate_content_seq")
     @SequenceGenerator(name = "certificate_content_seq", sequenceName = "certificate_content_id_seq", allocationSize = 1)
     private Long id;
 
-    @Column(name = "fingerprint")
+    @Column(name = "fingerprint", unique = true)
     private String fingerprint;
 
     @Column(name = "content", length = Integer.MAX_VALUE)

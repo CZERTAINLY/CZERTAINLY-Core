@@ -97,7 +97,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Enumerated(EnumType.STRING)
     private CertificateValidationStatus validationStatus;
 
-    @Column(name = "fingerprint")
+    @Column(name = "fingerprint", unique = true)
     private String fingerprint;
 
     @Column(name = "public_key_fingerprint")
