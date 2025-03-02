@@ -85,6 +85,7 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -520,23 +521,17 @@ public class CertificateServiceImpl implements CertificateService {
             List<String> aiaChain = downloadChainFromAia(certificate);
             Certificate previousCertificate = certificate;
             for (String chainCertificate : aiaChain) {
+                Certificate nextInChain;
                 try {
-                    Certificate nextInChain;
-                    // If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
-                    try {
-                        nextInChain = checkCreateCertificate(chainCertificate);
-//                        eventProducer.produceCertificateEventMessage(nextInChain.getUuid(), CertificateEvent.UPLOAD.getCode(), CertificateEventStatus.SUCCESS.toString(), "Downloaded from AIA extension.", null);
-                    } catch (AlreadyExistException e) {
-                        X509Certificate x509Cert = CertificateUtil.parseCertificate(chainCertificate);
-                        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
-                        nextInChain = certificateRepository.findByFingerprint(fingerprint).orElse(null);
-                    }
+                    // insert certificate atomically with resolvibg fingerprint unique conflict and then update issuer uuid and serial number
+                    nextInChain = createCertificateAtomic(chainCertificate, false);
+
                     assert nextInChain != null;
                     previousCertificate.setIssuerCertificateUuid(nextInChain.getUuid());
                     previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
                     previousCertificate = nextInChain;
                     ++downloadedCertificates;
-                } catch (NoSuchAlgorithmException | CertificateException e) {
+                } catch (NoSuchAlgorithmException | CertificateException | NotFoundException e) {
                     // Certificate downloaded from AIA cannot be parsed and inserted into inventory, so ignore the rest of chain
                     break;
                 }
@@ -931,6 +926,42 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    public Certificate createCertificateAtomic(String certificate, boolean assignOwner) throws CertificateException, NoSuchAlgorithmException, NotFoundException {
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
+        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
+
+        certificateContentRepository.insertWithFingerprintConflictResolve(fingerprint, CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(x509Cert)));
+        CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+        if (certificateContent == null) {
+            throw new NotFoundException(CertificateContent.class, fingerprint);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Certificate certificateEntity = new Certificate();
+        certificateEntity.setUuid(UUID.randomUUID());
+        certificateEntity.setCreated(now);
+        certificateEntity.setUpdated(now);
+        certificateEntity.setFingerprint(fingerprint);
+        certificateEntity.setCertificateContent(certificateContent);
+        CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);
+
+        int countInserted = certificateRepository.insertWithFingerprintConflictResolve(certificateEntity);
+        certificateEntity = certificateRepository.findByFingerprint(fingerprint).orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
+
+        // certificate was actually inserted
+        if (countInserted == 1) {
+            uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity);
+
+            // set owner of certificateEntity to logged user
+            if (assignOwner) {
+                objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificateEntity.getUuid());
+            }
+            certificateComplianceCheck(certificateEntity);
+        }
+        return certificateEntity;
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
     public void revokeCertificate(String serialNumber) {
         Certificate certificate = null;
@@ -1278,7 +1309,8 @@ public class CertificateServiceImpl implements CertificateService {
             );
         }
 
-        if (keyUuid != null && certificateRequestEntity.getKeyUuid() == null) certificateRequestEntity.setKeyUuid(keyUuid);
+        if (keyUuid != null && certificateRequestEntity.getKeyUuid() == null)
+            certificateRequestEntity.setKeyUuid(keyUuid);
         else {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }

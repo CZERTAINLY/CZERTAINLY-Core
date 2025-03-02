@@ -77,6 +77,8 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateDetailDto upload(UploadCertificateRequestDto request, boolean ignoreCustomAttributes) throws AlreadyExistException, CertificateException, NoSuchAlgorithmException, NotFoundException, AttributeException;
 
+    Certificate createCertificateAtomic(String certificate, boolean assignOwner) throws CertificateException, NoSuchAlgorithmException, NotFoundException;
+
     // TODO AUTH - unable to check access based on certificate serial number. Make private? Special permission? Call opa in method?
     void revokeCertificate(String serialNumber);
 
