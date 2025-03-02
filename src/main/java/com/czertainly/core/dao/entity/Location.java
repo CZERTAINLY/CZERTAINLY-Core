@@ -46,7 +46,7 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
 
     @OneToMany(
             mappedBy = "location",
-            cascade = CascadeType.ALL,
+            cascade = {CascadeType.MERGE, CascadeType.PERSIST, CascadeType.REMOVE},
             fetch = FetchType.LAZY
             //orphanRemoval = true
     )

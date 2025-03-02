@@ -832,14 +832,25 @@ public class LocationServiceImpl implements LocationService {
         List<DataAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
         List<DataAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
 
-        CertificateLocation certificateLocation = new CertificateLocation();
-        certificateLocation.setLocation(location);
-        certificateLocation.setCertificate(certificate);
+        // check if this location already has a CertificateLocation for `certificate`
+        CertificateLocation certificateLocation = location.getCertificates().stream()
+                .filter(cl -> cl.getCertificate().getUuid().equals(certificate.getUuid()))
+                .findFirst()
+                .orElse(null);
+
+        // if it doesn't exist, create it and add it to location
+        if (certificateLocation == null) {
+            certificateLocation = new CertificateLocation();
+            certificateLocation.setLocation(location);
+            certificateLocation.setCertificate(certificate);
+            location.getCertificates().add(certificateLocation);
+        }
+
+        // update push/CSR attributes on either the existing or new CertificateLocation
         certificateLocation.setPushAttributes(mergedPushAttributes);
         certificateLocation.setCsrAttributes(mergedCsrAttributes);
 
-        certificateLocationRepository.save(certificateLocation);
-        location.getCertificates().add(certificateLocation);
+        // just do one save operation – rely on cascade (assuming cascade = MERGE or PERSIST on Location → CertificateLocation)
         locationRepository.save(location);
 
         attributeEngine.updateMetadataAttributes(certificateMetadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
