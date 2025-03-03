@@ -850,7 +850,7 @@ public class LocationServiceImpl implements LocationService {
         certificateLocation.setPushAttributes(mergedPushAttributes);
         certificateLocation.setCsrAttributes(mergedCsrAttributes);
 
-        // just do one save operation – rely on cascade (assuming cascade = MERGE or PERSIST on Location → CertificateLocation)
+        // just do one save operation – rely on cascade (assuming cascade on Location → CertificateLocation)
         locationRepository.save(location);
 
         attributeEngine.updateMetadataAttributes(certificateMetadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
