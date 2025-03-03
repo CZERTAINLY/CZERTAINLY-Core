@@ -31,10 +31,7 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -430,14 +427,14 @@ class LocationServiceTest extends BaseSpringBootTest {
         raProfileRepository.save(raProfile);
 
         ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
-
         responseDto.setUuid(certificate.getUuid().toString());
         Mockito.when(clientOperationService.issueCertificate(any(), any(), any(), any())).thenReturn(responseDto);
+
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr")).willReturn(WireMock.okJson("{}")));
-        locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
 
+        locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
         Assertions.assertNotNull(location.getCertificates().stream()
                 .filter(cl -> cl.getCertificate().getUuid().equals(certificate.getUuid()))
                 .findFirst());
@@ -450,4 +447,24 @@ class LocationServiceTest extends BaseSpringBootTest {
                 .filter(cl -> cl.getCertificate().getUuid().equals(newlyIssuedCertificate.getUuid()))
                 .findFirst());
     }
+
+    @Test
+    void testPushCertificateToLocation() throws NotFoundException, LocationException, AttributeException {
+        Certificate certificateToPush = new Certificate();
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContentRepository.save(certificateContent);
+        certificateToPush.setCertificateContent(certificateContent);
+        certificateToPush.setState(CertificateState.ISSUED);
+        certificateRepository.save(certificateToPush);
+        PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
+        pushRequest.setAttributes(new ArrayList<>());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")).willReturn(WireMock.okJson("{\"withKey\": false}")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+        locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest);
+        Assertions.assertNotNull(location.getCertificates().stream()
+                .filter(cl -> cl.getCertificate().getUuid().equals(certificateToPush.getUuid()))
+                .findFirst());
+    }
+
 }
