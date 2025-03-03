@@ -8,7 +8,7 @@ export DOCKERFILE_PATH=Dockerfile
 # Maven directory that will be mounted to the container to cache dependencies
 # If not set, the container will download dependencies on every build
 # e.g. /Users/username/.m2
-export MAVEN_DIR=
+export MAVEN_DIR=/Users/romancinkais/.m2
 # true to skip tests, default is false
 export SKIP_TESTS=false
 

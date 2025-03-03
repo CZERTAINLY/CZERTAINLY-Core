@@ -561,7 +561,7 @@ public class LocationServiceImpl implements LocationService {
 
             if (certificateInLocation != null) {
                 certificateLocationRepository.delete(certificateInLocation);
-                location.getCertificates().remove(certificateLocation);
+                location.getCertificates().remove(certificateInLocation);
                 locationRepository.save(location);
             }
         }
