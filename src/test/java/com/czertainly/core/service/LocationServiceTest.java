@@ -19,12 +19,14 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -33,9 +35,16 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
+
+import static org.mockito.ArgumentMatchers.any;
 
 class LocationServiceTest extends BaseSpringBootTest {
 
@@ -55,6 +64,12 @@ class LocationServiceTest extends BaseSpringBootTest {
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @MockitoBean
+    private ClientOperationService clientOperationService;
 
     private DataAttribute testAttribute;
     private DataAttribute testAttribute2;
@@ -398,5 +413,41 @@ class LocationServiceTest extends BaseSpringBootTest {
     void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = locationService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(3, dtos.size());
+    }
+
+    @Test
+    void testIssueToLocation() throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException, LocationException {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setEnabled(true);
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setStatus("connected");
+        Connector connector = new Connector();
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connectorRepository.save(connector);
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReferenceRepository.save(authorityInstanceReference);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfileRepository.save(raProfile);
+
+        ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
+
+        responseDto.setUuid(certificate.getUuid().toString());
+        Mockito.when(clientOperationService.issueCertificate(any(), any(), any(), any())).thenReturn(responseDto);
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr")).willReturn(WireMock.okJson("{}")));
+        locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
+
+        Assertions.assertNotNull(location.getCertificates().stream()
+                .filter(cl -> cl.getCertificate().getUuid().equals(certificate.getUuid()))
+                .findFirst());
+
+        Certificate newlyIssuedCertificate = new Certificate();
+        certificateRepository.save(newlyIssuedCertificate);
+        responseDto.setUuid(newlyIssuedCertificate.getUuid().toString());
+        locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
+        Assertions.assertNotNull(location.getCertificates().stream()
+                .filter(cl -> cl.getCertificate().getUuid().equals(newlyIssuedCertificate.getUuid()))
+                .findFirst());
     }
 }
