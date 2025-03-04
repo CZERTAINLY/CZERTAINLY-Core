@@ -31,7 +31,11 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.junit.jupiter.api.*;
+import org.junit.jupiter.api.AfterEach;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -414,38 +418,28 @@ class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     void testIssueToLocation() throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException, LocationException {
-        RaProfile raProfile = new RaProfile();
-        raProfile.setEnabled(true);
-        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
-        authorityInstanceReference.setStatus("connected");
-        Connector connector = new Connector();
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connectorRepository.save(connector);
-        authorityInstanceReference.setConnector(connector);
-        authorityInstanceReferenceRepository.save(authorityInstanceReference);
-        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
-        raProfileRepository.save(raProfile);
+        RaProfile raProfile = getRaProfile();
 
         ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
+
         responseDto.setUuid(certificate.getUuid().toString());
         Mockito.when(clientOperationService.issueCertificate(any(), any(), any(), any())).thenReturn(responseDto);
-
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr")).willReturn(WireMock.okJson("{}")));
+        LocationDto locationDto = locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
 
-        locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
-        Assertions.assertNotNull(location.getCertificates().stream()
-                .filter(cl -> cl.getCertificate().getUuid().equals(certificate.getUuid()))
-                .findFirst());
+        Assertions.assertNotNull(locationDto.getCertificates().stream()
+                .filter(cl ->  cl.getCertificateUuid().equals(certificate.getUuid().toString()))
+                .findFirst().orElse(null));
 
         Certificate newlyIssuedCertificate = new Certificate();
         certificateRepository.save(newlyIssuedCertificate);
         responseDto.setUuid(newlyIssuedCertificate.getUuid().toString());
-        locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
-        Assertions.assertNotNull(location.getCertificates().stream()
-                .filter(cl -> cl.getCertificate().getUuid().equals(newlyIssuedCertificate.getUuid()))
-                .findFirst());
+        LocationDto locationDto1 = locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
+        Assertions.assertNotNull(locationDto1.getCertificates().stream()
+                .filter(cl -> cl.getCertificateUuid().equals(newlyIssuedCertificate.getUuid().toString()))
+                .findFirst().orElse(null));
     }
 
     @Test
@@ -461,10 +455,51 @@ class LocationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")).willReturn(WireMock.okJson("{\"withKey\": false}")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
-        locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest);
-        Assertions.assertNotNull(location.getCertificates().stream()
-                .filter(cl -> cl.getCertificate().getUuid().equals(certificateToPush.getUuid()))
-                .findFirst());
+        LocationDto locationDto = locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest);
+        Assertions.assertNotNull(locationDto.getCertificates().stream()
+                .filter(cl -> cl.getCertificateUuid().equals(certificateToPush.getUuid().toString()))
+                .findFirst().orElse(null));
+    }
+
+    @Test
+    void renewCertificateInLocation() throws ConnectorException, LocationException, CertificateOperationException, java.security.cert.CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateRequestException {
+        CertificateLocation certificateLocation = location.getCertificates().stream().findFirst().get();
+        certificateLocation.setPushAttributes(List.of(new DataAttribute()));
+        certificateLocation.setCsrAttributes(List.of(new DataAttribute()));
+        locationRepository.save(location);
+
+        certificate.setRaProfile(getRaProfile());
+        Certificate renewedCertificate = new Certificate();
+        certificateRepository.save(renewedCertificate);
+        certificateRepository.save(certificate);
+
+        ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
+        responseDto.setUuid(renewedCertificate.getUuid().toString());
+        Mockito.when(clientOperationService.renewCertificate(any(), any(), any(), any())).thenReturn(responseDto);
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr")).willReturn(WireMock.okJson("{}")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+
+        LocationDto locationDto = locationService.renewCertificateInLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificate.getUuid().toString());
+        Assertions.assertNotNull(locationDto.getCertificates().stream()
+                .filter(cl ->  cl.getCertificateUuid().equals(renewedCertificate.getUuid().toString()))
+                .findFirst().orElse(null));
+    }
+
+    private RaProfile getRaProfile() {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setEnabled(true);
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setStatus("connected");
+        Connector connector = new Connector();
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connectorRepository.save(connector);
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReferenceRepository.save(authorityInstanceReference);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfileRepository.save(raProfile);
+        return raProfile;
     }
 
 }
