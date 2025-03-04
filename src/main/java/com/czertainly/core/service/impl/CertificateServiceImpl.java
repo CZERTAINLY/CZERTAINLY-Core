@@ -315,6 +315,8 @@ public class CertificateServiceImpl implements CertificateService {
         // If there is some CRL for this certificate, set its CA certificate UUID to null
         for (Crl crl : crlService.findCrlsForCaCertificate(uuid.getValue())) crl.setCaCertificateUuid(null);
 
+        certificate.setOwner(null);
+        certificate.getGroups().clear();
         objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
         attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
 
