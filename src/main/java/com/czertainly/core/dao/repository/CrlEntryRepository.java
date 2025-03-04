@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.core.dao.entity.CrlEntry;
 import com.czertainly.core.dao.entity.CrlEntryId;
 import org.springframework.data.jpa.repository.Modifying;
