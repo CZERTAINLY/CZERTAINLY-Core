@@ -11,7 +11,6 @@ import com.czertainly.core.model.request.Pkcs10CertificateRequest;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
-import org.bouncycastle.util.encoders.UTF8;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
