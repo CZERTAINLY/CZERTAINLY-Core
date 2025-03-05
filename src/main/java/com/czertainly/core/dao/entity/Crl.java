@@ -13,7 +13,7 @@ import java.util.stream.Collectors;
 @ToString
 @RequiredArgsConstructor
 @Entity
-@Table(name = "crl")
+@Table(name = "crl", uniqueConstraints = { @UniqueConstraint(columnNames = { "issuerDn", "serialNumber" }) })
 public class Crl extends UniquelyIdentified {
 
     @Column(name = "ca_certificate_uuid")
