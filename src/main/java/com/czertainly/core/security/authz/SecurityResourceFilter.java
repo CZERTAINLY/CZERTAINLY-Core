@@ -2,12 +2,16 @@ package com.czertainly.core.security.authz;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.model.auth.ResourceAction;
+import lombok.Getter;
+import lombok.Setter;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
+@Getter
+@Setter
 public class SecurityResourceFilter {
 
     private Resource resource;
@@ -45,30 +49,6 @@ public class SecurityResourceFilter {
         return new SecurityResourceFilter();
     }
 
-    public Resource getResource() {
-        return resource;
-    }
-
-    public void setResource(Resource resource) {
-        this.resource = resource;
-    }
-
-    public ResourceAction getResourceAction() {
-        return resourceAction;
-    }
-
-    public void setResourceAction(ResourceAction resourceAction) {
-        this.resourceAction = resourceAction;
-    }
-
-    public List<UUID> getAllowedObjects() {
-        return allowedObjects;
-    }
-
-    public List<UUID> getForbiddenObjects() {
-        return forbiddenObjects;
-    }
-
     public void addAllowedObjects(List<String> objectUUIDs) {
         this.allowedObjects.addAll(objectUUIDs.stream().map(UUID::fromString).toList());
     }
@@ -79,9 +59,5 @@ public class SecurityResourceFilter {
 
     public boolean areOnlySpecificObjectsAllowed() {
         return areOnlySpecificObjectsAllowed;
-    }
-
-    public void setAreOnlySpecificObjectsAllowed(boolean areOnlySpecificObjectsAllowed) {
-        this.areOnlySpecificObjectsAllowed = areOnlySpecificObjectsAllowed;
     }
 }

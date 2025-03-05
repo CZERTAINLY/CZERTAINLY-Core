@@ -178,7 +178,7 @@ public class CmpEntityUtil {
         item.setType(keyType);
         item.setFingerprint(fingerprint);
         item.setEnabled(true);
-        item.setCryptographicKey(key);
+        item.setKey(key);
         item.setKeyAlgorithm(keyAlgorithm);
         return item;
     }

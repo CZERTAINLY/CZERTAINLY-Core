@@ -1,5 +1,6 @@
 package com.czertainly.core.security.authn.client;
 
+import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.impl.AuditLogServiceImpl;
@@ -14,7 +15,6 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.io.IOException;
@@ -80,7 +80,7 @@ class CzertainlyAuthenticationClientTest {
         setUpSuccessfulAuthenticationResponse();
 
         // when
-        AuthenticationInfo info = czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false);
+        AuthenticationInfo info = czertainlyAuthenticationClient.authenticate(AuthMethod.NONE, null, false);
 
         // then
         assertEquals("FrantisekJednicka", info.getUsername());
@@ -114,7 +114,7 @@ class CzertainlyAuthenticationClientTest {
         setUpEmptyResponse();
 
         // when
-        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(new HttpHeaders(), false);
+        Executable willThrow = () -> czertainlyAuthenticationClient.authenticate(AuthMethod.NONE, null, false);
 
         // then
         assertThrows(CzertainlyAuthenticationException.class, willThrow);

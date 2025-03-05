@@ -94,20 +94,6 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.ENABLE)
-    public void enableApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
-        final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
-        enableDisableApprovalProfile(approvalProfile, true);
-    }
-
-    @Override
-    @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.ENABLE)
-    public void disableApprovalProfile(final SecuredUUID uuid) throws NotFoundException, ValidationException {
-        final ApprovalProfile approvalProfile = findApprovalProfileByUuid(uuid);
-        enableDisableApprovalProfile(approvalProfile, false);
-    }
-
-    @Override
     @ExternalAuthorization(resource = Resource.APPROVAL_PROFILE, action = ResourceAction.CREATE)
     public ApprovalProfile createApprovalProfile(final ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException {
         if (approvalProfileRequestDto.getExpiry() != null && approvalProfileRequestDto.getExpiry() <= 0) {
@@ -119,7 +105,6 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
 
         final ApprovalProfile approvalProfile = new ApprovalProfile();
         approvalProfile.setName(approvalProfileRequestDto.getName());
-        approvalProfile.setEnabled(approvalProfileRequestDto.isEnabled());
         approvalProfileRepository.save(approvalProfile);
 
         final ApprovalProfileVersion approvalProfileVersion = new ApprovalProfileVersion();
@@ -250,14 +235,6 @@ public class ApprovalProfileServiceImpl implements ApprovalProfileService {
             return approvalProfileOptional.get();
         }
         throw new NotFoundException("Unable to find approval profile with UUID: {}", uuid);
-    }
-
-    private void enableDisableApprovalProfile(final ApprovalProfile approvalProfile, final boolean enable) throws ValidationException {
-        if (approvalProfile.isEnabled() == enable) {
-            throw new ValidationException("Approval profile is already " + (enable ? "enabled" : "disabled"));
-        }
-        approvalProfile.setEnabled(enable);
-        approvalProfileRepository.save(approvalProfile);
     }
 
 

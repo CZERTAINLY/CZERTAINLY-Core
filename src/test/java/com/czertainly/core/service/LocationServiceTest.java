@@ -19,12 +19,14 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.v2.ClientCertificateDataResponseDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -33,11 +35,19 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
+import org.mockito.Mockito;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+
+import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
-public class LocationServiceTest extends BaseSpringBootTest {
+import static org.mockito.ArgumentMatchers.any;
+
+class LocationServiceTest extends BaseSpringBootTest {
 
     private static final String LOCATION_NAME = "testLocation1";
     private static final String LOCATION_NAME_NOMULTIENTRIES = "testLocation-noMultiEntries";
@@ -55,6 +65,12 @@ public class LocationServiceTest extends BaseSpringBootTest {
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     @Autowired
     private ConnectorRepository connectorRepository;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @MockitoBean
+    private ClientOperationService clientOperationService;
 
     private DataAttribute testAttribute;
     private DataAttribute testAttribute2;
@@ -68,12 +84,12 @@ public class LocationServiceTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
+    void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }
 
     @BeforeEach
-    public void setUp() throws NotFoundException, AttributeException {
+    void setUp() throws NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -169,56 +185,56 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     private Location createLocation() throws AttributeException, NotFoundException {
-        Location location = new Location();
-        location.setUuid(UUID.randomUUID());
-        location.setName(LOCATION_NAME);
-        location.setEntityInstanceReference(entityInstanceReference);
-        location.setEnabled(true);
-        location.setSupportKeyManagement(true);
-        location.setSupportMultipleEntries(true);
+        Location newLocation = new Location();
+        newLocation.setUuid(UUID.randomUUID());
+        newLocation.setName(LOCATION_NAME);
+        newLocation.setEntityInstanceReference(entityInstanceReference);
+        newLocation.setEnabled(true);
+        newLocation.setSupportKeyManagement(true);
+        newLocation.setSupportMultipleEntries(true);
 
-        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("location")));
-        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
-        return location;
+        List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("newLocation")));
+        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
+        return newLocation;
     }
 
     private Location createLocationNoMultiEntries() throws AttributeException, NotFoundException {
-        Location location = new Location();
-        location.setUuid(UUID.randomUUID());
-        location.setName(LOCATION_NAME_NOMULTIENTRIES);
-        location.setEntityInstanceReferenceUuid(entityInstanceReference.getUuid());
-        location.setEnabled(true);
-        location.setSupportKeyManagement(true);
-        location.setSupportMultipleEntries(false);
+        Location newLocation = new Location();
+        newLocation.setUuid(UUID.randomUUID());
+        newLocation.setName(LOCATION_NAME_NOMULTIENTRIES);
+        newLocation.setEntityInstanceReferenceUuid(entityInstanceReference.getUuid());
+        newLocation.setEnabled(true);
+        newLocation.setSupportKeyManagement(true);
+        newLocation.setSupportMultipleEntries(false);
 
         List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("location_multi")));
-        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
+        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
 
-        return location;
+        return newLocation;
     }
 
     private Location createLocationNoKeyManagement() throws AttributeException, NotFoundException {
-        Location location = new Location();
-        location.setUuid(UUID.randomUUID());
-        location.setName(LOCATION_NAME_NOKEYMANAGEMENT);
-        location.setEntityInstanceReference(entityInstanceReference);
-        location.setEnabled(true);
-        location.setSupportKeyManagement(false);
-        location.setSupportMultipleEntries(true);
+        Location newLocation = new Location();
+        newLocation.setUuid(UUID.randomUUID());
+        newLocation.setName(LOCATION_NAME_NOKEYMANAGEMENT);
+        newLocation.setEntityInstanceReference(entityInstanceReference);
+        newLocation.setEnabled(true);
+        newLocation.setSupportKeyManagement(false);
+        newLocation.setSupportMultipleEntries(true);
 
         List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.createAttributes(testAttribute.getUuid(), testAttribute.getName(), List.of(new StringAttributeContent("location_no_key")));
-        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, location.getUuid(), requestAttributes);
+        attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
 
-        return location;
+        return newLocation;
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    public void testListLocations() {
+    void testListLocations() {
         LocationsResponseDto locationsResponseDto = locationService.listLocations(SecurityFilter.create(), new SearchRequestDto());
         List<LocationDto> locations = locationsResponseDto.getLocations();
         Assertions.assertNotNull(locations);
@@ -227,19 +243,19 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetLocationByUuid() throws NotFoundException {
+    void testGetLocationByUuid() throws NotFoundException {
         LocationDto dto = locationService.getLocation(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), location.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(location.getUuid().toString(), dto.getUuid());
     }
 
     @Test
-    public void testGetLocationByUuid_notFound() {
+    void testGetLocationByUuid_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> locationService.getLocation(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddLocation() throws ConnectorException, AlreadyExistException, LocationException, AttributeException {
+    void testAddLocation() throws ConnectorException, AlreadyExistException, LocationException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -269,34 +285,33 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddLocation_DuplicateEntity() throws NotFoundException, AlreadyExistException, LocationException {
+    void testAddLocation_DuplicateEntity() {
         AddLocationRequestDto request = new AddLocationRequestDto();
-        request.setName("testLocation2");
+        request.setName(LOCATION_NAME);
         RequestAttributeDto attribute = new RequestAttributeDto();
         attribute.setName("attribute");
         attribute.setContent(List.of(new StringAttributeContent("location")));
         request.setAttributes(List.of(attribute));
 
-        Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()), request));
+        Assertions.assertThrows(AlreadyExistException.class, () -> locationService.addLocation(SecuredParentUUID.fromUUID(entityInstanceReference.getUuid()), request));
     }
 
     @Test
-    public void testAddLocation_validationFail() {
+    void testAddLocation_validationFail() {
         AddLocationRequestDto request = new AddLocationRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> locationService.addLocation(entityInstanceReference.getSecuredParentUuid(), request));
     }
 
     @Test
-    public void testAddLocation_alreadyExist() {
+    void testAddLocation_alreadyExist() {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName(LOCATION_NAME); // location with the name that already exists
 
         Assertions.assertThrows(AlreadyExistException.class, () -> locationService.addLocation(entityInstanceReference.getSecuredParentUuid(), request));
     }
 
-    // TODO
     @Test
-    public void testEditLocation() throws ConnectorException, LocationException, AttributeException {
+    void testEditLocation() throws ConnectorException, LocationException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -322,43 +337,42 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditLocation_notFound() {
+    void testEditLocation_notFound() {
         EditLocationRequestDto request = new EditLocationRequestDto();
 
         Assertions.assertThrows(NotFoundException.class, () -> locationService.editLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
     }
 
     @Test
-    public void testRemoveLocation_notFound() {
+    void testRemoveLocation_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> locationService.deleteLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testEnableLocation() throws NotFoundException {
+    void testEnableLocation() throws NotFoundException {
         locationService.enableLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid());
         Assertions.assertEquals(true, location.getEnabled());
     }
 
     @Test
-    public void testEnableLocation_notFound() {
+    void testEnableLocation_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> locationService.enableLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testDisableLocation() throws NotFoundException {
+    void testDisableLocation() throws NotFoundException {
         locationService.disableLocation(location.getEntityInstanceReference().getSecuredParentUuid(), location.getSecuredUuid());
-        Assertions.assertEquals(false, location.getEnabled());
+        Assertions.assertFalse(locationService.getLocation(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), location.getSecuredUuid()).isEnabled());
     }
 
     @Test
-    public void testDisableLocation_notFound() {
+    void testDisableLocation_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> locationService.disableLocation(entityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     // TODO: testing the location push, remove, issue, sync
-
     @Test
-    public void testPushCertificateToLocation_MultiNotSupported() {
+    void testPushCertificateToLocation_MultiNotSupported() {
         PushToLocationRequestDto request = new PushToLocationRequestDto();
         request.setAttributes(List.of());
 
@@ -370,7 +384,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testIssueCertificateToLocation_KeyManagementNotSupported() {
+    void testIssueCertificateToLocation_KeyManagementNotSupported() {
         IssueToLocationRequestDto request = new IssueToLocationRequestDto();
         request.setCsrAttributes(List.of());
         request.setIssueAttributes(List.of());
@@ -383,7 +397,7 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testIssueCertificateToLocation_MultiNotSupported() {
+    void testIssueCertificateToLocation_MultiNotSupported() {
         IssueToLocationRequestDto request = new IssueToLocationRequestDto();
         request.setCsrAttributes(List.of());
         request.setIssueAttributes(List.of());
@@ -397,8 +411,95 @@ public class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = locationService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(3, dtos.size());
     }
+
+    @Test
+    void testIssueToLocation() throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException, LocationException {
+        RaProfile raProfile = getRaProfile();
+
+        ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
+
+        responseDto.setUuid(certificate.getUuid().toString());
+        Mockito.when(clientOperationService.issueCertificate(any(), any(), any(), any())).thenReturn(responseDto);
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr")).willReturn(WireMock.okJson("{}")));
+        LocationDto locationDto = locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
+
+        Assertions.assertNotNull(locationDto.getCertificates().stream()
+                .filter(cl ->  cl.getCertificateUuid().equals(certificate.getUuid().toString()))
+                .findFirst().orElse(null));
+
+        Certificate newlyIssuedCertificate = new Certificate();
+        certificateRepository.save(newlyIssuedCertificate);
+        responseDto.setUuid(newlyIssuedCertificate.getUuid().toString());
+        LocationDto locationDto1 = locationService.issueCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), String.valueOf(raProfile.getUuid()), new IssueToLocationRequestDto());
+        Assertions.assertNotNull(locationDto1.getCertificates().stream()
+                .filter(cl -> cl.getCertificateUuid().equals(newlyIssuedCertificate.getUuid().toString()))
+                .findFirst().orElse(null));
+    }
+
+    @Test
+    void testPushCertificateToLocation() throws NotFoundException, LocationException, AttributeException {
+        Certificate certificateToPush = new Certificate();
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContentRepository.save(certificateContent);
+        certificateToPush.setCertificateContent(certificateContent);
+        certificateToPush.setState(CertificateState.ISSUED);
+        certificateRepository.save(certificateToPush);
+        PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
+        pushRequest.setAttributes(new ArrayList<>());
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")).willReturn(WireMock.okJson("{\"withKey\": false}")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+        LocationDto locationDto = locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest);
+        Assertions.assertNotNull(locationDto.getCertificates().stream()
+                .filter(cl -> cl.getCertificateUuid().equals(certificateToPush.getUuid().toString()))
+                .findFirst().orElse(null));
+    }
+
+    @Test
+    void renewCertificateInLocation() throws ConnectorException, LocationException, CertificateOperationException, java.security.cert.CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateRequestException {
+        CertificateLocation certificateLocation = location.getCertificates().stream().findFirst().get();
+        certificateLocation.setPushAttributes(List.of(new DataAttribute()));
+        certificateLocation.setCsrAttributes(List.of(new DataAttribute()));
+        locationRepository.save(location);
+
+        certificate.setRaProfile(getRaProfile());
+        Certificate renewedCertificate = new Certificate();
+        certificateRepository.save(renewedCertificate);
+        certificateRepository.save(certificate);
+
+        ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
+        responseDto.setUuid(renewedCertificate.getUuid().toString());
+        Mockito.when(clientOperationService.renewCertificate(any(), any(), any(), any())).thenReturn(responseDto);
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr")).willReturn(WireMock.okJson("{}")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+
+        LocationDto locationDto = locationService.renewCertificateInLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificate.getUuid().toString());
+        Assertions.assertNotNull(locationDto.getCertificates().stream()
+                .filter(cl ->  cl.getCertificateUuid().equals(renewedCertificate.getUuid().toString()))
+                .findFirst().orElse(null));
+    }
+
+    private RaProfile getRaProfile() {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setEnabled(true);
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setStatus("connected");
+        Connector connector = new Connector();
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connectorRepository.save(connector);
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReferenceRepository.save(authorityInstanceReference);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfileRepository.save(raProfile);
+        return raProfile;
+    }
+
 }

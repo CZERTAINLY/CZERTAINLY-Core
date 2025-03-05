@@ -1,8 +1,10 @@
 package com.czertainly.core.security.oauth2;
 
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.core.auth.oauth2.LoginController;
+import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -10,28 +12,21 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.JOSEException;
-import com.nimbusds.jose.JWSAlgorithm;
-import com.nimbusds.jose.JWSHeader;
-import com.nimbusds.jose.JWSSigner;
-import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jwt.JWTClaimsSet;
-import com.nimbusds.jwt.SignedJWT;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import com.nimbusds.jwt.PlainJWT;
+import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
-import org.springframework.security.oauth2.jwt.JwtValidationException;
 
 import java.math.BigInteger;
 import java.security.KeyPair;
 import java.security.KeyPairGenerator;
 import java.security.NoSuchAlgorithmException;
-import java.security.PrivateKey;
 import java.security.interfaces.RSAPublicKey;
 import java.util.*;
 
@@ -40,11 +35,17 @@ import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
 @SpringBootTest
 class JwtDecoderTest extends BaseSpringBootTest {
 
+    public static final String AUDIENCE = "your-audience";
     @Autowired
     private JwtDecoder jwtDecoder;
 
     @Autowired
     private SettingService settingService;
+
+    @Autowired
+    private LoginController loginController;
+
+    public static final String PROVIDER_NAME = "provider";
 
     private KeyPair keyPair;
 
@@ -55,6 +56,8 @@ class JwtDecoderTest extends BaseSpringBootTest {
     String tokenValue;
 
     WireMockServer mockServer;
+
+    String jwkSetJson;
 
 
     @BeforeEach
@@ -79,22 +82,26 @@ class JwtDecoderTest extends BaseSpringBootTest {
                                   "grant_types_supported": ["authorization_code", "implicit", "refresh_token"]
                                 }
                                 """, ISSUER_URL, ISSUER_URL, ISSUER_URL, ISSUER_URL))));
+
+        jwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}";
+
         mockServer.stubFor(WireMock.get("/realms/CZERTAINLY-realm/protocol/openid-connect/certs")
                 .willReturn(aResponse().withStatus(200)
                         .withHeader("Content-Type", "application/json")
-                        .withBody("{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) keyPair.getPublic()) + "]}")));
+                        .withBody(jwkSetJson)));
+
+        mockServer.stubFor(WireMock.get("/api/oauth2/provider/jwkSet")
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(jwkSetJson)));
 
 
         providerSettings = new OAuth2ProviderSettingsUpdateDto();
-        providerSettings.setClientSecret("secret");
         providerSettings.setIssuerUrl(ISSUER_URL);
-        providerSettings.setClientId("client");
-        providerSettings.setClientSecret("secret");
-        providerSettings.setAuthorizationUrl("http");
-        providerSettings.setTokenUrl("http");
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
-        tokenValue = createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000);
+        tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE, "");
 
     }
 
@@ -104,11 +111,43 @@ class JwtDecoderTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testAuthenticationOnlyIfNeeded() {
+        Assertions.assertNull(jwtDecoder.decode(tokenValue));
+
+        AuthenticationInfo authenticationInfo = AuthenticationInfo.getAnonymousAuthenticationInfo();
+        CzertainlyAnonymousToken authentication = new CzertainlyAnonymousToken(UUID.randomUUID().toString(), authenticationInfo, authenticationInfo.getAuthorities());
+        SecurityContext emptyContext = SecurityContextHolder.createEmptyContext();
+        emptyContext.setAuthentication(authentication);
+        SecurityContextHolder.setContext(emptyContext);
+        Assertions.assertNotNull(jwtDecoder.decode(tokenValue));
+
+        authentication.setAccessingPermitAllEndpoint(true);
+        Assertions.assertNull(jwtDecoder.decode(tokenValue));
+    }
+
+    @Test
+    void testNullIssuer() throws JOSEException {
+        SecurityContextHolder.clearContext();
+        String token = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, null, null);
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(token));
+        Assertions.assertTrue(exception.getMessage().contains("Issuer URI is not present in JWT."));
+    }
+
+    @Test
+    void testNoOauth2Provider() {
+        settingService.removeOAuth2Provider(PROVIDER_NAME);
+        SecurityContextHolder.clearContext();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("No OAuth2 Provider with issuer URI"));
+    }
+
+
+    @Test
     void testJwtDecoderOnValidTokenWithoutAudiences() throws JOSEException {
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
 
-        String almostExpiredToken = createJwtTokenValue(keyPair.getPrivate(), 1);
+        String almostExpiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
         // Test if 30 s skew is added to the time and therefore the token should be successfully validated
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(almostExpiredToken));
     }
@@ -116,17 +155,18 @@ class JwtDecoderTest extends BaseSpringBootTest {
     @Test
     void testJwtDecoderOnExpiredTokenWithoutAudiences() throws JOSEException {
         providerSettings.setSkew(0);
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
-        String expiredToken = createJwtTokenValue(keyPair.getPrivate(), 1);
-        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
+        String expiredToken = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, ISSUER_URL, AUDIENCE, "");
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(expiredToken));
+        Assertions.assertTrue(exception.getMessage().contains("Jwt expired"));
     }
 
     @Test
     void testJwtDecoderOnTokenWithValidAudiences() {
-        providerSettings.setAudiences(List.of("your-audience"));
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        providerSettings.setAudiences(List.of(AUDIENCE));
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         SecurityContextHolder.clearContext();
         Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
@@ -135,24 +175,66 @@ class JwtDecoderTest extends BaseSpringBootTest {
     @Test
     void testJwtDecoderOnTokenWithInvalidAudiences() {
         providerSettings.setAudiences(List.of("different-audience"));
-        settingService.updateOAuth2ProviderSettings("provider", providerSettings);
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
         SecurityContextHolder.clearContext();
-        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("The aud claim is not valid"));
     }
 
-    private String createJwtTokenValue(PrivateKey privateKey, int expiryInMilliseconds) throws JOSEException {
+    @Test
+    void testJwkSetFromInput() {
+        providerSettings.setJwkSetUrl(null);
+        providerSettings.setJwkSet(Base64.getEncoder().encodeToString(jwkSetJson.getBytes()));
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
+        ResponseEntity<String> response = loginController.getJwkSet(PROVIDER_NAME);
+        Assertions.assertEquals(jwkSetJson, response.getBody());
+
+        SecurityContextHolder.clearContext();
+        Assertions.assertInstanceOf(Jwt.class, jwtDecoder.decode(tokenValue));
+    }
+
+    @Test
+    void testInvalidJwk() throws NoSuchAlgorithmException, JsonProcessingException {
+        KeyPairGenerator generator = KeyPairGenerator.getInstance("RSA");
+        generator.initialize(2048);
+        KeyPair invalidKeyPair = generator.generateKeyPair();
+
+        String invalidJwkSetJson = "{\"keys\":[" + convertRSAPrivateKeyToJWK((RSAPublicKey) invalidKeyPair.getPublic()) + "]}";
+
+        mockServer.stubFor(WireMock.get("/realms/CZERTAINLY-realm/protocol/openid-connect/certs")
+                .willReturn(aResponse().withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(invalidJwkSetJson)));
+
+        SecurityContextHolder.clearContext();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Invalid signature"));
+    }
+
+    @Test
+    void testUnreachableJwkUrl() {
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
+
+        mockServer.resetAll();
+        SecurityContextHolder.clearContext();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Couldn't retrieve remote JWK set"));
+    }
+
+    @Test
+    void testUnsignedJwt() {
+        SecurityContextHolder.clearContext();
         JWTClaimsSet claimsSet = new JWTClaimsSet.Builder()
                 .subject("your-subject")
-                .audience("your-audience")
-                .expirationTime(new Date(System.currentTimeMillis() + expiryInMilliseconds)) // 1 hour
-                .claim("username", "username")
+                .audience(AUDIENCE)
+                .expirationTime(new Date(System.currentTimeMillis() + 3600 * 1000)) // 1 hour
                 .issuer(ISSUER_URL)
                 .build();
 
-        SignedJWT signedJWT = new SignedJWT(new JWSHeader(JWSAlgorithm.RS256), claimsSet);
-        JWSSigner signer = new RSASSASigner(privateKey);
-        signedJWT.sign(signer);
-        return signedJWT.serialize();
+        tokenValue = new PlainJWT(claimsSet).serialize();
+        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
+        Assertions.assertTrue(exception.getMessage().contains("Token is not an instance of Signed JWT"));
     }
 
     private String convertRSAPrivateKeyToJWK(RSAPublicKey publicKey) throws JsonProcessingException {

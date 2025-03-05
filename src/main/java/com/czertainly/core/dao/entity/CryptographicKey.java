@@ -6,15 +6,11 @@ import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.annotations.NotFound;
-import org.hibernate.annotations.NotFoundAction;
 import org.hibernate.annotations.SQLJoinTableRestriction;
-import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -49,21 +45,19 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "group_association",
-            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false),
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)),
             inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     )
     @SQLJoinTableRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", insertable = false, updatable = false)
-    @SQLRestriction("resource = 'CRYPTOGRAPHIC_KEY'")
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "key")
     @ToString.Exclude
     private OwnerAssociation owner;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "cryptographicKey", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "key", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<CryptographicKeyItem> items = new HashSet<>();
 
@@ -84,12 +78,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     // Get the list of items for the key
     public List<KeyItemDetailDto> getKeyItems() {
-        return items.stream().map(CryptographicKeyItem::mapToDto).collect(Collectors.toList());
+        return items.stream().map(CryptographicKeyItem::mapToDto).toList();
     }
 
     // Get the list of items for the key
     public List<KeyItemDto> getKeyItemsSummary() {
-        return items.stream().map(CryptographicKeyItem::mapToSummaryDto).collect(Collectors.toList());
+        return items.stream().map(CryptographicKeyItem::mapToSummaryDto).toList();
     }
 
     @Override
@@ -103,8 +97,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
         }
-        dto.setTokenInstanceName(tokenInstanceReference.getName());
-        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if (tokenInstanceReference != null) {
+            dto.setTokenInstanceName(tokenInstanceReference.getName());
+            dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        }
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
         }
@@ -127,8 +123,10 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setTokenProfileName(tokenProfile.getName());
             dto.setTokenProfileUuid(tokenProfile.getUuid().toString());
         }
-        dto.setTokenInstanceName(tokenInstanceReference.getName());
-        dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        if (tokenInstanceReference != null) {
+            dto.setTokenInstanceName(tokenInstanceReference.getName());
+            dto.setTokenInstanceUuid(tokenInstanceReferenceUuid.toString());
+        }
         dto.setItems(getKeyItems());
         if (groups != null) {
             dto.setGroups(groups.stream().map(Group::mapToDto).toList());
@@ -153,8 +151,8 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         CryptographicKey that = (CryptographicKey) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -162,6 +160,6 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

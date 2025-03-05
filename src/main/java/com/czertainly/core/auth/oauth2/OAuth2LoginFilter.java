@@ -22,7 +22,7 @@ import jakarta.servlet.http.HttpSession;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpHeaders;
+import org.springframework.lang.NonNull;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -34,12 +34,14 @@ import org.springframework.security.oauth2.client.authentication.OAuth2Authentic
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Map;
 
 @Component
 public class OAuth2LoginFilter extends OncePerRequestFilter {
@@ -73,20 +75,14 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
     }
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain) {
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain) throws IOException {
+
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         if (authentication instanceof OAuth2AuthenticationToken oauthToken) {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
-            AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-            OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
-            if (providerSettings == null) {
-                request.getSession().invalidate();
-                String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(oauthToken.getAuthorizedClientRegistrationId());
-                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
-                throw new CzertainlyAuthenticationException(message);
-            }
+            OAuth2ProviderSettingsDto providerSettings = getProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), request.getSession(), oauth2AccessToken);
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), oauth2AccessToken, (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
@@ -98,40 +94,38 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             // If the access token is expired, try to refresh it
             if (expiresAt != null && expiresAt.isBefore(now.plus(skew, ChronoUnit.SECONDS))) {
                 try {
-                    refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
+                    authorizedClient = refreshToken(oauthToken, authorizedClient, request.getSession(), clientRegistration);
+                    oauth2AccessToken = authorizedClient.getAccessToken();
                 } catch (ClientAuthorizationException | CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
-                    String message = "Could not refresh token: %s".formatted(e.getMessage());
+                    String message = ("Could not refresh token: %s for access token : %s").formatted(e.getMessage(), oauth2AccessToken.getTokenValue());
                     auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
-                    throw new CzertainlyAuthenticationException(message);
+                    logger.error(e.getMessage());
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                    return;
                 }
                 try {
                     OAuth2Util.validateAudiences(authorizedClient.getAccessToken(), providerSettings);
                 } catch (CzertainlyAuthenticationException e) {
                     request.getSession().invalidate();
                     auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), oauth2AccessToken.getTokenValue());
-                    throw e;
+                    logger.error(e.getMessage());
+                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                    return;
                 }
             }
-
-            HttpHeaders headers = new HttpHeaders();
-            headers.add(OAuth2Constants.TOKEN_AUTHENTICATION_HEADER, authorizedClient.getAccessToken().getTokenValue());
-            AuthenticationInfo authInfo;
+            Map<String, Object> claims;
             try {
-                authInfo = authenticationClient.authenticate(headers, false);
-                CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
-                SecurityContextHolder.getContext().setAuthentication(authenticationToken);
-                LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
-            } catch (AuthenticationException e) {
-                // invalidate session when authentication fails
+                OidcUser oidcUser = (OidcUser) oauthToken.getPrincipal();
+                claims = OAuth2Util.getAllClaimsAvailable(providerSettings, oauth2AccessToken.getTokenValue(), oidcUser.getIdToken());
+            } catch (CzertainlyAuthenticationException e) {
                 request.getSession().invalidate();
-                SecurityContextHolder.clearContext();
-                if (e instanceof CzertainlyAuthenticationException) {
-                    LOGGER.warn("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
-                } else {
-                    throw e;
-                }
+                auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
+                logger.error(e.getMessage());
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, e.getMessage());
+                return;
             }
+            authenticate(request, claims, clientRegistration);
         }
 
         try {
@@ -142,7 +136,26 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         }
     }
 
-    private void refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
+    private void authenticate(HttpServletRequest request, Map<String, Object> claims, ClientRegistration clientRegistration) {
+        AuthenticationInfo authInfo;
+        try {
+            authInfo = authenticationClient.authenticate(AuthMethod.TOKEN, claims, false);
+            CzertainlyAuthenticationToken authenticationToken = new CzertainlyAuthenticationToken(new CzertainlyUserDetails(authInfo));
+            SecurityContextHolder.getContext().setAuthentication(authenticationToken);
+            LOGGER.debug("Session of user '{}' logged using OAuth2 Provider '{}' has been successfully validated.", authenticationToken.getPrincipal().getUsername(), clientRegistration.getRegistrationId());
+        } catch (AuthenticationException e) {
+            // invalidate session when authentication fails
+            request.getSession().invalidate();
+            SecurityContextHolder.clearContext();
+            if (e instanceof CzertainlyAuthenticationException) {
+                LOGGER.warn("Authentication request for '{}' failed: {}", request.getRequestURI(), e.getMessage());
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    private OAuth2AuthorizedClient refreshToken(OAuth2AuthenticationToken oauthToken, OAuth2AuthorizedClient authorizedClient, HttpSession session, ClientRegistration clientRegistration) {
         if (authorizedClient.getRefreshToken() != null) {
             // Refresh the token
             OAuth2AuthorizationContext context = OAuth2AuthorizationContext.withAuthorizedClient(authorizedClient)
@@ -166,8 +179,21 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
                 throw new CzertainlyAuthenticationException("Failed to refresh the access token.");
             }
         } else {
-            throw new CzertainlyAuthenticationException("Refresh token is not available.");
+            throw new CzertainlyAuthenticationException("Refresh token is not available ");
         }
+        return authorizedClient;
+    }
+
+    private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(clientRegistrationId);
+        if (providerSettings == null) {
+            session.invalidate();
+            String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(clientRegistrationId);
+            auditLogService.logAuthentication(Operation.AUTHENTICATION, OperationResult.FAILURE, message, oauth2AccessToken.getTokenValue());
+            throw new CzertainlyAuthenticationException(message);
+        }
+        return providerSettings;
     }
 
 }

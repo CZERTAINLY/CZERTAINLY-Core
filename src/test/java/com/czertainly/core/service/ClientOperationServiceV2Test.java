@@ -26,19 +26,12 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.cert.crmf.CRMFException;
-import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessageBuilder;
-import org.bouncycastle.operator.OperatorCreationException;
-import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.transaction.TestTransaction;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
@@ -47,27 +40,29 @@ import java.util.List;
 import java.util.UUID;
 
 @SpringBootTest
-public class ClientOperationServiceV2Test extends BaseSpringBootTest {
+class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
     public static final String RA_PROFILE_NAME = "testRaProfile1";
 
-    private static final String SAMPLE_PKCS10 = "-----BEGIN CERTIFICATE REQUEST-----\n" +
-            "MIICzDCCAbQCAQAwgYYxCzAJBgNVBAYTAkVOMQ0wCwYDVQQIDARub25lMQ0wCwYD\n" +
-            "VQQHDARub25lMRIwEAYDVQQKDAlXaWtpcGVkaWExDTALBgNVBAsMBG5vbmUxGDAW\n" +
-            "BgNVBAMMDyoud2lraXBlZGlhLm9yZzEcMBoGCSqGSIb3DQEJARYNbm9uZUBub25l\n" +
-            "LmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMP/U8RlcCD6E8AL\n" +
-            "PT8LLUR9ygyygPCaSmIEC8zXGJung3ykElXFRz/Jc/bu0hxCxi2YDz5IjxBBOpB/\n" +
-            "kieG83HsSmZZtR+drZIQ6vOsr/ucvpnB9z4XzKuabNGZ5ZiTSQ9L7Mx8FzvUTq5y\n" +
-            "/ArIuM+FBeuno/IV8zvwAe/VRa8i0QjFXT9vBBp35aeatdnJ2ds50yKCsHHcjvtr\n" +
-            "9/8zPVqqmhl2XFS3Qdqlsprzbgksom67OobJGjaV+fNHNQ0o/rzP//Pl3i7vvaEG\n" +
-            "7Ff8tQhEwR9nJUR1T6Z7ln7S6cOr23YozgWVkEJ/dSr6LAopb+cZ88FzW5NszU6i\n" +
-            "57HhA7ECAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4IBAQBn8OCVOIx+n0AS6WbEmYDR\n" +
-            "SspR9xOCoOwYfamB+2Bpmt82R01zJ/kaqzUtZUjaGvQvAaz5lUwoMdaO0X7I5Xfl\n" +
-            "sllMFDaYoGD4Rru4s8gz2qG/QHWA8uPXzJVAj6X0olbIdLTEqTKsnBj4Zr1AJCNy\n" +
-            "/YcG4ouLJr140o26MhwBpoCRpPjAgdYMH60BYfnc4/DILxMVqR9xqK1s98d6Ob/+\n" +
-            "3wHFK+S7BRWrJQXcM8veAexXuk9lHQ+FgGfD0eSYGz0kyP26Qa2pLTwumjt+nBPl\n" +
-            "rfJxaLHwTQ/1988G0H35ED0f9Md5fzoKi5evU1wG5WRxdEUPyt3QUXxdQ69i0C+7\n" +
-            "-----END CERTIFICATE REQUEST-----";
+    private static final String SAMPLE_PKCS10 = """
+            -----BEGIN CERTIFICATE REQUEST-----
+            MIICzDCCAbQCAQAwgYYxCzAJBgNVBAYTAkVOMQ0wCwYDVQQIDARub25lMQ0wCwYD
+            VQQHDARub25lMRIwEAYDVQQKDAlXaWtpcGVkaWExDTALBgNVBAsMBG5vbmUxGDAW
+            BgNVBAMMDyoud2lraXBlZGlhLm9yZzEcMBoGCSqGSIb3DQEJARYNbm9uZUBub25l
+            LmNvbTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAMP/U8RlcCD6E8AL
+            PT8LLUR9ygyygPCaSmIEC8zXGJung3ykElXFRz/Jc/bu0hxCxi2YDz5IjxBBOpB/
+            kieG83HsSmZZtR+drZIQ6vOsr/ucvpnB9z4XzKuabNGZ5ZiTSQ9L7Mx8FzvUTq5y
+            /ArIuM+FBeuno/IV8zvwAe/VRa8i0QjFXT9vBBp35aeatdnJ2ds50yKCsHHcjvtr
+            9/8zPVqqmhl2XFS3Qdqlsprzbgksom67OobJGjaV+fNHNQ0o/rzP//Pl3i7vvaEG
+            7Ff8tQhEwR9nJUR1T6Z7ln7S6cOr23YozgWVkEJ/dSr6LAopb+cZ88FzW5NszU6i
+            57HhA7ECAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4IBAQBn8OCVOIx+n0AS6WbEmYDR
+            SspR9xOCoOwYfamB+2Bpmt82R01zJ/kaqzUtZUjaGvQvAaz5lUwoMdaO0X7I5Xfl
+            sllMFDaYoGD4Rru4s8gz2qG/QHWA8uPXzJVAj6X0olbIdLTEqTKsnBj4Zr1AJCNy
+            /YcG4ouLJr140o26MhwBpoCRpPjAgdYMH60BYfnc4/DILxMVqR9xqK1s98d6Ob/+
+            3wHFK+S7BRWrJQXcM8veAexXuk9lHQ+FgGfD0eSYGz0kyP26Qa2pLTwumjt+nBPl
+            rfJxaLHwTQ/1988G0H35ED0f9Md5fzoKi5evU1wG5WRxdEUPyt3QUXxdQ69i0C+7
+            -----END CERTIFICATE REQUEST-----
+            """;
 
     @Autowired
     private ClientOperationService clientOperationService;
@@ -97,13 +92,13 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
+    void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }
 
 
     @BeforeEach
-    public void setUp() throws GeneralSecurityException, IOException, NotFoundException, AttributeException {
+    void setUp() throws GeneralSecurityException, IOException, NotFoundException, AttributeException {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -167,12 +162,12 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    public void testListIssueCertificateAttributes() throws ConnectorException {
+    void testListIssueCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -182,12 +177,12 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListIssueCertificateAttributes_validationFail() {
+    void testListIssueCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testValidateIssueCertificateAttributes() throws ConnectorException {
+    void testValidateIssueCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
@@ -197,17 +192,14 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateIssueCertificateAttributes_validationFail() {
+    void testValidateIssueCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class,
                 () -> clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
 
     @Test
-    public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException {
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-
+    void testIssueCertificate() throws CertificateException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue"))
@@ -222,25 +214,18 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         ClientCertificateSignRequestDto request = new ClientCertificateSignRequestDto();
         request.setRequest(SAMPLE_PKCS10);
         request.setAttributes(List.of());
-        clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null);
-
-        setUpCommitedCleanup();
+        Assertions.assertDoesNotThrow(() -> clientOperationService.issueCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), request, null));
     }
 
     @Test
-    public void testIssueCertificate_validationFail_disabledRaProfile() {
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-
+    void testIssueCertificate_validationFail_disabledRaProfile() {
         raProfile.setEnabled(false);
         raProfile = raProfileRepository.save(raProfile);
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.issueCertificate(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()),raProfile.getSecuredUuid(), null, null));
-
-        setUpCommitedCleanup();
     }
 
     @Test
-    public void testRenewCertificate() throws ConnectorException, CertificateException, AlreadyExistException, CertificateOperationException {
+    void testRenewCertificate() throws CertificateException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/renew"))
@@ -249,11 +234,10 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         request.setRequest(SAMPLE_PKCS10);
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificate.getUuid(), request, true));
-//        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), raProfile.getSecuredUuid(), certificate.getUuid().toString(), request));
     }
 
     @Test
-    public void testRenewCertificate_validationFail_differentRaProfile() {
+    void testRenewCertificate_validationFail_differentRaProfile() {
         RaProfile raProfile2 = new RaProfile();
         raProfile2.setName("testraprofile2");
         raProfile2.setAuthorityInstanceReference(authorityInstanceReference);
@@ -261,17 +245,13 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
         raProfile2.setEnabled(true);
         raProfileRepository.save(raProfile2);
 
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(raProfile2.getAuthorityInstanceReferenceUuid()), raProfile2.getSecuredUuid(), certificate.getUuid().toString(), null));
 
         raProfileRepository.delete(raProfile2);
-        setUpCommitedCleanup();
     }
 
     @Test
-    public void testListRevokeCertificateAttributes() throws ConnectorException {
+    void testListRevokeCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -281,12 +261,12 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListRevokeCertificateAttributes_validationFail() {
+    void testListRevokeCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testValidateRevokeCertificateAttributes() throws ConnectorException {
+    void testValidateRevokeCertificateAttributes() throws ConnectorException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
@@ -296,13 +276,13 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateRevokeCertificateAttributes_validationFail() {
+    void testValidateRevokeCertificateAttributes_validationFail() {
         Assertions.assertThrows(NotFoundException.class,
                 () -> clientOperationService.validateRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
-    public void testRevokeCertificate() throws ConnectorException, CertificateException, AlreadyExistException, CertificateOperationException {
+    void testRevokeCertificate() {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke"))
                 .willReturn(WireMock.ok()));
@@ -315,46 +295,11 @@ public class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         ClientCertificateRevocationDto request = new ClientCertificateRevocationDto();
         request.setAttributes(List.of());
-        clientOperationService.revokeCertificateAction(certificate.getUuid(), request, true);
+        Assertions.assertDoesNotThrow(() -> clientOperationService.revokeCertificateAction(certificate.getUuid(), request, true));
     }
 
     @Test
-    public void testRevokeCertificate_validationFail() {
+    void testRevokeCertificate_validationFail() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificateAction(UUID.randomUUID(), null, true));
     }
-
-    private void setUpCommitedCleanup() {
-        TestTransaction.start();
-
-        attributeEngine.deleteConnectorAttributeDefinitionsContent(connector.getUuid());
-
-        certificateEventHistoryRepository.deleteAll();
-        certificateRepository.deleteAll();
-        raProfileRepository.delete(raProfile);
-        authorityInstanceReferenceRepository.delete(authorityInstanceReference);
-        connectorRepository.delete(connector);
-
-        TestTransaction.flagForCommit();
-        TestTransaction.end();
-    }
-
-    private static byte[] generateRequestWithPOPSig(
-            BigInteger certReqID, KeyPair kp, String sigAlg) throws OperatorCreationException, CRMFException, IOException {
-        X500Name subject = new X500Name("CN=Example");
-
-        JcaCertificateRequestMessageBuilder certReqBuild
-                = new JcaCertificateRequestMessageBuilder(certReqID);
-
-        certReqBuild
-                .setPublicKey(kp.getPublic())
-                .setSubject(subject)
-                .setProofOfPossessionSigningKeySigner(
-                        new JcaContentSignerBuilder(sigAlg)
-                                .setProvider("BC")
-                                .build(kp.getPrivate()));
-
-        return certReqBuild.build().getEncoded();
-    }
-
-
 }

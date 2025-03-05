@@ -17,7 +17,6 @@ import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
 import org.hibernate.annotations.SQLJoinTableRestriction;
-import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serial;
@@ -98,7 +97,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Enumerated(EnumType.STRING)
     private CertificateValidationStatus validationStatus;
 
-    @Column(name = "fingerprint")
+    @Column(name = "fingerprint", unique = true)
     private String fingerprint;
 
     @Column(name = "public_key_fingerprint")
@@ -118,16 +117,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "group_association",
-            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false),
+            joinColumns = @JoinColumn(name = "object_uuid", referencedColumnName = "uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT)),
             inverseJoinColumns = @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
     )
     @SQLJoinTableRestriction("resource = 'CERTIFICATE'")
     @ToString.Exclude
     private Set<Group> groups = new HashSet<>();
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "uuid", referencedColumnName = "object_uuid", insertable = false, updatable = false)
-    @SQLRestriction("resource = 'CERTIFICATE'")
+    @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate")
     @ToString.Exclude
     private OwnerAssociation owner;
 
@@ -165,7 +162,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private ComplianceStatus complianceStatus;
 
     @JsonBackReference
-    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
     @ToString.Exclude
     private Set<CertificateEventHistory> eventHistories = new HashSet<>();
 
@@ -268,6 +265,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             certificateRequestDto.setPublicKeyAlgorithm(this.certificateRequestEntity.getPublicKeyAlgorithm());
             certificateRequestDto.setCertificateRequestFormat(this.certificateRequestEntity.getCertificateRequestFormat());
             certificateRequestDto.setSubjectAlternativeNames(MetaDefinitions.deserialize(this.certificateRequestEntity.getSubjectAlternativeNames()));
+            certificateRequestDto.setKeyUuid(this.certificateRequestEntity.getKeyUuid() != null ? this.certificateRequestEntity.getKeyUuid().toString() : null);
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()
@@ -384,7 +382,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setKey(CryptographicKey key) {
         this.key = key;
-        if (key != null) this.keyUuid = uuid;
+        if (key != null) this.keyUuid = key.getUuid();
     }
 
     public Long getValidity() {
@@ -421,8 +419,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         Certificate that = (Certificate) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -430,7 +428,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 
     public String toStringShort() {

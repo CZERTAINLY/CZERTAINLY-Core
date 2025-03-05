@@ -23,9 +23,8 @@ import org.springframework.web.bind.MissingRequestValueException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
-import org.springframework.web.context.request.RequestAttributes;
-import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
@@ -59,6 +58,19 @@ public class ExceptionHandlingAdvice {
 
         LOG.warn("HTTP 404: {}", messageBuilder);
         return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
+
+    /**
+     * Handler for {@link NoHandlerFoundException}.
+     *
+     * @param ex Caught {@link NoHandlerFoundException}.
+     * @return
+     */
+    @ExceptionHandler(NoHandlerFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorMessageDto handleNoHandlerFoundException(NoHandlerFoundException ex) {
+        LOG.info("HTTP 404: {}", ex.getMessage());
+        return ErrorMessageDto.getInstance(ex.getMessage());
     }
 
     /**

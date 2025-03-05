@@ -17,11 +17,12 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
+import java.security.PublicKey;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public interface CryptographicKeyService extends ResourceExtensionService  {
+public interface CryptographicKeyService extends ResourceExtensionService {
 
     /**
      * List of all available keys
@@ -31,39 +32,33 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
      */
     CryptographicKeyResponseDto listCryptographicKeys(SecurityFilter filter, SearchRequestDto request);
 
-    /**
-     * TODO lukas.rejha - fill it
-     * @return
-     */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
 
     /**
      * List of all available keys that contains full key pair
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param filter            Security Filter for Access Control
+     * @param tokenProfileUuid UUID of the token profile
+     * @param filter           Security Filter for Access Control
      * @return List of Key details {@Link KeyDto}
      */
-    List<KeyDto> listKeyPairs(Optional<String> tokenInstanceUuid, SecurityFilter filter);
+    List<KeyDto> listKeyPairs(Optional<String> tokenProfileUuid, SecurityFilter filter);
 
     /**
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid              UUID of the concerned Key
+     * @param uuid UUID of the concerned Key
      * @return Detail of the key {@Link KeyDetailDto}
-     * @throws NotFoundException  when the token profile or key is not found
-     * @throws ConnectorException when there are issues with connector communication
+     * @throws NotFoundException when the token profile or key is not found
      */
-    KeyDetailDto getKey(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid) throws NotFoundException;
+    KeyDetailDto getKey(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Get the detail of the key item
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid UUID of the parent key object
+     *
+     * @param uuid        UUID of the parent key object
      * @param keyItemUuid UUID of the key item
      * @return Key Item detail
      * @throws NotFoundException when the key or token instance is not found
      */
-    KeyItemDetailDto getKeyItem(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, String keyItemUuid) throws  NotFoundException;
+    KeyItemDetailDto getKeyItem(SecuredUUID uuid, String keyItemUuid) throws NotFoundException;
 
     /**
      * @param request           DTO containing the information for creating a new key
@@ -83,13 +78,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to update the key details
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid              UUID of the key
-     * @param request           Information regarding the update key
+     * @param uuid    UUID of the key
+     * @param request Information regarding the update key
      * @return Updated token Instance details
      */
     KeyDetailDto editKey(
-            SecuredParentUUID tokenInstanceUuid,
             SecuredUUID uuid,
             EditKeyRequestDto request
     ) throws NotFoundException, AttributeException;
@@ -97,13 +90,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to disable a key
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid              UUID of the key
+     * @param uuid UUID of the key
      * @throws NotFoundException   when the key is not found
      * @throws ValidationException when the key is already disabled
      */
     void disableKey(
-            SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             List<String> keyUuids
     ) throws NotFoundException, ValidationException;
@@ -111,13 +102,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to enable a disabled key
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid              UUID of the key
+     * @param uuid UUID of the key
      * @throws NotFoundException   when the key with given uuid is not found
      * @throws ValidationException when the key is already active
      */
     void enableKey(
-            SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             List<String> keyUuids
     ) throws NotFoundException, ValidationException;
@@ -157,16 +146,14 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to delete the key
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid              UUID of the key
-     * @param keyUuids          UUIDs of the items inside the key. If empty is provided, all the items will be deleted
-     * @throws NotFoundException, ConnectorException
+     * @param uuid     UUID of the key
+     * @param keyUuids UUIDs of the items inside the key. If empty is provided, all the items will be deleted
+     * @throws ConnectorException connector issue
      */
     void deleteKey(
-            SecuredParentUUID tokenInstanceUuid,
             UUID uuid,
             List<String> keyUuids
-    ) throws NotFoundException, ConnectorException;
+    ) throws ConnectorException;
 
     /**
      * Function to delete multiple key
@@ -189,13 +176,12 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Destroy a key
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the concerned key
      * @param keyUuids          List of uuids that are part of the key object
      * @throws NotFoundException  when the token profile or the key uuid is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    void destroyKey(SecuredParentUUID tokenInstanceUuid, String uuid, List<String> keyUuids) throws ConnectorException;
+    void destroyKey(UUID uuid, List<String> keyUuids) throws ConnectorException;
 
     /**
      * Destroy multiple keys
@@ -240,12 +226,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Function to mark the key as compromised
      *
-     * @param tokenInstanceUuid UUID of the token instance
      * @param uuid              UUID of the key
-     * @param request          UUIDs of the sub items inside the key. If empty list is provided
+     * @param request           UUIDs of the sub items inside the key. If empty list is provided
      *                          then all the items inside the key will be marked as compromised
      */
-    void compromiseKey(SecuredParentUUID tokenInstanceUuid, UUID uuid, CompromiseKeyRequestDto request) throws NotFoundException;
+    void compromiseKey(UUID uuid, CompromiseKeyRequestDto request) throws NotFoundException;
 
     /**
      * Function to mark the keys as compromised
@@ -271,11 +256,10 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Update the key usages for multiple keys and its items
      *
-     * @param tokenInstanceUuid UUID of the token instance
-     * @param uuid              UUID of the key
-     * @param request           Request containing the details for the key usage updates
+     * @param uuid    UUID of the key
+     * @param request Request containing the details for the key usage updates
      */
-    void updateKeyUsages(SecuredParentUUID tokenInstanceUuid, UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
+    void updateKeyUsages(UUID uuid, UpdateKeyUsageRequestDto request) throws NotFoundException;
 
     /**
      * Function to update the usages for the key items
@@ -287,12 +271,11 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
     /**
      * Get the list of actions and events done of the provided key item
      *
-     * @param tokenInstanceUuid UUID of the token Instance
-     * @param uuid              Key UUID
-     * @param keyItemUuid       UUID of the key Item
+     * @param uuid        Key UUID
+     * @param keyItemUuid UUID of the key Item
      * @return
      */
-    List<KeyEventHistoryDto> getEventHistory(SecuredParentUUID tokenInstanceUuid, UUID uuid, UUID keyItemUuid) throws NotFoundException;
+    List<KeyEventHistoryDto> getEventHistory(UUID uuid, UUID keyItemUuid) throws NotFoundException;
 
     /**
      * Function to get the key based on the sha 256 key fingerprint
@@ -304,9 +287,33 @@ public interface CryptographicKeyService extends ResourceExtensionService  {
 
     /**
      * Get the key item of specified type based on the cryptographic key
-     * @param key Cryptographic Key wrapper object
+     *
+     * @param key     Cryptographic Key wrapper object
      * @param keyType Key type
      * @return Key Item
      */
     CryptographicKeyItem getKeyItemFromKey(CryptographicKey key, KeyType keyType);
+
+    /**
+     * Upload public key of existing certificate
+     *
+     * @param name         Name of the cryptographic key
+     * @param publicKey    Public Key to be uploaded
+     * @param keyAlgorithm Key Algorithm used in the Public Key
+     * @param keyLength    Length of the Public Key
+     * @param fingerprint  Unique fingerprint of the Public Key
+     * @return UUID of the uploaded Cryptographic Key
+     */
+    UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength, String fingerprint);
+
+    /**
+     * Edit Key Item
+     *
+     * @param keyUuid        UUID of parent Key of Key Item
+     * @param keyItemUuid    UUID of Key Item
+     * @param editKeyItemDto Request for editing the Key Item
+     * @return Key Item which has been deleted
+     * @throws NotFoundException Key has not been found
+     */
+    KeyItemDetailDto editKeyItem(SecuredUUID keyUuid, UUID keyItemUuid, EditKeyItemDto editKeyItemDto) throws NotFoundException;
 }

@@ -5,15 +5,17 @@ import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.logging.LoggingHelper;
+import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
+import com.nimbusds.jwt.JWTClaimsSet;
 import com.nimbusds.jwt.SignedJWT;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
@@ -27,6 +29,15 @@ import java.util.List;
 
 @Component
 public class CzertainlyJwtDecoder implements JwtDecoder {
+
+    @Value("${server.port}")
+    private String port;
+
+    @Value("${server.servlet.context-path}")
+    private String contextPath;
+
+    @Value("${server.ssl.enabled}")
+    private boolean sslEnabled;
 
     private static final Logger logger = LoggerFactory.getLogger(CzertainlyJwtDecoder.class);
 
@@ -42,17 +53,26 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         if (!isAuthenticationNeeded()) {
             return null;
         }
-        String issuerUri;
+        SignedJWT signedJWT;
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.TOKEN);
         try {
-            issuerUri = SignedJWT.parse(token).getJWTClaimsSet().getIssuer();
+            signedJWT = SignedJWT.parse(token);
         } catch (ParseException e) {
-            String message = "Could not extract issuer from JWT token";
+            String message = "Token is not an instance of Signed JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
+        JWTClaimsSet claimsSet;
+        try {
+            claimsSet = signedJWT.getJWTClaimsSet();
+        } catch (ParseException e) {
+            String message = "Could not extract claims from JWT.";
+            AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
+            throw new CzertainlyAuthenticationException(message);
+        }
+        String issuerUri = claimsSet.getIssuer();
         if (issuerUri == null) {
-            String message = "Issuer URI is not present in JWT token";
+            String message = "Issuer URI is not present in JWT.";
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
@@ -71,20 +91,19 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
 
         NimbusJwtDecoder jwtDecoder;
         try {
-            jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+            if (providerSettings.getJwkSetUrl() == null && providerSettings.getJwkSet() == null) jwtDecoder = JwtDecoders.fromIssuerLocation(issuerUri);
+            else  {
+                String protocol = sslEnabled ? "https" : "http";
+                String jwkSetUrl = providerSettings.getJwkSetUrl() != null ? providerSettings.getJwkSetUrl() : protocol + "://localhost:" + port + contextPath + "/oauth2/" + providerSettings.getName() + "/jwkSet";
+                jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUrl).build();
+            }
         } catch (Exception e) {
             String message = "Could not authenticate user using JWT token: %s".formatted(e.getMessage());
             AuthHelper.logAndAuditAuthFailure(logger, auditLogService, message, token);
             throw new CzertainlyAuthenticationException(message);
         }
-        OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
-        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
-        // Add audience validation
-        if (!audiences.isEmpty()) {
-            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
-        }
 
-        OAuth2TokenValidator<Jwt> combinedValidator = JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));
+        OAuth2TokenValidator<Jwt> combinedValidator = getJwtOAuth2TokenValidator(skew, audiences, issuerUri);
         jwtDecoder.setJwtValidator(combinedValidator);
         try {
             return jwtDecoder.decode(token);
@@ -95,9 +114,21 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         }
     }
 
+    private static OAuth2TokenValidator<Jwt> getJwtOAuth2TokenValidator(int skew, List<String> audiences, String issuerUri) {
+        OAuth2TokenValidator<Jwt> clockSkewValidator = new JwtTimestampValidator(Duration.ofSeconds(skew));
+        OAuth2TokenValidator<Jwt> audienceValidator = new DelegatingOAuth2TokenValidator<>();
+
+        // Add audience validation
+        if (!audiences.isEmpty()) {
+            audienceValidator = new JwtClaimValidator<List<String>>("aud", aud -> aud.stream().anyMatch(audiences::contains));
+        }
+
+        return JwtValidators.createDefaultWithValidators(List.of(new JwtIssuerValidator(issuerUri), clockSkewValidator, audienceValidator));
+    }
+
     private boolean isAuthenticationNeeded() {
         SecurityContext context = SecurityContextHolder.getContext();
-        return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof AnonymousAuthenticationToken);
+        return (context == null || context.getAuthentication() == null || context.getAuthentication() instanceof CzertainlyAnonymousToken anonymousToken && !anonymousToken.isAccessingPermitAllEndpoint());
     }
 
 }

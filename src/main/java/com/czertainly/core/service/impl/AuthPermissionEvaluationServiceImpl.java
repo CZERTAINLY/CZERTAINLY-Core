@@ -15,21 +15,37 @@ public class AuthPermissionEvaluationServiceImpl implements PermissionEvaluator 
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.DETAIL)
-    public void tokenProfile(SecuredUUID uuid) throws NotFoundException { }
+    public void tokenProfile(SecuredUUID uuid) throws NotFoundException {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
-    public void tokenInstance(SecuredUUID uuid) throws NotFoundException { }
+    public void tokenInstance(SecuredUUID uuid) throws NotFoundException {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.MEMBERS)
+    public void tokenInstanceMembers(SecuredUUID uuid) {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public void certificate(SecuredUUID uuid) throws NotFoundException { }
+    public void certificate(SecuredUUID uuid) throws NotFoundException {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
-    public void authorityInstance(SecuredUUID uuid) throws NotFoundException { }
+    public void authorityInstance(SecuredUUID uuid) throws NotFoundException {
+        // Method empty on only evaluate permissions based on ExternalAuthorization annotation
+    }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
-    public void tokenProfiles(List<SecuredUUID> uuids) { }
+    public void tokenProfiles(List<SecuredUUID> uuids) {
+        // Method empty to only evaluate permissions based on ExternalAuthorization annotation
+    }
 }

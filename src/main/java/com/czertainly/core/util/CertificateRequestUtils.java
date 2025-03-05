@@ -114,24 +114,44 @@ public class CertificateRequestUtils {
 
         StringBuilder nameBuilder = new StringBuilder();
         if (commonName != null) {
-            nameBuilder.append("CN=").append(commonName);
+            nameBuilder.append("CN=").append(escapeSpecialCharacters(commonName));
         }
         if (organizationalUnit != null) {
-            nameBuilder.append(", OU=").append(organizationalUnit);
+            nameBuilder.append(", OU=").append(escapeSpecialCharacters(organizationalUnit));
         }
         if (organization != null) {
-            nameBuilder.append(", O=").append(organization);
+            nameBuilder.append(", O=").append(escapeSpecialCharacters(organization));
         }
         if (locality != null) {
-            nameBuilder.append(", L=").append(locality);
+            nameBuilder.append(", L=").append(escapeSpecialCharacters(locality));
         }
         if (state != null) {
-            nameBuilder.append(", ST=").append(state);
+            nameBuilder.append(", ST=").append(escapeSpecialCharacters(state));
         }
         if (country != null) {
-            nameBuilder.append(", C=").append(country);
+            nameBuilder.append(", C=").append(escapeSpecialCharacters(country));
         }
         return new X500Principal(nameBuilder.toString());
+    }
+
+
+    // Escape special characters according to RFC 2253
+    private static String escapeSpecialCharacters(String inputString) {
+        // Escape one of the characters ",", "+", """, "\", "<", ">" or ";"
+        final String[] specialCharacters = {"\\", ",", "+", "\"", "<", ">" , ";"};
+        for (String specialCharacter : specialCharacters) {
+            if (inputString.contains(specialCharacter)) {
+                inputString = inputString.replace(specialCharacter, "\\" + specialCharacter);
+            }
+        }
+
+        // Escape a space character occurring at the end of the string
+        if (inputString.endsWith(" ")) inputString = inputString.substring(0, inputString.length() -1 ) + "\\ ";
+
+        // Escape a space or "#" character occurring at the beginning of the string
+        if (inputString.startsWith("#") || inputString.startsWith(" ")) return "\\" + inputString;
+
+        return inputString;
     }
 
     /**

@@ -40,7 +40,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.io.Serializable;
 import java.util.*;
 
-public class CredentialServiceTest extends BaseSpringBootTest {
+class CredentialServiceTest extends BaseSpringBootTest {
 
     private static final String CREDENTIAL_NAME = "testCredential1";
 
@@ -62,7 +62,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     private WireMockServer mockServer;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -96,12 +96,12 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @AfterEach
-    public void tearDown() {
+    void tearDown() {
         mockServer.stop();
     }
 
     @Test
-    public void testListCredentials() {
+    void testListCredentials() {
         List<CredentialDto> credentials = credentialService.listCredentials(SecurityFilter.create());
         Assertions.assertNotNull(credentials);
         Assertions.assertFalse(credentials.isEmpty());
@@ -110,7 +110,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetCredential() throws NotFoundException {
+    void testGetCredential() throws NotFoundException {
         CredentialDto dto = credentialService.getCredential(credential.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(credential.getUuid().toString(), dto.getUuid());
@@ -119,12 +119,12 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetCredential_notFound() {
+    void testGetCredential_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddCredential() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddCredential() throws ConnectorException, AlreadyExistException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -146,13 +146,13 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddCredential_validationFail() {
+    void testAddCredential_validationFail() {
         CredentialRequestDto request = new CredentialRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> credentialService.createCredential(request));
     }
 
     @Test
-    public void testAddCredential_alreadyExist() {
+    void testAddCredential_alreadyExist() {
         CredentialRequestDto request = new CredentialRequestDto();
         request.setName(CREDENTIAL_NAME); // credential with same name exist
 
@@ -160,7 +160,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditCredential() throws ConnectorException, AttributeException {
+    void testEditCredential() throws ConnectorException, AttributeException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -178,51 +178,51 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditCredential_notFound() {
+    void testEditCredential_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.editCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
-    public void testRemoveCredential() throws NotFoundException {
+    void testRemoveCredential() throws NotFoundException {
         credentialService.deleteCredential(credential.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
-    public void testRemoveCredential_notFound() {
+    void testRemoveCredential_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.deleteCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testEnableCredential() throws NotFoundException {
+    void testEnableCredential() throws NotFoundException {
         credentialService.enableCredential(credential.getSecuredUuid());
-        Assertions.assertEquals(true, credential.getEnabled());
+        Assertions.assertTrue(credentialService.getCredential(credential.getSecuredUuid()).getEnabled());
     }
 
     @Test
-    public void testEnableCredential_notFound() {
+    void testEnableCredential_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.enableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testDisableCredential() throws NotFoundException {
+    void testDisableCredential() throws NotFoundException {
         credentialService.disableCredential(credential.getSecuredUuid());
-        Assertions.assertEquals(false, credential.getEnabled());
+        Assertions.assertFalse(credentialService.getCredential(credential.getSecuredUuid()).getEnabled());
     }
 
     @Test
-    public void testDisableCredential_notFound() {
+    void testDisableCredential_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.disableCredential(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testBulkRemove() throws NotFoundException {
+    void testBulkRemove() throws NotFoundException {
         credentialService.bulkDeleteCredential(List.of(credential.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> credentialService.getCredential(credential.getSecuredUuid()));
     }
 
     @Test
-    public void testLoadFullData_attributes() throws NotFoundException {
+    void testLoadFullData_attributes() throws NotFoundException {
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
         CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
         dto.setUuid(credential.getUuid().toString());
@@ -246,7 +246,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLoadFullData_attributesNotFound() throws NotFoundException {
+    void testLoadFullData_attributesNotFound() {
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
         CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
         dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
@@ -264,12 +264,12 @@ public class CredentialServiceTest extends BaseSpringBootTest {
 
 
     @Test
-    public void testLoadFullData_attributesNonCredential() throws NotFoundException {
-        credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("dummyAttributes", null))); // this should not throw exception
+    void testLoadFullData_attributesNonCredential() {
+        Assertions.assertDoesNotThrow(() -> credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("dummyAttributes", null)))); // this should not throw exception
     }
 
     @Test
-    public void testLoadFullData_callback() throws NotFoundException {
+    void testLoadFullData_callback() throws NotFoundException {
         String credentialBodyKey = "testCredential";
 
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
@@ -306,7 +306,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLoadFullData_callbackValidation() {
+    void testLoadFullData_callbackValidation() {
         String credentialBodyKey = "testCredential";
 
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
@@ -335,7 +335,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLoadFullData_callbackValidationFailWrongValue() {
+    void testLoadFullData_callbackValidationFailWrongValue() {
         String credentialBodyKey = "testCredential";
 
         AttributeCallbackMapping mapping = new AttributeCallbackMapping(
@@ -358,7 +358,7 @@ public class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, dtos.size());
     }

@@ -20,10 +20,6 @@ public interface ApprovalProfileService {
 
     void deleteApprovalProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
-    void enableApprovalProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
-
-    void disableApprovalProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
-
     ApprovalProfile createApprovalProfile(ApprovalProfileRequestDto approvalProfileRequestDto) throws NotFoundException, AlreadyExistException;
 
     ApprovalProfile editApprovalProfile(SecuredUUID uuid, ApprovalProfileUpdateRequestDto approvalProfileUpdateRequestDto) throws NotFoundException;

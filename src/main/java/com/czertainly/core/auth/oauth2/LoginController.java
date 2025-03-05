@@ -1,5 +1,6 @@
 package com.czertainly.core.auth.oauth2;
 
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
@@ -12,6 +13,7 @@ import com.czertainly.core.util.OAuth2Constants;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.*;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -21,6 +23,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
+import java.util.Base64;
 import java.util.List;
 
 @Controller
@@ -61,8 +64,8 @@ public class LoginController {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
         if (authenticationSettings.getOAuth2Providers().isEmpty()) return "no-login-options";
 
-        // Because of validation of OAuth2ProviderSettingsDto, when client ID is null, all other client related properties will be null too, meaning this provider is only for JWT token validation
-        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(dto -> dto.getClientId() != null).toList();
+        // Display only properly configured providers
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             try {
@@ -97,6 +100,32 @@ public class LoginController {
 
         request.getSession().setMaxInactiveInterval(providerSettings.getSessionMaxInactiveInterval());
         response.sendRedirect(ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath() + "/oauth2/authorization/" + provider);
+    }
+
+    @GetMapping("/oauth2/{provider}/jwkSet")
+    public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
+        AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+
+        String jwkSetEncoded = authenticationSettings.getOAuth2Providers().get(provider).getJwkSet();
+        if (jwkSetEncoded == null) {
+            throw new ValidationException("Provider %s does not have JWK Set set up.".formatted(provider));
+        }
+
+        String jwkSet = new String(Base64.getDecoder().decode(jwkSetEncoded));
+        HttpHeaders headers = new HttpHeaders();
+        headers.add("Content-type", MediaType.APPLICATION_JSON_VALUE);
+        return new ResponseEntity<>(jwkSet, headers, HttpStatus.OK);
+    }
+
+
+    private boolean validOAuth2Provider(OAuth2ProviderSettingsDto settingsDto) {
+        return (settingsDto.getClientId() != null) &&
+                (settingsDto.getClientSecret() != null) &&
+                (settingsDto.getAuthorizationUrl() != null) &&
+                (settingsDto.getTokenUrl() != null) &&
+                (settingsDto.getJwkSetUrl() != null || settingsDto.getJwkSet() != null) &&
+                (settingsDto.getLogoutUrl() != null) &&
+                (settingsDto.getPostLogoutUrl() != null);
     }
 
 }

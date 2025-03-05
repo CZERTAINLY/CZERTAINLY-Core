@@ -43,14 +43,16 @@ public class CzertainlyLogoutSuccessHandler extends OidcClientInitiatedLogoutSuc
         // Set the post logout redirect URI dynamically
         this.setPostLogoutRedirectUri(redirectUri);
 
+        String username = oauth2Token.getPrincipal().getAttribute("username");
+
         // Call the parent method to complete the logout process
         try {
             super.onLogoutSuccess(request, response, authentication);
         } catch (IOException | ServletException e) {
-            LOGGER.error("Error occurred when logging out from OAuth2 Provider: {}", e.getMessage());
+            LOGGER.error("Error occurred when logging out user {} from OAuth2 Provider {}: {}", username, oauth2Token.getAuthorizedClientRegistrationId(), e.getMessage());
         }
 
-        String message = "Logout of user '%s' from OAuth2 Provider successful".formatted(oauth2Token.getPrincipal().getAttribute("username"));
+        String message = "Logout of user '%s' from OAuth2 Provider %s successful".formatted(username, oauth2Token.getAuthorizedClientRegistrationId());
         auditLogService.logAuthentication(Operation.LOGOUT, OperationResult.SUCCESS, message, null);
         LOGGER.debug("{}, redirecting to {}", message, redirectUri);
     }

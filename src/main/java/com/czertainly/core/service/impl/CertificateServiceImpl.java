@@ -29,6 +29,7 @@ import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.event.transaction.CertificateValidationEvent;
@@ -75,10 +76,8 @@ import java.io.*;
 import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
-import java.security.NoSuchProviderException;
-import java.security.SignatureException;
+import java.nio.charset.StandardCharsets;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
@@ -86,6 +85,7 @@ import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutorService;
@@ -315,15 +315,17 @@ public class CertificateServiceImpl implements CertificateService {
         // If there is some CRL for this certificate, set its CA certificate UUID to null
         for (Crl crl : crlService.findCrlsForCaCertificate(uuid.getValue())) crl.setCaCertificateUuid(null);
 
+        certificate.setOwner(null);
+        certificate.getGroups().clear();
+        objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
+        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
+
         CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null) : null;
         certificateRepository.delete(certificate);
         if (content != null) {
             certificateContentRepository.delete(content);
             certificate.setCertificateContent(null);
         }
-
-        objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
-        attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
     }
 
     @Override
@@ -521,23 +523,17 @@ public class CertificateServiceImpl implements CertificateService {
             List<String> aiaChain = downloadChainFromAia(certificate);
             Certificate previousCertificate = certificate;
             for (String chainCertificate : aiaChain) {
+                Certificate nextInChain;
                 try {
-                    Certificate nextInChain;
-                    // If the certificate from isn't in repository, create it, otherwise only update issuer uuid and serial number
-                    try {
-                        nextInChain = checkCreateCertificate(chainCertificate);
-//                        eventProducer.produceCertificateEventMessage(nextInChain.getUuid(), CertificateEvent.UPLOAD.getCode(), CertificateEventStatus.SUCCESS.toString(), "Downloaded from AIA extension.", null);
-                    } catch (AlreadyExistException e) {
-                        X509Certificate x509Cert = CertificateUtil.parseCertificate(chainCertificate);
-                        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
-                        nextInChain = certificateRepository.findByFingerprint(fingerprint).orElse(null);
-                    }
+                    // insert certificate atomically with resolvibg fingerprint unique conflict and then update issuer uuid and serial number
+                    nextInChain = createCertificateAtomic(chainCertificate, false);
+
                     assert nextInChain != null;
                     previousCertificate.setIssuerCertificateUuid(nextInChain.getUuid());
                     previousCertificate.setIssuerSerialNumber(nextInChain.getSerialNumber());
                     previousCertificate = nextInChain;
                     ++downloadedCertificates;
-                } catch (NoSuchAlgorithmException | CertificateException e) {
+                } catch (NoSuchAlgorithmException | CertificateException | NotFoundException e) {
                     // Certificate downloaded from AIA cannot be parsed and inserted into inventory, so ignore the rest of chain
                     break;
                 }
@@ -819,6 +815,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             CertificateUtil.prepareIssuedCertificate(entity, certificate);
+            uploadCertificateKey(certificate.getPublicKey(), entity);
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
@@ -850,16 +847,23 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         CertificateUtil.prepareIssuedCertificate(modal, certificate);
-        if (modal.getKey() == null) {
-            UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(modal.getPublicKeyFingerprint());
-            if (keyUuid != null) modal.setKeyUuid(keyUuid);
-        }
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(certificateContent);
         modal.setCertificateContentId(certificateContent.getId());
 
         return modal;
+    }
+
+    private void uploadCertificateKey(PublicKey publicKey, Certificate certificate) {
+        UUID keyUuid;
+        if (certificate.getKeyUuid() == null) {
+            keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
+            if (keyUuid == null) {
+                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());
+            }
+            certificate.setKeyUuid(keyUuid);
+        }
     }
 
     @Override
@@ -891,6 +895,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         Certificate entity = createCertificateEntity(certificate);
+        uploadCertificateKey(certificate.getPublicKey(), entity);
         certificateRepository.save(entity);
 
         CertificateDetailDto dto = entity.mapToDto();
@@ -912,6 +917,7 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
+        uploadCertificateKey(x509Cert.getPublicKey(), entity);
         entity = certificateRepository.save(entity);
 
         // set owner of certificate to logged user
@@ -919,6 +925,42 @@ public class CertificateServiceImpl implements CertificateService {
 
         certificateComplianceCheck(entity);
         return entity;
+    }
+
+    @Override
+    public Certificate createCertificateAtomic(String certificate, boolean assignOwner) throws CertificateException, NoSuchAlgorithmException, NotFoundException {
+        X509Certificate x509Cert = CertificateUtil.parseCertificate(certificate);
+        String fingerprint = CertificateUtil.getThumbprint(x509Cert);
+
+        certificateContentRepository.insertWithFingerprintConflictResolve(fingerprint, CertificateUtil.normalizeCertificateContent(X509ObjectToString.toPem(x509Cert)));
+        CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
+        if (certificateContent == null) {
+            throw new NotFoundException(CertificateContent.class, fingerprint);
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        Certificate certificateEntity = new Certificate();
+        certificateEntity.setUuid(UUID.randomUUID());
+        certificateEntity.setCreated(now);
+        certificateEntity.setUpdated(now);
+        certificateEntity.setFingerprint(fingerprint);
+        certificateEntity.setCertificateContent(certificateContent);
+        CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);
+
+        int countInserted = certificateRepository.insertWithFingerprintConflictResolve(certificateEntity);
+        certificateEntity = certificateRepository.findByFingerprint(fingerprint).orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
+
+        // certificate was actually inserted
+        if (countInserted == 1) {
+            uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity);
+
+            // set owner of certificateEntity to logged user
+            if (assignOwner) {
+                objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificateEntity.getUuid());
+            }
+            certificateComplianceCheck(certificateEntity);
+        }
+        return certificateEntity;
     }
 
     @Override
@@ -1219,7 +1261,6 @@ public class CertificateServiceImpl implements CertificateService {
         // prepare certificate request data for certificate
         CertificateUtil.prepareCsrObject(certificate, request);
 
-        certificate.setKeyUuid(keyUuid);
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
@@ -1270,8 +1311,15 @@ public class CertificateServiceImpl implements CertificateService {
             );
         }
 
+        if (keyUuid != null && certificateRequestEntity.getKeyUuid() == null)
+            certificateRequestEntity.setKeyUuid(keyUuid);
+        else {
+            keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
+        }
+
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
+        certificate.setKeyUuid(keyUuid);
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {
@@ -1291,10 +1339,10 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
-//        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
-//                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
-//                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
-//        );
+        dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
+                raProfile.getAuthorityInstanceReference().getConnectorUuid(),
+                AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
+        );
         certificateEventHistoryService.addEventHistory(
                 certificate.getUuid(), CertificateEvent.REQUEST, CertificateEventStatus.SUCCESS,
                 "Certificate request created", ""
@@ -1303,6 +1351,19 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info("Certificate request submitted and certificate created {}", certificate);
 
         return dto;
+    }
+
+    private UUID getCertificateRequestKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {
+        if (certificateRequest.getKeyUuid() != null) return certificateRequest.getKeyUuid();
+
+        String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(csrPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+        if (keyUuid == null) {
+            keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificateRequest.getCommonName(), certificateRequest.getFingerprint()),
+                    csrPublicKey, CertificateUtil.getAlgorithmFromProviderName(csrPublicKey.getAlgorithm()), KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
+        }
+        certificateRequest.setKeyUuid(keyUuid);
+        return keyUuid;
     }
 
     @Override
@@ -1602,7 +1663,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void setupSecurityFilter(SecurityFilter filter) {
-        filter.setParentRefProperty("raProfileUuid");
+        filter.setParentRefProperty(Certificate_.raProfileUuid.getName());
     }
 
     private ICertificateValidator getCertificateValidator(CertificateType certificateType) {
