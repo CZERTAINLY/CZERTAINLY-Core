@@ -78,8 +78,8 @@ public class CsrAttributes {
     public static DataAttribute commonNameAttribute() {
         List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
                 "Common Name Validation",
-                "Common Name can contain only alpha-numeric characters & '.'",
-                "^[a-zA-Z0-9_.]*$"
+                "Common Name must not exceed 64 characters",
+                "^.{0,64}$"
         ));
         return attributeCoder(
                 COMMON_NAME_UUID,
