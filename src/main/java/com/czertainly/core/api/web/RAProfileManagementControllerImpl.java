@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
@@ -74,6 +75,12 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     public RaProfileDto editRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid, @LogResource(uuid = true) String raProfileUuid, EditRaProfileRequestDto request)
             throws ConnectorException, AttributeException {
         return raProfileService.editRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
+    public void updateRaProfileValidationConfiguration(String authorityUuid, String raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
+        raProfileService.updateRaProfileValidationConfiguration(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
     @Override
