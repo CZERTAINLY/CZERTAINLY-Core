@@ -27,7 +27,6 @@ import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -44,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
     public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
+    public static final String CERTIFICATES_SETTINGS_NAME = "certificatesSetting";
 
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
     public static final String LOGGING_RESOURCES_NAME = "resources";
@@ -82,7 +82,6 @@ public class SettingServiceImpl implements SettingService {
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
         PlatformSettingsDto platformSettings = new PlatformSettingsDto();
-
         // utils
         Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
@@ -99,18 +98,41 @@ public class SettingServiceImpl implements SettingService {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
-        // utils
-        Setting setting = null;
-        Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-        if (utilsSettings == null || (setting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
-            setting = new Setting();
-            setting.setSection(SettingsSection.PLATFORM);
-            setting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-            setting.setName(UTILS_SERVICE_URL_NAME);
+        // Utils
+        if (platformSettings.getUtils() != null) {
+            Setting utilSetting;
+            Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+            if (utilsSettings == null || (utilSetting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
+                utilSetting = new Setting();
+                utilSetting.setSection(SettingsSection.PLATFORM);
+                utilSetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+                utilSetting.setName(UTILS_SERVICE_URL_NAME);
+            }
+
+            utilSetting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
+            settingRepository.save(utilSetting);
         }
 
-        setting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
-        settingRepository.save(setting);
+        // Certificate Settings
+        if (platformSettings.getCertificates() != null) {
+            Setting certificatesSetting;
+            Map<String, Setting> certificateSettingsOld = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+            if (certificateSettingsOld == null) {
+                certificatesSetting = new Setting();
+                certificatesSetting.setSection(SettingsSection.PLATFORM);
+                certificatesSetting.setCategory(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+                certificatesSetting.setName(CERTIFICATES_SETTINGS_NAME);
+            } else {
+                certificatesSetting = certificateSettingsOld.get(CERTIFICATES_SETTINGS_NAME);
+            }
+
+            try {
+                certificatesSetting.setValue(objectMapper.writeValueAsString(platformSettings.getCertificates()));
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Cannot serialize platform certificates settings: " + e.getMessage());
+            }
+            settingRepository.save(certificatesSetting);
+        }
 
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
     }
