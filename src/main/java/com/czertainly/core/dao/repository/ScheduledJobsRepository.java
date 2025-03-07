@@ -9,4 +9,6 @@ import java.util.UUID;
 @Repository
 public interface ScheduledJobsRepository extends SecurityFilterRepository<ScheduledJob, UUID> {
     Optional<ScheduledJob> findByJobName(String jobName);
+
+    Optional<UUID> findByJobNameAndObjectData(String jobName, Object objectData);
 }

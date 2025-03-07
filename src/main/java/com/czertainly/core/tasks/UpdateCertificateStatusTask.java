@@ -9,12 +9,15 @@ import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.UUID;
+
 @Component
 @NoArgsConstructor
 @Transactional
 public class UpdateCertificateStatusTask implements ScheduledJobTask {
 
-    private static final String JOB_NAME = "updateCertificateStatusJob";
+    public static final String JOB_NAME = "updateCertificateStatusJob";
+    public static final String CERTIFICATE_VALIDATION_RA_PROFILE_JOB_NAME = "updateCertificateStatusJobRaProfile";
     private static final String CRON_EXPRESSION = "0 0 * ? * *";
 
     private ApprovalService approvalService;
@@ -41,7 +44,7 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
     }
 
     public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
-        int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
+        int certificatesUpdated = certificateService.updateCertificatesStatusScheduled((UUID) taskData);
         int expiredApprovals = approvalService.checkApprovalsExpiration();
 
         String message = "Updated status of %d certificate(s).".formatted(certificatesUpdated);

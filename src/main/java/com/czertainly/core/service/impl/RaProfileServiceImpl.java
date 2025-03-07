@@ -33,8 +33,10 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
+import com.czertainly.core.tasks.UpdateCertificateStatusTask;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.ValidatorUtil;
@@ -82,7 +84,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
-
+    private SchedulerService schedulerService;
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
@@ -173,12 +175,26 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
+    public void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException, SchedulerException {
         RaProfile raProfile = getRaProfileEntity(raProfileUuid);
+        // Disabling enabled validation
+        if (Boolean.TRUE.equals(!request.getValidationEnabled()) && raProfile.isValidationEnabled()) {
+            try {
+            schedulerService.disableScheduledJob(schedulerService.findScheduledJobByRaProfile(raProfileUuid.getValue()).toString());
+            } catch (NotFoundException e) {
+                logger.warn("Scheduled job for validation of certificates for RA Profile with UUID %s has not been found, ");
+            }
+        }
+
         raProfile.setValidationEnabled(request.getValidationEnabled());
         raProfile.setValidationFrequency(request.getValidationFrequency());
         raProfile.setExpiringThreshold(raProfile.getExpiringThreshold());
         raProfileRepository.save(raProfile);
+
+        if (raProfile.isValidationEnabled()) {
+            String cronExpression = "0 0 00 1/%s * ? *".formatted(raProfile.getValidationFrequency());
+            schedulerService.registerScheduledJob(UpdateCertificateStatusTask.class, UpdateCertificateStatusTask.CERTIFICATE_VALIDATION_RA_PROFILE_JOB_NAME, cronExpression, false, raProfileUuid.getValue());
+        }
     }
 
     @Override
@@ -816,4 +832,8 @@ public class RaProfileServiceImpl implements RaProfileService {
         this.attributeEngine = attributeEngine;
     }
 
+    @Autowired
+    public void setSchedulerService(SchedulerService schedulerService) {
+        this.schedulerService = schedulerService;
+    }
 }

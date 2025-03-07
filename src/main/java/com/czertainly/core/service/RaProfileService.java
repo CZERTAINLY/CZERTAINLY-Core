@@ -205,5 +205,5 @@ public interface RaProfileService extends ResourceExtensionService {
      * @param raProfileUuid UUID of the RA Profile
      * @param request Validation configuration request
      */
-    void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException;
+    void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException, SchedulerException;
 }
