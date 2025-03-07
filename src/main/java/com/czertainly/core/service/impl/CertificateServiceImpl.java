@@ -1026,7 +1026,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public int updateCertificatesStatusScheduled() {
+    public int updateCertificatesStatusScheduled(UUID raProfileUuid) {
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
@@ -1034,7 +1034,12 @@ public class CertificateServiceImpl implements CertificateService {
         LocalDateTime before = LocalDateTime.now().minusDays(1);
 
         // process 1/24 of eligible certificates for status update
-        final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, PageRequest.of(0, maxCertsToValidate));
+        final List<UUID> certificateUuids;
+        if (raProfileUuid == null) {
+            certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, PageRequest.of(0, maxCertsToValidate));
+        }  else {
+            certificateUuids = certificateRepository.findCertificatesToCheckStatusRaProfile(before, skipStatuses, raProfileUuid, PageRequest.of(0, maxCertsToValidate));
+        }
 
         int certificatesUpdated = 0;
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);

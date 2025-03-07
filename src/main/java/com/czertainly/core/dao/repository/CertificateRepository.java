@@ -61,12 +61,22 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT COUNT(*) FROM Certificate c WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses")
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses);
 
-    @Query("SELECT c.uuid FROM Certificate c " +
+    @Query("SELECT c.uuid FROM Certificate c LEFT JOIN RaProfile rp " +
             "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
             "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
+            "AND (rp IS NULL OR (rp.validationEnabled = true AND rp.validationFrequency IS NULL) " +
             "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
     List<UUID> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
                                              @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
+                                             Pageable pageable);
+
+    @Query("SELECT c.uuid FROM Certificate c JOIN RaProfile rp " +
+            "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
+            "AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp) " +
+            "AND rp.uuid = raProfileUuid " +
+            "ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
+    List<UUID> findCertificatesToCheckStatusRaProfile(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
+                                             @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("raProfileUuid") UUID raProfileUuid,
                                              Pageable pageable);
 
     List<Certificate> findByComplianceResultContaining(String ruleUuid);
