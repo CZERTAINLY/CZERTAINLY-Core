@@ -36,7 +36,6 @@ import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
-import com.czertainly.core.tasks.UpdateCertificateStatusTask;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.ValidatorUtil;
@@ -84,7 +83,6 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
-    private SchedulerService schedulerService;
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
@@ -817,10 +815,5 @@ public class RaProfileServiceImpl implements RaProfileService {
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
-    }
-
-    @Autowired
-    public void setSchedulerService(SchedulerService schedulerService) {
-        this.schedulerService = schedulerService;
     }
 }
