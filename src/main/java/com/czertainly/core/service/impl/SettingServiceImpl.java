@@ -82,12 +82,27 @@ public class SettingServiceImpl implements SettingService {
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
         PlatformSettingsDto platformSettings = new PlatformSettingsDto();
-        // utils
+        // Utils
         Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
         if (utilsSettings != null)
             utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
         platformSettings.setUtils(utilsSettingsDto);
+
+        // Certificates
+        Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+        CertificateSettingsDto defaultSettings = new CertificateSettingsDto();
+        defaultSettings.setValidationEnabled(true);
+        if (certificateSettings != null) {
+            try {
+                platformSettings.setCertificates(objectMapper.readValue(certificateSettings.get(CERTIFICATES_SETTINGS_NAME).getValue(), CertificateSettingsDto.class));
+            } catch (JsonProcessingException e) {
+                logger.warn("Cannot deserialize platform certificate settings. Returning default settings.");
+                platformSettings.setCertificates(defaultSettings);
+            }
+        } else {
+            platformSettings.setCertificates(defaultSettings);
+        }
 
         return platformSettings;
     }
