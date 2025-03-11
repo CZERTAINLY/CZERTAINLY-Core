@@ -26,7 +26,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.tasks.ScheduledJobTask;
-import com.czertainly.core.tasks.UpdateCertificateStatusTask;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
@@ -267,16 +266,6 @@ public class SchedulerServiceImpl implements SchedulerService {
             checkOneTimeJob(scheduledJob, result.getStatus());
         }
         logger.info("Job {} was processed.", scheduledJob.getJobName());
-    }
-
-    @Override
-    public UUID findScheduledJobByRaProfile(UUID raProfileUuid) throws NotFoundException {
-        return scheduledJobsRepository.findByJobNameAndObjectData(UpdateCertificateStatusTask.CERTIFICATE_VALIDATION_RA_PROFILE_JOB_NAME, raProfileUuid).orElseThrow(NotFoundException::new);
-    }
-
-    @Override
-    public UUID findScheduledJobByName(String name) throws NotFoundException {
-        return scheduledJobsRepository.findByJobName(name).orElseThrow(() -> new NotFoundException(ScheduledJob.class, name)).getUuid();
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)

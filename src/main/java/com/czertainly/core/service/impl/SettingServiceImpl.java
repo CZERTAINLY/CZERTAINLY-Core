@@ -1,7 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.SchedulerException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -14,14 +12,12 @@ import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSetti
 import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
-import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.service.SettingService;
-import com.czertainly.core.tasks.UpdateCertificateStatusTask;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
 import com.czertainly.core.settings.SettingsCache;
@@ -145,30 +141,9 @@ public class SettingServiceImpl implements SettingService {
             }
             settingRepository.save(certificatesSetting);
 
-            updateScheduledCertificateValidationJob(platformSettings.getCertificates());
         }
 
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
-    }
-
-    private void updateScheduledCertificateValidationJob(@Valid CertificateSettingsDto certificates) {
-        // if was disabled and is disabled -> do nothing
-        // if was enabled and is disabled -> disable job if found, else do nothing
-        // if was disabled and is enabled -> check if exists, if not then create, set new cron expression, enable if exists
-        // if was enabled and is enabled -> check if exists, if not then create, set new cron expression, enable , else change expression only
-
-
-
-//        if (certificates.getValidationEnabled())
-//        try {
-//            UpdateScheduledJob updateScheduledJob = new UpdateScheduledJob();
-//            updateScheduledJob.setCronExpression("0 0 00 1/%s * ? *".formatted(certificates.getValidationFrequency()));
-//            schedulerService.updateScheduledJob(schedulerService.findScheduledJobByName(UpdateCertificateStatusTask.JOB_NAME).toString(), updateScheduledJob);
-//        } catch (NotFoundException e) {
-//            schedulerService.registerScheduledJob(UpdateCertificateStatusTask.class, new UpdateCertificateStatusTask().getDefaultJobName(), cronExpression, false, null);
-//        } catch (SchedulerException e) {
-//            throw new RuntimeException(e);
-//        }
     }
 
     @Override

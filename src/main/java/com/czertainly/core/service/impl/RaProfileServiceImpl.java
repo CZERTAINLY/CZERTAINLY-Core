@@ -175,26 +175,13 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException, SchedulerException {
+    public void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(raProfileUuid);
-        // Disabling enabled validation
-        if (Boolean.TRUE.equals(!request.getValidationEnabled()) && raProfile.isValidationEnabled()) {
-            try {
-            schedulerService.disableScheduledJob(schedulerService.findScheduledJobByRaProfile(raProfileUuid.getValue()).toString());
-            } catch (NotFoundException e) {
-                logger.warn("Scheduled job for validation of certificates for RA Profile with UUID %s has not been found, ");
-            }
-        }
-
         raProfile.setValidationEnabled(request.getValidationEnabled());
         raProfile.setValidationFrequency(request.getValidationFrequency());
         raProfile.setExpiringThreshold(raProfile.getExpiringThreshold());
         raProfileRepository.save(raProfile);
 
-        if (raProfile.isValidationEnabled()) {
-            String cronExpression = "0 0 00 1/%s * ? *".formatted(raProfile.getValidationFrequency());
-            schedulerService.registerScheduledJob(UpdateCertificateStatusTask.class, UpdateCertificateStatusTask.CERTIFICATE_VALIDATION_RA_PROFILE_JOB_NAME, cronExpression, false, raProfileUuid.getValue());
-        }
     }
 
     @Override

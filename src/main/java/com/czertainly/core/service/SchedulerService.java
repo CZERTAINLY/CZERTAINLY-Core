@@ -10,8 +10,6 @@ import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.tasks.ScheduledJobTask;
 
-import java.util.UUID;
-
 public interface SchedulerService {
 
     ScheduledJobsResponseDto listScheduledJobs(final SecurityFilter filter, final PaginationRequestDto pagination);
@@ -33,8 +31,4 @@ public interface SchedulerService {
     ScheduledJobDetailDto registerScheduledJob(Class<? extends ScheduledJobTask> scheduledJobTaskClass, String jobName, String cronExpression, boolean oneTime, Object taskData) throws SchedulerException;
 
     void runScheduledJob(String jobName) throws SchedulerException, NotFoundException;
-
-    UUID findScheduledJobByRaProfile(UUID raProfileUuid) throws NotFoundException;
-
-    UUID findScheduledJobByName(String name) throws NotFoundException;
 }

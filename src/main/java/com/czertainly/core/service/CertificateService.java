@@ -168,9 +168,8 @@ public interface CertificateService extends ResourceExtensionService  {
     /**
      * Function to update status of certificates by scheduled event
      *
-     * @param raProfileUuid UUID of RA Profile associated with the task, null if there is no RA Profile
      */
-    int updateCertificatesStatusScheduled(UUID raProfileUuid);
+    int updateCertificatesStatusScheduled();
 
     /**
      * Update the user uuid of the certificate in the core database
