@@ -16,7 +16,6 @@ import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
-import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
@@ -26,7 +25,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.transaction.Transactional;
-import jakarta.validation.Valid;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +55,6 @@ public class SettingServiceImpl implements SettingService {
     private final ObjectMapper mapper;
     private final SettingsCache settingsCache;
     private final SettingRepository settingRepository;
-    private SchedulerService schedulerService;
 
     private final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -68,11 +65,6 @@ public class SettingServiceImpl implements SettingService {
         this.settingRepository = settingRepository;
 
         refreshCache();
-    }
-
-    @Autowired
-    public void setSchedulerService(SchedulerService schedulerService) {
-        this.schedulerService = schedulerService;
     }
 
     @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
