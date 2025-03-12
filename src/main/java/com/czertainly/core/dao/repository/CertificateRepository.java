@@ -66,9 +66,9 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             // Select certificates which have content, and they are not revoked or expired (since these statuses cannot change)
             "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
             "AND (" +
-            // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned, certificates with disabled RA Profile or certificates which have RA Profile
+            // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned or certificates which have RA Profile
             // assigned, validation for that RA Profile is enabled and validation frequency is not customized
-            "((rp is NULL OR (rp.enabled = false) OR (rp.validationEnabled = true AND rp.validationFrequency IS NULL)) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp)) " +
+            "((rp is NULL OR (rp.validationEnabled = true AND rp.validationFrequency IS NULL)) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp)) " +
             "OR " +
             // Select certificates which have validation frequency set in RA Profile
             "((rp.validationEnabled = true AND rp.validationFrequency IS NOT NULL) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= CURRENT_DATE - rp.validationFrequency DAY))" +
