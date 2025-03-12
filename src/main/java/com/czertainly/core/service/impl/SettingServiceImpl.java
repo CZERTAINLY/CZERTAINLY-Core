@@ -43,7 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
     public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
-    public static final String CERTIFICATES_SETTINGS_NAME = "certificatesSetting";
+    public static final String CERTIFICATES_VALIDATION_SETTINGS_NAME = "certificatesValidation";
 
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
     public static final String LOGGING_RESOURCES_NAME = "resources";
@@ -91,18 +91,22 @@ public class SettingServiceImpl implements SettingService {
 
         // Certificates
         Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
-        CertificateSettingsDto defaultSettings = new CertificateSettingsDto();
-        defaultSettings.setValidationEnabled(true);
-        if (certificateSettings != null) {
+        CertificateSettingsDto certificateSettingsDto = new CertificateSettingsDto();
+        CertificateValidationSettingsDto defaultValidationSettings = new CertificateValidationSettingsDto();
+        defaultValidationSettings.setValidationEnabled(true);
+
+        if (certificateSettings != null && certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME) != null) {
             try {
-                platformSettings.setCertificates(objectMapper.readValue(certificateSettings.get(CERTIFICATES_SETTINGS_NAME).getValue(), CertificateSettingsDto.class));
+                certificateSettingsDto.setCertificateValidationSettingsDto(objectMapper.readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(), CertificateValidationSettingsDto.class));
             } catch (JsonProcessingException e) {
-                logger.warn("Cannot deserialize platform certificate settings. Returning default settings.");
-                platformSettings.setCertificates(defaultSettings);
+                logger.warn("Cannot deserialize platform certificates validation settings. Returning default settings.");
+                certificateSettingsDto.setCertificateValidationSettingsDto(defaultValidationSettings);
             }
         } else {
-            platformSettings.setCertificates(defaultSettings);
+            certificateSettingsDto.setCertificateValidationSettingsDto(defaultValidationSettings);
         }
+
+        platformSettings.setCertificates(certificateSettingsDto);
 
         return platformSettings;
     }
@@ -130,23 +134,21 @@ public class SettingServiceImpl implements SettingService {
 
         // Certificate Settings
         if (platformSettings.getCertificates() != null) {
-            Setting certificatesSetting;
-            Map<String, Setting> certificateSettingsOld = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
-            if (certificateSettingsOld == null) {
-                certificatesSetting = new Setting();
-                certificatesSetting.setSection(SettingsSection.PLATFORM);
-                certificatesSetting.setCategory(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
-                certificatesSetting.setName(CERTIFICATES_SETTINGS_NAME);
-            } else {
-                certificatesSetting = certificateSettingsOld.get(CERTIFICATES_SETTINGS_NAME);
+            Setting certificatesValidationSetting;
+            Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+            if (certificateSettings == null || (certificatesValidationSetting = certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME)) == null) {
+                certificatesValidationSetting = new Setting();
+                certificatesValidationSetting.setSection(SettingsSection.PLATFORM);
+                certificatesValidationSetting.setCategory(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+                certificatesValidationSetting.setName(CERTIFICATES_VALIDATION_SETTINGS_NAME);
             }
 
             try {
-                certificatesSetting.setValue(objectMapper.writeValueAsString(platformSettings.getCertificates()));
+                certificatesValidationSetting.setValue(objectMapper.writeValueAsString(platformSettings.getCertificates().getCertificateValidationSettingsDto()));
             } catch (JsonProcessingException e) {
                 throw new ValidationException("Cannot serialize platform certificates settings: " + e.getMessage());
             }
-            settingRepository.save(certificatesSetting);
+            settingRepository.save(certificatesValidationSetting);
 
         }
 

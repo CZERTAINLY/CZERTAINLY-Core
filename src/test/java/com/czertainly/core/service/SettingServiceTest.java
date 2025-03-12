@@ -18,15 +18,15 @@ class SettingServiceTest extends BaseSpringBootTest {
         PlatformSettingsDto platformSettings = settingService.getPlatformSettings();
         Assertions.assertNull(platformSettings.getUtils().getUtilsServiceUrl());
         Assertions.assertNotNull(platformSettings.getCertificates());
-        Assertions.assertTrue(platformSettings.getCertificates().getValidationEnabled());
-        Assertions.assertEquals(1, platformSettings.getCertificates().getValidationFrequency());
+        Assertions.assertTrue(platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationEnabled());
+        Assertions.assertEquals(1, platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency());
 
         platformSettings.getUtils().setUtilsServiceUrl(utilsServiceUrl);
-        platformSettings.getCertificates().setValidationFrequency(5);
+        platformSettings.getCertificates().getCertificateValidationSettingsDto().setValidationFrequency(5);
         settingService.updatePlatformSettings(platformSettings);
 
         platformSettings = settingService.getPlatformSettings();
         Assertions.assertEquals(utilsServiceUrl, platformSettings.getUtils().getUtilsServiceUrl());
-        Assertions.assertEquals(5, platformSettings.getCertificates().getValidationFrequency());
+        Assertions.assertEquals(5, platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency());
     }
 }

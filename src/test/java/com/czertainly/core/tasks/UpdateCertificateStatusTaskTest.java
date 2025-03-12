@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
 import com.czertainly.api.model.core.settings.CertificateSettingsDto;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.dao.entity.*;
@@ -102,8 +103,10 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
     void testCertificateValidationCustomSettings() {
         PlatformSettingsDto platformSettingsDto = new PlatformSettingsDto();
         CertificateSettingsDto certificateSettingsDto = new CertificateSettingsDto();
-        certificateSettingsDto.setValidationEnabled(true);
-        certificateSettingsDto.setValidationFrequency(2);
+        CertificateValidationSettingsDto certificateValidationSettingsDto = new CertificateValidationSettingsDto();
+        certificateValidationSettingsDto.setValidationEnabled(true);
+        certificateValidationSettingsDto.setValidationFrequency(2);
+        certificateSettingsDto.setCertificateValidationSettingsDto(certificateValidationSettingsDto);
         platformSettingsDto.setCertificates(certificateSettingsDto);
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettingsDto);
 

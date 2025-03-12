@@ -1033,7 +1033,7 @@ public class CertificateServiceImpl implements CertificateService {
     public int updateCertificatesStatusScheduled() {
         PlatformSettingsDto platformSettingsDto = SettingsCache.getSettings(SettingsSection.PLATFORM);
         int certificatesUpdated = 0;
-        if (platformSettingsDto == null || platformSettingsDto.getCertificates() == null || Boolean.TRUE.equals(platformSettingsDto.getCertificates().getValidationEnabled())) {
+        if (platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getCertificateValidationSettingsDto() == null || Boolean.TRUE.equals(platformSettingsDto.getCertificates().getCertificateValidationSettingsDto().getValidationEnabled())) {
             List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
             long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
             int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
@@ -1072,8 +1072,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     private int getValidationFrequency(PlatformSettingsDto platformSettingsDto) {
         int validationFrequency = 1;
-        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null) {
-            validationFrequency = platformSettingsDto.getCertificates().getValidationFrequency();
+        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null && platformSettingsDto.getCertificates().getCertificateValidationSettingsDto() != null) {
+            validationFrequency = platformSettingsDto.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency();
         }
         return validationFrequency;
     }
