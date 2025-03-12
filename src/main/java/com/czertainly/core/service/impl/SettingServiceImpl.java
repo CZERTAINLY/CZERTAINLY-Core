@@ -27,7 +27,6 @@ import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.slf4j.MarkerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
@@ -334,7 +333,9 @@ public class SettingServiceImpl implements SettingService {
     public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
         validateOAuth2ProviderSettings(settingsDto, false);
         Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
-        Setting setting = settingForRegistrationId == null ? new Setting() : settingForRegistrationId;
+        boolean isNewProvider = settingForRegistrationId == null;
+
+        Setting setting = isNewProvider ? new Setting() : settingForRegistrationId;
         setting.setSection(SettingsSection.AUTHENTICATION);
         setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         setting.setName(providerName);
@@ -342,7 +343,7 @@ public class SettingServiceImpl implements SettingService {
         // if request does not contain client secret, keep old one
         if (settingsDto.getClientSecret() != null && !settingsDto.getClientSecret().isEmpty()) {
             settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
-        } else {
+        } else if (!isNewProvider) {
             OAuth2ProviderSettingsDto storedProviderSettings;
             try {
                 storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
