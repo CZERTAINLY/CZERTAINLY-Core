@@ -173,13 +173,13 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public void updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
+    public RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(raProfileUuid);
         raProfile.setValidationEnabled(request.getValidationEnabled());
         raProfile.setValidationFrequency(request.getValidationFrequency());
-        raProfile.setExpiringThreshold(raProfile.getExpiringThreshold());
+        raProfile.setExpiringThreshold(request.getExpiringThreshold());
         raProfileRepository.save(raProfile);
-
+        return raProfile.mapToDto();
     }
 
     @Override

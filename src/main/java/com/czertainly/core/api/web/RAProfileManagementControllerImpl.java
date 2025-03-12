@@ -79,8 +79,8 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
-    public void updateRaProfileValidationConfiguration(String authorityUuid, String raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
-        raProfileService.updateRaProfileValidationConfiguration(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
+    public RaProfileDto updateRaProfileValidationConfiguration(String authorityUuid, String raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
+        return raProfileService.updateRaProfileValidationConfiguration(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
     @Override
