@@ -100,6 +100,8 @@ class JwtDecoderTest extends BaseSpringBootTest {
         OAuth2ProviderSettingsUpdateDto updateProviderSettings = new OAuth2ProviderSettingsUpdateDto();
         updateProviderSettings.setIssuerUrl(ISSUER_URL);
         updateProviderSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
+        updateProviderSettings.setClientId("test-client");
+        updateProviderSettings.setClientSecret("test-client-secret");
         settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, updateProviderSettings);
         providerSettings = settingService.getOAuth2ProviderSettings(PROVIDER_NAME, true);
 
