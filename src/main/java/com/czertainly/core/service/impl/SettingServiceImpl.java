@@ -338,7 +338,21 @@ public class SettingServiceImpl implements SettingService {
         setting.setSection(SettingsSection.AUTHENTICATION);
         setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         setting.setName(providerName);
-        settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
+
+        // if request does not contain client secret, keep old one
+        if (settingsDto.getClientSecret() != null && !settingsDto.getClientSecret().isEmpty()) {
+            settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
+        } else {
+            OAuth2ProviderSettingsDto storedProviderSettings;
+            try {
+                storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(providerName));
+            }
+            settingsDto.setClientSecret(storedProviderSettings.getClientSecret());
+        }
+
+        // serialize full provider settings
         try {
             OAuth2ProviderSettingsDto fullSettingsDto;
             if (settingsDto instanceof OAuth2ProviderSettingsDto s) {
