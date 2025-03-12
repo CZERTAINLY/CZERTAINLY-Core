@@ -1,8 +1,13 @@
 package com.czertainly.core.security.oauth2;
 
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.SettingsSectionCategory;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.auth.oauth2.LoginController;
+import com.czertainly.core.dao.entity.Setting;
+import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
@@ -42,6 +47,9 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
     @Autowired
     private SettingService settingService;
+
+    @Autowired
+    private SettingRepository settingRepository;
 
     @Autowired
     private LoginController loginController;
@@ -145,6 +153,16 @@ class JwtDecoderTest extends BaseSpringBootTest {
         Assertions.assertTrue(exception.getMessage().contains("No OAuth2 Provider with issuer URI"));
     }
 
+    @Test
+    void testMalformedOAuth2ProviderSettings() {
+        Setting setting = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), PROVIDER_NAME);
+        setting.setValue("WRONG-DATA");
+        settingRepository.save(setting);
+
+        providerSettings.setClientSecret(null);
+        Assertions.assertThrows(ValidationException.class, () -> settingService.getOAuth2ProviderSettings(PROVIDER_NAME, false));
+        Assertions.assertThrows(ValidationException.class, () -> settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings));
+    }
 
     @Test
     void testJwtDecoderOnValidTokenWithoutAudiences() throws JOSEException {
