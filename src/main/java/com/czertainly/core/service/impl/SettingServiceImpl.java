@@ -49,7 +49,7 @@ public class SettingServiceImpl implements SettingService {
 
     public static final String AUTHENTICATION_DISABLE_LOCALHOST_NAME = "disableLocalhostUser";
 
-    private static final String deserializationErrorMessage = "Cannot deserialize OAuth2 Provider Settings for provider '%s'.";
+    private static final String DESERIALIZATION_ERROR_MESSAGE = "Cannot deserialize OAuth2 Provider Settings for provider '%s'.";
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
     private final ObjectMapper mapper;
@@ -279,7 +279,7 @@ public class SettingServiceImpl implements SettingService {
                 oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) oAuth2ProviderSettings.setClientSecret(null);
             } catch (JsonProcessingException e) {
-                throw new ValidationException(deserializationErrorMessage.formatted(oauth2Provider.getName()));
+                throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(oauth2Provider.getName()));
             }
             authenticationSettings.getOAuth2Providers().put(oauth2Provider.getName(), oAuth2ProviderSettings);
         }
@@ -323,7 +323,7 @@ public class SettingServiceImpl implements SettingService {
                 settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) settingsDto.setClientSecret(null);
             } catch (JsonProcessingException e) {
-                throw new ValidationException(deserializationErrorMessage.formatted(providerName));
+                throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
         }
         return settingsDto;
@@ -349,7 +349,7 @@ public class SettingServiceImpl implements SettingService {
             try {
                 storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
             } catch (JsonProcessingException e) {
-                throw new ValidationException(deserializationErrorMessage.formatted(providerName));
+                throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
             settingsDto.setClientSecret(storedProviderSettings.getClientSecret());
         }
