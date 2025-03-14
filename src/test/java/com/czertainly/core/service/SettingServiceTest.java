@@ -1,6 +1,11 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.SettingsSectionCategory;
+import com.czertainly.core.dao.entity.Setting;
+import com.czertainly.core.dao.repository.SettingRepository;
+import com.czertainly.core.service.impl.SettingServiceImpl;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -10,6 +15,8 @@ class SettingServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private SettingService settingService;
+    @Autowired
+    private SettingRepository settingRepository;
 
     @Test
     void updatePlatformSettings() {
@@ -28,5 +35,17 @@ class SettingServiceTest extends BaseSpringBootTest {
         platformSettings = settingService.getPlatformSettings();
         Assertions.assertEquals(utilsServiceUrl, platformSettings.getUtils().getUtilsServiceUrl());
         Assertions.assertEquals(5, platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency());
+    }
+
+    @Test
+    void testPlatformSettingsExceptions() {
+        Setting setting = new Setting();
+        setting.setSection(SettingsSection.PLATFORM);
+        setting.setName(SettingServiceImpl.CERTIFICATES_VALIDATION_SETTINGS_NAME);
+        setting.setCategory(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+        setting.setValue("invalid");
+        settingRepository.save(setting);
+        PlatformSettingsDto platformSettingsDto = settingService.getPlatformSettings();
+        Assertions.assertNotNull(platformSettingsDto.getCertificates().getCertificateValidationSettingsDto());
     }
 }

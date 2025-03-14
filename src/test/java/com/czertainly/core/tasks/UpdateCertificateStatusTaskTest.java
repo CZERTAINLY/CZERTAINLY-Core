@@ -152,6 +152,16 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("5"));
     }
 
+    @Test
+    void testExceptionThrown() {
+        Mockito.doThrow(MatchException.class).when(mockedCertificateService).validate(any());
+        ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        // Should not validate any, since exceptions are thrown
+        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("0"));
+    }
+
+
+
     private void setCertificateContent(Certificate certificate) {
         CertificateContent certificateContent = new CertificateContent();
         certificateContentRepository.save(certificateContent);
