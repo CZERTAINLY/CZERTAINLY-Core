@@ -21,10 +21,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
 
-class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
+class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -48,6 +49,13 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
 
     private ScheduledJobInfo scheduledJobInfo;
 
+    LocalDateTime timeNow;
+
+    Certificate notValidatedCert;
+    Certificate alreadyValidatedCert;
+    Certificate certToRevalidate;
+    Certificate certToRevalidate2;
+
 
     @BeforeEach
     void setUp() {
@@ -61,21 +69,21 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         certificateRepository.save(expiredStatusCert);
 
         // A certificate which has not been validated yet
-        Certificate notValidatedCert = new Certificate();
+        notValidatedCert = new Certificate();
         notValidatedCert.setStatusValidationTimestamp(null);
         setCertificateContent(notValidatedCert);
         notValidatedCert.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
         certificateRepository.save(notValidatedCert);
 
         // A certificate which has been validated in the last day
-        Certificate alreadyValidatedCert = new Certificate();
+        alreadyValidatedCert = new Certificate();
         alreadyValidatedCert.setStatusValidationTimestamp(LocalDateTime.now());
         setCertificateContent(alreadyValidatedCert);
         alreadyValidatedCert.setValidationStatus(CertificateValidationStatus.INVALID);
         certificateRepository.save(alreadyValidatedCert);
 
         // A certificate which has been validated later than before one day
-        Certificate certToRevalidate = new Certificate();
+        certToRevalidate = new Certificate();
         certToRevalidate.setStatusValidationTimestamp(LocalDateTime.now().minusHours(25));
         setCertificateContent(certToRevalidate);
         certToRevalidate.setValidationStatus(CertificateValidationStatus.INVALID);
@@ -83,13 +91,20 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
 
 
         // A certificate which has been validated later than before two days
-        Certificate certToRevalidate2 = new Certificate();
+        certToRevalidate2 = new Certificate();
         certToRevalidate2.setStatusValidationTimestamp(LocalDateTime.now().minusDays(3));
         setCertificateContent(certToRevalidate2);
         certToRevalidate2.setValidationStatus(CertificateValidationStatus.INVALID);
         certificateRepository.save(certToRevalidate2);
 
-        Mockito.doNothing().when(mockedCertificateService).validate(any());
+        Mockito.doAnswer(execution -> {
+            Certificate certificate = execution.getArgument(0);
+            certificate.setStatusValidationTimestamp(LocalDateTime.now());
+            certificateRepository.save(certificate);
+            return null;
+        }).when(mockedCertificateService).validate(any());
+
+        timeNow = LocalDateTime.now();
     }
 
     @Test
@@ -97,6 +112,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate and certToRevalidate2
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("3"));
+        assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate2));
     }
 
     @Test
@@ -114,6 +130,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         // Should validate notValidatedCert and certToRevalidate2
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
         settingsCache.cacheSettings(SettingsSection.PLATFORM, new PlatformSettingsDto());
+        assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2));
     }
 
     @Test
@@ -150,6 +167,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate, certToRevalidate2, certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("5"));
+        assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate, certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom));
     }
 
     @Test
@@ -158,8 +176,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should not validate any, since exceptions are thrown
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("0"));
+        assertCorrectCertificatesHaveBeenValidated(List.of());
     }
-
 
 
     private void setCertificateContent(Certificate certificate) {
@@ -185,4 +203,11 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest{
         return raProfile;
     }
 
+    private void assertCorrectCertificatesHaveBeenValidated(List<Certificate> correctCertificates) {
+        List<Certificate> validatedCertificates = certificateRepository.findAll().stream()
+                .filter(certificate -> certificate.getStatusValidationTimestamp() != null && certificate.getStatusValidationTimestamp().isAfter(timeNow))
+                .toList();
+        Assertions.assertEquals(correctCertificates.size(), validatedCertificates.size());
+        Assertions.assertTrue(validatedCertificates.containsAll(correctCertificates));
+    }
 }
