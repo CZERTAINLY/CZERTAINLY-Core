@@ -50,6 +50,7 @@ public class SettingServiceImpl implements SettingService {
 
     public static final String AUTHENTICATION_DISABLE_LOCALHOST_NAME = "disableLocalhostUser";
 
+    private static final String DESERIALIZATION_ERROR_MESSAGE = "Cannot deserialize OAuth2 Provider Settings for provider '%s'.";
     private static final Logger logger = LoggerFactory.getLogger(SettingServiceImpl.class);
 
     private final ObjectMapper mapper;
@@ -319,7 +320,7 @@ public class SettingServiceImpl implements SettingService {
                 oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) oAuth2ProviderSettings.setClientSecret(null);
             } catch (JsonProcessingException e) {
-                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(oauth2Provider.getName()));
+                throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(oauth2Provider.getName()));
             }
             authenticationSettings.getOAuth2Providers().put(oauth2Provider.getName(), oAuth2ProviderSettings);
         }
@@ -363,7 +364,7 @@ public class SettingServiceImpl implements SettingService {
                 settingsDto = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
                 if (!withClientSecret) settingsDto.setClientSecret(null);
             } catch (JsonProcessingException e) {
-                throw new ValidationException("Cannot deserialize OAuth2 Provider Settings for provider '%s'.".formatted(providerName));
+                throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
         }
         return settingsDto;
@@ -374,11 +375,27 @@ public class SettingServiceImpl implements SettingService {
     public void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto settingsDto) {
         validateOAuth2ProviderSettings(settingsDto, false);
         Setting settingForRegistrationId = settingRepository.findBySectionAndCategoryAndName(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode(), providerName);
-        Setting setting = settingForRegistrationId == null ? new Setting() : settingForRegistrationId;
+        boolean isNewProvider = settingForRegistrationId == null;
+
+        Setting setting = isNewProvider ? new Setting() : settingForRegistrationId;
         setting.setSection(SettingsSection.AUTHENTICATION);
         setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         setting.setName(providerName);
-        settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
+
+        // if request does not contain client secret, keep old one
+        if (settingsDto.getClientSecret() != null && !settingsDto.getClientSecret().isEmpty()) {
+            settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
+        } else if (!isNewProvider) {
+            OAuth2ProviderSettingsDto storedProviderSettings;
+            try {
+                storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
+            } catch (JsonProcessingException e) {
+                throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
+            }
+            settingsDto.setClientSecret(storedProviderSettings.getClientSecret());
+        }
+
+        // serialize full provider settings
         try {
             OAuth2ProviderSettingsDto fullSettingsDto;
             if (settingsDto instanceof OAuth2ProviderSettingsDto s) {
