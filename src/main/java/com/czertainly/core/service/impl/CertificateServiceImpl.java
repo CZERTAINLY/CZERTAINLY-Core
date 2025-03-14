@@ -1032,41 +1032,41 @@ public class CertificateServiceImpl implements CertificateService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
         PlatformSettingsDto platformSettingsDto = SettingsCache.getSettings(SettingsSection.PLATFORM);
+        boolean platformEnabled = platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getCertificateValidationSettingsDto() == null || platformSettingsDto.getCertificates().getCertificateValidationSettingsDto().getValidationEnabled();
         int certificatesUpdated = 0;
-        if (platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getCertificateValidationSettingsDto() == null || Boolean.TRUE.equals(platformSettingsDto.getCertificates().getCertificateValidationSettingsDto().getValidationEnabled())) {
-            List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
-            long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses);
-            int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
+        List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
+        long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
+        int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
-            LocalDateTime before = LocalDateTime.now().minusDays(getValidationFrequency(platformSettingsDto));
+        LocalDateTime before = LocalDateTime.now().minusDays(getValidationFrequency(platformSettingsDto));
 
-            // process 1/24 of eligible certificates for status update
-            final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, PageRequest.of(0, maxCertsToValidate));
+        // process 1/24 of eligible certificates for status update
+        final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, platformEnabled, PageRequest.of(0, maxCertsToValidate));
 
-            logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);
-            for (final UUID certificateUuid : certificateUuids) {
-                Certificate certificate = null;
-                TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-                try {
-                    certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                    validate(certificate);
-                    if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == ComplianceStatus.NOT_CHECKED) {
-                        complianceService.checkComplianceOfCertificate(certificate);
-                    }
-
-                    transactionManager.commit(status);
-                    ++certificatesUpdated;
-                } catch (NotFoundException e) {
-                    logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Error: {}", e.getMessage(), e);
-                    transactionManager.rollback(status);
-                } catch (Exception e) {
-                    logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
-                    transactionManager.rollback(status);
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);
+        for (final UUID certificateUuid : certificateUuids) {
+            Certificate certificate = null;
+            TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+            try {
+                certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+                validate(certificate);
+                if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == ComplianceStatus.NOT_CHECKED) {
+                    complianceService.checkComplianceOfCertificate(certificate);
                 }
 
+                transactionManager.commit(status);
+                ++certificatesUpdated;
+            } catch (NotFoundException e) {
+                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Error: {}", e.getMessage(), e);
+                transactionManager.rollback(status);
+            } catch (Exception e) {
+                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
+                transactionManager.rollback(status);
             }
-            logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificateUuids.size());
+
         }
+        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificateUuids.size());
+
         return certificatesUpdated;
     }
 
