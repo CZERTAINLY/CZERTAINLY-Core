@@ -33,7 +33,6 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.RaProfileService;
-import com.czertainly.core.service.SchedulerService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
