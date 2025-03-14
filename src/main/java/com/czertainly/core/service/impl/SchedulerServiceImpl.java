@@ -192,6 +192,7 @@ public class SchedulerServiceImpl implements SchedulerService {
                 new SchedulerJobDto(scheduledJob.getUuid(), scheduledJob.getJobName(), request.getCronExpression(), scheduledJob.getJobClassName())
         );
         schedulerApiClient.updateScheduledJob(schedulerRequestDto);
+        if (!scheduledJob.isEnabled()) disableScheduledJob(uuid);
 
         scheduledJob.setCronExpression(request.getCronExpression());
         scheduledJobsRepository.save(scheduledJob);
