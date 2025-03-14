@@ -58,24 +58,29 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByPublicKeyFingerprint(String fingerprint);
 
-    @Query("SELECT COUNT(*) FROM Certificate c LEFT JOIN c.raProfile rp WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
-            "AND " +
-            "((rp is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))")
+    @Query("""
+             SELECT COUNT(*) FROM Certificate c LEFT JOIN c.raProfile rp
+             WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
+             AND ((rp is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))
+            """)
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("platformEnabled") boolean platformEnabled);
 
 
-    @Query(value = "SELECT c.uuid FROM Certificate c LEFT JOIN c.raProfile rp " +
-            // Select certificates which have content, and they are not revoked or expired (since these statuses cannot change)
-            "WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses " +
-            "AND (" +
-            // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned or certificates which have RA Profile
-            // assigned, validation for that RA Profile is enabled and validation frequency is not customized
-            "(((rp is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true AND rp.validationFrequency IS NULL)) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp)) " +
-            "OR " +
-            // Select certificates which have validation frequency set in RA Profile
-            "((rp.validationEnabled = true AND rp.validationFrequency IS NOT NULL) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= CURRENT_DATE - rp.validationFrequency DAY))" +
-            // Order the certificates
-            ") ORDER BY c.statusValidationTimestamp ASC NULLS FIRST")
+    // Select certificates which have content, and they are not revoked or expired (since these statuses cannot change)
+    // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned or certificates which have RA Profile
+    // assigned, validation for that RA Profile is enabled and validation frequency is not customized
+    // Select certificates which have validation frequency set in RA Profile
+    @Query("""
+            SELECT c.uuid FROM Certificate c LEFT JOIN c.raProfile rp
+                WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
+                    AND
+                    (
+                (((rp is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true AND rp.validationFrequency IS NULL)) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp))
+                    OR
+                ((rp.validationEnabled = true AND rp.validationFrequency IS NOT NULL) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= CURRENT_DATE - rp.validationFrequency DAY))
+                    ) ORDER BY c.statusValidationTimestamp ASC NULLS FIRST
+            """
+    )
     List<UUID> findCertificatesToCheckStatus(@Param("statusValidityEndTimestamp") LocalDateTime statusValidityEndTimestamp,
                                              @Param("skipStatuses") List<CertificateValidationStatus> skipStatuses,
                                              @Param("platformEnabled") boolean platformEnabled,
