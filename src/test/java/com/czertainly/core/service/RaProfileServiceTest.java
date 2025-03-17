@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -201,6 +202,18 @@ class RaProfileServiceTest extends ApprovalProfileData {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+    }
+
+    @Test
+    void testUpdateRaProfileValidation() throws NotFoundException {
+        RaProfileValidationUpdateDto updateDto = new RaProfileValidationUpdateDto();
+        updateDto.setValidationEnabled(true);
+        updateDto.setValidationFrequency(10);
+        updateDto.setExpiringThreshold(5);
+        RaProfileDto raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        Assertions.assertEquals(updateDto.getValidationEnabled(), raProfileDto.isValidationEnabled());
+        Assertions.assertEquals(updateDto.getValidationFrequency(), raProfileDto.getValidationFrequency());
+        Assertions.assertEquals(updateDto.getExpiringThreshold(), raProfileDto.getExpiringThreshold());
     }
 
     @Test

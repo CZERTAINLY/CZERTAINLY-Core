@@ -101,6 +101,21 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
     @Column(name = "cmp_profile_uuid")
     private UUID cmpProfileUuid;
 
+    /**
+     * Configuration of validation of certificates linked to the RA profile
+     */
+
+    @Column(name = "validation_enabled", nullable = false)
+    private boolean validationEnabled;
+
+    @Column(name = "validation_frequency")
+    private Integer validationFrequency;
+
+    @Column(name = "expiring_threshold")
+    private Integer expiringThreshold;
+
+
+
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
         if (acmeProfile == null) {
@@ -215,6 +230,10 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             dto.setLegacyAuthority(authorityInstanceReference.getConnector() == null ? null
                     : authorityInstanceReference.getConnector().getFunctionGroups().stream().anyMatch(fg -> fg.getFunctionGroup().getCode().equals(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)));
         }
+
+        dto.setValidationEnabled(validationEnabled);
+        dto.setValidationFrequency(validationFrequency);
+        dto.setExpiringThreshold(expiringThreshold);
         return dto;
     }
 

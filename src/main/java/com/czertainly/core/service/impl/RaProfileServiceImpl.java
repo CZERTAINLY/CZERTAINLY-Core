@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -81,7 +82,6 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
-
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
@@ -168,6 +168,17 @@ public class RaProfileServiceImpl implements RaProfileService {
         raProfileDto.setAttributes(attributeEngine.updateObjectDataAttributesContent(authorityInstanceRef.getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), request.getAttributes()));
 
         return raProfileDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
+    public RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
+        RaProfile raProfile = getRaProfileEntity(raProfileUuid);
+        raProfile.setValidationEnabled(request.getValidationEnabled());
+        raProfile.setValidationFrequency(request.getValidationFrequency());
+        raProfile.setExpiringThreshold(request.getExpiringThreshold());
+        raProfileRepository.save(raProfile);
+        return raProfile.mapToDto();
     }
 
     @Override
@@ -804,5 +815,4 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }
-
 }

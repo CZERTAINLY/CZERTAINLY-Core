@@ -43,6 +43,7 @@ import java.util.concurrent.TimeUnit;
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
     public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
+    public static final String CERTIFICATES_VALIDATION_SETTINGS_NAME = "certificatesValidation";
 
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
     public static final String LOGGING_RESOURCES_NAME = "resources";
@@ -82,13 +83,31 @@ public class SettingServiceImpl implements SettingService {
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
         PlatformSettingsDto platformSettings = new PlatformSettingsDto();
-
-        // utils
+        // Utils
         Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
         if (utilsSettings != null)
             utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
         platformSettings.setUtils(utilsSettingsDto);
+
+        // Certificates
+        Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+        CertificateSettingsDto certificateSettingsDto = new CertificateSettingsDto();
+        CertificateValidationSettingsDto defaultValidationSettings = new CertificateValidationSettingsDto();
+        defaultValidationSettings.setValidationEnabled(true);
+
+        if (certificateSettings != null && certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME) != null) {
+            try {
+                certificateSettingsDto.setCertificateValidationSettingsDto(objectMapper.readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(), CertificateValidationSettingsDto.class));
+            } catch (JsonProcessingException e) {
+                logger.warn("Cannot deserialize platform certificates validation settings. Returning default settings.");
+                certificateSettingsDto.setCertificateValidationSettingsDto(defaultValidationSettings);
+            }
+        } else {
+            certificateSettingsDto.setCertificateValidationSettingsDto(defaultValidationSettings);
+        }
+
+        platformSettings.setCertificates(certificateSettingsDto);
 
         return platformSettings;
     }
@@ -99,18 +118,40 @@ public class SettingServiceImpl implements SettingService {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
-        // utils
-        Setting setting = null;
-        Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-        if (utilsSettings == null || (setting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
-            setting = new Setting();
-            setting.setSection(SettingsSection.PLATFORM);
-            setting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-            setting.setName(UTILS_SERVICE_URL_NAME);
+        // Utils
+        if (platformSettings.getUtils() != null) {
+            Setting utilSetting;
+            Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+            if (utilsSettings == null || (utilSetting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
+                utilSetting = new Setting();
+                utilSetting.setSection(SettingsSection.PLATFORM);
+                utilSetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+                utilSetting.setName(UTILS_SERVICE_URL_NAME);
+            }
+
+            utilSetting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
+            settingRepository.save(utilSetting);
         }
 
-        setting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
-        settingRepository.save(setting);
+        // Certificate Settings
+        if (platformSettings.getCertificates() != null) {
+            Setting certificatesValidationSetting;
+            Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+            if (certificateSettings == null || (certificatesValidationSetting = certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME)) == null) {
+                certificatesValidationSetting = new Setting();
+                certificatesValidationSetting.setSection(SettingsSection.PLATFORM);
+                certificatesValidationSetting.setCategory(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
+                certificatesValidationSetting.setName(CERTIFICATES_VALIDATION_SETTINGS_NAME);
+            }
+
+            try {
+                certificatesValidationSetting.setValue(objectMapper.writeValueAsString(platformSettings.getCertificates().getCertificateValidationSettingsDto()));
+            } catch (JsonProcessingException e) {
+                throw new ValidationException("Cannot serialize platform certificates settings: " + e.getMessage());
+            }
+            settingRepository.save(certificatesValidationSetting);
+
+        }
 
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
     }

@@ -6,12 +6,10 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDt
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
 import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -200,4 +198,13 @@ public interface RaProfileService extends ResourceExtensionService {
      */
     List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
             throws ConnectorException;
+
+    /**
+     * Update configuration of validation of certificates associated with the RA Profile
+     * @param authorityUuid UUID of the authority associated with the RA profile
+     * @param raProfileUuid UUID of the RA Profile
+     * @param request Validation configuration request
+     * @return Edited RA Profile
+     */
+    RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException;
 }
