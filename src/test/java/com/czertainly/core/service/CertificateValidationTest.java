@@ -10,6 +10,7 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CrlEntryRepository;
 import com.czertainly.core.dao.repository.CrlRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -35,8 +36,6 @@ import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
@@ -80,17 +79,12 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     private CrlEntryRepository crlEntryRepository;
 
     private Certificate certificate;
-    private CertificateContent certificateContent;
 
     private Certificate caCertificate;
-
-    private X509Certificate x509Cert;
 
     private Certificate chainIncompleteCertificate;
 
     private Certificate chainCompleteCertificate;
-
-    private static final Logger logger = LoggerFactory.getLogger(CertificateValidationTest.class);
 
     private WireMockServer mockServer;
 
@@ -105,9 +99,9 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(keyStoreStream, "123456".toCharArray());
 
-        x509Cert = (X509Certificate) keyStore.getCertificate("1");
+        X509Certificate x509Cert = (X509Certificate) keyStore.getCertificate("1");
 
-        certificateContent = new CertificateContent();
+        CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
         certificateContent = certificateContentRepository.save(certificateContent);
 
@@ -220,23 +214,25 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         stubCrlPoint("/crl1.crl", emptyX509CrlBytes);
         var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.VALID, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
-        Crl crl = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
-        Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crl.getUuid()));
+        UUID crlUuid = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
+        Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlUuid));
 
         // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
-        crlRepository.delete(crl);
+        crlRepository.delete(crlRepository.findByUuid(SecuredUUID.fromUUID(crlUuid)).get());
         mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
-        X509CRL X509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, certificateWithCrl);
-        stubCrlPoint("/crl2.crl", X509CrlRevokedCert.getEncoded());
+        X509CRL x509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, certificateWithCrl);
+        stubCrlPoint("/crl2.crl", x509CrlRevokedCert.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.REVOKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
-        Crl crlWithRevoked = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
-        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlWithRevoked.getUuid()));
+        UUID crlWithRevokedUuid = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
+        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlWithRevokedUuid));
 
         // Test properly set deltaCrl
+        Crl crlWithRevoked = crlRepository.findByUuid(SecuredUUID.fromUUID(crlWithRevokedUuid)).get();
         X509CRL deltaCrl = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.ONE);
         stubCrlPoint("/deltaCrl", deltaCrl.getEncoded());
-        Crl crlWithDelta = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
+        UUID crlWithDeltaUuid = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
+        Crl crlWithDelta = crlRepository.findByUuid(SecuredUUID.fromUUID(crlWithDeltaUuid)).get();
         Assertions.assertNotNull(crlWithDelta.getCrlNumberDelta());
         Assertions.assertNotNull(crlWithDelta.getNextUpdateDelta());
 
@@ -256,8 +252,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         stubCrlPoint("/deltaCrl", deltaCrlWithRevoked.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.REVOKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
-        Crl crlWithDelta2 = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
-        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithDelta.getSerialNumber().toString(16), crlWithDelta2.getUuid()));
+        UUID crlWithDelta2Uuid = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
+        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithDelta.getSerialNumber().toString(16), crlWithDelta2Uuid));
     }
 
     private void stubCrlPoint(String urlPart, byte[] body) {

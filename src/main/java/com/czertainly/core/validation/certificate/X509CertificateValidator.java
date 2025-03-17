@@ -3,7 +3,6 @@ package com.czertainly.core.validation.certificate;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.Crl;
 import com.czertainly.core.dao.entity.CrlEntry;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.CrlService;
@@ -245,23 +244,23 @@ public class X509CertificateValidator implements ICertificateValidator {
         if (certificate.getExtensionValue(Extension.cRLDistributionPoints.getId()) == null) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "The cRLDistributionPoints extension is not set.");
         }
-        Crl crl;
+        UUID crlUuid;
         try {
-            crl = crlService.getCurrentCrl(certificate, issuerCertificate);
+            crlUuid = crlService.getCurrentCrl(certificate, issuerCertificate);
         } catch (IOException e) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
         } catch (ValidationException e) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to process CRL: " + e.getMessage());
         }
 
-        if (crl == null) {
+        if (crlUuid == null) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "No available working CRL URL found in cRLDistributionPoints extension.");
         }
 
         StringBuilder crlMessage = new StringBuilder();
         CertificateValidationStatus crlOutputStatus;
 
-        CrlEntry crlEntry = crlService.findCrlEntryForCertificate(certificate.getSerialNumber().toString(16), crl.getUuid());
+        CrlEntry crlEntry = crlService.findCrlEntryForCertificate(certificate.getSerialNumber().toString(16), crlUuid);
 
         if (crlEntry == null) {
             crlOutputStatus = CertificateValidationStatus.VALID;

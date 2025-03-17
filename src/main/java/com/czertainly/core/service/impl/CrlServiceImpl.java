@@ -50,7 +50,7 @@ public class CrlServiceImpl implements CrlService {
     }
 
     @Override
-    public Crl getCurrentCrl(X509Certificate certificate, X509Certificate issuerCertificate) throws IOException {
+    public UUID getCurrentCrl(X509Certificate certificate, X509Certificate issuerCertificate) throws IOException {
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
         String issuerDn = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString();
         String issuerSerialNumber = issuerCertificate.getSerialNumber().toString(16);
@@ -73,7 +73,7 @@ public class CrlServiceImpl implements CrlService {
             // If no delta CRL is set or delta CRL is not up-to-date, download delta CRL
             updateCrlAndCrlEntriesFromDeltaCrl(certificate, crl, issuerDn, issuerSerialNumber, caCertificateUuid);
         }
-        return crl;
+        return crl == null ? null : crl.getUuid();
     }
 
     @Override
