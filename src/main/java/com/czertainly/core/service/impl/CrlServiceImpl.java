@@ -210,7 +210,7 @@ public class CrlServiceImpl implements CrlService {
             for (X509CRLEntry deltaCrlEntry : deltaCrlEntries) {
                 Date entryRevocationDate = deltaCrlEntry.getRevocationDate();
                 // Process only entries which revocation date is >= last_revocation_date, others are already in DB
-                if (lastRevocationDateNew == null || entryRevocationDate.after(crl.getLastRevocationDate()) || entryRevocationDate.equals(crl.getLastRevocationDate())) {
+                if (lastRevocationDateNew == null || crl.getLastRevocationDate() == null || entryRevocationDate.after(crl.getLastRevocationDate()) || entryRevocationDate.equals(crl.getLastRevocationDate())) {
                     processDeltaCrlEntry(crl, deltaCrlEntry, crlEntryMap, crlEntries);
                     if (lastRevocationDateNew == null || lastRevocationDateNew.before(deltaCrlEntry.getRevocationDate()))
                         lastRevocationDateNew = deltaCrlEntry.getRevocationDate();
@@ -221,7 +221,7 @@ public class CrlServiceImpl implements CrlService {
     }
 
     private void processDeltaCrlEntry(Crl crl, X509CRLEntry deltaCrlEntry, Map<String, CrlEntry> crlEntryMap, List<CrlEntry> crlEntries) {
-        String serialNumber = String.valueOf(deltaCrlEntry.getSerialNumber());
+        String serialNumber = deltaCrlEntry.getSerialNumber().toString(16);
         CrlEntry crlEntry = crlEntryMap.get(serialNumber);
         //  Entry by serial number is not present, add new one
         if (crlEntry == null) {
