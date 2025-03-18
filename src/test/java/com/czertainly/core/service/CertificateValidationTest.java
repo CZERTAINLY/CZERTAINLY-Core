@@ -2,10 +2,10 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Crl;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CrlEntryRepository;
@@ -218,8 +218,31 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         UUID crlUuid = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
         Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlUuid));
 
+        crlRepository.deleteAll();
+        crlRepository.findAll();
+        // Test updating existing CRL
+        Crl oldCrl = new Crl();
+        oldCrl.setNextUpdate(new Date());
+        oldCrl.setCrlNumber(String.valueOf(1));
+        oldCrl.setSerialNumber("1");
+        oldCrl.setCrlIssuerDn("2.5.4.3=testCrl");
+        oldCrl.setIssuerDn("2.5.4.3=testCrl");
+
+        crlRepository.save(oldCrl);
+        CrlEntry crlEntry = new CrlEntry();
+        CrlEntryId crlEntryId = new CrlEntryId();
+        crlEntryId.setSerialNumber("2");
+        crlEntryId.setCrlUuid(oldCrl.getUuid());
+        crlEntry.setId(crlEntryId);
+        crlEntry.setCrl(oldCrl);
+        crlEntry.setRevocationDate(new Date());
+        crlEntry.setRevocationReason(CertificateRevocationReason.CERTIFICATE_HOLD);
+        oldCrl.setCrlEntries(List.of(crlEntry));
+        certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
+        Assertions.assertTrue(crlEntryRepository.findById(crlEntryId).isEmpty());
+        crlRepository.deleteAll();
+
         // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
-        crlRepository.delete(crlRepository.findByUuid(SecuredUUID.fromUUID(crlUuid)).get());
         mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
         X509CRL x509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, certificateWithCrl.getSerialNumber(), false);
         stubCrlPoint("/crl2.crl", x509CrlRevokedCert.getEncoded());
@@ -239,7 +262,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         // Test improperly set deltaCrl
         crlRepository.delete(crlWithDelta);
-        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.TWO, BigInteger.ONE);
+        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(3), BigInteger.TWO);
         stubCrlPoint("/deltaCrl", deltaCrl2.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
@@ -328,7 +351,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         crlGen.setNextUpdate(calculateDate(24 * 7));
         crlGen.addExtension(Extension.cRLNumber,
                 false,
-                new CRLNumber(BigInteger.ONE));
+                new CRLNumber(BigInteger.TWO));
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption")
                 .setProvider("BC").build(caKey);
@@ -359,8 +382,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         extGen.addExtension(Extension.reasonCode, false, org.bouncycastle.asn1.x509.CRLReason.lookup(2));
         crlGen.addCRLEntry(certToRevokeSerialNumber,
                 new Date(), extGen.generate());
-
-
 
         if (withEntryToRemoveSerialNumber) {
             extGen.replaceExtension(Extension.reasonCode, false, CRLReason.lookup(CRLReason.removeFromCRL));
