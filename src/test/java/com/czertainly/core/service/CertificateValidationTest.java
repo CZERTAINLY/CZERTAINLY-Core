@@ -210,11 +210,15 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         certificateWithCrlDeltaEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlDeltaEntity);
 
+        // Test no CRL available
+        var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
+
         // Test CRL without the end certificate and without delta
         X509CRL emptyX509Crl = createEmptyCRL(x509CaCertificate, pair.getPrivate());
         byte[] emptyX509CrlBytes = emptyX509Crl.getEncoded();
         stubCrlPoint("/crl1.crl", emptyX509CrlBytes);
-        var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
+        validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.VALID, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
         UUID crlUuid = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
         Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlUuid));
