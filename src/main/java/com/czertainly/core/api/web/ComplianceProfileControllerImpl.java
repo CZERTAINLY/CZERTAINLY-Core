@@ -51,7 +51,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<UuidDto> createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
+    public ResponseEntity<UuidDto> createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         ComplianceProfileDto complianceProfile = complianceProfileService.createComplianceProfile(request);
         URI location = ServletUriComponentsBuilder
                 .fromCurrentRequest()
@@ -120,19 +120,19 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> forceDeleteComplianceProfiles(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> forceDeleteComplianceProfiles(@LogResource(uuid = true) List<String> uuids) throws ValidationException {
         return complianceProfileService.forceDeleteComplianceProfiles(SecuredUUID.fromList(uuids));
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.ASSOCIATE)
-    public void associateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
+    public void associateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException {
         complianceProfileService.associateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.DISASSOCIATE)
-    public void disassociateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles) throws ConnectorException {
+    public void disassociateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException {
         complianceProfileService.disassociateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 

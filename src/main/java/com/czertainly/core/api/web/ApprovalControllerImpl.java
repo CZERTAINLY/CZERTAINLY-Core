@@ -31,7 +31,7 @@ public class ApprovalControllerImpl implements ApprovalController {
 
     @Override
     @AuditLogged(module = Module.APPROVALS, resource = Resource.APPROVAL, operation = Operation.LIST)
-    public ApprovalResponseDto listUserApprovals(PaginationRequestDto paginationRequestDto, ApprovalUserDto approvalUserDto) throws ValidationException {
+    public ApprovalResponseDto listUserApprovals(PaginationRequestDto paginationRequestDto, ApprovalUserDto approvalUserDto) {
         return approvalService.listUserApprovals(SecurityFilter.create(), approvalUserDto.isHistory(), paginationRequestDto);
     }
 

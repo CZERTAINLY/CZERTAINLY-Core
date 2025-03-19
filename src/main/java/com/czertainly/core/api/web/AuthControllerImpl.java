@@ -45,18 +45,18 @@ public class AuthControllerImpl implements AuthController {
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.GET_USER_PROFILE)
-    public UserDetailDto profile() throws NotFoundException, JsonProcessingException {
+    public UserDetailDto profile() {
         return authService.getAuthProfile();
     }
 
     @Override
     @AuditLogged(module = Module.AUTH, resource = Resource.USER, operation = Operation.UPDATE_USER_PROFILE)
-    public UserDetailDto updateUserProfile(UpdateUserRequestDto request) throws NotFoundException, JsonProcessingException, CertificateException {
+    public UserDetailDto updateUserProfile(UpdateUserRequestDto request) throws NotFoundException, CertificateException {
         return authService.updateUserProfile(request);
     }
 
     @Override
-    public List<AuthResourceDto> getAuthResources() throws NotFoundException {
+    public List<AuthResourceDto> getAuthResources() {
         return authService.getAuthResources();
     }
 

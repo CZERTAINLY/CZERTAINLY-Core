@@ -108,7 +108,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DETAIL)
-    public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
+    public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstanceReference = getEntityInstanceReferenceEntity(entityUuid);
 
         List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
@@ -142,7 +142,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.CREATE)
-    public EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
+    public EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         if (entityInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(EntityInstanceReference.class, request.getName());
         }
@@ -187,7 +187,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.UPDATE)
-    public EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException {
+    public EntityInstanceDto editEntityInstance(SecuredUUID entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         EntityInstanceReference entityInstanceRef = getEntityInstanceReferenceEntity(entityUuid);
 
         EntityInstanceDto ref = getEntityInstance(entityUuid);
@@ -216,7 +216,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.DELETE)
-    public void deleteEntityInstance(SecuredUUID entityUuid) throws ConnectorException {
+    public void deleteEntityInstance(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstanceRef = getEntityInstanceReferenceEntity(entityUuid);
 
         List<ValidationError> errors = new ArrayList<>();
@@ -239,7 +239,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
-    public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException {
+    public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         final EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
         final Connector connector = entityInstance.getConnector();
         return entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
@@ -247,7 +247,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
-    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
 
         Connector connector = entityInstance.getConnector();

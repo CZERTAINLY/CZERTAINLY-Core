@@ -35,8 +35,6 @@ import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
@@ -90,10 +88,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     private Certificate chainCompleteCertificate;
 
-    private static final Logger logger = LoggerFactory.getLogger(CertificateValidationTest.class);
-
     private WireMockServer mockServer;
-
 
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException, com.czertainly.api.exception.CertificateException {
@@ -226,8 +221,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
         crlRepository.delete(crl);
         mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
-        X509CRL X509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, certificateWithCrl);
-        stubCrlPoint("/crl2.crl", X509CrlRevokedCert.getEncoded());
+        X509CRL x509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, certificateWithCrl);
+        stubCrlPoint("/crl2.crl", x509CrlRevokedCert.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.REVOKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
         Crl crlWithRevoked = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);

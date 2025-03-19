@@ -126,7 +126,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         contentMap.setData(new NameAndIdDto(1, "profile"));
 
         raProfile = raProfileRepository.save(raProfile);
-        var result = attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(contentMap)));
+        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(contentMap)));
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -154,7 +154,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException {
+    void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException, NotFoundException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))
@@ -165,12 +165,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testIssueCertificate_nonexistentEntity() {
+    void testIssueCertificate_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.issueCertificate("wrong-name", null));
     }
 
     @Test
-    public void testRevokeCertificate() throws ConnectorException, CertificateException, AlreadyExistException {
+    void testRevokeCertificate() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/revoke"))
                 .willReturn(WireMock.ok()));
@@ -180,12 +180,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeCertificate_nonexistentEntity() {
+    void testRevokeCertificate_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificate("wrong-name", null));
     }
 
     @Test
-    public void testListEntities() throws ConnectorException {
+    void testListEntities() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
                 .willReturn(WireMock.ok()));
@@ -194,27 +194,26 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListEntities_nonexistentEntity() {
+    void testListEntities_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.listEntities("wrong-name"));
     }
 
     @Test
-    public void testAddEntity() throws ConnectorException, AlreadyExistException {
+    void testAddEntity() throws ConnectorException, AlreadyExistException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities"))
                 .willReturn(WireMock.ok()));
 
-        ClientAddEndEntityRequestDto request = new ClientAddEndEntityRequestDto();
         clientOperationService.addEndEntity(RA_PROFILE_NAME, new ClientAddEndEntityRequestDto());
     }
 
     @Test
-    public void testAddEntity_nonexistentEntity() {
+    void testAddEntity_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.addEndEntity("wrong-name", null));
     }
 
     @Test
-    public void testGetEntity() throws ConnectorException {
+    void testGetEntity() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -223,12 +222,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetEntity_nonexistentEntity() {
+    void testGetEntity_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.getEndEntity("wrong-name", null));
     }
 
     @Test
-    public void testEditEntity() throws ConnectorException {
+    void testEditEntity() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -238,12 +237,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditEntity_nonexistentEntity() {
+    void testEditEntity_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.editEndEntity("wrong-name", null, null));
     }
 
     @Test
-    public void testRevokeAndDeleteEndEntity() throws ConnectorException {
+    void testRevokeAndDeleteEndEntity() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -252,12 +251,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRevokeAndDeleteEndEntity_nonexistentEntity() {
+    void testRevokeAndDeleteEndEntity_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeAndDeleteEndEntity("wrong-name", null));
     }
 
     @Test
-    public void testResetPassword() throws ConnectorException {
+    void testResetPassword() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .put(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/endEntities/[^/]+/resetPassword"))
                 .willReturn(WireMock.ok()));
@@ -266,7 +265,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    public void testResetPassword_nonexistentEntity() {
+    void testResetPassword_nonexistentEntity() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.resetPassword("wrong-name", null));
     }
 }

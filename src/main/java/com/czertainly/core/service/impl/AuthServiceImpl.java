@@ -10,11 +10,9 @@ import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.AuthService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.AuthHelper;
-import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.security.cert.CertificateException;
 import java.util.List;
@@ -23,19 +21,27 @@ import java.util.List;
 @Transactional
 public class AuthServiceImpl implements AuthService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthServiceImpl.class);
-
-    @Autowired
     private UserManagementApiClient userManagementApiClient;
-
-    @Autowired
     private ResourceApiClient resourceApiClient;
-
-    @Autowired
     private UserManagementService userManagementService;
 
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
+
+    @Autowired
+    public void setResourceApiClient(ResourceApiClient resourceApiClient) {
+        this.resourceApiClient = resourceApiClient;
+    }
+
+    @Autowired
+    public void setUserManagementService(UserManagementService userManagementService) {
+        this.userManagementService = userManagementService;
+    }
+
     @Override
-    public UserDetailDto getAuthProfile() throws NotFoundException {
+    public UserDetailDto getAuthProfile() {
         UserProfileDto userProfileDto = AuthHelper.getUserProfile();
         return userManagementApiClient.getUserDetail(userProfileDto.getUser().getUuid());
     }

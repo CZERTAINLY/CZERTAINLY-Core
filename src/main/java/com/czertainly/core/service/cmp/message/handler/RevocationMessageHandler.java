@@ -2,6 +2,7 @@ package com.czertainly.core.service.cmp.message.handler;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -227,6 +228,9 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
         } catch (AttributeException e) {
             throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
                     "SN=" + sn + " | cannot revoke certificate - wrong attributes", e);
+        } catch (NotFoundException e) {
+            throw new CmpProcessingException(tid, PKIFailureInfo.badDataFormat,
+                    "SN=" + sn + " | cannot revoke certificate - entity not found", e);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.ConnectorEntityNotFoundException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -31,7 +32,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class CryptographicOperationServiceTest extends BaseSpringBootTest {
+class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private CryptographicOperationService cryptographicOperationService;
@@ -164,7 +165,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListCipherAttributes() throws ConnectorException {
+    void testListCipherAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.
                         urlPathMatching(
@@ -183,7 +184,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListCipherAttributes_NotFound() {
+    void testListCipherAttributes_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listCipherAttributes(
@@ -197,7 +198,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListSignatureAttributes() throws ConnectorException {
+    void testListSignatureAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock
                         .urlPathMatching(
@@ -216,7 +217,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListSignatureAttributes_NotFound() {
+    void testListSignatureAttributes_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listSignatureAttributes(
@@ -230,7 +231,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListRandomDataAttributes() throws ConnectorException {
+    void testListRandomDataAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock
                         .urlPathMatching(
@@ -245,9 +246,9 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListRandomDataAttributes_NotFound() {
+    void testListRandomDataAttributes_NotFound() {
         Assertions.assertThrows(
-                NotFoundException.class,
+                ConnectorEntityNotFoundException.class,
                 () -> cryptographicOperationService.listRandomAttributes(
                         tokenInstanceReference.getSecuredParentUuid()
                 )
@@ -255,7 +256,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEncrypt() throws ConnectorException {
+    void testEncrypt() throws ConnectorException, NotFoundException {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -282,7 +283,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEncrypt_NotFound() {
+    void testEncrypt_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.encryptData(
@@ -296,7 +297,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEncryptValidationError() {
+    void testEncryptValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.encryptData(
@@ -310,7 +311,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDecrypt() throws ConnectorException {
+    void testDecrypt() throws ConnectorException, NotFoundException {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -337,7 +338,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDecrypt_NotFound() {
+    void testDecrypt_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.decryptData(
@@ -351,7 +352,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDecryptValidationError() {
+    void testDecryptValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.decryptData(
@@ -365,7 +366,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSign_RSA() throws ConnectorException {
+    void testSign_RSA() throws ConnectorException, NotFoundException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -398,7 +399,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSign_NotFound() {
+    void testSign_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.signData(
@@ -412,7 +413,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSignValidationError() {
+    void testSignValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.signData(
@@ -426,7 +427,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerify() throws ConnectorException {
+    void testVerify() throws ConnectorException, NotFoundException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -459,7 +460,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerify_NotFound() {
+    void testVerify_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.verifyData(
@@ -473,7 +474,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerifyValidationError() {
+    void testVerifyValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.verifyData(

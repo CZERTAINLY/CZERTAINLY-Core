@@ -16,23 +16,23 @@ import java.util.List;
 public interface AuthorityInstanceService extends ResourceExtensionService {
     List<AuthorityInstanceDto> listAuthorityInstances(SecurityFilter filter);
 
-    AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException;
+    AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException;
+    AuthorityInstanceDto createAuthorityInstance(AuthorityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
-    AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException;
+    AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
-    void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException;
+    void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException;
+    List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException;
+    List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException, NotFoundException;
 
-    List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException;
+    List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException;
+    List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException;
+    Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException;
 
     List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, ConnectorException;
 

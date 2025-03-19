@@ -215,7 +215,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
-    public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException {
+    public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
@@ -312,7 +312,7 @@ public class CertificateServiceImpl implements CertificateService {
         // remove certificate from Locations
         try {
             locationService.removeCertificateFromLocations(uuid);
-        } catch (ConnectorException e) {
+        } catch (NotFoundException e) {
             logger.error("Failed to remove Certificate {} from Locations.", uuid);
         }
 
@@ -1012,7 +1012,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @Async
-    public void checkCompliance(CertificateComplianceCheckDto request) {
+    public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
         for (String uuid : request.getCertificateUuids()) {
             try {
                 complianceService.checkComplianceOfCertificate(getCertificateEntity(SecuredUUID.fromString(uuid)));
@@ -1264,7 +1264,7 @@ public class CertificateServiceImpl implements CertificateService {
             UUID raProfileUuid,
             UUID sourceCertificateUuid,
             CertificateProtocolInfo protocolInfo
-    ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException {
+    ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, issueAttributes);
 
@@ -1507,7 +1507,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificate.getRaProfile() != null) {
             try {
                 complianceService.checkComplianceOfCertificate(certificate);
-            } catch (ConnectorException e) {
+            } catch (ConnectorException | NotFoundException e) {
                 logger.debug("Error when checking compliance: {}", e.getMessage());
             }
         }

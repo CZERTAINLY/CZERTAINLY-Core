@@ -240,7 +240,7 @@ public class ScepServiceImpl implements ScepService {
         if (scepProfile == null) {
             throw new ScepException("Requested SCEP Profile not found", FailInfo.BAD_REQUEST);
         }
-        if (!scepProfile.isEnabled()) {
+        if (Boolean.FALSE.equals(scepProfile.isEnabled())) {
             throw new ScepException("SCEP Profile is not enabled", FailInfo.BAD_REQUEST);
         }
         if (scepProfile.getCaCertificate() == null) {
@@ -258,7 +258,7 @@ public class ScepServiceImpl implements ScepService {
         if (raProfile == null) {
             throw new ScepException("Requested RA Profile not found", FailInfo.BAD_REQUEST);
         }
-        if (!raProfile.getEnabled()) {
+        if (Boolean.FALSE.equals(raProfile.getEnabled())) {
             throw new ScepException("RA Profile is not enabled", FailInfo.BAD_REQUEST);
         }
         if (raProfileBased && raProfile.getScepProfile() == null) {
@@ -463,9 +463,7 @@ public class ScepServiceImpl implements ScepService {
         ClientCertificateDataResponseDto response;
         try {
             response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
-        } catch (ConnectorException e) {
-            throw new ScepException("Unable to use connector to issue certificate", e, FailInfo.BAD_REQUEST);
-        } catch (CertificateException | CertificateOperationException e) {
+        } catch (CertificateException | NotFoundException | CertificateOperationException e) {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
@@ -529,7 +527,7 @@ public class ScepServiceImpl implements ScepService {
         CertificateDetailDto response;
         try {
             response = clientOperationService.submitCertificateRequest(requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
-        } catch (CertificateException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
+        } catch (CertificateException | NotFoundException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
 
@@ -790,7 +788,7 @@ public class ScepServiceImpl implements ScepService {
                     ""
             );
         } catch (Exception e) {
-            logger.error("Unable to update Intune with success notification: " + e.getMessage());
+            logger.error("Unable to update Intune with success notification: {}", e.getMessage());
         }
     }
 
@@ -804,7 +802,7 @@ public class ScepServiceImpl implements ScepService {
                         error
                 );
             } catch (Exception e) {
-                logger.error("Unable to update Intune with failed notification: " + e.getMessage());
+                logger.error("Unable to update Intune with failed notification: {}", e.getMessage());
             }
         } else {
             logger.error("Unable to update Intune because the client is not available.");

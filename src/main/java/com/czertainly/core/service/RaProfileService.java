@@ -24,7 +24,7 @@ public interface RaProfileService extends ResourceExtensionService {
 
     SecuredList<RaProfile> listRaProfilesAssociatedWithAcmeProfile(String acmeProfileUuid, SecurityFilter filter);
 
-    RaProfileDto addRaProfile(SecuredParentUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+    RaProfileDto addRaProfile(SecuredParentUUID authorityUuid, AddRaProfileRequestDto dto) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     RaProfileDto getRaProfile(SecuredUUID uuid) throws NotFoundException;
 
@@ -32,7 +32,7 @@ public interface RaProfileService extends ResourceExtensionService {
 
     RaProfile getRaProfileEntity(SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileDto editRaProfile(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto) throws ConnectorException, AttributeException;
+    RaProfileDto editRaProfile(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, EditRaProfileRequestDto dto) throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
@@ -54,11 +54,11 @@ public interface RaProfileService extends ResourceExtensionService {
 
     RaProfileAcmeDetailResponseDto getAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException;
+    RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     void deactivateAcmeForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
-    RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException;
+    RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     void deactivateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws NotFoundException;
 
@@ -98,7 +98,7 @@ public interface RaProfileService extends ResourceExtensionService {
             SecuredUUID uuid,
             SecuredUUID cmpProfileUuid,
             ActivateCmpForRaProfileRequestDto request
-    ) throws ConnectorException, ValidationException, AttributeException;
+    ) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     /**
      * Deactivate the CMP protocol for the RA Profile
@@ -128,9 +128,9 @@ public interface RaProfileService extends ResourceExtensionService {
      */
     void bulkRemoveAssociatedCmpProfile(List<SecuredUUID> uuids);
 
-    List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException;
+    List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException;
+    List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * Save the RA Profile entity to the database
@@ -197,7 +197,7 @@ public interface RaProfileService extends ResourceExtensionService {
      * @throws ConnectorException in case the connector throws an exception
      */
     List<CertificateDetailDto> getAuthorityCertificateChain(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid)
-            throws ConnectorException;
+            throws ConnectorException, NotFoundException;
 
     /**
      * Update configuration of validation of certificates associated with the RA Profile

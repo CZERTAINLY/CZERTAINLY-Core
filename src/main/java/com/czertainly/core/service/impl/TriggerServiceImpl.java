@@ -114,11 +114,10 @@ public class TriggerServiceImpl implements TriggerService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
-        if (request.getType() == TriggerType.EVENT) {
-            if (request.getEventResource() == null || request.getEvent() == null) {
-                throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
-            }
+        if (request.getType() == TriggerType.EVENT && (request.getEventResource() == null || request.getEvent() == null)) {
+            throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
         }
+
 
         if (!request.isIgnoreTrigger()) {
             if (request.getActionsUuids().isEmpty()) {
@@ -161,10 +160,8 @@ public class TriggerServiceImpl implements TriggerService {
             throw new ValidationException("Property trigger type cannot be empty.");
         }
 
-        if (request.getType() == TriggerType.EVENT) {
-            if (request.getEventResource() == null || request.getEvent() == null) {
-                throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
-            }
+        if (request.getType() == TriggerType.EVENT && (request.getEventResource() == null || request.getEvent() == null)) {
+            throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
         }
 
         if (!request.isIgnoreTrigger()) {

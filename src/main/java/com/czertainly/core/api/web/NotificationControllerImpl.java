@@ -29,19 +29,19 @@ public class NotificationControllerImpl implements NotificationController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION, operation = Operation.LIST)
-    public NotificationResponseDto listNotifications(NotificationRequestDto request) throws ValidationException {
+    public NotificationResponseDto listNotifications(NotificationRequestDto request) {
         return notificationService.listNotifications(request);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION, operation = Operation.DELETE)
-    public void deleteNotification(@LogResource(uuid = true) String uuid) throws ValidationException, NotFoundException {
+    public void deleteNotification(@LogResource(uuid = true) String uuid) throws NotFoundException {
         notificationService.deleteNotification(uuid);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION, operation = Operation.MARK_AS_READ)
-    public void markNotificationAsRead(@LogResource(uuid = true) String uuid) throws ValidationException, NotFoundException {
+    public void markNotificationAsRead(@LogResource(uuid = true) String uuid) throws NotFoundException {
         notificationService.markNotificationAsRead(uuid);
     }
 

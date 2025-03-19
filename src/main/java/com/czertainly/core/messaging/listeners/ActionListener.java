@@ -91,7 +91,7 @@ public class ActionListener {
         }
     }
 
-    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+    private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
         switch (actionMessage.getResource()) {
             case CERTIFICATE -> processCertificateAction(actionMessage, hasApproval, isApproved);
             default ->
@@ -99,7 +99,7 @@ public class ActionListener {
         }
     }
 
-    private void processCertificateAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException {
+    private void processCertificateAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException, NotFoundException {
         // handle rejected actions
         if (hasApproval && !isApproved) {
             switch (actionMessage.getResourceAction()) {

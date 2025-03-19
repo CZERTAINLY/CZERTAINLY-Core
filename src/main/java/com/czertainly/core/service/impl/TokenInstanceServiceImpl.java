@@ -98,7 +98,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
-    public TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException {
+    public TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Getting token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         TokenInstanceDetailDto tokenInstanceDetailDto = tokenInstanceReference.mapToDetailDto();
@@ -145,7 +145,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.CREATE)
-    public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         logger.info("Creating token instance with name: {}", request.getName());
         if (tokenInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(TokenInstanceReference.class, request.getName());
@@ -193,7 +193,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.UPDATE)
-    public TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException {
+    public TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException {
         logger.info("Updating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token Instance Reference: {}", tokenInstanceReference);
@@ -251,7 +251,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ACTIVATE)
-    public void activateTokenInstance(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public void activateTokenInstance(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
         logger.info("Activating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         tokenInstanceApiClient.activateTokenInstance(
@@ -265,7 +265,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ACTIVATE)
-    public void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException {
+    public void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Deactivating token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         tokenInstanceApiClient.deactivateTokenInstance(
@@ -293,12 +293,11 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
                 messages.add(new BulkActionMessageDto(uuid.toString(), tokenInstanceReference != null ? tokenInstanceReference.getName() : "", e.getMessage()));
             }
         }
-//        return messages;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
-    public TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException {
+    public TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Reloading status of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         TokenInstanceStatusDto status = tokenInstanceApiClient.getTokenInstanceStatus(
@@ -314,7 +313,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException {
+    public List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Listing token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);
@@ -326,7 +325,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
         logger.info("Validating token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);
@@ -337,7 +336,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException {
+    public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Listing token instance activation attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);

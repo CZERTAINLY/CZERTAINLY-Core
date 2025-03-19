@@ -100,7 +100,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.CREATE)
-    public KeyDetailDto createKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public KeyDetailDto createKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         return cryptographicKeyService.createKey(
                 UUID.fromString(tokenInstanceUuid),
                 SecuredParentUUID.fromString(tokenProfileUuid),
@@ -111,7 +111,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.UPDATE)
-    public KeyDetailDto editKey(@LogResource(uuid = true) String uuid, EditKeyRequestDto request) throws ConnectorException, AttributeException {
+    public KeyDetailDto editKey(@LogResource(uuid = true) String uuid, EditKeyRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return cryptographicKeyService.editKey(
                 SecuredUUID.fromString(uuid),
                 request
@@ -120,7 +120,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.SYNC)
-    public void syncKeys(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid) throws ConnectorException, AttributeException {
+    public void syncKeys(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid) throws ConnectorException, AttributeException, NotFoundException {
         cryptographicKeyService.syncKeys(
                 SecuredParentUUID.fromString(tokenInstanceUuid)
         );
@@ -162,7 +162,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DESTROY)
-    public void destroyKey(String uuid, List<String> keyItemUuids) throws ConnectorException {
+    public void destroyKey(String uuid, List<String> keyItemUuids) throws ConnectorException, NotFoundException {
         cryptographicKeyService.destroyKey(
                 UUID.fromString(uuid),
                 keyItemUuids
@@ -171,7 +171,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DESTROY)
-    public void destroyKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException {
+    public void destroyKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException, NotFoundException {
         cryptographicKeyService.destroyKey(
                 UUID.fromString(uuid),
                 keyItemUuids
@@ -180,7 +180,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DESTROY)
-    public void destroyKeys(@LogResource(uuid = true) List<String> keyUuids) throws ConnectorException {
+    public void destroyKeys(@LogResource(uuid = true) List<String> keyUuids) throws ConnectorException, NotFoundException {
         cryptographicKeyService.destroyKey(
                 keyUuids
         );
@@ -196,7 +196,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, operation = Operation.DELETE)
-    public void deleteKey(@LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException {
+    public void deleteKey(@LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException, NotFoundException {
         cryptographicKeyService.deleteKey(
                 UUID.fromString(uuid),
                 keyItemUuids
@@ -205,7 +205,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.CRYPTOGRAPHIC_KEY, affiliatedResource = Resource.TOKEN, operation = Operation.DELETE)
-    public void deleteKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException {
+    public void deleteKey(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, List<String> keyItemUuids) throws ConnectorException, NotFoundException {
         cryptographicKeyService.deleteKey(
                 UUID.fromString(uuid),
                 keyItemUuids
@@ -332,7 +332,7 @@ public class CryptographicKeyControllerImpl implements CryptographicKeyControlle
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listCreateKeyAttributes(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String tokenProfileUuid, @LogResource(name = true) KeyRequestType type) throws ConnectorException {
+    public List<BaseAttribute> listCreateKeyAttributes(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, String tokenProfileUuid, @LogResource(name = true) KeyRequestType type) throws ConnectorException, NotFoundException {
         return cryptographicKeyService.listCreateKeyAttributes(
                 UUID.fromString(tokenInstanceUuid),
                 SecuredParentUUID.fromString(tokenProfileUuid),

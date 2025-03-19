@@ -24,7 +24,6 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.AttributeDefinition;
-import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -85,7 +84,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
     public CustomAttributeDefinitionDetailDto getCustomAttribute(UUID uuid) throws NotFoundException {
-        logger.debug("Fetching custom attribute with UUID: {}", uuid.toString());
+        logger.debug("Fetching custom attribute with UUID: {}", uuid);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
         return definition.mapToCustomAttributeDefinitionDetailDto();
     }
@@ -93,14 +92,14 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.DETAIL)
     public GlobalMetadataDefinitionDetailDto getGlobalMetadata(UUID uuid) throws NotFoundException {
-        logger.debug("Fetching global metadata for UUID: {}", uuid.toString());
+        logger.debug("Fetching global metadata for UUID: {}", uuid);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndTypeAndGlobalTrue(uuid, AttributeType.META).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
         return definition.mapToGlobalMetadataDefinitionDetailDto();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.CREATE)
-    public CustomAttributeDefinitionDetailDto createCustomAttribute(CustomAttributeCreateRequestDto request) throws ValidationException, AlreadyExistException, AttributeException {
+    public CustomAttributeDefinitionDetailDto createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, AttributeException {
         logger.debug("Create custom attribute, request: {}", request);
         if (attributeDefinitionRepository.existsByTypeAndName(AttributeType.CUSTOM, request.getName())) {
             throw new AlreadyExistException("Custom Attribute with same name already exists");
@@ -157,7 +156,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
     public CustomAttributeDefinitionDetailDto editCustomAttribute(UUID uuid, CustomAttributeUpdateRequestDto request) throws NotFoundException, AttributeException {
-        logger.debug("Update custom attribute with uuid: {}, request: {}", uuid.toString(), request);
+        logger.debug("Update custom attribute with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
         CustomAttribute attribute = new CustomAttribute();
@@ -182,7 +181,7 @@ public class AttributeServiceImpl implements AttributeService {
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.UPDATE)
     public GlobalMetadataDefinitionDetailDto editGlobalMetadata(UUID uuid, GlobalMetadataUpdateRequestDto request) throws NotFoundException, AttributeException {
-        logger.debug("Update global metadata with uuid: {}, request: {}", uuid.toString(), request);
+        logger.debug("Update global metadata with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndTypeAndGlobalTrue(uuid, AttributeType.META).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
         MetadataAttribute attribute = new MetadataAttribute();

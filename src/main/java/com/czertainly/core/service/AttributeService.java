@@ -70,7 +70,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param request: {@link CustomAttributeCreateRequestDto} request information
      * @return UUID of the newly created attribute
      */
-    CustomAttributeDefinitionDetailDto createCustomAttribute(CustomAttributeCreateRequestDto request) throws ValidationException, AlreadyExistException, AttributeException;
+    CustomAttributeDefinitionDetailDto createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, AttributeException;
 
     /**
      * Function to create a global metadata

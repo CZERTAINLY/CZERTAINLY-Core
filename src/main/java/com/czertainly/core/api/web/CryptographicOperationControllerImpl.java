@@ -1,6 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CryptographicOperationsController;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
@@ -37,7 +38,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String uuid,
             @LogResource(uuid = true) String keyItemUuid,
             CipherDataRequestDto request
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.encryptData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -54,7 +55,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String uuid,
             @LogResource(uuid = true) String keyItemUuid,
             CipherDataRequestDto request)
-            throws ConnectorException {
+            throws ConnectorException, NotFoundException {
         return cryptographicOperationService.decryptData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -71,7 +72,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String uuid,
             @LogResource(uuid = true) String keyItemUuid,
             SignDataRequestDto request
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.signData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -89,7 +90,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String uuid,
             @LogResource(uuid = true) String keyItemUuid,
             VerifyDataRequestDto request
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.verifyData(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -104,7 +105,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     public RandomDataResponseDto randomData(
             @LogResource(uuid = true) String tokenInstanceUuid,
             RandomDataRequestDto request
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.randomData(
                 SecuredUUID.fromString(tokenInstanceUuid),
                 request
@@ -119,7 +120,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String uuid,
             @LogResource(uuid = true, affiliated = true) String keyItemUuid,
             KeyAlgorithm algorithm
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.listSignatureAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -137,7 +138,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
             String uuid,
             @LogResource(uuid = true, affiliated = true) String keyItemUuid,
             KeyAlgorithm algorithm
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.listCipherAttributes(
                 SecuredParentUUID.fromString(tokenInstanceUuid),
                 SecuredUUID.fromString(tokenProfileUuid),
@@ -151,7 +152,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "random", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRandomAttributes(
             @LogResource(uuid = true, affiliated = true) String tokenInstanceUuid
-    ) throws ConnectorException {
+    ) throws ConnectorException, NotFoundException {
         return cryptographicOperationService.listRandomAttributes(
                 SecuredUUID.fromString(tokenInstanceUuid)
         );

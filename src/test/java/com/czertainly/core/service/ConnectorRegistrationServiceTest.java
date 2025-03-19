@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.util.AuthenticationTokenTestHelper;
@@ -15,7 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 
-public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
+class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorRegistrationService connectorRegistrationService;
@@ -36,7 +37,7 @@ public class ConnectorRegistrationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRegisterConnector() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testRegisterConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock.get("/v1").willReturn(WireMock.okJson("[]")));
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector");

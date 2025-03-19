@@ -255,7 +255,7 @@ class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddLocation() throws ConnectorException, AlreadyExistException, LocationException, AttributeException {
+    void testAddLocation() throws ConnectorException, AlreadyExistException, LocationException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -311,7 +311,7 @@ class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditLocation() throws ConnectorException, LocationException, AttributeException {
+    void testEditLocation() throws ConnectorException, LocationException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/location/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -417,7 +417,7 @@ class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testIssueToLocation() throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException, LocationException {
+    void testIssueToLocation() throws ConnectorException, java.security.cert.CertificateException, NoSuchAlgorithmException, CertificateOperationException, IOException, InvalidKeyException, CertificateRequestException, LocationException, NotFoundException {
         RaProfile raProfile = getRaProfile();
 
         ClientCertificateDataResponseDto responseDto = new ClientCertificateDataResponseDto();
@@ -462,7 +462,7 @@ class LocationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void renewCertificateInLocation() throws ConnectorException, LocationException, CertificateOperationException, java.security.cert.CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateRequestException {
+    void renewCertificateInLocation() throws ConnectorException, LocationException, CertificateOperationException, java.security.cert.CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateRequestException, NotFoundException {
         CertificateLocation certificateLocation = location.getCertificates().stream().findFirst().get();
         certificateLocation.setPushAttributes(List.of(new DataAttribute()));
         certificateLocation.setCsrAttributes(List.of(new DataAttribute()));

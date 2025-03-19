@@ -209,7 +209,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddKey() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddKey() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/pair/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -302,7 +302,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDestroyKey() throws ConnectorException {
+    void testDestroyKey() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -348,7 +348,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDestroyKey_parentKeyObject() throws ConnectorException {
+    void testDestroyKey_parentKeyObject() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -366,7 +366,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCompromiseKey() throws ConnectorException {
+    void testCompromiseKey() throws NotFoundException {
         cryptographicKeyService.compromiseKey(
                 key.getUuid(),
                 new CompromiseKeyRequestDto(
@@ -398,7 +398,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCompromiseKey_validationError() throws ConnectorException {
+    void testCompromiseKey_validationError() throws NotFoundException {
         cryptographicKeyService.compromiseKey(
                 key.getUuid(),
                 new CompromiseKeyRequestDto(
@@ -432,7 +432,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateKeyUsage() throws ConnectorException {
+    void testUpdateKeyUsage() throws NotFoundException {
         UpdateKeyUsageRequestDto request = new UpdateKeyUsageRequestDto();
         request.setUuids(List.of(privateKeyItem.getUuid()));
         request.setUsage(List.of(KeyUsage.DECRYPT));
@@ -479,7 +479,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSync_allNewObject() throws ConnectorException, AttributeException {
+    void testSync_allNewObject() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("""
@@ -553,7 +553,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSync_existingObject() throws ConnectorException, AttributeException {
+    void testSync_existingObject() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys"))
                 .willReturn(WireMock.okJson("[\n" +
@@ -659,7 +659,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDeleteKey() throws ConnectorException {
+    void testDeleteKey() throws ConnectorException, NotFoundException {
         cryptographicKeyService.deleteKey(key.getUuid(), List.of(publicKeyItem.getUuid().toString()));
 
         KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid()));
@@ -671,7 +671,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEnableDisableKey() throws ConnectorException {
+    void testEnableDisableKey() throws NotFoundException {
         cryptographicKeyService.disableKey(key.getUuid(), List.of());
 
         KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(SecuredUUID.fromUUID(key.getUuid()));
@@ -700,7 +700,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testKeyWithoutTokenOperations() throws ConnectorException, AttributeException {
+    void testKeyWithoutTokenOperations() throws ConnectorException, AttributeException, NotFoundException {
         KeyDetailDto keyDetailDto = cryptographicKeyService.getKey(keyWithoutToken.getSecuredUuid());
         Assertions.assertEquals(1, keyDetailDto.getItems().size());
 
