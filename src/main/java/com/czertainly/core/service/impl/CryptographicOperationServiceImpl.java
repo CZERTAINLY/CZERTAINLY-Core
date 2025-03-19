@@ -53,7 +53,6 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -236,7 +235,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -545,7 +544,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
     }
 
-    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
+    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) {
         if (attributes == null) {
             return false;
         }

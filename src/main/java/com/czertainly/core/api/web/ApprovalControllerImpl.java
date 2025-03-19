@@ -1,7 +1,6 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.ApprovalController;
 import com.czertainly.api.model.client.approval.ApprovalDetailDto;
 import com.czertainly.api.model.client.approval.ApprovalResponseDto;

@@ -3,7 +3,6 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;

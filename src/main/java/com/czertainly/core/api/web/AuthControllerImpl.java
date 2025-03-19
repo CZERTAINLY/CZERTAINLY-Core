@@ -13,7 +13,6 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.AuthService;
 import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;

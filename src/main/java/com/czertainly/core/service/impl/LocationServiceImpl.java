@@ -387,7 +387,7 @@ public class LocationServiceImpl implements LocationService {
         Set<CertificateLocation> certificateLocations = certificate.getLocations();
         for (CertificateLocation cl : certificateLocations) {
             try {
-                if (!cl.getLocation().getEnabled()) {
+                if (Boolean.FALSE.equals(cl.getLocation().getEnabled())) {
                     throw new NotFoundException(Location.class, cl.getLocation().getUuid());
                 }
 
@@ -1088,7 +1088,7 @@ public class LocationServiceImpl implements LocationService {
 
     private void authorityPreChecks(RaProfile raProfile) throws ValidationException {
         //Check if RA Profile is enabled
-        if (!raProfile.getEnabled()) {
+        if (Boolean.FALSE.equals(raProfile.getEnabled())) {
             throw new ValidationException(ValidationError.create("RA Profile is disabled"));
         }
 

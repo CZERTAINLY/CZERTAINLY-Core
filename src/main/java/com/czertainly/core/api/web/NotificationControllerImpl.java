@@ -1,9 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.interfaces.core.web.NotificationController;
-import com.czertainly.api.model.client.notification.NotificationDto;
 import com.czertainly.api.model.client.notification.NotificationRequestDto;
 import com.czertainly.api.model.client.notification.NotificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
