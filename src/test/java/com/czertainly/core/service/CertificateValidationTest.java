@@ -2,14 +2,15 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.entity.Crl;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.CrlEntryRepository;
 import com.czertainly.core.dao.repository.CrlRepository;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -19,6 +20,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.asn1.x509.CRLReason;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509CertificateHolder;
@@ -35,8 +37,6 @@ import org.bouncycastle.util.io.pem.PemReader;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.annotation.Rollback;
@@ -46,6 +46,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -80,17 +81,12 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     private CrlEntryRepository crlEntryRepository;
 
     private Certificate certificate;
-    private CertificateContent certificateContent;
 
     private Certificate caCertificate;
-
-    private X509Certificate x509Cert;
 
     private Certificate chainIncompleteCertificate;
 
     private Certificate chainCompleteCertificate;
-
-    private static final Logger logger = LoggerFactory.getLogger(CertificateValidationTest.class);
 
     private WireMockServer mockServer;
 
@@ -105,9 +101,9 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
         keyStore.load(keyStoreStream, "123456".toCharArray());
 
-        x509Cert = (X509Certificate) keyStore.getCertificate("1");
+        X509Certificate x509Cert = (X509Certificate) keyStore.getCertificate("1");
 
-        certificateContent = new CertificateContent();
+        CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent(Base64.getEncoder().encodeToString(x509Cert.getEncoded()));
         certificateContent = certificateContentRepository.save(certificateContent);
 
@@ -204,61 +200,119 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         X509Certificate x509CaCertificate = CertificateUtil.getX509Certificate(caCertificate.getCertificateContent().getContent());
 
         List<String> crlUrls = List.of(mockServer.baseUrl() + "/crl1.crl", mockServer.baseUrl() + "/crl2.crl");
-        X509Certificate certificateWithCrl = createSelfSignedCertificateWithCrl("testCrl", crlUrls, null);
+        X509Certificate certificateWithCrl = createSelfSignedCertificateWithCrl("testCrl", crlUrls, null, BigInteger.ONE);
         Certificate certificateWithCrlEntity = certificateService.createCertificateEntity(certificateWithCrl);
         certificateWithCrlEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlEntity);
 
-        X509Certificate certificateWithDelta = createSelfSignedCertificateWithCrl("testCrlWithDelta", crlUrls, List.of(mockServer.baseUrl() + "/deltaCrl"));
+        X509Certificate certificateWithDelta = createSelfSignedCertificateWithCrl("testCrlWithDelta", crlUrls, List.of(mockServer.baseUrl() + "/deltaCrl"), BigInteger.TWO);
         Certificate certificateWithCrlDeltaEntity = certificateService.createCertificateEntity(certificateWithDelta);
         certificateWithCrlDeltaEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlDeltaEntity);
+
+        // Test no CRL available
+        var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
 
         // Test CRL without the end certificate and without delta
         X509CRL emptyX509Crl = createEmptyCRL(x509CaCertificate, pair.getPrivate());
         byte[] emptyX509CrlBytes = emptyX509Crl.getEncoded();
         stubCrlPoint("/crl1.crl", emptyX509CrlBytes);
-        var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
+        validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.VALID, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
-        Crl crl = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
-        Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crl.getUuid()));
+        UUID crlUuid = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
+        Assertions.assertNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlUuid));
+
+        crlRepository.deleteAll();
+        crlRepository.findAll();
+        // Test updating existing CRL
+        Crl oldCrl = new Crl();
+        oldCrl.setNextUpdate(new Date());
+        oldCrl.setCrlNumber(String.valueOf(1));
+        oldCrl.setSerialNumber("1");
+        oldCrl.setCrlIssuerDn("2.5.4.3=testCrl");
+        oldCrl.setIssuerDn("2.5.4.3=testCrl");
+
+        crlRepository.save(oldCrl);
+        CrlEntry crlEntry = new CrlEntry();
+        CrlEntryId crlEntryId = new CrlEntryId();
+        crlEntryId.setSerialNumber("2");
+        crlEntryId.setCrlUuid(oldCrl.getUuid());
+        crlEntry.setId(crlEntryId);
+        crlEntry.setCrl(oldCrl);
+        crlEntry.setRevocationDate(new Date());
+        crlEntry.setRevocationReason(CertificateRevocationReason.CERTIFICATE_HOLD);
+        oldCrl.setCrlEntries(List.of(crlEntry));
+        certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
+        Assertions.assertTrue(crlEntryRepository.findById(crlEntryId).isEmpty());
+        crlRepository.deleteAll();
 
         // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
-        crlRepository.delete(crl);
         mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
-        X509CRL X509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, certificateWithCrl);
-        stubCrlPoint("/crl2.crl", X509CrlRevokedCert.getEncoded());
+        Map<BigInteger, Integer> crlEntries = new HashMap<>();
+        crlEntries.put(certificateWithCrl.getSerialNumber(), CRLReason.keyCompromise);
+        X509CRL x509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, crlEntries);
+        stubCrlPoint("/crl2.crl", x509CrlRevokedCert.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.REVOKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
-        Crl crlWithRevoked = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
-        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlWithRevoked.getUuid()));
+        UUID crlWithRevokedUuid = crlService.getCurrentCrl(certificateWithCrl, certificateWithCrl);
+        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithCrl.getSerialNumber().toString(16), crlWithRevokedUuid));
 
         // Test properly set deltaCrl
-        X509CRL deltaCrl = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.ONE);
+        Crl crlWithRevoked = crlRepository.findByUuid(SecuredUUID.fromUUID(crlWithRevokedUuid)).get();
+        X509CRL deltaCrl = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.ONE);
         stubCrlPoint("/deltaCrl", deltaCrl.getEncoded());
-        Crl crlWithDelta = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
+        UUID crlWithDeltaUuid = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
+        Crl crlWithDelta = crlRepository.findByUuid(SecuredUUID.fromUUID(crlWithDeltaUuid)).get();
         Assertions.assertNotNull(crlWithDelta.getCrlNumberDelta());
         Assertions.assertNotNull(crlWithDelta.getNextUpdateDelta());
 
-        // Test improperly set deltaCrl
+        // Test improperly set deltaCrl because of CRL numbers
         crlRepository.delete(crlWithDelta);
-        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.TWO, BigInteger.ONE);
+        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(3), BigInteger.TWO);
         stubCrlPoint("/deltaCrl", deltaCrl2.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
         Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta));
 
-        // Test deltaCrl with revoked cert
+        // Test improperly set deltaCrl
         crlRepository.deleteAll();
-        X509CRL deltaCrl3 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
-        X509CRL deltaCrlWithRevoked = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", deltaCrl3, certificateWithDelta);
-        stubCrlPoint("/crl1.crl", emptyX509CrlBytes);
+        X509CRL deltaCrlIssuerNotMatching = createEmptyDeltaCRL(certificateWithDelta.getIssuerX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
+        stubCrlPoint("/deltaCrl", deltaCrlIssuerNotMatching.getEncoded());
+        validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
+        Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta));
+
+
+
+        // Test deltaCrl with revoked cert and with one certificate to remove from CRL entries
+        crlRepository.deleteAll();
+        X509CRL deltaCrl3 = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
+        crlEntries.put(BigInteger.valueOf(123), CRLReason.removeFromCRL);
+        crlEntries.put(BigInteger.valueOf(1234), CRLReason.keyCompromise);
+        crlEntries.put(BigInteger.TWO, CRLReason.cACompromise);
+        X509CRL deltaCrlWithRevoked = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", deltaCrl3, crlEntries);
+
+        crlEntries.remove(x509CaCertificate.getSerialNumber());
+        crlEntries.remove(BigInteger.TWO);
+        crlEntries.put(BigInteger.valueOf(123), CRLReason.keyCompromise);
+        crlEntries.put(BigInteger.valueOf(1234), CRLReason.cACompromise);
+        X509CRL crlWithCertificateToRemove = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, crlEntries);
+
+        stubCrlPoint("/crl1.crl", crlWithCertificateToRemove.getEncoded());
         stubCrlPoint("/deltaCrl", deltaCrlWithRevoked.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.REVOKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
-        Crl crlWithDelta2 = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
-        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithDelta.getSerialNumber().toString(16), crlWithDelta2.getUuid()));
+        UUID crlWithDelta2Uuid = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
+        Assertions.assertNotNull(crlService.findCrlEntryForCertificate(certificateWithDelta.getSerialNumber().toString(16), crlWithDelta2Uuid));
+        Assertions.assertNull(crlService.findCrlEntryForCertificate(BigInteger.valueOf(123).toString(16), crlWithRevokedUuid));
+        CrlEntryId crlEntryId1 = new CrlEntryId();
+        crlEntryId1.setCrlUuid(crlWithDelta2Uuid);
+        crlEntryId1.setSerialNumber(BigInteger.valueOf(1234).toString(16));
+        Assertions.assertEquals(CertificateRevocationReason.KEY_COMPROMISE, crlEntryRepository.findById(crlEntryId1).get().getRevocationReason());
+
     }
+
 
     private void stubCrlPoint(String urlPart, byte[] body) {
         mockServer.stubFor(WireMock
@@ -272,14 +326,14 @@ public class CertificateValidationTest extends BaseSpringBootTest {
                         .withBody(body)));
     }
 
-    private X509Certificate createSelfSignedCertificateWithCrl(String commonName, List<String> crlUrls, List<String> deltaCrlUrls) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateException {
+    private X509Certificate createSelfSignedCertificateWithCrl(String commonName, List<String> crlUrls, List<String> deltaCrlUrls, BigInteger serialNumber) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateException {
         KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
         keyPairGen.initialize(2048);
         KeyPair pair = keyPairGen.generateKeyPair();
         SubjectPublicKeyInfo subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(pair.getPublic().getEncoded());
 
         X500Name x500Name = new X500Name("CN=" + commonName);
-        X509v3CertificateBuilder certificateBuilder = new X509v3CertificateBuilder(x500Name, BigInteger.ONE, new Date(0), new Date(Long.MAX_VALUE), x500Name, subjectPublicKeyInfo);
+        X509v3CertificateBuilder certificateBuilder = new X509v3CertificateBuilder(x500Name, serialNumber, new Date(0), new Date(Long.MAX_VALUE), x500Name, subjectPublicKeyInfo);
         CRLDistPoint crlDistPoint = new CRLDistPoint(createCrlDistributionPoints(crlUrls));
         certificateBuilder.addExtension(Extension.cRLDistributionPoints, false, crlDistPoint);
         if (deltaCrlUrls != null) {
@@ -327,7 +381,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         crlGen.setNextUpdate(calculateDate(24 * 7));
         crlGen.addExtension(Extension.cRLNumber,
                 false,
-                new CRLNumber(BigInteger.ONE));
+                new CRLNumber(BigInteger.TWO));
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSAEncryption")
                 .setProvider("BC").build(caKey);
@@ -336,8 +390,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         return converter.getCRL(crlGen.build(signer));
     }
 
-    private X509CRL createEmptyDeltaCRL(X509Certificate caCert, PrivateKey caKey, BigInteger deltaCrlIndicator, BigInteger deltaCrlNumber) throws CRLException, OperatorCreationException, CertIOException {
-        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded()), calculateDate(0));
+    private X509CRL createEmptyDeltaCRL(X500Principal issuerDnPrincipal, PrivateKey caKey, BigInteger deltaCrlIndicator, BigInteger deltaCrlNumber) throws CRLException, OperatorCreationException, CertIOException {
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(X500Name.getInstance(issuerDnPrincipal.getEncoded()), calculateDate(0));
         crlGen.setNextUpdate(calculateDate(24 * 7));
         crlGen.addExtension(Extension.cRLNumber, false, new CRLNumber(deltaCrlNumber));
         crlGen.addExtension(Extension.deltaCRLIndicator, false, new CRLNumber(deltaCrlIndicator));
@@ -349,15 +403,18 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         return converter.getCRL(crlGen.build(signer));
     }
 
-    public X509CRL addRevocationToCRL(PrivateKey caKey, String sigAlg, X509CRL crl, X509Certificate certToRevoke) throws IOException, GeneralSecurityException, OperatorCreationException {
+    public X509CRL addRevocationToCRL(PrivateKey caKey, String sigAlg, X509CRL crl, Map<BigInteger, Integer> serialNumberAndRevocationReasonMap) throws IOException, GeneralSecurityException, OperatorCreationException {
         JcaX509v2CRLBuilder crlGen = new JcaX509v2CRLBuilder(crl);
         crlGen.setNextUpdate(calculateDate(24 * 7));
 
-        // add revocation
-        ExtensionsGenerator extGen = new ExtensionsGenerator();
-        extGen.addExtension(Extension.reasonCode, false, org.bouncycastle.asn1.x509.CRLReason.lookup(2));
-        crlGen.addCRLEntry(certToRevoke.getSerialNumber(),
-                new Date(), extGen.generate());
+        // add revocations
+        for (BigInteger serialNumber : serialNumberAndRevocationReasonMap.keySet()) {
+            ExtensionsGenerator extGen = new ExtensionsGenerator();
+            extGen.addExtension(Extension.reasonCode, false, org.bouncycastle.asn1.x509.CRLReason.lookup(serialNumberAndRevocationReasonMap.get(serialNumber)));
+            crlGen.addCRLEntry(serialNumber,
+                    new Date(), extGen.generate());
+        }
+
         ContentSigner signer = new JcaContentSignerBuilder(sigAlg)
                 .setProvider("BC").build(caKey);
         JcaX509CRLConverter converter = new JcaX509CRLConverter().setProvider("BC");

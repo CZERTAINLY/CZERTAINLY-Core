@@ -10,7 +10,7 @@ import java.util.UUID;
 
 public interface CrlService {
 
-    Crl getCurrentCrl(X509Certificate certificate, X509Certificate issuerCertificate) throws IOException;
+    UUID getCurrentCrl(X509Certificate certificate, X509Certificate issuerCertificate) throws IOException;
 
     CrlEntry findCrlEntryForCertificate(String serialNumber, UUID crlUuid);
 
