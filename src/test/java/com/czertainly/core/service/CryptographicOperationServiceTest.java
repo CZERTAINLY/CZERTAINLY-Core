@@ -275,7 +275,6 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
 
         CipherDataRequestDto requestDto = new CipherDataRequestDto();
-        requestDto.setCipherData(List.of(data));
         requestDto.setCipherAttributes(List.of());
 
         mockServer.stubFor(WireMock
@@ -294,7 +293,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 requestDto
         ));
 
-        data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
+        requestDto.setCipherData(List.of(data));
 
         Assertions.assertDoesNotThrow(() -> cryptographicOperationService.encryptData(
                 tokenInstanceReference.getSecuredParentUuid(),
