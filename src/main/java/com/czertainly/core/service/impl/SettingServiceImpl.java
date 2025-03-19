@@ -5,10 +5,7 @@ import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.api.model.core.settings.*;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.*;
 import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
@@ -23,6 +20,8 @@ import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.nimbusds.jose.JOSEException;
+import com.nimbusds.jose.jwk.JWK;
 import com.nimbusds.jose.jwk.JWKSet;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -366,6 +365,7 @@ public class SettingServiceImpl implements SettingService {
             } catch (JsonProcessingException e) {
                 throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
+            settingsDto.setJwkSetKeys(convertJwkToListOfKeyDtos(checkJwkSetValidity(settingsDto)));
         }
         return settingsDto;
     }
@@ -455,7 +455,7 @@ public class SettingServiceImpl implements SettingService {
         }
     }
 
-    private void checkJwkSetValidity(OAuth2ProviderSettingsUpdateDto settingsDto) {
+    private JWKSet checkJwkSetValidity(OAuth2ProviderSettingsUpdateDto settingsDto) {
         String jwkSet;
         if (settingsDto.getJwkSetUrl() != null) {
             try {
@@ -475,10 +475,38 @@ public class SettingServiceImpl implements SettingService {
             jwkSet = new String(Base64.getDecoder().decode(settingsDto.getJwkSet()));
         }
         try {
-            JWKSet.parse(jwkSet);
+            return JWKSet.parse(jwkSet);
         } catch (ParseException e) {
             throw new ValidationException("JWK Set is invalid: " + e.getMessage());
         }
 
     }
+
+    private List<JwkDto> convertJwkToListOfKeyDtos(JWKSet jwkSet) {
+        List<JwkDto> jwkSetKeys = new ArrayList<>();
+        for (JWK jwk: jwkSet.getKeys()) {
+            JwkDto jwkDto = new JwkDto();
+            jwkDto.setKid(jwk.getKeyID());
+            jwkDto.setAlgorithm(jwk.getAlgorithm() != null ? jwk.getAlgorithm().getName() : null);
+            jwkDto.setUse(jwkDto.getUse());
+            jwkDto.setKeyType(jwk.getKeyType().getValue());
+            byte[] publicKeyBytes;
+            try {
+                switch (jwk.getKeyType().getValue()) {
+                    case "EC" -> publicKeyBytes = jwk.toECKey().toPublicKey().getEncoded();
+                    case "RSA" -> publicKeyBytes = jwk.toRSAKey().toPublicKey().getEncoded();
+                    case "oct" -> publicKeyBytes = jwk.toOctetSequenceKey().toByteArray();
+                    case "OKP" -> publicKeyBytes = jwk.toOctetKeyPair().getDecodedX();
+                    default -> publicKeyBytes = new byte[0];
+                }
+            } catch (JOSEException e) {
+                throw new ValidationException("Could not convert %s key with KID %s to Public key".formatted(jwk.getKeyType().getValue(), jwk.getKeyID()));
+            }
+
+            jwkDto.setPublicKey(Base64.getEncoder().encodeToString(publicKeyBytes));
+            jwkSetKeys.add(jwkDto);
+        }
+        return jwkSetKeys;
+    }
+
 }
