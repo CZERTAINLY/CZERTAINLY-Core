@@ -199,12 +199,12 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         X509Certificate x509CaCertificate = CertificateUtil.getX509Certificate(caCertificate.getCertificateContent().getContent());
 
         List<String> crlUrls = List.of(mockServer.baseUrl() + "/crl1.crl", mockServer.baseUrl() + "/crl2.crl");
-        X509Certificate certificateWithCrl = createSelfSignedCertificateWithCrl("testCrl", crlUrls, null);
+        X509Certificate certificateWithCrl = createSelfSignedCertificateWithCrl("testCrl", crlUrls, null, BigInteger.ONE);
         Certificate certificateWithCrlEntity = certificateService.createCertificateEntity(certificateWithCrl);
         certificateWithCrlEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlEntity);
 
-        X509Certificate certificateWithDelta = createSelfSignedCertificateWithCrl("testCrlWithDelta", crlUrls, List.of(mockServer.baseUrl() + "/deltaCrl"));
+        X509Certificate certificateWithDelta = createSelfSignedCertificateWithCrl("testCrlWithDelta", crlUrls, List.of(mockServer.baseUrl() + "/deltaCrl"), BigInteger.TWO);
         Certificate certificateWithCrlDeltaEntity = certificateService.createCertificateEntity(certificateWithDelta);
         certificateWithCrlDeltaEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlDeltaEntity);
@@ -270,17 +270,22 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
         Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta));
 
+
+
         // Test deltaCrl with revoked cert and with one certificate to remove from CRL entries
         crlRepository.deleteAll();
         X509CRL deltaCrl3 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
         crlEntries.put(BigInteger.valueOf(123), CRLReason.removeFromCRL);
         crlEntries.put(BigInteger.valueOf(1234), CRLReason.keyCompromise);
+        crlEntries.put(BigInteger.TWO, CRLReason.cACompromise);
         X509CRL deltaCrlWithRevoked = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", deltaCrl3, crlEntries);
 
         crlEntries.remove(x509CaCertificate.getSerialNumber());
+        crlEntries.remove(BigInteger.TWO);
         crlEntries.put(BigInteger.valueOf(123), CRLReason.keyCompromise);
         crlEntries.put(BigInteger.valueOf(1234), CRLReason.cACompromise);
         X509CRL crlWithCertificateToRemove = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, crlEntries);
+
         stubCrlPoint("/crl1.crl", crlWithCertificateToRemove.getEncoded());
         stubCrlPoint("/deltaCrl", deltaCrlWithRevoked.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
@@ -308,14 +313,14 @@ public class CertificateValidationTest extends BaseSpringBootTest {
                         .withBody(body)));
     }
 
-    private X509Certificate createSelfSignedCertificateWithCrl(String commonName, List<String> crlUrls, List<String> deltaCrlUrls) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateException {
+    private X509Certificate createSelfSignedCertificateWithCrl(String commonName, List<String> crlUrls, List<String> deltaCrlUrls, BigInteger serialNumber) throws CertIOException, NoSuchAlgorithmException, OperatorCreationException, CertificateException {
         KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
         keyPairGen.initialize(2048);
         KeyPair pair = keyPairGen.generateKeyPair();
         SubjectPublicKeyInfo subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(pair.getPublic().getEncoded());
 
         X500Name x500Name = new X500Name("CN=" + commonName);
-        X509v3CertificateBuilder certificateBuilder = new X509v3CertificateBuilder(x500Name, BigInteger.ONE, new Date(0), new Date(Long.MAX_VALUE), x500Name, subjectPublicKeyInfo);
+        X509v3CertificateBuilder certificateBuilder = new X509v3CertificateBuilder(x500Name, serialNumber, new Date(0), new Date(Long.MAX_VALUE), x500Name, subjectPublicKeyInfo);
         CRLDistPoint crlDistPoint = new CRLDistPoint(createCrlDistributionPoints(crlUrls));
         certificateBuilder.addExtension(Extension.cRLDistributionPoints, false, crlDistPoint);
         if (deltaCrlUrls != null) {
