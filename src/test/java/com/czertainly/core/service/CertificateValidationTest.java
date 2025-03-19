@@ -46,6 +46,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
+import javax.security.auth.x500.X500Principal;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -255,17 +256,25 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         // Test properly set deltaCrl
         Crl crlWithRevoked = crlRepository.findByUuid(SecuredUUID.fromUUID(crlWithRevokedUuid)).get();
-        X509CRL deltaCrl = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.ONE);
+        X509CRL deltaCrl = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.ONE);
         stubCrlPoint("/deltaCrl", deltaCrl.getEncoded());
         UUID crlWithDeltaUuid = crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta);
         Crl crlWithDelta = crlRepository.findByUuid(SecuredUUID.fromUUID(crlWithDeltaUuid)).get();
         Assertions.assertNotNull(crlWithDelta.getCrlNumberDelta());
         Assertions.assertNotNull(crlWithDelta.getNextUpdateDelta());
 
-        // Test improperly set deltaCrl
+        // Test improperly set deltaCrl because of CRL numbers
         crlRepository.delete(crlWithDelta);
-        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(3), BigInteger.TWO);
+        X509CRL deltaCrl2 = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(3), BigInteger.TWO);
         stubCrlPoint("/deltaCrl", deltaCrl2.getEncoded());
+        validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
+        Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta));
+
+        // Test improperly set deltaCrl
+        crlRepository.deleteAll();
+        X509CRL deltaCrlIssuerNotMatching = createEmptyDeltaCRL(certificateWithDelta.getIssuerX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
+        stubCrlPoint("/deltaCrl", deltaCrlIssuerNotMatching.getEncoded());
         validationResult = certificateService.getCertificateValidationResult(certificateWithCrlDeltaEntity.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
         Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta));
@@ -274,7 +283,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         // Test deltaCrl with revoked cert and with one certificate to remove from CRL entries
         crlRepository.deleteAll();
-        X509CRL deltaCrl3 = createEmptyDeltaCRL(x509CaCertificate, pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
+        X509CRL deltaCrl3 = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
         crlEntries.put(BigInteger.valueOf(123), CRLReason.removeFromCRL);
         crlEntries.put(BigInteger.valueOf(1234), CRLReason.keyCompromise);
         crlEntries.put(BigInteger.TWO, CRLReason.cACompromise);
@@ -377,8 +386,8 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         return converter.getCRL(crlGen.build(signer));
     }
 
-    private X509CRL createEmptyDeltaCRL(X509Certificate caCert, PrivateKey caKey, BigInteger deltaCrlIndicator, BigInteger deltaCrlNumber) throws CRLException, OperatorCreationException, CertIOException {
-        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(X500Name.getInstance(caCert.getSubjectX500Principal().getEncoded()), calculateDate(0));
+    private X509CRL createEmptyDeltaCRL(X500Principal issuerDnPrincipal, PrivateKey caKey, BigInteger deltaCrlIndicator, BigInteger deltaCrlNumber) throws CRLException, OperatorCreationException, CertIOException {
+        X509v2CRLBuilder crlGen = new X509v2CRLBuilder(X500Name.getInstance(issuerDnPrincipal.getEncoded()), calculateDate(0));
         crlGen.setNextUpdate(calculateDate(24 * 7));
         crlGen.addExtension(Extension.cRLNumber, false, new CRLNumber(deltaCrlNumber));
         crlGen.addExtension(Extension.deltaCRLIndicator, false, new CRLNumber(deltaCrlIndicator));
