@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.dao.repository.workflows.*;
@@ -105,29 +106,7 @@ public class TriggerServiceImpl implements TriggerService {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
         }
-
-        if (request.getResource() == null) {
-            throw new ValidationException("Property resource cannot be empty.");
-        }
-
-        if (request.getType() == null) {
-            throw new ValidationException("Property trigger type cannot be empty.");
-        }
-
-        if (request.getType() == TriggerType.EVENT && (request.getEventResource() == null || request.getEvent() == null)) {
-            throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
-        }
-
-
-        if (!request.isIgnoreTrigger()) {
-            if (request.getActionsUuids().isEmpty()) {
-                throw new ValidationException("Trigger that is not ignore trigger must contain at least one action.");
-            }
-        } else {
-            if (!request.getActionsUuids().isEmpty()) {
-                throw new ValidationException("Trigger that is ignore trigger cannot have actions.");
-            }
-        }
+        validateTriggerRequest(request.getType(), request.getEvent(), request.isIgnoreTrigger(), request.getResource(), request.getEventResource(), request.getActionsUuids());
 
         if (triggerRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("Trigger with same name already exists.");
@@ -152,27 +131,7 @@ public class TriggerServiceImpl implements TriggerService {
     @Override
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.UPDATE)
     public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
-        if (request.getResource() == null) {
-            throw new ValidationException("Property resource cannot be empty.");
-        }
-
-        if (request.getType() == null) {
-            throw new ValidationException("Property trigger type cannot be empty.");
-        }
-
-        if (request.getType() == TriggerType.EVENT && (request.getEventResource() == null || request.getEvent() == null)) {
-            throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
-        }
-
-        if (!request.isIgnoreTrigger()) {
-            if (request.getActionsUuids().isEmpty()) {
-                throw new ValidationException("Trigger that is not ignore trigger must contain at least one action.");
-            }
-        } else {
-            if (!request.getActionsUuids().isEmpty()) {
-                throw new ValidationException("Trigger that is ignore trigger cannot have actions.");
-            }
-        }
+        validateTriggerRequest(request.getType(), request.getEvent(), request.isIgnoreTrigger(), request.getResource(), request.getEventResource(), request.getActionsUuids());
 
         Trigger trigger = triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
 
@@ -334,4 +293,28 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     //endregion
+
+    private void validateTriggerRequest(TriggerType type, ResourceEvent event, boolean ignoreTrigger, Resource resource, Resource eventResource, List<String> actionsUuids) {
+        if (resource == null) {
+            throw new ValidationException("Property resource cannot be empty.");
+        }
+
+        if (type == null) {
+            throw new ValidationException("Property trigger type cannot be empty.");
+        }
+
+        if (type == TriggerType.EVENT && (eventResource == null || event == null)) {
+            throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
+        }
+
+        if (!ignoreTrigger) {
+            if (actionsUuids.isEmpty()) {
+                throw new ValidationException("Trigger that is not ignore trigger must contain at least one action.");
+            }
+        } else {
+            if (!actionsUuids.isEmpty()) {
+                throw new ValidationException("Trigger that is ignore trigger cannot have actions.");
+            }
+        }
+    }
 }

@@ -80,6 +80,10 @@ class TriggerServiceTest extends BaseSpringBootTest {
         ActionDetailDto action = actionService.createAction(actionRequest);
 
         triggerRequest.setActionsUuids(List.of(action.getUuid()));
+        triggerRequest.setIgnoreTrigger(true);
+        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating ignore trigger with actions should fail");
+
+        triggerRequest.setIgnoreTrigger(false);
         TriggerDetailDto triggerDetailDto = triggerService.createTrigger(triggerRequest);
 
         UpdateTriggerRequestDto update = new UpdateTriggerRequestDto();
