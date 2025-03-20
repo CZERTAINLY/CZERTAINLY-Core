@@ -55,12 +55,10 @@ class ComplianceServiceTest extends BaseSpringBootTest {
 
 
     private RaProfile raProfile;
-    private ComplianceProfile complianceProfile;
 
     private Certificate certificate;
     private Connector connector;
     private ComplianceRule complianceRule;
-    private ComplianceRule complianceRule2;
     private ComplianceGroup complianceGroup;
 
     private WireMockServer mockServer;
@@ -98,7 +96,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
 
-        complianceProfile = new ComplianceProfile();
+        ComplianceProfile complianceProfile = new ComplianceProfile();
         complianceProfile.setName("TestProfile");
         complianceProfile.setDescription("Sample Description");
         complianceProfileRepository.save(complianceProfile);
@@ -139,7 +137,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
         complianceRule.setGroup(complianceGroup);
         complianceRuleRepository.save(complianceRule);
 
-        complianceRule2 = new ComplianceRule();
+        ComplianceRule complianceRule2 = new ComplianceRule();
         complianceRule2.setConnectorUuid(connector.getUuid());
         complianceRule2.setKind(COMPLIANCE_KIND);
         complianceRule2.setName("Rule2");
