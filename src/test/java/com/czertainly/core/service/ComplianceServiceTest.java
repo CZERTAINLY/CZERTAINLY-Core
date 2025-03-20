@@ -1,6 +1,9 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -24,6 +27,7 @@ import java.util.UUID;
 class ComplianceServiceTest extends BaseSpringBootTest {
 
     private static final String RA_PROFILE_NAME = "testRaProfile1";
+    private static final String COMPLIANCE_KIND = "default";
 
     @Autowired
     private com.czertainly.core.service.RaProfileService raProfileService;
@@ -63,7 +67,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
     private WireMockServer mockServer1;
 
     @BeforeEach
-    public void setUp() throws NotFoundException {
+    public void setUp() throws NotFoundException, AlreadyExistException {
         mockServer1 = new WireMockServer(3666);
         mockServer1.start();
 
@@ -103,6 +107,9 @@ class ComplianceServiceTest extends BaseSpringBootTest {
         associationRequestDto.setRaProfileUuids(List.of(raProfile.getUuid().toString()));
         complianceProfileService.associateProfile(complianceProfile.getSecuredUuid(), associationRequestDto);
 
+        certificate.setRaProfile(raProfile);
+        certificateRepository.save(certificate);
+
         mockServer = new WireMockServer(0);
         mockServer.start();
 
@@ -116,7 +123,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
 
         complianceGroup = new ComplianceGroup();
         complianceGroup.setName("testGroup");
-        complianceGroup.setKind("default");
+        complianceGroup.setKind(COMPLIANCE_KIND);
         complianceGroup.setDescription("Sample description");
         complianceGroup.setUuid(UUID.fromString("e8965d90-f1fd-11ec-b939-0242ac120003"));
         complianceGroup.setConnectorUuid(connector.getUuid());
@@ -124,7 +131,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
 
         complianceRule = new ComplianceRule();
         complianceRule.setConnectorUuid(connector.getUuid());
-        complianceRule.setKind("default");
+        complianceRule.setKind(COMPLIANCE_KIND);
         complianceRule.setName("Rule1");
         complianceRule.setDescription("Description");
         complianceRule.setUuid(UUID.fromString("e8965d90-f1fd-11ec-b939-0242ac120002"));
@@ -134,12 +141,24 @@ class ComplianceServiceTest extends BaseSpringBootTest {
 
         complianceRule2 = new ComplianceRule();
         complianceRule2.setConnectorUuid(connector.getUuid());
-        complianceRule2.setKind("default");
+        complianceRule2.setKind(COMPLIANCE_KIND);
         complianceRule2.setName("Rule2");
         complianceRule2.setDescription("Description2");
         complianceRule2.setUuid(UUID.fromString("e8965d90-f1fd-11ec-b939-0242ac120004"));
         complianceRule2.setCertificateType(CertificateType.X509);
         complianceRuleRepository.save(complianceRule2);
+
+        ComplianceGroupRequestDto complianceGroupRequestDto = new ComplianceGroupRequestDto();
+        complianceGroupRequestDto.setConnectorUuid(connector.getUuid().toString());
+        complianceGroupRequestDto.setKind(complianceGroup.getKind());
+        complianceGroupRequestDto.setGroupUuid(complianceGroup.getUuid().toString());
+        complianceProfileService.addGroup(complianceProfile.getSecuredUuid(), complianceGroupRequestDto);
+
+        ComplianceRuleAdditionRequestDto additionRequestDto = new ComplianceRuleAdditionRequestDto();
+        additionRequestDto.setConnectorUuid(connector.getUuid().toString());
+        additionRequestDto.setKind(complianceRule2.getKind());
+        additionRequestDto.setRuleUuid(complianceRule2.getUuid().toString());
+        complianceProfileService.addRule(complianceProfile.getSecuredUuid(), additionRequestDto);
     }
 
     @AfterEach
@@ -151,16 +170,16 @@ class ComplianceServiceTest extends BaseSpringBootTest {
     @Test
     void testComplianceCheck() {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
-                .willReturn(WireMock.okJson("{'status':'ok','rules':['uuid':'121212121212', 'name':'tests', 'status':'ok']}")));
+                .post(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
+                .willReturn(WireMock.okJson("{\"status\":\"ok\",\"rules\":[\"uuid\":\"e8965d90-f1fd-11ec-b939-0242ac120002\", \"name\":\"tests\", \"status\":\"ok\"]}")));
         Assertions.assertDoesNotThrow(() -> complianceService.checkComplianceOfCertificate(certificate));
     }
 
     @Test
     void testComplianceCheck_RaProfile() {
         mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
-                .willReturn(WireMock.okJson("{'status':'ok','rules':['uuid':'121212121212', 'name':'tests', 'status':'ok']}")));
+                .post(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
+                .willReturn(WireMock.okJson("{\"status\":\"ok\",\"rules\":[]}")));
         Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid().toString())));
     }
 
