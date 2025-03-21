@@ -21,7 +21,7 @@ public interface SettingService {
      * Update platform settings
      * @param platformSettings Platform settings DTO
      */
-    void updatePlatformSettings(PlatformSettingsDto platformSettings);
+    void updatePlatformSettings(PlatformSettingsUpdateDto platformSettings);
 
     NotificationSettingsDto getNotificationSettings();
 
