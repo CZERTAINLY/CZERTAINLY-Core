@@ -508,4 +508,23 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
         );
     }
+
+    @Test
+    void testRandomData() {
+        String response = """
+                {
+                    "data": "cmFuZG9tRGF0YQ=="
+                }
+                """;
+
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/random"))
+                .willReturn(WireMock.okJson(response)));
+
+        RandomDataRequestDto requestDto = new RandomDataRequestDto();
+        requestDto.setLength(32);
+        requestDto.setAttributes(List.of());
+
+        Assertions.assertDoesNotThrow(() -> cryptographicOperationService.randomData(tokenInstanceReference.getSecuredParentUuid(), requestDto));
+    }
 }
