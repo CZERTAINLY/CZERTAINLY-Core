@@ -33,7 +33,7 @@ import java.util.Optional;
 @SpringBootTest
 @Transactional
 @Rollback
-public class TokenProfileServiceTest extends BaseSpringBootTest {
+class TokenProfileServiceTest extends BaseSpringBootTest {
 
     private static final String TOKEN_PROFILE_NAME = "testTokenProfile1";
 
@@ -82,7 +82,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListTokenProfiles() {
+    void testListTokenProfiles() {
         List<TokenProfileDto> tokenProfiles = tokenProfileService.listTokenProfiles(
                 Optional.of(true),
                 SecurityFilter.create()
@@ -94,7 +94,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenProfileByUuid() throws NotFoundException {
+    void testGetTokenProfileByUuid() throws NotFoundException {
         TokenProfileDetailDto dto = tokenProfileService.getTokenProfile(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid()
@@ -104,7 +104,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenProfileByUuid_notFound() {
+    void testGetTokenProfileByUuid_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenProfileService.getTokenProfile(
@@ -115,7 +115,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenProfile() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddTokenProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -138,7 +138,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenProfile_validationFail() {
+    void testAddTokenProfile_validationFail() {
         AddTokenProfileRequestDto request = new AddTokenProfileRequestDto();
         Assertions.assertThrows(
                 ValidationException.class,
@@ -150,7 +150,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenProfile_alreadyExist() {
+    void testAddTokenProfile_alreadyExist() {
         AddTokenProfileRequestDto request = new AddTokenProfileRequestDto();
         request.setName(TOKEN_PROFILE_NAME); // tokenProfile with same username exist
 
@@ -164,7 +164,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditTokenProfile() throws ConnectorException, AttributeException {
+    void testEditTokenProfile() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -186,7 +186,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditTokenProfile_notFound() {
+    void testEditTokenProfile_notFound() {
         EditTokenProfileRequestDto request = new EditTokenProfileRequestDto();
         Assertions.assertThrows(
                 NotFoundException.class,
@@ -198,7 +198,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRemoveTokenProfile() throws NotFoundException {
+    void testRemoveTokenProfile() throws NotFoundException {
         tokenProfileService.deleteTokenProfile(tokenProfile.getSecuredUuid());
         Assertions.assertThrows(
                 NotFoundException.class,
@@ -210,7 +210,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRemoveTokenProfile_notFound() {
+    void testRemoveTokenProfile_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenProfileService.deleteTokenProfile(
@@ -220,7 +220,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEnableTokenProfile() throws NotFoundException {
+    void testEnableTokenProfile() throws NotFoundException {
         tokenProfileService.enableTokenProfile(
                 tokenProfile.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid()
@@ -232,7 +232,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEnableTokenProfile_notFound() {
+    void testEnableTokenProfile_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenProfileService.enableTokenProfile(
@@ -243,7 +243,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDisableTokenProfile() throws NotFoundException {
+    void testDisableTokenProfile() throws NotFoundException {
         tokenProfileService.disableTokenProfile(
                 tokenProfile.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid()
@@ -255,7 +255,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDisableTokenProfile_notFound() {
+    void testDisableTokenProfile_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenProfileService.disableTokenProfile(
@@ -267,7 +267,7 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
 
 
     @Test
-    public void testBulkRemove() {
+    void testBulkRemove() {
         tokenProfileService.deleteTokenProfile(List.of(tokenProfile.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class,
                 () -> tokenProfileService.getTokenProfile(
@@ -278,19 +278,19 @@ public class TokenProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testBulkEnable() {
+    void testBulkEnable() {
         tokenProfileService.enableTokenProfile(List.of(tokenProfile.getSecuredUuid()));
         Assertions.assertTrue(tokenProfile.getEnabled());
     }
 
     @Test
-    public void testBulkDisable() {
+    void testBulkDisable() {
         tokenProfileService.disableTokenProfile(List.of(tokenProfile.getSecuredUuid()));
         Assertions.assertFalse(tokenProfile.getEnabled());
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> response = tokenProfileService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, response.size());
     }

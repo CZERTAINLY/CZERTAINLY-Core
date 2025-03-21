@@ -29,7 +29,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException;
+    TokenInstanceDetailDto getTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * Get the token instance entity
@@ -50,7 +50,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws ValidationException   When the validation of attributes or other information fails
      * @throws ConnectorException    when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+    TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Update the token instance
@@ -62,7 +62,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws ValidationException When the validation of attributes or other information fails
      * @throws ConnectorException  when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException;
+    TokenInstanceDetailDto updateTokenInstance(SecuredUUID uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException;
 
     /**
      * Delete a token instance
@@ -81,7 +81,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    void activateTokenInstance(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException;
+    void activateTokenInstance(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException;
 
     /**
      * Deactivate a token instance
@@ -90,7 +90,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException;
+    void deactivateTokenInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * Delete the token instance
@@ -107,7 +107,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException;
+    TokenInstanceDetailDto reloadStatus(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * @param uuid UUID of the concerned token instance
@@ -115,7 +115,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException;
+    List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * Validate the token Profile attributes
@@ -124,7 +124,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @param attributes attributes to be validated
      * @throws ConnectorException when there are issues with the communication
      */
-    void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException;
+    void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException;
 
     /**
      * @param uuid UUID of the concerned token instance
@@ -132,5 +132,5 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException;
+    List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 }

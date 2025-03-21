@@ -140,7 +140,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -180,7 +180,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testEditRaProfile() throws ConnectorException, AttributeException {
+    void testEditRaProfile() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -313,7 +313,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
                 .willReturn(WireMock.okJson("""
@@ -363,7 +363,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testListIssueCertificateAttributes() throws ConnectorException {
+    void testListIssueCertificateAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("""

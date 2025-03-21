@@ -53,7 +53,7 @@ public interface TokenProfileService extends ResourceExtensionService {
      * @throws ValidationException   when there are issues with the attribute validation
      * @throws ConnectorException    when there are issues related with connector communication
      */
-    TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+    TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Update the token profile
@@ -64,7 +64,7 @@ public interface TokenProfileService extends ResourceExtensionService {
      * @return Details of the updated token profile
      * @throws ConnectorException when there are issues with the connector communication
      */
-    TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException;
+    TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Delete a token profile

@@ -124,7 +124,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddCredential() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddCredential() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -160,7 +160,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditCredential() throws ConnectorException, AttributeException {
+    void testEditCredential() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));

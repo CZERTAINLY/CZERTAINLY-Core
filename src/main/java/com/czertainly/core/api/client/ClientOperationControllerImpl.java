@@ -28,8 +28,12 @@ import java.util.List;
 @RestController
 public class ClientOperationControllerImpl implements ClientOperationController {
 
-    @Autowired
     private ClientOperationService clientOperationService;
+
+    @Autowired
+    public void setClientOperationService(ClientOperationService clientOperationService) {
+        this.clientOperationService = clientOperationService;
+    }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ISSUE)

@@ -21,23 +21,23 @@ public interface ClientOperationService {
     List<BaseAttribute> listIssueCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     boolean validateIssueCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             List<RequestAttributeDto> attributes
-    ) throws ConnectorException, ValidationException;
+    ) throws ConnectorException, ValidationException, NotFoundException;
 
     CertificateDetailDto submitCertificateRequest(
             ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo
-    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException;
+    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException;
 
     ClientCertificateDataResponseDto issueRequestedCertificate(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             String certificateUuid
-    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException;
+    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException;
 
     ClientCertificateDataResponseDto issueCertificate(
             SecuredParentUUID authorityUuid,
@@ -51,7 +51,7 @@ public interface ClientOperationService {
     void issueCertificateAction(
             final UUID certificateUuid,
             boolean isApproved
-    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException;
+    ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException, NotFoundException;
 
     void issueCertificateRejectedAction(final UUID certificateUuid) throws NotFoundException;
 
@@ -86,7 +86,7 @@ public interface ClientOperationService {
             SecuredUUID raProfileUuid,
             String certificateUuid,
             ClientCertificateRevocationDto request
-    ) throws ConnectorException, AttributeException;
+    ) throws ConnectorException, AttributeException, NotFoundException;
 
     void revokeCertificateAction(
             final UUID certificateUuid,
@@ -96,11 +96,11 @@ public interface ClientOperationService {
 
     List<BaseAttribute> listRevokeCertificateAttributes(
             SecuredParentUUID authorityUuid,
-            SecuredUUID raProfileUuid) throws ConnectorException;
+            SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException;
 
     boolean validateRevokeCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
             List<RequestAttributeDto> attributes
-    ) throws ConnectorException, ValidationException;
+    ) throws ConnectorException, ValidationException, NotFoundException;
 }

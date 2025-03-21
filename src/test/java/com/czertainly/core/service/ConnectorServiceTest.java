@@ -151,7 +151,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetAllAttributesOfConnector() throws ConnectorException {
+    void testGetAllAttributesOfConnector() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -168,7 +168,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetConnector() throws ConnectorException {
+    void testGetConnector() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
@@ -185,7 +185,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
@@ -213,7 +213,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditConnector() throws ConnectorException, AttributeException {
+    void testEditConnector() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get("/v1")
                 .willReturn(WireMock.okJson("[]")));
@@ -248,7 +248,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testApproveConnector() throws ConnectorException {
+    void testApproveConnector() throws ConnectorException, NotFoundException {
         Connector waitingConnector = new Connector();
         waitingConnector.setStatus(ConnectorStatus.WAITING_FOR_APPROVAL);
         waitingConnector = connectorRepository.save(waitingConnector);
@@ -276,7 +276,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCheckHealth() throws ConnectorException {
+    void testCheckHealth() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get("/v1/health")
                 .willReturn(WireMock.okJson("{ \"status\": \"ok\" }")));
@@ -296,7 +296,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetAttributes() throws ConnectorException {
+    void testGetAttributes() throws ConnectorException, NotFoundException {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
@@ -332,7 +332,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testValidateAttributes() throws ConnectorException {
+    void testValidateAttributes() throws ConnectorException, NotFoundException {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 
@@ -357,7 +357,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testValidateAttributes_validationFailOnConnector() throws ConnectorException {
+    void testValidateAttributes_validationFailOnConnector() throws ConnectorException, NotFoundException {
         FunctionGroupCode code = FunctionGroupCode.CREDENTIAL_PROVIDER;
         String kind = "ApiKey";
 

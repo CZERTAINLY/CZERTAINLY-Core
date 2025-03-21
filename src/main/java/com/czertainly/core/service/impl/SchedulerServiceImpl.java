@@ -147,7 +147,7 @@ public class SchedulerServiceImpl implements SchedulerService {
                 schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
                 scheduledJobsRepository.deleteById(UUID.fromString(uuid));
             } catch (SchedulerException e) {
-                logger.error("Unable to delete job {}", scheduledJob.getJobName(), e.getMessage());
+                logger.error("Unable to delete job {}: {}", scheduledJob.getJobName(), e.getMessage());
             }
         }
     }

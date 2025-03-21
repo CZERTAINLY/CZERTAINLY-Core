@@ -16,18 +16,18 @@ import java.util.UUID;
 
 public interface ExtendedAttributeService {
     List<BaseAttribute> listIssueCertificateAttributes(
-            RaProfile raProfile) throws ConnectorException;
+            RaProfile raProfile) throws ConnectorException, NotFoundException;
 
     boolean validateIssueCertificateAttributes(
             RaProfile raProfile,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException;
 
     List<BaseAttribute> listRevokeCertificateAttributes(
-            RaProfile raProfile) throws ConnectorException;
+            RaProfile raProfile) throws ConnectorException, NotFoundException;
 
     boolean validateRevokeCertificateAttributes(
             RaProfile raProfile,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException;
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException;
 
     void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException;
 

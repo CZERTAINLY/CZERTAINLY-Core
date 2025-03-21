@@ -10,7 +10,6 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.scep.FailInfo;
 import com.czertainly.api.model.core.scep.MessageType;
@@ -78,6 +77,10 @@ import java.util.*;
 public class ScepServiceImpl implements ScepService {
 
     public static final String SCEP_URL_PREFIX = "/v1/protocols/scep";
+    public static final String SCEP_OPERATION_GET_CA_CERT = "GetCACert";
+    public static final String SCEP_OPERATION_GET_CA_CAPS = "GetCACaps";
+    public static final String SCEP_OPERATION_PKI_OPERATION = "PKIOperation";
+
     private static final Logger logger = LoggerFactory.getLogger(ScepServiceImpl.class);
     private static final List<String> SCEP_CA_CAPABILITIES = List.of(
             "POSTPKIOperation",
@@ -169,7 +172,9 @@ public class ScepServiceImpl implements ScepService {
 
     @Override
     public ResponseEntity<Object> handlePost(String profileName, String operation, byte[] message) throws ScepException {
-        logger.debug("SCEP POST request received for profile: {}, operation: {}, message: {}", profileName, operation, Base64.getEncoder().encodeToString(message));
+        if (logger.isDebugEnabled()) {
+            logger.debug("SCEP POST request received for profile: {}, operation: {}, message: {}", profileName, operation, Base64.getEncoder().encodeToString(message));
+        }
         return service(profileName, operation, message);
     }
 
@@ -178,15 +183,15 @@ public class ScepServiceImpl implements ScepService {
         validateProfile();
         logger.info("SCEP request received for profile: {}, operation: {}", profileName, operation);
         return switch (operation) {
-            case "GetCACert" -> {
+            case SCEP_OPERATION_GET_CA_CERT -> {
                 LoggingHelper.putAuditLogOperation(Operation.LIST_PROTOCOL_CERTIFICATES);
                 yield getCaCerts();
             }
-            case "GetCACaps" -> {
+            case SCEP_OPERATION_GET_CA_CAPS -> {
                 LoggingHelper.putAuditLogOperation(Operation.SCEP_CA_CAPABILITIES);
                 yield getCaCaps();
             }
-            case "PKIOperation" -> pkiOperation(message);
+            case SCEP_OPERATION_PKI_OPERATION -> pkiOperation(message);
             default ->
                     buildResponse(null, buildFailedResponse(new ScepException("Unsupported Operation", FailInfo.BAD_REQUEST), null));
         };
@@ -240,7 +245,7 @@ public class ScepServiceImpl implements ScepService {
         if (scepProfile == null) {
             throw new ScepException("Requested SCEP Profile not found", FailInfo.BAD_REQUEST);
         }
-        if (!scepProfile.isEnabled()) {
+        if (scepProfile.isEnabled() == null || Boolean.FALSE.equals(scepProfile.isEnabled())) {
             throw new ScepException("SCEP Profile is not enabled", FailInfo.BAD_REQUEST);
         }
         if (scepProfile.getCaCertificate() == null) {
@@ -258,7 +263,7 @@ public class ScepServiceImpl implements ScepService {
         if (raProfile == null) {
             throw new ScepException("Requested RA Profile not found", FailInfo.BAD_REQUEST);
         }
-        if (!raProfile.getEnabled()) {
+        if (raProfile.getEnabled() == null || Boolean.FALSE.equals(raProfile.getEnabled())) {
             throw new ScepException("RA Profile is not enabled", FailInfo.BAD_REQUEST);
         }
         if (raProfileBased && raProfile.getScepProfile() == null) {
@@ -463,9 +468,7 @@ public class ScepServiceImpl implements ScepService {
         ClientCertificateDataResponseDto response;
         try {
             response = clientOperationService.issueCertificate(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
-        } catch (ConnectorException e) {
-            throw new ScepException("Unable to use connector to issue certificate", e, FailInfo.BAD_REQUEST);
-        } catch (CertificateException | CertificateOperationException e) {
+        } catch (CertificateException | NotFoundException | CertificateOperationException e) {
             throw new ScepException("Unable to issue certificate", e, FailInfo.BAD_REQUEST);
         } catch (NoSuchAlgorithmException e) {
             throw new ScepException("Wrong algorithm to issue certificate", e, FailInfo.BAD_ALG);
@@ -529,7 +532,7 @@ public class ScepServiceImpl implements ScepService {
         CertificateDetailDto response;
         try {
             response = clientOperationService.submitCertificateRequest(requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
-        } catch (CertificateException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
+        } catch (CertificateException | NotFoundException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
 
@@ -790,7 +793,7 @@ public class ScepServiceImpl implements ScepService {
                     ""
             );
         } catch (Exception e) {
-            logger.error("Unable to update Intune with success notification: " + e.getMessage());
+            logger.error("Unable to update Intune with success notification: {}", e.getMessage());
         }
     }
 
@@ -804,7 +807,7 @@ public class ScepServiceImpl implements ScepService {
                         error
                 );
             } catch (Exception e) {
-                logger.error("Unable to update Intune with failed notification: " + e.getMessage());
+                logger.error("Unable to update Intune with failed notification: {}", e.getMessage());
             }
         } else {
             logger.error("Unable to update Intune because the client is not available.");

@@ -50,7 +50,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<UuidDto> createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public ResponseEntity<UuidDto> createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         AcmeProfileDto acmeProfile = acmeProfileService.createAcmeProfile(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(acmeProfile.getUuid()).toUri();
@@ -62,7 +62,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, operation = Operation.UPDATE)
-    public AcmeProfileDto editAcmeProfile(@LogResource(uuid = true) String uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    public AcmeProfileDto editAcmeProfile(@LogResource(uuid = true) String uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return acmeProfileService.editAcmeProfile(SecuredUUID.fromString(uuid), request);
     }
 
@@ -104,7 +104,7 @@ public class AcmeProfileControllerImpl implements AcmeProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.ACME_PROFILE, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> forceDeleteACMEProfiles(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> forceDeleteACMEProfiles(@LogResource(uuid = true) List<String> uuids) throws ValidationException {
         return acmeProfileService.bulkForceRemoveACMEProfiles(SecuredUUID.fromList(uuids));
     }
 

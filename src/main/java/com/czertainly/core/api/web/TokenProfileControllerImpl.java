@@ -52,7 +52,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.CREATE)
-    public ResponseEntity<TokenProfileDetailDto> createTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public ResponseEntity<TokenProfileDetailDto> createTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         TokenProfileDetailDto tokenProfileDetailDto = tokenProfileService.createTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/tokenInstances/{tokenInstanceUuid}/tokenProfiles/{uuid}")
                 .buildAndExpand(tokenInstanceUuid, tokenProfileDetailDto.getUuid()).toUri();
@@ -61,7 +61,7 @@ public class TokenProfileControllerImpl implements TokenProfileController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN_PROFILE, affiliatedResource = Resource.TOKEN, operation = Operation.UPDATE)
-    public TokenProfileDetailDto editTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException {
+    public TokenProfileDetailDto editTokenProfile(@LogResource(uuid = true, affiliated = true) String tokenInstanceUuid, @LogResource(uuid = true) String uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return tokenProfileService.editTokenProfile(SecuredParentUUID.fromString(tokenInstanceUuid), SecuredUUID.fromString(uuid), request);
     }
 
