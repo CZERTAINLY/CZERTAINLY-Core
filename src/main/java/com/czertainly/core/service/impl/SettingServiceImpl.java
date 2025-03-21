@@ -434,7 +434,6 @@ public class SettingServiceImpl implements SettingService {
     }
 
     private void validateOAuth2ProviderSettings(OAuth2ProviderSettingsUpdateDto settingsDto, boolean checkAvailability) {
-
         if (settingsDto.getJwkSet() == null && settingsDto.getJwkSetUrl() == null)
             throw new ValidationException("Missing JWK Set URL or encoded JWK Set.");
         checkJwkSetValidity(settingsDto);
@@ -484,7 +483,7 @@ public class SettingServiceImpl implements SettingService {
 
     private List<JwkDto> convertJwkToListOfKeyDtos(JWKSet jwkSet) {
         List<JwkDto> jwkSetKeys = new ArrayList<>();
-        for (JWK jwk: jwkSet.getKeys()) {
+        for (JWK jwk : jwkSet.getKeys()) {
             JwkDto jwkDto = new JwkDto();
             jwkDto.setKid(jwk.getKeyID());
             jwkDto.setAlgorithm(jwk.getAlgorithm() != null ? jwk.getAlgorithm().getName() : null);
