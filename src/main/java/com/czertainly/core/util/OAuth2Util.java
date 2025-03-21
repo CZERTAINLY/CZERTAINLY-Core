@@ -1,6 +1,6 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.lang3.StringUtils;
@@ -30,7 +30,7 @@ public class OAuth2Util {
         throw new IllegalStateException("Utility class");
     }
 
-    public static void validateAudiences(OAuth2AccessToken accessToken, OAuth2ProviderSettingsDto providerSettings) {
+    public static void validateAudiences(OAuth2AccessToken accessToken, OAuth2ProvidersSettingsUpdateDto providerSettings) {
 
         List<String> clientAudiences = providerSettings.getAudiences();
         List<String> tokenAudiences;
@@ -75,7 +75,7 @@ public class OAuth2Util {
         return mergedClaims;
     }
 
-    public static Map<String, Object> getAllClaimsAvailable(OAuth2ProviderSettingsDto providerSettings, String accessTokenValue, OidcIdToken idToken) {
+    public static Map<String, Object> getAllClaimsAvailable(OAuth2ProvidersSettingsUpdateDto providerSettings, String accessTokenValue, OidcIdToken idToken) {
         Map<String, Object> userInfoClaims = null;
         if (providerSettings != null && providerSettings.getUserInfoUrl() != null) {
             try {

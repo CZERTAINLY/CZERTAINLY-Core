@@ -314,9 +314,9 @@ public class SettingServiceImpl implements SettingService {
 
         List<Setting> oauth2ProviderSettings = settingRepository.findBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         for (Setting oauth2Provider : oauth2ProviderSettings) {
-            OAuth2ProviderSettingsDto oAuth2ProviderSettings;
+            OAuth2ProvidersSettingsUpdateDto oAuth2ProviderSettings;
             try {
-                oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProviderSettingsDto.class);
+                oAuth2ProviderSettings = objectMapper.readValue(oauth2Provider.getValue(), OAuth2ProvidersSettingsUpdateDto.class);
                 if (!withClientSecret) oAuth2ProviderSettings.setClientSecret(null);
             } catch (JsonProcessingException e) {
                 throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(oauth2Provider.getName()));
@@ -346,7 +346,7 @@ public class SettingServiceImpl implements SettingService {
         if (authenticationSettingsDto.getOAuth2Providers() != null) {
             settingRepository.deleteBySectionAndCategory(SettingsSection.AUTHENTICATION, SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
 
-            for (OAuth2ProviderSettingsDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
+            for (OAuth2ProvidersSettingsUpdateDto providerDto : authenticationSettingsDto.getOAuth2Providers()) {
                 updateOAuth2ProviderSettings(providerDto.getName(), providerDto);
             }
         }
@@ -386,9 +386,9 @@ public class SettingServiceImpl implements SettingService {
         if (settingsDto.getClientSecret() != null && !settingsDto.getClientSecret().isEmpty()) {
             settingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString(settingsDto.getClientSecret(), SecretEncodingVersion.V1));
         } else if (!isNewProvider) {
-            OAuth2ProviderSettingsDto storedProviderSettings;
+            OAuth2ProvidersSettingsUpdateDto storedProviderSettings;
             try {
-                storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProviderSettingsDto.class);
+                storedProviderSettings = objectMapper.readValue(setting.getValue(), OAuth2ProvidersSettingsUpdateDto.class);
             } catch (JsonProcessingException e) {
                 throw new ValidationException(DESERIALIZATION_ERROR_MESSAGE.formatted(providerName));
             }
@@ -397,11 +397,11 @@ public class SettingServiceImpl implements SettingService {
 
         // serialize full provider settings
         try {
-            OAuth2ProviderSettingsDto fullSettingsDto;
-            if (settingsDto instanceof OAuth2ProviderSettingsDto s) {
+            OAuth2ProvidersSettingsUpdateDto fullSettingsDto;
+            if (settingsDto instanceof OAuth2ProvidersSettingsUpdateDto s) {
                 fullSettingsDto = s;
             } else {
-                fullSettingsDto = objectMapper.convertValue(settingsDto, OAuth2ProviderSettingsDto.class);
+                fullSettingsDto = objectMapper.convertValue(settingsDto, OAuth2ProvidersSettingsUpdateDto.class);
                 fullSettingsDto.setName(providerName);
             }
             setting.setValue(objectMapper.writeValueAsString(fullSettingsDto));

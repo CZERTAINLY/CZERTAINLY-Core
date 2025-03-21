@@ -1,7 +1,7 @@
 package com.czertainly.core.security.oauth2;
 
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
 import com.czertainly.core.util.OAuth2Constants;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
@@ -36,7 +36,7 @@ public class OAuth2TestUtil {
     }
 
     public static AuthenticationSettingsDto getAuthenticationSettings(String userInfoUrl, int port, List<String> audiences) {
-        OAuth2ProviderSettingsDto providerSettingsDto = new OAuth2ProviderSettingsDto();
+        OAuth2ProvidersSettingsUpdateDto providerSettingsDto = new OAuth2ProvidersSettingsUpdateDto();
         providerSettingsDto.setName("test");
         providerSettingsDto.setClientId("client");
         providerSettingsDto.setAuthorizationUrl("http://auth");
@@ -47,7 +47,7 @@ public class OAuth2TestUtil {
         providerSettingsDto.setAudiences(audiences);
         providerSettingsDto.setClientSecret(SecretsUtil.encryptAndEncodeSecretString("secret", SecretEncodingVersion.V1));
         AuthenticationSettingsDto authenticationSettingsDto = new AuthenticationSettingsDto();
-        Map<String, OAuth2ProviderSettingsDto> providers = new HashMap<>();
+        Map<String, OAuth2ProvidersSettingsUpdateDto> providers = new HashMap<>();
         providers.put("test", providerSettingsDto);
         authenticationSettingsDto.setOAuth2Providers(providers);
         return authenticationSettingsDto;

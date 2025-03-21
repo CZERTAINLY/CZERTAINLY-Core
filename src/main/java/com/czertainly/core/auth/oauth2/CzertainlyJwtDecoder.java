@@ -3,7 +3,7 @@ package com.czertainly.core.auth.oauth2;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAnonymousToken;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
@@ -78,7 +78,7 @@ public class CzertainlyJwtDecoder implements JwtDecoder {
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(issuerUri)).findFirst().orElse(null);
+        OAuth2ProvidersSettingsUpdateDto providerSettings = authenticationSettings.getOAuth2Providers().values().stream().filter(p -> p.getIssuerUrl().equals(issuerUri)).findFirst().orElse(null);
 
         if (providerSettings == null) {
             String message = "No OAuth2 Provider with issuer URI '%s' configured for authentication with JWT token".formatted(issuerUri);

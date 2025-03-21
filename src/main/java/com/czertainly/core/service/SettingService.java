@@ -2,10 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.settings.*;
 
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.*;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 
 public interface SettingService {

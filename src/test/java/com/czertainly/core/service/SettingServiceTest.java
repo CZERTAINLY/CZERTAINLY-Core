@@ -89,11 +89,11 @@ class SettingServiceTest extends BaseSpringBootTest {
         oauth2Setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         settingRepository.save(oauth2Setting);
 
-        OAuth2ProviderSettingsDto oAuth2ProviderSettingsDto = settingService.getOAuth2ProviderSettings("name", false);
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(rsaJwk.toPublicKey().getEncoded()), oAuth2ProviderSettingsDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("RSA")).findFirst().get().getPublicKey());
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(ecJwk.toPublicKey().getEncoded()), oAuth2ProviderSettingsDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("EC")).findFirst().get().getPublicKey());
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(aesJwk.toByteArray()), oAuth2ProviderSettingsDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("oct")).findFirst().get().getPublicKey());
-        Assertions.assertEquals(Base64.getEncoder().encodeToString(octetKeyPairJwk.getDecodedX()), oAuth2ProviderSettingsDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("OKP")).findFirst().get().getPublicKey());
+        OAuth2ProviderSettingsDto oAuth2ProvidersSettingsUpdateDto = settingService.getOAuth2ProviderSettings("name", false);
+        Assertions.assertEquals(Base64.getEncoder().encodeToString(rsaJwk.toPublicKey().getEncoded()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("RSA")).findFirst().get().getPublicKey());
+        Assertions.assertEquals(Base64.getEncoder().encodeToString(ecJwk.toPublicKey().getEncoded()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("EC")).findFirst().get().getPublicKey());
+        Assertions.assertEquals(Base64.getEncoder().encodeToString(aesJwk.toByteArray()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("oct")).findFirst().get().getPublicKey());
+        Assertions.assertEquals(Base64.getEncoder().encodeToString(octetKeyPairJwk.getDecodedX()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("OKP")).findFirst().get().getPublicKey());
     }
 
 }

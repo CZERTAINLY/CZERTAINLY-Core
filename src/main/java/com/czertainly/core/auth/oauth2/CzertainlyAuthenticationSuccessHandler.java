@@ -3,7 +3,7 @@ package com.czertainly.core.auth.oauth2;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
@@ -51,7 +51,7 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
 
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(authenticationToken.getAuthorizedClientRegistrationId());
+        OAuth2ProvidersSettingsUpdateDto providerSettings = authenticationSettings.getOAuth2Providers().get(authenticationToken.getAuthorizedClientRegistrationId());
         if (providerSettings == null) {
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(authenticationToken.getAuthorizedClientRegistrationId());
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, message, authorizedClient.getAccessToken().getTokenValue());
