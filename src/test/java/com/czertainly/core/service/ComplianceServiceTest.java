@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
 import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
+import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
 import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -59,7 +60,9 @@ class ComplianceServiceTest extends BaseSpringBootTest {
     private Certificate certificate;
     private Connector connector;
     private ComplianceRule complianceRule;
+    private ComplianceRule complianceRule2;
     private ComplianceGroup complianceGroup;
+    private ComplianceProfile complianceProfile;
 
     private WireMockServer mockServer;
     private WireMockServer mockServer1;
@@ -96,7 +99,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
 
-        ComplianceProfile complianceProfile = new ComplianceProfile();
+        complianceProfile = new ComplianceProfile();
         complianceProfile.setName("TestProfile");
         complianceProfile.setDescription("Sample Description");
         complianceProfileRepository.save(complianceProfile);
@@ -137,7 +140,7 @@ class ComplianceServiceTest extends BaseSpringBootTest {
         complianceRule.setGroup(complianceGroup);
         complianceRuleRepository.save(complianceRule);
 
-        ComplianceRule complianceRule2 = new ComplianceRule();
+        complianceRule2 = new ComplianceRule();
         complianceRule2.setConnectorUuid(connector.getUuid());
         complianceRule2.setKind(COMPLIANCE_KIND);
         complianceRule2.setName("Rule2");
@@ -174,10 +177,25 @@ class ComplianceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testComplianceCheck_RaProfile() {
+    void testComplianceCheck_RaProfile() throws NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/complianceProvider/[^/]+/compliance"))
                 .willReturn(WireMock.okJson("{\"status\":\"ok\",\"rules\":[]}")));
+        Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid().toString())));
+
+        ComplianceRuleDeletionRequestDto deletionRequestDto = new ComplianceRuleDeletionRequestDto();
+        deletionRequestDto.setConnectorUuid(connector.getUuid().toString());
+        deletionRequestDto.setKind(complianceRule2.getKind());
+        deletionRequestDto.setRuleUuid(complianceRule2.getUuid().toString());
+        complianceProfileService.removeRule(complianceProfile.getSecuredUuid(), deletionRequestDto);
+        Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid().toString())));
+
+        ComplianceGroupRequestDto complianceGroupRequestDto = new ComplianceGroupRequestDto();
+        complianceGroupRequestDto.setConnectorUuid(connector.getUuid().toString());
+        complianceGroupRequestDto.setKind(complianceGroup.getKind());
+        complianceGroupRequestDto.setGroupUuid(complianceGroup.getUuid().toString());
+        complianceProfileService.removeGroup(complianceProfile.getSecuredUuid(), complianceGroupRequestDto);
+
         Assertions.assertDoesNotThrow(() -> complianceService.complianceCheckForRaProfile(SecuredUUID.fromString(raProfile.getUuid().toString())));
     }
 
