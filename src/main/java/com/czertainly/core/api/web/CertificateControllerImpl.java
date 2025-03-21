@@ -60,7 +60,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.LIST)
-    public CertificateResponseDto listCertificates(SearchRequestDto request) throws ValidationException {
+    public CertificateResponseDto listCertificates(SearchRequestDto request) {
         return certificateService.listCertificates(SecurityFilter.create(), request);
     }
 
@@ -171,7 +171,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.REQUEST)
-    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException {
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
         return clientOperationService.submitCertificateRequest(request, null);
     }
 

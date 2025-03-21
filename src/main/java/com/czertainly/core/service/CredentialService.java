@@ -20,9 +20,9 @@ public interface CredentialService extends ResourceExtensionService {
 
     CredentialDto getCredential(SecuredUUID uuid) throws NotFoundException;
 
-    CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException;
+    CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
-    CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException, AttributeException;
+    CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteCredential(SecuredUUID uuid) throws NotFoundException;
 

@@ -44,27 +44,67 @@ public class CallbackServiceImpl implements CallbackService {
 
     private static final Logger logger = LoggerFactory.getLogger(CallbackServiceImpl.class);
 
-    @Autowired
     private ConnectorService connectorService;
-    @Autowired
     private AttributeApiClient attributeApiClient;
-    @Autowired
     private CoreCallbackService coreCallbackService;
-    @Autowired
     private CredentialService credentialService;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    @Autowired
     private AuthorityInstanceApiClient authorityInstanceApiClient;
-    @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    @Autowired
     private EntityInstanceApiClient entityInstanceApiClient;
-    @Autowired
     private CryptographicKeyService cryptographicKeyService;
-    @Autowired
     private TokenProfileService tokenProfileService;
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setConnectorService(ConnectorService connectorService) {
+        this.connectorService = connectorService;
+    }
+
+    @Autowired
+    public void setAttributeApiClient(AttributeApiClient attributeApiClient) {
+        this.attributeApiClient = attributeApiClient;
+    }
+
+    @Autowired
+    public void setCoreCallbackService(CoreCallbackService coreCallbackService) {
+        this.coreCallbackService = coreCallbackService;
+    }
+
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceApiClient(AuthorityInstanceApiClient authorityInstanceApiClient) {
+        this.authorityInstanceApiClient = authorityInstanceApiClient;
+    }
+
+    @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
+        this.entityInstanceApiClient = entityInstanceApiClient;
+    }
+
+    @Autowired
+    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
+        this.cryptographicKeyService = cryptographicKeyService;
+    }
+
+    @Autowired
+    public void setTokenProfileService(TokenProfileService tokenProfileService) {
+        this.tokenProfileService = tokenProfileService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -72,7 +112,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Override
-    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
+    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
@@ -93,7 +133,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Override
-    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException {
+    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
         List<BaseAttribute> definitions = null;
         Connector connector = null;
         switch (resource) {

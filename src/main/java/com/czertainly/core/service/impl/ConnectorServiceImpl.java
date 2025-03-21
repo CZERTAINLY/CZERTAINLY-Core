@@ -42,38 +42,85 @@ import java.util.stream.Collectors;
 public class ConnectorServiceImpl implements ConnectorService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
-    @Autowired
     private ConnectorRepository connectorRepository;
-    @Autowired
     private FunctionGroupRepository functionGroupRepository;
-    @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-    @Autowired
     private ConnectorApiClient connectorApiClient;
-    @Autowired
     private AttributeApiClient attributeApiClient;
-    @Autowired
     private HealthApiClient healthApiClient;
-    @Autowired
     private CredentialRepository credentialRepository;
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    @Autowired
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
-    @Autowired
     private ConnectorAuthService connectorAuthService;
+    private ComplianceService complianceService;
+    private ComplianceProfileService complianceProfileService;
+    private AttributeEngine attributeEngine;
 
     @Autowired
-    private ComplianceService complianceService;
+    public void setConnectorRepository(ConnectorRepository connectorRepository) {
+        this.connectorRepository = connectorRepository;
+    }
+
     @Autowired
-    private ComplianceProfileService complianceProfileService;
+    public void setFunctionGroupRepository(FunctionGroupRepository functionGroupRepository) {
+        this.functionGroupRepository = functionGroupRepository;
+    }
+
     @Autowired
-    private AttributeDefinitionRepository attributeDefinitionRepository;
+    public void setConnector2FunctionGroupRepository(Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
+        this.connector2FunctionGroupRepository = connector2FunctionGroupRepository;
+    }
+
     @Autowired
-    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
-    private AttributeEngine attributeEngine;
+    public void setConnectorApiClient(ConnectorApiClient connectorApiClient) {
+        this.connectorApiClient = connectorApiClient;
+    }
+
+    @Autowired
+    public void setAttributeApiClient(AttributeApiClient attributeApiClient) {
+        this.attributeApiClient = attributeApiClient;
+    }
+
+    @Autowired
+    public void setHealthApiClient(HealthApiClient healthApiClient) {
+        this.healthApiClient = healthApiClient;
+    }
+
+    @Autowired
+    public void setCredentialRepository(CredentialRepository credentialRepository) {
+        this.credentialRepository = credentialRepository;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
+        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
+        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setConnectorAuthService(ConnectorAuthService connectorAuthService) {
+        this.connectorAuthService = connectorAuthService;
+    }
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
+    }
+
+    @Autowired
+    public void setComplianceProfileService(ComplianceProfileService complianceProfileService) {
+        this.complianceProfileService = complianceProfileService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -98,7 +145,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.DETAIL)
-    public ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException {
+    public ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         Connector connector = getConnectorEntity(uuid);
         ConnectorDto dto = connector.mapToDto();
 
@@ -136,18 +183,18 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CREATE)
-    public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException {
+    public ConnectorDto createConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         return createNewConnector(request, ConnectorStatus.CONNECTED);
     }
 
     //Internal and anonymous user only - Not exposed through service
-    public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException {
+    public ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         return createNewConnector(request, ConnectorStatus.WAITING_FOR_APPROVAL);
     }
 
-    private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException {
+    private ConnectorDto createNewConnector(ConnectorRequestDto request, ConnectorStatus connectorStatus) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("name must not be empty"));
         }
@@ -221,7 +268,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
-    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException {
+    public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
@@ -386,7 +433,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
-    public List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException {
+    public List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
@@ -412,7 +459,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         List<ConnectDto> responses = new ArrayList<>();
 
         List<FunctionGroupCode> connectFunctionGroupCodeList = functions.stream().map(BaseFunctionGroupDto::getFunctionGroupCode).toList();
-        Map<FunctionGroupCode, List<String>> connectFunctionGroupKindMap = new HashMap<>();
+        Map<FunctionGroupCode, List<String>> connectFunctionGroupKindMap = new EnumMap<>(FunctionGroupCode.class);
 
         for (BaseFunctionGroupDto f : functions) {
             connectFunctionGroupKindMap.put(f.getFunctionGroupCode(), f.getKinds());
@@ -425,7 +472,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             }
             List<FunctionGroupCode> connectorFunctionGroups = connector.getFunctionGroups().stream().map(Connector2FunctionGroup::getFunctionGroup).toList().stream().map(FunctionGroup::getCode).toList();
             if (connectFunctionGroupCodeList.equals(connectorFunctionGroups)) {
-                Map<FunctionGroupCode, List<String>> connectorFunctionGroupKindMap = new HashMap<>();
+                Map<FunctionGroupCode, List<String>> connectorFunctionGroupKindMap = new EnumMap<>(FunctionGroupCode.class);
 
                 for (Connector2FunctionGroup f : connector.getFunctionGroups()) {
                     connectorFunctionGroupKindMap.put(f.getFunctionGroup().getCode(), MetaDefinitions.deserializeArrayString(f.getKinds()));
@@ -488,7 +535,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     }
 
     @Override
-    public HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException {
+    public HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
@@ -497,7 +544,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException {
+    public List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
@@ -508,7 +555,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
@@ -522,7 +569,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> requestAttributes, String functionGroupType) throws ValidationException, ConnectorException, AttributeException {
+    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> requestAttributes, String functionGroupType) throws ValidationException, ConnectorException, AttributeException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
@@ -538,11 +585,11 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException {
+    public Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
-        Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> attributes = new HashMap<>();
+        Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> attributes = new EnumMap<>(FunctionGroupCode.class);
         for (FunctionGroupDto fg : connector.mapToDto().getFunctionGroups()) {
             Map<String, List<BaseAttribute>> kindsAttribute = new HashMap<>();
             for (String kind : fg.getKinds()) {
@@ -696,7 +743,7 @@ public class ConnectorServiceImpl implements ConnectorService {
                 } else {
                     complianceService.addFetchGroupsAndRules(connector);
                 }
-            } catch (ConnectorException e) {
+            } catch (ConnectorException | NotFoundException e) {
                 logger.error(e.getMessage());
                 logger.error("Unable to fetch groups and rules for Connector: {}", connector.getName());
             }

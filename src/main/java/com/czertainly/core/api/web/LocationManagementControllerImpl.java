@@ -49,7 +49,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.CREATE)
-    public ResponseEntity<?> addLocation(@LogResource(uuid = true, affiliated = true) String entityUuid, AddLocationRequestDto request) throws ConnectorException, AlreadyExistException, LocationException, AttributeException {
+    public ResponseEntity<?> addLocation(@LogResource(uuid = true, affiliated = true) String entityUuid, AddLocationRequestDto request) throws ConnectorException, AlreadyExistException, LocationException, AttributeException, NotFoundException {
         LocationDto locationDto = locationService.addLocation(SecuredParentUUID.fromString(entityUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{locationUuid}")
                 .buildAndExpand(locationDto.getUuid()).toUri();
@@ -66,7 +66,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.ENTITY, operation = Operation.UPDATE)
-    public LocationDto editLocation(@LogResource(uuid = true, affiliated = true) String entityUuid, @LogResource(uuid = true) String locationUuid, EditLocationRequestDto request) throws ConnectorException, LocationException, AttributeException {
+    public LocationDto editLocation(@LogResource(uuid = true, affiliated = true) String entityUuid, @LogResource(uuid = true) String locationUuid, EditLocationRequestDto request) throws ConnectorException, LocationException, AttributeException, NotFoundException {
         return locationService.editLocation(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid), request);
     }
 
@@ -117,7 +117,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.ISSUE_IN_LOCATION)
-    public LocationDto issueCertificate(String entityUuid, @LogResource(uuid = true) String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, LocationException {
+    public LocationDto issueCertificate(String entityUuid, @LogResource(uuid = true) String locationUuid, IssueToLocationRequestDto request) throws ConnectorException, LocationException, NotFoundException {
         return locationService.issueCertificateToLocation(
                 SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),
@@ -128,7 +128,7 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.LOCATION, affiliatedResource = Resource.CERTIFICATE, operation = Operation.RENEW_IN_LOCATION)
-    public LocationDto renewCertificateInLocation(String entityUuid, @LogResource(uuid = true) String locationUuid, @LogResource(uuid = true, affiliated = true) String certificateUuid) throws ConnectorException, LocationException {
+    public LocationDto renewCertificateInLocation(String entityUuid, @LogResource(uuid = true) String locationUuid, @LogResource(uuid = true, affiliated = true) String certificateUuid) throws ConnectorException, LocationException, NotFoundException {
         return locationService.renewCertificateInLocation(
                 SecuredParentUUID.fromString(entityUuid),
                 SecuredUUID.fromString(locationUuid),

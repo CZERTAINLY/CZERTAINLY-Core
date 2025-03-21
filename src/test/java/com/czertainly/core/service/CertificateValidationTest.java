@@ -90,7 +90,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     private WireMockServer mockServer;
 
-
     @BeforeEach
     public void setUp() throws GeneralSecurityException, IOException, com.czertainly.api.exception.CertificateException {
         mockServer = new WireMockServer(0);

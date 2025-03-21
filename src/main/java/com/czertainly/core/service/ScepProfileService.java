@@ -37,7 +37,7 @@ public interface ScepProfileService extends ResourceExtensionService {
      * @throws NotFoundException when the profile with the requested UUID is not found
      * @throws ValidationException When the validation fails for the attributes or any other parameters in the request
      */
-    ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+    ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Update SCEP Profile
@@ -48,7 +48,7 @@ public interface ScepProfileService extends ResourceExtensionService {
      * @throws NotFoundException when the profile with the requested UUID is not found
      * @throws ValidationException When the validation fails for the attributes or any other parameters in the request
      */
-    ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException;
+    ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Delete SCEP Profile
@@ -70,7 +70,7 @@ public interface ScepProfileService extends ResourceExtensionService {
      * @param uuids UUIDs of the SCEP Profiles to be deleted
      * @return Messages regarding the failed deletion of the profiles
      */
-    List<BulkActionMessageDto> bulkForceRemoveScepProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkForceRemoveScepProfiles(List<SecuredUUID> uuids);
 
     /**
      * Enable SCEP Profile

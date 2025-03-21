@@ -182,7 +182,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddScepProfile() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddScepProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
 
         ScepProfileRequestDto request = new ScepProfileRequestDto();
         request.setName("Test");
@@ -211,7 +211,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEditScepProfile() throws ConnectorException, AttributeException {
+    void testEditScepProfile() throws ConnectorException, AttributeException, NotFoundException {
         scepProfile.setEnabled(false);
         scepProfileRepository.save(scepProfile);
 

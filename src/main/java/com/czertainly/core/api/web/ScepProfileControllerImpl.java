@@ -50,7 +50,7 @@ public class ScepProfileControllerImpl implements ScepProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public ResponseEntity<ScepProfileDetailDto> createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         ScepProfileDetailDto scepProfile = scepProfileService.createScepProfile(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(scepProfile.getUuid()).toUri();
@@ -59,7 +59,7 @@ public class ScepProfileControllerImpl implements ScepProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.UPDATE)
-    public ScepProfileDetailDto editScepProfile(@LogResource(uuid = true) String uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    public ScepProfileDetailDto editScepProfile(@LogResource(uuid = true) String uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return scepProfileService.editScepProfile(SecuredUUID.fromString(uuid), request);
     }
 
@@ -77,7 +77,7 @@ public class ScepProfileControllerImpl implements ScepProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.SCEP_PROFILE, operation = Operation.FORCE_DELETE)
-    public List<BulkActionMessageDto> forceDeleteScepProfiles(@LogResource(uuid = true) List<String> uuids) throws NotFoundException, ValidationException {
+    public List<BulkActionMessageDto> forceDeleteScepProfiles(@LogResource(uuid = true) List<String> uuids) {
         return scepProfileService.bulkForceRemoveScepProfiles(SecuredUUID.fromList(uuids));
     }
 

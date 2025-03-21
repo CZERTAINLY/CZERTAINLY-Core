@@ -54,7 +54,7 @@ public class CmpProfileControllerImpl implements CmpProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, operation = Operation.CREATE)
-    public ResponseEntity<CmpProfileDetailDto> createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public ResponseEntity<CmpProfileDetailDto> createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         CmpProfileDetailDto cmpProfile = cmpProfileService.createCmpProfile(request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(cmpProfile.getUuid()).toUri();
@@ -63,7 +63,7 @@ public class CmpProfileControllerImpl implements CmpProfileController {
 
     @Override
     @AuditLogged(module = Module.PROTOCOLS, resource = Resource.CMP_PROFILE, operation = Operation.UPDATE)
-    public CmpProfileDetailDto editCmpProfile(@LogResource(uuid = true) String cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    public CmpProfileDetailDto editCmpProfile(@LogResource(uuid = true) String cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return cmpProfileService.editCmpProfile(SecuredUUID.fromString(cmpProfileUuid), request);
     }
 

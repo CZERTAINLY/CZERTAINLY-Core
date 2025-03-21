@@ -42,7 +42,6 @@ import org.springframework.stereotype.Service;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -50,15 +49,31 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private static final Logger logger = LoggerFactory.getLogger(ClientOperationServiceImpl.class);
 
-    @Autowired
     private RaProfileRepository raProfileRepository;
-    @Autowired
     private EndEntityApiClient endEntityApiClient;
-    @Autowired
     private CertificateApiClient certificateApiClient;
-    @Autowired
     private CertificateService certificateService;
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
+    }
+
+    @Autowired
+    public void setEndEntityApiClient(EndEntityApiClient endEntityApiClient) {
+        this.endEntityApiClient = endEntityApiClient;
+    }
+
+    @Autowired
+    public void setCertificateApiClient(CertificateApiClient certificateApiClient) {
+        this.certificateApiClient = certificateApiClient;
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -67,7 +82,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, LegacyClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException, NoSuchAlgorithmException {
+    public ClientCertificateSignResponseDto issueCertificate(String raProfileName, LegacyClientCertificateSignRequestDto request) throws AlreadyExistException, CertificateException, ConnectorException, NoSuchAlgorithmException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         CertificateSignRequestDto caRequest = new CertificateSignRequestDto();
@@ -96,7 +111,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.REVOKE)
-    public void revokeCertificate(String raProfileName, LegacyClientCertificateRevocationDto request) throws ConnectorException {
+    public void revokeCertificate(String raProfileName, LegacyClientCertificateRevocationDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         CertRevocationDto caRequest = new CertRevocationDto();
@@ -115,7 +130,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
-    public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException {
+    public List<ClientEndEntityDto> listEntities(String raProfileName) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         List<EndEntityDto> endEntities = endEntityApiClient.listEntities(
@@ -125,12 +140,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         return endEntities == null ? null : endEntities.stream()
                 .map(this::mapEndEntity)
-                .collect(Collectors.toList());
+                .toList();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
-    public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException {
+    public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         AddEndEntityRequestDto caRequest = new AddEndEntityRequestDto();
@@ -150,7 +165,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
-    public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException {
+    public ClientEndEntityDto getEndEntity(String raProfileName, String username) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         EndEntityDto endEntity = endEntityApiClient.getEndEntity(
@@ -164,7 +179,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
-    public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException {
+    public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         EditEndEntityRequestDto caRequest = new EditEndEntityRequestDto();
@@ -186,7 +201,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
-    public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException {
+    public void revokeAndDeleteEndEntity(String raProfileName, String username) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         endEntityApiClient.revokeAndDeleteEndEntity(
@@ -198,7 +213,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
-    public void resetPassword(String raProfileName, String username) throws ConnectorException {
+    public void resetPassword(String raProfileName, String username) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
 
         endEntityApiClient.resetPassword(

@@ -73,7 +73,7 @@ public interface CryptographicKeyService extends ResourceExtensionService {
             UUID tokenInstanceUuid,
             SecuredParentUUID tokenProfileUuid,
             KeyRequestType type,
-            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+            KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Function to update the key details
@@ -153,7 +153,7 @@ public interface CryptographicKeyService extends ResourceExtensionService {
     void deleteKey(
             UUID uuid,
             List<String> keyUuids
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * Function to delete multiple key
@@ -181,7 +181,7 @@ public interface CryptographicKeyService extends ResourceExtensionService {
      * @throws NotFoundException  when the token profile or the key uuid is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    void destroyKey(UUID uuid, List<String> keyUuids) throws ConnectorException;
+    void destroyKey(UUID uuid, List<String> keyUuids) throws ConnectorException, NotFoundException;
 
     /**
      * Destroy multiple keys
@@ -190,7 +190,7 @@ public interface CryptographicKeyService extends ResourceExtensionService {
      * @throws NotFoundException  when the token profile or the key uuid is not found
      * @throws ConnectorException when there are issues with connector communication
      */
-    void destroyKey(List<String> uuids) throws ConnectorException;
+    void destroyKey(List<String> uuids) throws ConnectorException, NotFoundException;
 
     /**
      * Destroy multiple keys
@@ -213,7 +213,7 @@ public interface CryptographicKeyService extends ResourceExtensionService {
     List<BaseAttribute> listCreateKeyAttributes(
             UUID tokenInstanceUuid,
             SecuredParentUUID tokenProfileUuid,
-            KeyRequestType type) throws ConnectorException;
+            KeyRequestType type) throws ConnectorException, NotFoundException;
 
     /**
      * Function to sync the list of keys from the connector
@@ -221,7 +221,7 @@ public interface CryptographicKeyService extends ResourceExtensionService {
      * @param tokenInstanceUuid UUID of the token instance to sync the keys
      * @throws ConnectorException
      */
-    void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException;
+    void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Function to mark the key as compromised

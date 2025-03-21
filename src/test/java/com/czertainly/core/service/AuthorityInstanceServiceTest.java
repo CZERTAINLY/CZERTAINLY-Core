@@ -31,7 +31,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
+class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     private static final String AUTHORITY_INSTANCE_NAME = "testAuthorityInstance1";
 
@@ -96,7 +96,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListAuthorityInstances() {
+    void testListAuthorityInstances() {
         List<AuthorityInstanceDto> authorityInstances = authorityInstanceService.listAuthorityInstances(SecurityFilter.create());
         Assertions.assertNotNull(authorityInstances);
         Assertions.assertFalse(authorityInstances.isEmpty());
@@ -105,7 +105,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAuthorityInstance() throws ConnectorException {
+    void testGetAuthorityInstance() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
@@ -118,12 +118,12 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetAuthorityInstance_notFound() {
+    void testGetAuthorityInstance_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testAddAuthorityInstance() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddAuthorityInstance() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -149,7 +149,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddAuthorityInstance_notFound() {
+    void testAddAuthorityInstance_notFound() {
         AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
         request.setName("Demo");
         request.setConnectorUuid("abfbc322-29e1-11ed-a261-0242ac120002");
@@ -158,7 +158,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddAuthorityInstance_alreadyExist() {
+    void testAddAuthorityInstance_alreadyExist() {
         AuthorityInstanceRequestDto request = new AuthorityInstanceRequestDto();
         request.setName(AUTHORITY_INSTANCE_NAME); // authorityInstance with same name exist
 
@@ -166,12 +166,12 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditAuthorityInstance_notFound() {
+    void testEditAuthorityInstance_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.editAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
-    public void testRemoveAuthorityInstance() throws ConnectorException {
+    void testRemoveAuthorityInstance() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -181,7 +181,7 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetRaProfileAttributes() throws ConnectorException {
+    void testGetRaProfileAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.ok()));
@@ -190,12 +190,12 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetRaProfileAttributes_notFound() {
+    void testGetRaProfileAttributes_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.listRAProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testValidateRaProfileAttributes() throws ConnectorException {
+    void testValidateRaProfileAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
@@ -204,23 +204,23 @@ public class AuthorityInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateRaProfileAttributes_notFound() {
+    void testValidateRaProfileAttributes_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
-    public void testRemoveAuthorityInstance_notFound() {
+    void testRemoveAuthorityInstance_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.deleteAuthorityInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testBulkRemove() throws NotFoundException, ConnectorException {
+    void testBulkRemove() throws ConnectorException {
         authorityInstanceService.bulkDeleteAuthorityInstance(List.of(authorityInstance.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> authorityInstanceService.getAuthorityInstance(authorityInstance.getSecuredUuid()));
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> dtos = authorityInstanceService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, dtos.size());
     }

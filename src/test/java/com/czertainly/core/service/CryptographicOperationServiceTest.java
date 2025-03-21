@@ -1,10 +1,12 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.ConnectorEntityNotFoundException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
@@ -31,7 +33,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class CryptographicOperationServiceTest extends BaseSpringBootTest {
+class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private CryptographicOperationService cryptographicOperationService;
@@ -62,9 +64,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
     private TokenInstanceReference tokenInstanceReference;
     private TokenProfile tokenProfile;
-    private CryptographicKeyItem content;
     private CryptographicKeyItem content1;
-    private Connector connector;
     private CryptographicKey key;
     private WireMockServer mockServer;
 
@@ -75,9 +75,9 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        connector = new Connector();
+        Connector connector = new Connector();
         connector.setName("tokenInstanceConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -120,7 +120,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
         key.setTokenInstanceReference(tokenInstanceReference);
         cryptographicKeyRepository.save(key);
 
-        content = new CryptographicKeyItem();
+        CryptographicKeyItem content = new CryptographicKeyItem();
         content.setLength(1024);
         content.setKey(key);
         content.setKeyUuid(key.getUuid());
@@ -164,7 +164,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListCipherAttributes() throws ConnectorException {
+    void testListCipherAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.
                         urlPathMatching(
@@ -173,17 +173,29 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.listCipherAttributes(
+        List<BaseAttribute> attributes = cryptographicOperationService.listCipherAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
                 KeyAlgorithm.RSA
         );
+
+        Assertions.assertFalse(attributes.isEmpty());
+
+        Assertions.assertThrows(
+                ValidationException.class,
+                () -> cryptographicOperationService.listCipherAttributes(
+                        tokenInstanceReference.getSecuredParentUuid(),
+                        tokenProfile.getSecuredUuid(),
+                        key.getUuid(),
+                        content1.getUuid(),
+                        KeyAlgorithm.ECDSA
+                ));
     }
 
     @Test
-    public void testListCipherAttributes_NotFound() {
+    void testListCipherAttributes_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listCipherAttributes(
@@ -197,7 +209,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListSignatureAttributes() throws ConnectorException {
+    void testListSignatureAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock
                         .urlPathMatching(
@@ -206,17 +218,19 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.listSignatureAttributes(
+        List<BaseAttribute> attributes = cryptographicOperationService.listSignatureAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
                 KeyAlgorithm.RSA
         );
+
+        Assertions.assertFalse(attributes.isEmpty());
     }
 
     @Test
-    public void testListSignatureAttributes_NotFound() {
+    void testListSignatureAttributes_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.listSignatureAttributes(
@@ -230,7 +244,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListRandomDataAttributes() throws ConnectorException {
+    void testListRandomDataAttributes() {
         mockServer.stubFor(WireMock
                 .get(WireMock
                         .urlPathMatching(
@@ -239,15 +253,15 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        cryptographicOperationService.listRandomAttributes(
+        Assertions.assertDoesNotThrow(() -> cryptographicOperationService.listRandomAttributes(
                 tokenInstanceReference.getSecuredParentUuid()
-        );
+        ));
     }
 
     @Test
-    public void testListRandomDataAttributes_NotFound() {
+    void testListRandomDataAttributes_NotFound() {
         Assertions.assertThrows(
-                NotFoundException.class,
+                ConnectorEntityNotFoundException.class,
                 () -> cryptographicOperationService.listRandomAttributes(
                         tokenInstanceReference.getSecuredParentUuid()
                 )
@@ -255,13 +269,12 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEncrypt() throws ConnectorException {
+    void testEncrypt() {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
 
         CipherDataRequestDto requestDto = new CipherDataRequestDto();
-        requestDto.setCipherData(List.of(data));
         requestDto.setCipherAttributes(List.of());
 
         mockServer.stubFor(WireMock
@@ -272,17 +285,27 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.okJson("{}")));
 
-        cryptographicOperationService.encryptData(
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicOperationService.encryptData(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
                 requestDto
-        );
+        ));
+
+        requestDto.setCipherData(List.of(data));
+
+        Assertions.assertDoesNotThrow(() -> cryptographicOperationService.encryptData(
+                tokenInstanceReference.getSecuredParentUuid(),
+                tokenProfile.getSecuredUuid(),
+                key.getUuid(),
+                content1.getUuid(),
+                requestDto
+        ));
     }
 
     @Test
-    public void testEncrypt_NotFound() {
+    void testEncrypt_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.encryptData(
@@ -296,7 +319,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEncryptValidationError() {
+    void testEncryptValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.encryptData(
@@ -310,7 +333,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDecrypt() throws ConnectorException {
+    void testDecrypt() {
         CipherRequestData data = new CipherRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -327,17 +350,17 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.okJson("{}")));
 
-        cryptographicOperationService.decryptData(
+        Assertions.assertDoesNotThrow(() -> cryptographicOperationService.decryptData(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
                 requestDto
-        );
+        ));
     }
 
     @Test
-    public void testDecrypt_NotFound() {
+    void testDecrypt_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.decryptData(
@@ -351,7 +374,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDecryptValidationError() {
+    void testDecryptValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.decryptData(
@@ -365,7 +388,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSign_RSA() throws ConnectorException {
+    void testSign_RSA() {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -388,17 +411,17 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/sign"))
                 .willReturn(WireMock.okJson("{}")));
 
-        cryptographicOperationService.signData(
+        Assertions.assertDoesNotThrow(() -> cryptographicOperationService.signData(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
                 content1.getUuid(),
                 requestDto
-        );
+        ));
     }
 
     @Test
-    public void testSign_NotFound() {
+    void testSign_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.signData(
@@ -412,7 +435,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testSignValidationError() {
+    void testSignValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.signData(
@@ -426,7 +449,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerify() throws ConnectorException {
+    void testVerify() throws ConnectorException, NotFoundException {
         SignatureRequestData data = new SignatureRequestData();
         data.setIdentifier("identifier");
         data.setData(Base64.getEncoder().encodeToString("Hello World!".getBytes(StandardCharsets.UTF_8)));
@@ -459,7 +482,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerify_NotFound() {
+    void testVerify_NotFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> cryptographicOperationService.verifyData(
@@ -473,7 +496,7 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testVerifyValidationError() {
+    void testVerifyValidationError() {
         Assertions.assertThrows(
                 ValidationException.class,
                 () -> cryptographicOperationService.verifyData(
@@ -484,5 +507,24 @@ public class CryptographicOperationServiceTest extends BaseSpringBootTest {
                         new VerifyDataRequestDto()
                 )
         );
+    }
+
+    @Test
+    void testRandomData() {
+        String response = """
+                {
+                    "data": "cmFuZG9tRGF0YQ=="
+                }
+                """;
+
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/random"))
+                .willReturn(WireMock.okJson(response)));
+
+        RandomDataRequestDto requestDto = new RandomDataRequestDto();
+        requestDto.setLength(32);
+        requestDto.setAttributes(List.of());
+
+        Assertions.assertDoesNotThrow(() -> cryptographicOperationService.randomData(tokenInstanceReference.getSecuredParentUuid(), requestDto));
     }
 }

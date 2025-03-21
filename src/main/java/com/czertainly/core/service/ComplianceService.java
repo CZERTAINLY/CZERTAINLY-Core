@@ -20,7 +20,7 @@ public interface ComplianceService {
      * @param kind Kind of the Connector
      * @return true of the compliance group exists or false
      */
-    Boolean complianceGroupExists(SecuredUUID uuid, Connector connector, String kind);
+    boolean complianceGroupExists(SecuredUUID uuid, Connector connector, String kind);
 
     /**
      * Get the Compliance Rule Entity
@@ -29,14 +29,14 @@ public interface ComplianceService {
      * @param kind Kind of the Connector
      * @return true of the compliance group exists or false
      */
-    Boolean complianceRuleExists(SecuredUUID uuid, Connector connector, String kind);
+    boolean complianceRuleExists(SecuredUUID uuid, Connector connector, String kind);
 
     /**
      * Check and update the compliance of a certificate based on the associated compliance profile
      * @param certificate Certificate entity
      * @throws ConnectorException Thrown when there are issues regarding the connector calls
      */
-    void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException;
+    void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException, NotFoundException;
 
     /**
      * Initiate the Compliance check for all the certificates associated with the RA Profile
@@ -51,7 +51,7 @@ public interface ComplianceService {
      * @param uuid Uuid of the compliance profile
      * @throws NotFoundException Thrown when the Compliance Profile is not found
      */
-    void complianceCheckForComplianceProfile(SecuredUUID uuid) throws ConnectorException;
+    void complianceCheckForComplianceProfile(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
 
     /**
@@ -80,14 +80,14 @@ public interface ComplianceService {
      * @param connector Connector Entity which implements COMPLIANCE_PROVIDER function group
      * @throws ConnectorException Raises when there are issues with communicating with the connector
      */
-    void addFetchGroupsAndRules(Connector connector) throws ConnectorException;
+    void addFetchGroupsAndRules(Connector connector) throws ConnectorException, NotFoundException;
 
     /**
      * Fetch the list of groups and rules from the compliance provider and update them into the database
      * @param connector Connector Entity which implements COMPLIANCE_PROVIDER function group
      * @throws ConnectorException Raises when there are issues with communicating with the connector
      */
-    void updateGroupsAndRules(Connector connector) throws ConnectorException;
+    void updateGroupsAndRules(Connector connector) throws ConnectorException, NotFoundException;
 
     /**
      * Update the status of the compliance for the certificate. The method takes the uuid of the compliance rule
