@@ -215,6 +215,13 @@ class RaProfileServiceTest extends ApprovalProfileData {
         Assertions.assertEquals(updateDto.getFrequency(), raProfileDto.getCertificateValidationSettings().getFrequency());
         Assertions.assertEquals(updateDto.getExpiringThreshold(), raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
 
+        RaProfileCertificateValidationSettingsUpdateDto updateDtoDefault = new RaProfileCertificateValidationSettingsUpdateDto();
+        updateDtoDefault.setEnabled(true);
+        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDtoDefault);
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertEquals(1, raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertEquals(30, raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
         updateDto.setEnabled(false);
         raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
         Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
