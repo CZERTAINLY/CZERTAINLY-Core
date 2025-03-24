@@ -93,17 +93,19 @@ public class SettingServiceImpl implements SettingService {
         Map<String, Setting> certificateSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_CERTIFICATES.getCode());
         CertificateSettingsDto certificateSettingsDto = new CertificateSettingsDto();
         CertificateValidationSettingsDto defaultValidationSettings = new CertificateValidationSettingsDto();
-        defaultValidationSettings.setValidationEnabled(true);
+        defaultValidationSettings.setEnabled(true);
+        defaultValidationSettings.setFrequency(1);
+        defaultValidationSettings.setExpiringThreshold(30);
 
         if (certificateSettings != null && certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME) != null) {
             try {
-                certificateSettingsDto.setCertificateValidationSettingsDto(objectMapper.readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(), CertificateValidationSettingsDto.class));
+                certificateSettingsDto.setValidation(objectMapper.readValue(certificateSettings.get(CERTIFICATES_VALIDATION_SETTINGS_NAME).getValue(), CertificateValidationSettingsDto.class));
             } catch (JsonProcessingException e) {
                 logger.warn("Cannot deserialize platform certificates validation settings. Returning default settings.");
-                certificateSettingsDto.setCertificateValidationSettingsDto(defaultValidationSettings);
+                certificateSettingsDto.setValidation(defaultValidationSettings);
             }
         } else {
-            certificateSettingsDto.setCertificateValidationSettingsDto(defaultValidationSettings);
+            certificateSettingsDto.setValidation(defaultValidationSettings);
         }
 
         platformSettings.setCertificates(certificateSettingsDto);
@@ -113,7 +115,7 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
-    public void updatePlatformSettings(PlatformSettingsDto platformSettings) {
+    public void updatePlatformSettings(PlatformSettingsUpdateDto platformSettings) {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
@@ -144,7 +146,13 @@ public class SettingServiceImpl implements SettingService {
             }
 
             try {
-                certificatesValidationSetting.setValue(objectMapper.writeValueAsString(platformSettings.getCertificates().getCertificateValidationSettingsDto()));
+                CertificateValidationSettingsUpdateDto validation = platformSettings.getCertificates().getValidation();
+                // Set null values for validation disabled
+                if (!validation.isEnabled()) {
+                    validation.setFrequency(null);
+                    validation.setExpiringThreshold(null);
+                }
+                certificatesValidationSetting.setValue(objectMapper.writeValueAsString(validation));
             } catch (JsonProcessingException e) {
                 throw new ValidationException("Cannot serialize platform certificates settings: " + e.getMessage());
             }

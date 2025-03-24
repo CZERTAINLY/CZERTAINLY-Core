@@ -61,23 +61,23 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("""
              SELECT COUNT(*) FROM Certificate c LEFT JOIN c.raProfile rp
              WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
-             AND ((rp is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))
+             AND ((rp.validationEnabled is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))
             """)
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("platformEnabled") boolean platformEnabled);
 
 
     // Select certificates which have content, and they are not revoked or expired (since these statuses cannot change)
     // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned or certificates which have RA Profile
-    // assigned, validation for that RA Profile is enabled and validation frequency is not customized
+    // assigned, validation for that RA Profile is null
     // Select certificates which have validation frequency set in RA Profile
     @Query("""
             SELECT c.uuid FROM Certificate c LEFT JOIN c.raProfile rp
                 WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
                     AND
                     (
-                (((rp is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true AND rp.validationFrequency IS NULL)) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp))
+                ((rp.validationEnabled is NULL AND :platformEnabled = true) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp))
                     OR
-                ((rp.validationEnabled = true AND rp.validationFrequency IS NOT NULL) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= CURRENT_DATE - rp.validationFrequency DAY))
+                ((rp.validationEnabled = true) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= CURRENT_DATE - rp.validationFrequency DAY))
                     ) ORDER BY c.statusValidationTimestamp ASC NULLS FIRST
             """
     )

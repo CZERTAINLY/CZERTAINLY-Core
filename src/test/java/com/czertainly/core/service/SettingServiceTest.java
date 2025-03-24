@@ -1,10 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
-import com.czertainly.api.model.core.settings.SettingsSectionCategory;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.*;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.service.impl.SettingServiceImpl;
@@ -38,16 +34,23 @@ class SettingServiceTest extends BaseSpringBootTest {
         PlatformSettingsDto platformSettings = settingService.getPlatformSettings();
         Assertions.assertNull(platformSettings.getUtils().getUtilsServiceUrl());
         Assertions.assertNotNull(platformSettings.getCertificates());
-        Assertions.assertTrue(platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationEnabled());
-        Assertions.assertEquals(1, platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency());
+        Assertions.assertTrue(platformSettings.getCertificates().getValidation().getEnabled());
+        Assertions.assertEquals(1, platformSettings.getCertificates().getValidation().getFrequency());
 
-        platformSettings.getUtils().setUtilsServiceUrl(utilsServiceUrl);
-        platformSettings.getCertificates().getCertificateValidationSettingsDto().setValidationFrequency(5);
-        settingService.updatePlatformSettings(platformSettings);
+        PlatformSettingsUpdateDto platformSettingsUpdateDto = new PlatformSettingsUpdateDto();
+        UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
+        utilsSettingsDto.setUtilsServiceUrl(utilsServiceUrl);
+        platformSettingsUpdateDto.setUtils(utilsSettingsDto);
+        CertificateSettingsUpdateDto certificateSettingsUpdateDto = new CertificateSettingsUpdateDto();
+        CertificateValidationSettingsUpdateDto certificateValidationSettingsUpdateDto = new CertificateValidationSettingsUpdateDto();
+        certificateValidationSettingsUpdateDto.setFrequency(5);
+        certificateSettingsUpdateDto.setValidation(certificateValidationSettingsUpdateDto);
+        platformSettingsUpdateDto.setCertificates(certificateSettingsUpdateDto);
+        settingService.updatePlatformSettings(platformSettingsUpdateDto);
 
         platformSettings = settingService.getPlatformSettings();
         Assertions.assertEquals(utilsServiceUrl, platformSettings.getUtils().getUtilsServiceUrl());
-        Assertions.assertEquals(5, platformSettings.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency());
+        Assertions.assertEquals(5, platformSettings.getCertificates().getValidation().getFrequency());
     }
 
     @Test
@@ -59,7 +62,7 @@ class SettingServiceTest extends BaseSpringBootTest {
         setting.setValue("invalid");
         settingRepository.save(setting);
         PlatformSettingsDto platformSettingsDto = settingService.getPlatformSettings();
-        Assertions.assertNotNull(platformSettingsDto.getCertificates().getCertificateValidationSettingsDto());
+        Assertions.assertNotNull(platformSettingsDto.getCertificates().getValidation());
     }
 
     @Test

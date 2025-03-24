@@ -4,6 +4,7 @@ import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.settings.PlatformSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
@@ -44,7 +45,7 @@ public class SettingControllerImpl implements SettingController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "platform")
-    public void updatePlatformSettings(PlatformSettingsDto request) {
+    public void updatePlatformSettings(PlatformSettingsUpdateDto request) {
         settingService.updatePlatformSettings(request);
     }
 

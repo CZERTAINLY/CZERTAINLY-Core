@@ -2,7 +2,7 @@ package com.czertainly.core.tasks;
 
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
-import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.CertificateSettingsDto;
 import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
@@ -129,21 +129,21 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         PlatformSettingsDto platformSettingsDto = new PlatformSettingsDto();
         CertificateSettingsDto certificateSettingsDto = new CertificateSettingsDto();
         CertificateValidationSettingsDto certificateValidationSettingsDto = new CertificateValidationSettingsDto();
-        certificateValidationSettingsDto.setValidationEnabled(validationEnabled);
-        certificateValidationSettingsDto.setValidationFrequency(2);
-        certificateSettingsDto.setCertificateValidationSettingsDto(certificateValidationSettingsDto);
+        certificateValidationSettingsDto.setEnabled(validationEnabled);
+        certificateValidationSettingsDto.setFrequency(2);
+        certificateSettingsDto.setValidation(certificateValidationSettingsDto);
         platformSettingsDto.setCertificates(certificateSettingsDto);
         return platformSettingsDto;
     }
 
     @Test
     void testValidationWithCertificatesWithRaProfile() {
-        RaProfileValidationUpdateDto validationUpdateDto = new RaProfileValidationUpdateDto();
+        RaProfileCertificateValidationSettingsUpdateDto validationUpdateDto = new RaProfileCertificateValidationSettingsUpdateDto();
 
         // Certificate which has RA Profile with validation disabled
         Certificate certificateWithRaProfileValidationDisabled = new Certificate();
         certificateWithRaProfileValidationDisabled.setStatusValidationTimestamp(LocalDateTime.now().minusDays(2));
-        validationUpdateDto.setValidationEnabled(false);
+        validationUpdateDto.setEnabled(false);
         certificateWithRaProfileValidationDisabled.setRaProfile(getRaProfile(validationUpdateDto));
         setCertificateContent(certificateWithRaProfileValidationDisabled);
         certificateWithRaProfileValidationDisabled.setValidationStatus(CertificateValidationStatus.INVALID);
@@ -152,7 +152,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         // Certificate which has RA Profile with validation enabled and default settings
         Certificate certificateWithRaProfileValidationEnabledDefault = new Certificate();
         certificateWithRaProfileValidationEnabledDefault.setStatusValidationTimestamp(null);
-        validationUpdateDto.setValidationEnabled(true);
+        validationUpdateDto.setEnabled(true);
         certificateWithRaProfileValidationEnabledDefault.setRaProfile(getRaProfile(validationUpdateDto));
         setCertificateContent(certificateWithRaProfileValidationEnabledDefault);
         certificateWithRaProfileValidationEnabledDefault.setValidationStatus(CertificateValidationStatus.INVALID);
@@ -161,17 +161,26 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         // Certificate which has RA Profile with validation enabled and custom settings
         Certificate certificateWithRaProfileValidationEnabledCustom = new Certificate();
         certificateWithRaProfileValidationEnabledCustom.setStatusValidationTimestamp(null);
-        validationUpdateDto.setValidationFrequency(2);
+        validationUpdateDto.setFrequency(2);
         certificateWithRaProfileValidationEnabledCustom.setRaProfile(getRaProfile(validationUpdateDto));
         setCertificateContent(certificateWithRaProfileValidationEnabledCustom);
         certificateWithRaProfileValidationEnabledCustom.setValidationStatus(CertificateValidationStatus.VALID);
         certificateRepository.save(certificateWithRaProfileValidationEnabledCustom);
 
+        // Certificate which has RA Profile with enabled set to null
+        Certificate certificateWithRaProfileValidationEnabledNull = new Certificate();
+        certificateWithRaProfileValidationEnabledNull.setValidationStatus(null);
+        validationUpdateDto.setEnabled(null);
+        certificateWithRaProfileValidationEnabledNull.setRaProfile(getRaProfile(validationUpdateDto));
+        setCertificateContent(certificateWithRaProfileValidationEnabledNull);
+        certificateWithRaProfileValidationEnabledNull.setValidationStatus(CertificateValidationStatus.VALID);
+        certificateRepository.save(certificateWithRaProfileValidationEnabledNull);
+
         LocalDateTime timeNow = LocalDateTime.now();
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate, certToRevalidate2, certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
-        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("5"));
-        assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate, certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom), timeNow);
+        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("6"));
+        assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate, certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom, certificateWithRaProfileValidationEnabledNull), timeNow);
 
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettingsDto(false));
         certificateWithRaProfileValidationEnabledDefault.setStatusValidationTimestamp(LocalDateTime.now().minusDays(10));
@@ -205,7 +214,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificate.setCertificateContent(certificateContent);
     }
 
-    private RaProfile getRaProfile(RaProfileValidationUpdateDto validationUpdateDto) {
+    private RaProfile getRaProfile(RaProfileCertificateValidationSettingsUpdateDto validationUpdateDto) {
         RaProfile raProfile = new RaProfile();
         raProfile.setEnabled(true);
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
@@ -216,8 +225,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         authorityInstanceReference.setConnector(connector);
         authorityInstanceReferenceRepository.save(authorityInstanceReference);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
-        raProfile.setValidationFrequency(validationUpdateDto.getValidationFrequency());
-        raProfile.setValidationEnabled(validationUpdateDto.getValidationEnabled());
+        raProfile.setValidationFrequency(validationUpdateDto.getFrequency());
+        raProfile.setValidationEnabled(validationUpdateDto.getEnabled());
         raProfileRepository.save(raProfile);
         return raProfile;
     }

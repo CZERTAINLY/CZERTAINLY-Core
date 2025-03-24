@@ -11,7 +11,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -206,14 +206,29 @@ class RaProfileServiceTest extends ApprovalProfileData {
 
     @Test
     void testUpdateRaProfileValidation() throws NotFoundException {
-        RaProfileValidationUpdateDto updateDto = new RaProfileValidationUpdateDto();
-        updateDto.setValidationEnabled(true);
-        updateDto.setValidationFrequency(10);
+        RaProfileCertificateValidationSettingsUpdateDto updateDto = new RaProfileCertificateValidationSettingsUpdateDto();
+        updateDto.setEnabled(true);
+        updateDto.setFrequency(10);
         updateDto.setExpiringThreshold(5);
         RaProfileDto raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
-        Assertions.assertEquals(updateDto.getValidationEnabled(), raProfileDto.isValidationEnabled());
-        Assertions.assertEquals(updateDto.getValidationFrequency(), raProfileDto.getValidationFrequency());
-        Assertions.assertEquals(updateDto.getExpiringThreshold(), raProfileDto.getExpiringThreshold());
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertEquals(updateDto.getFrequency(), raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertEquals(updateDto.getExpiringThreshold(), raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
+        RaProfileCertificateValidationSettingsUpdateDto updateDtoDefault = new RaProfileCertificateValidationSettingsUpdateDto();
+        updateDtoDefault.setEnabled(true);
+        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDtoDefault);
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertEquals(1, raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertEquals(30, raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
+        updateDto.setEnabled(false);
+        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertNull(raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertNull(raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
+
     }
 
     @Test
