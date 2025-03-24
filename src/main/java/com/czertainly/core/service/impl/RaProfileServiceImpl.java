@@ -16,7 +16,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
-import com.czertainly.api.model.core.raprofile.RaProfileValidationUpdateDto;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
@@ -172,11 +172,17 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileValidationUpdateDto request) throws NotFoundException {
+    public RaProfileDto updateRaProfileValidationConfiguration(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, RaProfileCertificateValidationSettingsUpdateDto request) throws NotFoundException {
         RaProfile raProfile = getRaProfileEntity(raProfileUuid);
-        raProfile.setValidationEnabled(request.getValidationEnabled());
-        raProfile.setValidationFrequency(request.getValidationFrequency());
-        raProfile.setExpiringThreshold(request.getExpiringThreshold());
+        raProfile.setValidationEnabled(request.getEnabled());
+        if (Boolean.TRUE.equals(request.getEnabled())) {
+            raProfile.setValidationFrequency(request.getFrequency());
+            raProfile.setExpiringThreshold(request.getExpiringThreshold());
+        }
+        else {
+            raProfile.setValidationFrequency(null);
+            raProfile.setExpiringThreshold(null);
+        }
         raProfileRepository.save(raProfile);
         return raProfile.mapToDto();
     }

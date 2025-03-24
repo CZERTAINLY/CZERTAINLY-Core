@@ -23,7 +23,6 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.api.model.core.settings.CertificateSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -1032,7 +1031,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
         PlatformSettingsDto platformSettingsDto = SettingsCache.getSettings(SettingsSection.PLATFORM);
-        boolean platformEnabled = platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getCertificateValidationSettingsDto() == null || platformSettingsDto.getCertificates().getCertificateValidationSettingsDto().getValidationEnabled();
+        boolean platformEnabled = platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getValidation() == null || platformSettingsDto.getCertificates().getValidation().getEnabled();
         int certificatesUpdated = 0;
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
@@ -1072,8 +1071,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     private int getValidationFrequency(PlatformSettingsDto platformSettingsDto) {
         int validationFrequency = 1;
-        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null && platformSettingsDto.getCertificates().getCertificateValidationSettingsDto() != null) {
-            validationFrequency = platformSettingsDto.getCertificates().getCertificateValidationSettingsDto().getValidationFrequency();
+        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null && platformSettingsDto.getCertificates().getValidation() != null) {
+            validationFrequency = platformSettingsDto.getCertificates().getValidation().getFrequency();
         }
         return validationFrequency;
     }
