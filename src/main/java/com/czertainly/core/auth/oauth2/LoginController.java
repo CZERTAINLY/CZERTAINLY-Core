@@ -4,7 +4,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.AuditLogService;
@@ -65,7 +65,7 @@ public class LoginController {
         if (authenticationSettings.getOAuth2Providers().isEmpty()) return "no-login-options";
 
         // Display only properly configured providers
-        List<OAuth2ProvidersSettingsUpdateDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList();
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             try {
@@ -75,14 +75,14 @@ public class LoginController {
             }
         }
 
-        model.addAttribute("providers", oauth2Providers.stream().map(OAuth2ProvidersSettingsUpdateDto::getName).toList());
+        model.addAttribute("providers", oauth2Providers.stream().map(OAuth2ProviderSettingsDto::getName).toList());
         return "login-options";
     }
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, HttpServletResponse response, HttpServletRequest request) throws IOException {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProvidersSettingsUpdateDto providerSettings = authenticationSettings.getOAuth2Providers().get(provider);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(provider);
 
         if (providerSettings == null) {
             String accessToken;
@@ -118,7 +118,7 @@ public class LoginController {
     }
 
 
-    private boolean validOAuth2Provider(OAuth2ProvidersSettingsUpdateDto settingsDto) {
+    private boolean validOAuth2Provider(OAuth2ProviderSettingsDto settingsDto) {
         return (settingsDto.getClientId() != null) &&
                 (settingsDto.getClientSecret() != null) &&
                 (settingsDto.getAuthorizationUrl() != null) &&

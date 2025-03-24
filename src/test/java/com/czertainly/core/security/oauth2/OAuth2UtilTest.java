@@ -1,7 +1,7 @@
 package com.czertainly.core.security.oauth2;
 
 
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.util.OAuth2Util;
 import com.nimbusds.jose.JOSEException;
@@ -24,7 +24,7 @@ class OAuth2UtilTest {
         generator.initialize(2048);
         KeyPair keyPair = generator.generateKeyPair();
 
-        OAuth2ProvidersSettingsUpdateDto providerSettingsDto = new OAuth2ProvidersSettingsUpdateDto();
+        OAuth2ProviderSettingsDto providerSettingsDto = new OAuth2ProviderSettingsDto();
         OAuth2AccessToken accessTokenCorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "expected", ""), Instant.now(), Instant.now().plusMillis(200));
         OAuth2AccessToken accessTokenIncorrectAudience = new OAuth2AccessToken(OAuth2AccessToken.TokenType.BEARER, OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 1, null, "unexpected", ""), Instant.now(), Instant.now().plusMillis(200));
 

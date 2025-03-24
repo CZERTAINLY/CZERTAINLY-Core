@@ -3,7 +3,7 @@ package com.czertainly.core.auth.oauth2;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProvidersSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
@@ -82,7 +82,7 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
             LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
 
             OAuth2AccessToken oauth2AccessToken = (OAuth2AccessToken) request.getSession().getAttribute(OAuth2Constants.ACCESS_TOKEN_SESSION_ATTRIBUTE);
-            OAuth2ProvidersSettingsUpdateDto providerSettings = getProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), request.getSession(), oauth2AccessToken);
+            OAuth2ProviderSettingsDto providerSettings = getProviderSettings(oauthToken.getAuthorizedClientRegistrationId(), request.getSession(), oauth2AccessToken);
 
             ClientRegistration clientRegistration = clientRegistrationRepository.findByRegistrationId(oauthToken.getAuthorizedClientRegistrationId());
             OAuth2AuthorizedClient authorizedClient = new OAuth2AuthorizedClient(clientRegistration, oauthToken.getName(), oauth2AccessToken, (OAuth2RefreshToken) request.getSession().getAttribute(OAuth2Constants.REFRESH_TOKEN_SESSION_ATTRIBUTE));
@@ -184,9 +184,9 @@ public class OAuth2LoginFilter extends OncePerRequestFilter {
         return authorizedClient;
     }
 
-    private OAuth2ProvidersSettingsUpdateDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
+    private OAuth2ProviderSettingsDto getProviderSettings(String clientRegistrationId, HttpSession session, OAuth2AccessToken oauth2AccessToken) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProvidersSettingsUpdateDto providerSettings = authenticationSettings.getOAuth2Providers().get(clientRegistrationId);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(clientRegistrationId);
         if (providerSettings == null) {
             session.invalidate();
             String message = "Unknown OAuth2 Provider with name '%s' for authentication with OAuth2 flow".formatted(clientRegistrationId);

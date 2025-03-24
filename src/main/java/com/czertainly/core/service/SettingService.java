@@ -28,7 +28,7 @@ public interface SettingService {
 
     void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto);
 
-    OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
+    OAuth2ProviderSettingsResponseDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
 
     void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto providerSettings);
 

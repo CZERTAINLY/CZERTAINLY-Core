@@ -3,7 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.SettingsSectionCategory;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
@@ -89,7 +89,7 @@ class SettingServiceTest extends BaseSpringBootTest {
         oauth2Setting.setCategory(SettingsSectionCategory.OAUTH2_PROVIDER.getCode());
         settingRepository.save(oauth2Setting);
 
-        OAuth2ProviderSettingsDto oAuth2ProvidersSettingsUpdateDto = settingService.getOAuth2ProviderSettings("name", false);
+        OAuth2ProviderSettingsResponseDto oAuth2ProvidersSettingsUpdateDto = settingService.getOAuth2ProviderSettings("name", false);
         Assertions.assertEquals(Base64.getEncoder().encodeToString(rsaJwk.toPublicKey().getEncoded()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("RSA")).findFirst().get().getPublicKey());
         Assertions.assertEquals(Base64.getEncoder().encodeToString(ecJwk.toPublicKey().getEncoded()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("EC")).findFirst().get().getPublicKey());
         Assertions.assertEquals(Base64.getEncoder().encodeToString(aesJwk.toByteArray()), oAuth2ProvidersSettingsUpdateDto.getJwkSetKeys().stream().filter(jwk -> jwk.getKeyType().equals("oct")).findFirst().get().getPublicKey());
