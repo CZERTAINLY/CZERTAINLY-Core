@@ -3,7 +3,6 @@ package com.czertainly.core.security.oauth2;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.SettingsSectionCategory;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.auth.oauth2.LoginController;
 import com.czertainly.core.dao.entity.Setting;
@@ -60,7 +59,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
     private static final String ISSUER_URL = "http://localhost:8082/realms/CZERTAINLY-realm";
 
-    private OAuth2ProviderSettingsDto providerSettings;
+    private OAuth2ProviderSettingsUpdateDto providerSettings;
 
     String tokenValue;
 
@@ -105,13 +104,12 @@ class JwtDecoderTest extends BaseSpringBootTest {
                         .withBody(jwkSetJson)));
 
 
-        OAuth2ProviderSettingsUpdateDto updateProviderSettings = new OAuth2ProviderSettingsUpdateDto();
-        updateProviderSettings.setIssuerUrl(ISSUER_URL);
-        updateProviderSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
-        updateProviderSettings.setClientId("test-client");
-        updateProviderSettings.setClientSecret("test-client-secret");
-        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, updateProviderSettings);
-        providerSettings = settingService.getOAuth2ProviderSettings(PROVIDER_NAME, true);
+        providerSettings = new OAuth2ProviderSettingsUpdateDto();
+        providerSettings.setIssuerUrl(ISSUER_URL);
+        providerSettings.setJwkSetUrl(ISSUER_URL + "/protocol/openid-connect/certs");
+        providerSettings.setClientId("test-client");
+        providerSettings.setClientSecret("test-client-secret");
+        settingService.updateOAuth2ProviderSettings(PROVIDER_NAME, providerSettings);
 
         tokenValue = OAuth2TestUtil.createJwtTokenValue(keyPair.getPrivate(), 3600 * 1000, ISSUER_URL, AUDIENCE, "");
 
