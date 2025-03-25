@@ -1,6 +1,8 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.settings.*;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.core.dao.entity.Setting;
 import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.service.impl.SettingServiceImpl;
