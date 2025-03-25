@@ -495,7 +495,7 @@ public class SettingServiceImpl implements SettingService {
             JwkDto jwkDto = new JwkDto();
             jwkDto.setKid(jwk.getKeyID());
             jwkDto.setAlgorithm(jwk.getAlgorithm() != null ? jwk.getAlgorithm().getName() : null);
-            jwkDto.setUse(jwkDto.getUse());
+            jwkDto.setUse(jwk.getKeyUse() != null ? jwk.getKeyUse().getValue() : null);
             jwkDto.setKeyType(jwk.getKeyType().getValue());
             byte[] publicKeyBytes;
             try {
