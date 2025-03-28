@@ -2,10 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.settings.*;
 
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.authentication.*;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 
 public interface SettingService {
@@ -31,7 +28,7 @@ public interface SettingService {
 
     void updateAuthenticationSettings(AuthenticationSettingsUpdateDto authenticationSettingsDto);
 
-    OAuth2ProviderSettingsDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
+    OAuth2ProviderSettingsResponseDto getOAuth2ProviderSettings(String providerName, boolean withClientSecret);
 
     void updateOAuth2ProviderSettings(String providerName, OAuth2ProviderSettingsUpdateDto providerSettings);
 
