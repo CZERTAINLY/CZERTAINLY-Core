@@ -14,8 +14,6 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.RoleManagementService;
 import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,12 +23,14 @@ import java.util.UUID;
 @Service
 @Transactional
 public class RoleManagementServiceImpl implements RoleManagementService {
-    private static final Logger logger = LoggerFactory.getLogger(RoleManagementServiceImpl.class);
+
+    private RoleManagementApiClient roleManagementApiClient;
+    private AttributeEngine attributeEngine;
 
     @Autowired
-    private RoleManagementApiClient roleManagementApiClient;
-
-    private AttributeEngine attributeEngine;
+    public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
+        this.roleManagementApiClient = roleManagementApiClient;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -162,7 +162,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
     private void checkSystemRole(String roleUuid) {
         RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(roleUuid);
-        if (roleDetailDto.getSystemRole()) {
+        if (Boolean.TRUE.equals(roleDetailDto.getSystemRole())) {
             throw new ValidationException("Cannot edit permissions of system role: " + roleDetailDto.getName());
         }
     }

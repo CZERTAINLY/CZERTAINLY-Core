@@ -87,7 +87,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.DETAIL)
     public ScepProfileDetailDto getScepProfile(SecuredUUID uuid) throws NotFoundException {
-        logger.info("Requesting the details for the SCEP Profile with uuid " + uuid);
+        logger.info("Requesting the details for the SCEP Profile with uuid {}", uuid);
         ScepProfile scepProfile = getScepProfileEntity(uuid);
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
         if (scepProfile.getRaProfile() != null) {
@@ -99,7 +99,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.CREATE)
-    public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public ScepProfileDetailDto createScepProfile(ScepProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
@@ -162,7 +162,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.UPDATE)
-    public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    public ScepProfileDetailDto editScepProfile(SecuredUUID uuid, ScepProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         if (request.getCaCertificateUuid() == null || request.getCaCertificateUuid().isEmpty()) {
             throw new ValidationException(ValidationError.create("CA Certificate cannot be empty"));
         }
@@ -364,9 +364,4 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             scepProfileRepository.delete(scepProfile);
         }
     }
-
-    private boolean rootCaValidation(Certificate certificate) {
-        return certificate.getSubjectDn().equals(certificate.getIssuerDn());
-    }
 }
-

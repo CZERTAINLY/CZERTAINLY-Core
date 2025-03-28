@@ -53,7 +53,6 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -119,7 +118,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException {
+    public List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -129,7 +128,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ENCRYPT, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public EncryptDataResponseDto encryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException {
+    public EncryptDataResponseDto encryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Request to encrypt the data using the key: {} and data: {}", keyItemUuid, request);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -151,8 +150,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                             cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
                             cipherRequestData.setIdentifier(e.getIdentifier());
                             return cipherRequestData;
-                        })
-                        .collect(Collectors.toList())
+                        }).toList()
         );
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
@@ -173,7 +171,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     cipherResponseData.setIdentifier(e.getIdentifier());
                     cipherResponseData.setDetails(e.getDetails());
                     return cipherResponseData;
-                }).collect(Collectors.toList()));
+                }).toList());
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
@@ -184,7 +182,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DECRYPT, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public DecryptDataResponseDto decryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException {
+    public DecryptDataResponseDto decryptData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, CipherDataRequestDto request) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Decrypting using the key: {} and data: {}", keyItemUuid, request);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -206,8 +204,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                             cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
                             cipherRequestData.setIdentifier(e.getIdentifier());
                             return cipherRequestData;
-                        })
-                        .collect(Collectors.toList())
+                        }).toList()
         );
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
@@ -227,7 +224,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     cipherResponseData.setIdentifier(e.getIdentifier());
                     cipherResponseData.setDetails(e.getDetails());
                     return cipherResponseData;
-                }).collect(Collectors.toList()));
+                }).toList());
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.DECRYPT, KeyEventStatus.FAILED,
@@ -238,7 +235,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException {
+    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -248,7 +245,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.SIGN, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public SignDataResponseDto signData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, SignDataRequestDto request) throws ConnectorException {
+    public SignDataResponseDto signData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, SignDataRequestDto request) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Signing the data: {} using the key: {}", request, keyItemUuid);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -272,8 +269,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                             signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
                             signatureRequestData.setIdentifier(e.getIdentifier());
                             return signatureRequestData;
-                        })
-                        .collect(Collectors.toList())
+                        }).toList()
         );
         logger.debug("Request to the connector: {}", requestDto);
         try {
@@ -292,7 +288,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 signatureResponseData.setIdentifier(e.getIdentifier());
                 signatureResponseData.setDetails(e.getDetails());
                 return signatureResponseData;
-            }).collect(Collectors.toList()));
+            }).toList());
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.SIGN, KeyEventStatus.FAILED,
@@ -303,7 +299,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.VERIFY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public VerifyDataResponseDto verifyData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, VerifyDataRequestDto request) throws ConnectorException {
+    public VerifyDataResponseDto verifyData(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, VerifyDataRequestDto request) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Request to verify data: {} for the key: {}", request, keyItemUuid);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -327,16 +323,14 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                             signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
                             signatureRequestData.setIdentifier(e.getIdentifier());
                             return signatureRequestData;
-                        })
-                        .collect(Collectors.toList())
+                        }).toList()
         );
         requestDto.setSignatures(request.getSignatures().stream().map(e -> {
                             com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
                             signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
                             signatureRequestData.setIdentifier(e.getIdentifier());
                             return signatureRequestData;
-                        })
-                        .collect(Collectors.toList())
+                        }).toList()
         );
         logger.debug("Request to the connector: {}", requestDto);
         try {
@@ -356,7 +350,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     verifyDataResponseDto.setIdentifier(e.getIdentifier());
                     verifyDataResponseDto.setDetails(e.getDetails());
                     return verifyDataResponseDto;
-                }).collect(Collectors.toList()));
+                }).toList());
             return responseDto;
         } catch (Exception e) {
             eventHistoryService.addEventHistory(KeyEvent.ENCRYPT, KeyEventStatus.FAILED,
@@ -367,7 +361,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public List<BaseAttribute> listRandomAttributes(SecuredUUID tokenInstanceUuid) throws ConnectorException {
+    public List<BaseAttribute> listRandomAttributes(SecuredUUID tokenInstanceUuid) throws ConnectorException, NotFoundException {
         logger.info("Requesting attributes for random generation for token Instance: {}", tokenInstanceUuid);
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(tokenInstanceUuid);
         logger.debug("Token Instance details: {}", tokenInstanceReference);
@@ -379,7 +373,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.DETAIL)
-    public RandomDataResponseDto randomData(SecuredUUID tokenInstanceUuid, RandomDataRequestDto request) throws ConnectorException {
+    public RandomDataResponseDto randomData(SecuredUUID tokenInstanceUuid, RandomDataRequestDto request) throws ConnectorException, NotFoundException {
         logger.info("Requesting attributes for random generation for token Instance: {}", tokenInstanceUuid);
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(tokenInstanceUuid);
         logger.debug("Token Instance details: {}", tokenInstanceReference);
@@ -550,7 +544,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
     }
 
-    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) throws NotFoundException {
+    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) {
         if (attributes == null) {
             return false;
         }

@@ -40,7 +40,7 @@ public interface EntityInstanceService extends ResourceExtensionService {
      * @throws AlreadyExistException when Entity instance already exists
      * @throws ConnectorException when failed to create Entity instance
      */
-    EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto entityInstanceRequestDto) throws AlreadyExistException, ConnectorException, AttributeException;
+    EntityInstanceDto createEntityInstance(com.czertainly.api.model.client.entity.EntityInstanceRequestDto entityInstanceRequestDto) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Update Entity instance

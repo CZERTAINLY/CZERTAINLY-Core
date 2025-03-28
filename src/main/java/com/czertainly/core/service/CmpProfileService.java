@@ -39,7 +39,7 @@ public interface CmpProfileService extends ResourceExtensionService {
      * @throws NotFoundException when the RA Profile with the requested UUID is not found
      * @throws ValidationException When the validation fails for the attributes or any other parameters in the request
      */
-    CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+    CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Update existing CMP Profile
@@ -49,7 +49,7 @@ public interface CmpProfileService extends ResourceExtensionService {
      * @throws NotFoundException when the RA Profile with the requested UUID is not found
      * @throws ValidationException When the validation fails for the attributes or any other parameters in the request
      */
-    CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException;
+    CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Delete CMP Profile

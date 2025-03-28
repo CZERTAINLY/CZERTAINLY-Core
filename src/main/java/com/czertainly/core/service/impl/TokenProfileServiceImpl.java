@@ -114,7 +114,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public TokenProfileDetailDto createTokenProfile(SecuredParentUUID tokenInstanceUuid, AddTokenProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         logger.info("Creating token profile with name: {}", request.getName());
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Token Profile name must not be empty"));
@@ -143,7 +143,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException {
+    public TokenProfileDetailDto editTokenProfile(SecuredParentUUID tokenInstanceUuid, SecuredUUID uuid, EditTokenProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         logger.info("Editing token profile with uuid: {}", uuid);
         TokenProfile tokenProfile = getTokenProfileEntity(uuid);
         TokenInstanceReference tokenInstanceReference = tokenInstanceReferenceRepository.findByUuid(tokenInstanceUuid).orElseThrow(() -> new NotFoundException(TokenInstanceReference.class, tokenInstanceUuid));

@@ -11,10 +11,7 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
-import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.ConnectorService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.RestController;
@@ -29,16 +26,10 @@ import java.util.UUID;
 public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
     private AttributeService attributeService;
-    private ConnectorService connectorService;
 
     @Autowired
     public void setAttributeService(AttributeService attributeService) {
         this.attributeService = attributeService;
-    }
-
-    @Autowired
-    public void setConnectorService(ConnectorService connectorService) {
-        this.connectorService = connectorService;
     }
 
     @Override
@@ -55,7 +46,7 @@ public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.CREATE)
-    public ResponseEntity<GlobalMetadataDefinitionDetailDto> createGlobalMetadata(GlobalMetadataCreateRequestDto request) throws AlreadyExistException, NotFoundException, AttributeException {
+    public ResponseEntity<GlobalMetadataDefinitionDetailDto> createGlobalMetadata(GlobalMetadataCreateRequestDto request) throws AlreadyExistException, AttributeException {
         GlobalMetadataDefinitionDetailDto definitionDetailDto = attributeService.createGlobalMetadata(request);
 
         URI location = ServletUriComponentsBuilder
@@ -86,7 +77,7 @@ public class GlobalMetadataControllerImpl implements GlobalMetadataController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.GLOBAL_METADATA, operation = Operation.LIST)
-    public List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid) throws NotFoundException {
+    public List<ConnectorMetadataResponseDto> getConnectorMetadata(Optional<String> connectorUuid) {
         return attributeService.getConnectorMetadata(connectorUuid);
     }
 

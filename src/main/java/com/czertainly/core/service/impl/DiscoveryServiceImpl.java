@@ -286,7 +286,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
-    public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException {
+    public DiscoveryHistoryDetailDto createDiscovery(final DiscoveryDto request, final boolean saveEntity) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         if (discoveryRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(DiscoveryHistory.class, request.getName());
         }
@@ -437,7 +437,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return finalizeDiscovery(discovery, loggedUserUuid, status, preProcessingMessage);
     }
 
-    private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, TransactionStatus status) throws InterruptedException, DiscoveryException, ConnectorException {
+    private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, TransactionStatus status) throws InterruptedException, DiscoveryException, ConnectorException, NotFoundException {
         DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
         dtoRequest.setName(discovery.getName());
         dtoRequest.setKind(discovery.getKind());

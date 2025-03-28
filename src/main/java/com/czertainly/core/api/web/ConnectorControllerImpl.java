@@ -89,7 +89,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.CREATE)
     public ResponseEntity<?> createConnector(@RequestBody ConnectorRequestDto request)
-            throws AlreadyExistException, ConnectorException, AttributeException {
+            throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         ConnectorDto connectorDto = connectorService.createConnector(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
@@ -102,7 +102,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CONNECTOR, operation = Operation.UPDATE)
     public ConnectorDto editConnector(@LogResource(uuid = true) @PathVariable String uuid, @RequestBody ConnectorUpdateRequestDto request)
-            throws ConnectorException, AttributeException {
+            throws ConnectorException, AttributeException, NotFoundException {
         return connectorService.editConnector(SecuredUUID.fromString(uuid), request);
     }
 

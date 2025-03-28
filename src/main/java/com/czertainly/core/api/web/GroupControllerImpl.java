@@ -79,7 +79,7 @@ public class GroupControllerImpl implements GroupController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.GROUP, operation = Operation.DELETE)
-    public void bulkDeleteGroup(@LogResource(uuid = true) List<String> groupUuids) throws NotFoundException {
+    public void bulkDeleteGroup(@LogResource(uuid = true) List<String> groupUuids) {
         groupService.bulkDeleteGroup(SecuredUUID.fromList(groupUuids));
     }
 }

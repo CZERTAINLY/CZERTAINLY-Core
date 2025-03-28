@@ -41,14 +41,14 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.DETAIL)
-    public NotificationInstanceDto getNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
+    public NotificationInstanceDto getNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws ConnectorException, NotFoundException {
         return notificationInstanceService.getNotificationInstance(UUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.CREATE)
     public ResponseEntity<?> createNotificationInstance(
-            @RequestBody NotificationInstanceRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException, AttributeException {
+            @RequestBody NotificationInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         NotificationInstanceDto notificationInstance = notificationInstanceService.createNotificationInstance(request);
 
         URI location = ServletUriComponentsBuilder.fromCurrentRequest()
@@ -64,18 +64,18 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.UPDATE)
     public NotificationInstanceDto editNotificationInstance(
             @LogResource(uuid = true) @PathVariable String uuid,
-            @RequestBody NotificationInstanceUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
+            @RequestBody NotificationInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return notificationInstanceService.editNotificationInstance(UUID.fromString(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_INSTANCE, operation = Operation.DELETE)
-    public void deleteNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException, ConnectorException {
+    public void deleteNotificationInstance(@LogResource(uuid = true) @PathVariable String uuid) throws ConnectorException, NotFoundException {
         notificationInstanceService.deleteNotificationInstance(UUID.fromString(uuid));
     }
 
     @Override
-    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException {
+    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         return notificationInstanceService.listMappingAttributes(connectorUuid, kind);
     }
 

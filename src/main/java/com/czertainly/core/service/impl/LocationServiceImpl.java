@@ -178,7 +178,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.CREATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
-    public LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto dto) throws AlreadyExistException, LocationException, ConnectorException, AttributeException {
+    public LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto dto) throws AlreadyExistException, LocationException, ConnectorException, AttributeException, NotFoundException {
         if (StringUtils.isBlank(dto.getName())) {
             throw new ValidationException(ValidationError.create("Location name must not be empty"));
         }
@@ -228,7 +228,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
-    public LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto dto) throws ConnectorException, LocationException, AttributeException {
+    public LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto dto) throws ConnectorException, LocationException, AttributeException, NotFoundException {
         Location location = locationRepository.findByUuid(locationUuid)
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -387,7 +387,7 @@ public class LocationServiceImpl implements LocationService {
         Set<CertificateLocation> certificateLocations = certificate.getLocations();
         for (CertificateLocation cl : certificateLocations) {
             try {
-                if (!cl.getLocation().getEnabled()) {
+                if (Boolean.FALSE.equals(cl.getLocation().getEnabled())) {
                     throw new NotFoundException(Location.class, cl.getLocation().getUuid());
                 }
 
@@ -427,7 +427,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException {
+    public void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException {
         CertificateLocation certificateLocation = certificateLocationRepository.findById(certificateLocationId).orElseThrow(() -> new NotFoundException(CertificateLocation.class, certificateLocationId));
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();
@@ -569,7 +569,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
-    public LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto request) throws ConnectorException, LocationException {
+    public LocationDto issueCertificateToLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String raProfileUuid, IssueToLocationRequestDto request) throws ConnectorException, LocationException, NotFoundException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -659,7 +659,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.UPDATE, parentResource = Resource.ENTITY, parentAction = ResourceAction.DETAIL)
-    public LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws ConnectorException, LocationException {
+    public LocationDto renewCertificateInLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, String certificateUuid) throws ConnectorException, LocationException, NotFoundException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -1088,7 +1088,7 @@ public class LocationServiceImpl implements LocationService {
 
     private void authorityPreChecks(RaProfile raProfile) throws ValidationException {
         //Check if RA Profile is enabled
-        if (!raProfile.getEnabled()) {
+        if (Boolean.FALSE.equals(raProfile.getEnabled())) {
             throw new ValidationException(ValidationError.create("RA Profile is disabled"));
         }
 

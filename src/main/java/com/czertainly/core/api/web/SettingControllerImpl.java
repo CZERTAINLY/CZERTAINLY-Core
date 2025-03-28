@@ -4,9 +4,10 @@ import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.settings.PlatformSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
-import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
+import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
@@ -44,7 +45,7 @@ public class SettingControllerImpl implements SettingController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "platform")
-    public void updatePlatformSettings(PlatformSettingsDto request) {
+    public void updatePlatformSettings(PlatformSettingsUpdateDto request) {
         settingService.updatePlatformSettings(request);
     }
 
@@ -74,7 +75,7 @@ public class SettingControllerImpl implements SettingController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, affiliatedResource = Resource.AUTHENTICATION_PROVIDER, operation = Operation.DETAIL, name = "authentication")
-    public OAuth2ProviderSettingsDto getOAuth2ProviderSettings(@LogResource(name = true, affiliated = true) String providerName) {
+    public OAuth2ProviderSettingsResponseDto getOAuth2ProviderSettings(@LogResource(name = true, affiliated = true) String providerName) {
         return settingService.getOAuth2ProviderSettings(providerName, false);
     }
 

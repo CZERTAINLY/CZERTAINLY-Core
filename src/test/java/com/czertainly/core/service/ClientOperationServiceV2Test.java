@@ -167,7 +167,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testListIssueCertificateAttributes() throws ConnectorException {
+    void testListIssueCertificateAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -182,7 +182,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testValidateIssueCertificateAttributes() throws ConnectorException {
+    void testValidateIssueCertificateAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
@@ -251,7 +251,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testListRevokeCertificateAttributes() throws ConnectorException {
+    void testListRevokeCertificateAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -266,7 +266,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testValidateRevokeCertificateAttributes() throws ConnectorException {
+    void testValidateRevokeCertificateAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));

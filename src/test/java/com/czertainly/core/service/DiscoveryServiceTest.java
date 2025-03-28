@@ -114,7 +114,7 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testAddDiscovery() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddDiscovery() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));

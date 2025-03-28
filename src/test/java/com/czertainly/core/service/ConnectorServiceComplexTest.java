@@ -99,7 +99,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateConnector() throws ConnectorException, AlreadyExistException {
+    void testCreateConnector() throws AlreadyExistException, NotFoundException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -138,7 +138,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSimpleCreateConnector() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testSimpleCreateConnector() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         String kindName = "testKind";
 
         FunctionGroup functionGroup = new FunctionGroup();
@@ -168,7 +168,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateConnector() throws ConnectorException, AttributeException {
+    void testUpdateConnector() throws ConnectorException, AttributeException, NotFoundException {
         String kindName = "testKind";
 
         FunctionGroup caFunctionGroup = new FunctionGroup();
@@ -207,7 +207,7 @@ class ConnectorServiceComplexTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, connectors.size());
     }
 
-    private void addFunctionGroupToConnector(FunctionGroup functionGroup, List<String> kinds, Connector connector) throws NotFoundException {
+    private void addFunctionGroupToConnector(FunctionGroup functionGroup, List<String> kinds, Connector connector) {
         Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
         c2fg.setConnector(connector);
         c2fg.setFunctionGroup(functionGroup);

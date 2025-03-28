@@ -48,11 +48,19 @@ public class CredentialServiceImpl implements CredentialService {
 
     private static final Logger logger = LoggerFactory.getLogger(CredentialServiceImpl.class);
 
-    @Autowired
     private CredentialRepository credentialRepository;
-    @Autowired
     private ConnectorService connectorService;
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setCredentialRepository(CredentialRepository credentialRepository) {
+        this.credentialRepository = credentialRepository;
+    }
+
+    @Autowired
+    public void setConnectorService(ConnectorService connectorService) {
+        this.connectorService = connectorService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -93,7 +101,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.CREATE)
-    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
+    public CredentialDto createCredential(CredentialRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("Name must not be empty"));
         }
@@ -125,7 +133,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.UPDATE)
-    public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException, AttributeException {
+    public CredentialDto editCredential(SecuredUUID uuid, CredentialUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         Credential credential = getCredentialEntity(uuid);
         SecuredUUID connectorUuid = SecuredUUID.fromUUID(credential.getConnectorUuid());
 
@@ -213,8 +221,7 @@ public class CredentialServiceImpl implements CredentialService {
                 if (AttributeContentType.CREDENTIAL.equals(mapping.getAttributeContentType())) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
                         switch (target) {
-                            case PATH_VARIABLE:
-                            case REQUEST_PARAMETER:
+                            case PATH_VARIABLE, REQUEST_PARAMETER:
                                 logger.warn("Illegal 'from' Attribute type {} for target {}",
                                         mapping.getAttributeType(), target);
                                 break;
@@ -225,27 +232,20 @@ public class CredentialServiceImpl implements CredentialService {
                                 Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
 
                                 String credentialUuid;
-                                String referenceName;
                                 if (bodyKeyValue instanceof NameAndUuidDto) {
                                     credentialUuid = ((NameAndUuidDto) bodyKeyValue).getUuid();
-                                    referenceName = ((NameAndUuidDto) bodyKeyValue).getName();
                                 } else if (bodyKeyValue instanceof CredentialDto) {
                                     credentialUuid = ((CredentialDto) bodyKeyValue).getUuid();
-                                    referenceName = ((CredentialDto) bodyKeyValue).getName();
                                 } else if (bodyKeyValue instanceof CredentialAttributeContent) {
                                     credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
-                                    referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
                                 } else if (bodyKeyValue instanceof List<?> list && list.get(0) instanceof CredentialAttributeContent) {
                                     credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
-                                    referenceName = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getReference();
                                 } else if (bodyKeyValue instanceof Map<?,?> map) {
                                     if(map.containsKey("uuid")) {
                                         credentialUuid = (String) map.get("uuid");
-                                        referenceName = (String) map.get("name");
                                     } else {
                                         try {
                                             credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("uuid");
-                                            referenceName = credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("name");
                                         } catch (Exception e) {
                                             logger.error(e.getMessage(), e);
                                             throw new ValidationException(ValidationError.create(

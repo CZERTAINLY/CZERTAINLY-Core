@@ -72,7 +72,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.CREATE)
-    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, NotFoundException, AttributeException {
+    public ResponseEntity<CustomAttributeDefinitionDetailDto> createCustomAttribute(CustomAttributeCreateRequestDto request) throws AlreadyExistException, AttributeException {
         CustomAttributeDefinitionDetailDto definitionDetailDto = attributeService.createCustomAttribute(request);
 
         URI location = ServletUriComponentsBuilder

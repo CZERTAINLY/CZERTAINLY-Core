@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
@@ -100,6 +101,21 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
 
     @Column(name = "cmp_profile_uuid")
     private UUID cmpProfileUuid;
+
+    /**
+     * Configuration of validation of certificates linked to the RA profile
+     */
+
+    @Column(name = "validation_enabled")
+    private Boolean validationEnabled;
+
+    @Column(name = "validation_frequency")
+    private Integer validationFrequency;
+
+    @Column(name = "expiring_threshold")
+    private Integer expiringThreshold;
+
+
 
     public RaProfileAcmeDetailResponseDto mapToAcmeDto() {
         RaProfileAcmeDetailResponseDto dto = new RaProfileAcmeDetailResponseDto();
@@ -215,6 +231,13 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
             dto.setLegacyAuthority(authorityInstanceReference.getConnector() == null ? null
                     : authorityInstanceReference.getConnector().getFunctionGroups().stream().anyMatch(fg -> fg.getFunctionGroup().getCode().equals(FunctionGroupCode.LEGACY_AUTHORITY_PROVIDER)));
         }
+
+        RaProfileCertificateValidationSettingsDto validationSettingsDto = new RaProfileCertificateValidationSettingsDto();
+        validationSettingsDto.setEnabled(validationEnabled);
+        validationSettingsDto.setFrequency(validationFrequency);
+        validationSettingsDto.setExpiringThreshold(expiringThreshold);
+        dto.setCertificateValidationSettings(validationSettingsDto);
+
         return dto;
     }
 

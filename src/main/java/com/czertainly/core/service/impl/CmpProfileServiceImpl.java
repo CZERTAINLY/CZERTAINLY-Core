@@ -114,7 +114,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.CREATE)
-    public CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public CmpProfileDetailDto createCmpProfile(CmpProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         if (cmpProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("CMP Profile " + request.getName() + " already exists");
         }
@@ -161,7 +161,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.UPDATE)
-    public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    public CmpProfileDetailDto editCmpProfile(SecuredUUID cmpProfileUuid, CmpProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
 
         // validate and set variant configuration
@@ -417,7 +417,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
      * @throws ConnectorException When the RA Profile is not found, or connector is not available
      * @throws AttributeException When the attributes are not valid
      */
-    private RaProfile getProvidedRaProfile(CmpProfileRequestDto request) throws AttributeException, ConnectorException {
+    private RaProfile getProvidedRaProfile(CmpProfileRequestDto request) throws AttributeException, ConnectorException, NotFoundException {
         // check if RA Profile is provided
         RaProfile raProfile = null;
         if (request.getRaProfileUuid() != null && !request.getRaProfileUuid().isEmpty()) {

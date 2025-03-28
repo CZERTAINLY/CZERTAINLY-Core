@@ -5,8 +5,6 @@ import com.czertainly.api.model.common.enums.PlatformEnum;
 import com.czertainly.api.model.core.enums.EnumItemDto;
 import com.czertainly.core.service.EnumService;
 import jakarta.transaction.Transactional;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -15,11 +13,9 @@ import java.util.*;
 @Transactional
 public class EnumServiceImpl implements EnumService {
 
-    private static final Logger logger = LoggerFactory.getLogger(EnumServiceImpl.class);
-
     @Override
     public Map<PlatformEnum, Map<String, EnumItemDto>> getPlatformEnums() {
-        Map<PlatformEnum, Map<String, EnumItemDto>> enumsMap = new HashMap<>();
+        Map<PlatformEnum, Map<String, EnumItemDto>> enumsMap = new EnumMap<>(PlatformEnum.class);
 
         for (PlatformEnum platformEnum: PlatformEnum.values()) {
             Map<String, EnumItemDto> enumItemsMap = new HashMap<>();
