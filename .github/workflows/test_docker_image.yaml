@@ -2,7 +2,7 @@ name: Test Docker image
 
 on:
   pull_request:
-    branches: [ develop ]
+    branches: [ main ]
   workflow_dispatch:
 
 jobs:
