@@ -2,7 +2,7 @@ name: Publish 3Key Harbor image
 
 on:
   push:
-    branches: [develop]
+    branches: [main]
     tags:
       - '*'
   workflow_dispatch:
