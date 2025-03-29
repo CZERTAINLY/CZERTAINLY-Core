@@ -12,6 +12,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.util.Map;
+import java.util.List;
 
 public class Pkcs10CertificateRequest implements CertificateRequest {
 
@@ -53,7 +54,7 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
     }
 
     @Override
-    public Map<String, Object> getSubjectAlternativeNames() {
+    public Map<String, List<String>> getSubjectAlternativeNames() {
         return CertificateUtil.getSAN(this);
     }
 

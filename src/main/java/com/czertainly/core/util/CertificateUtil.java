@@ -15,6 +15,8 @@ import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.model.request.Pkcs10CertificateRequest;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
@@ -58,6 +60,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
 
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
@@ -167,8 +170,8 @@ public class CertificateUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static Map<String, Object> getSAN(X509Certificate certificate) {
-        Map<String, Object> sans = buildEmptySans();
+    public static Map<String, List<String>> getSAN(X509Certificate certificate) {
+        Map<String, List<String>> sans = buildEmptySans();
 
         Collection<List<?>> encodedSans = null;
         try {
@@ -199,8 +202,8 @@ public class CertificateUtil {
     }
 
     @SuppressWarnings("unchecked")
-    public static Map<String, Object> getSAN(CertificateRequest certificateRequest) {
-        Map<String, Object> sans = buildEmptySans();
+    public static Map<String, List<String>> getSAN(CertificateRequest certificateRequest) {
+        Map<String, List<String>> sans = buildEmptySans();
 
         GeneralNames gns = null;
 
@@ -258,7 +261,7 @@ public class CertificateUtil {
         return value.toString();
     }
 
-    private static Map<String, Object> buildEmptySans() {
+    private static Map<String, List<String>> buildEmptySans() {
         return SAN_TYPE_MAP.values().stream().collect(Collectors.toMap(sanTypeName -> sanTypeName, sanTypeName -> new ArrayList<>(), (a, b) -> b));
     }
 
@@ -403,7 +406,7 @@ public class CertificateUtil {
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
-        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(CertificateUtil.getSAN(certificate)));
+        modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(CertificateUtil.getSAN(certificate)));
         try {
             modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
         } catch (CertificateParsingException e) {
@@ -444,7 +447,7 @@ public class CertificateUtil {
         else
             modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
-        modal.setSubjectAlternativeNames(MetaDefinitions.serialize(certificateRequest.getSubjectAlternativeNames()));
+        modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
 
     private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
@@ -663,5 +666,35 @@ public class CertificateUtil {
         final byte[] generated = new byte[length];
         SECURE_RANDOM.nextBytes(generated);
         return generated;
+    }
+
+    /**
+     * Serialize the subject alternative names to a string
+     * @param subjectAlternativeNames the subject alternative names
+     * @return the serialized string
+     */
+    public static String serializeSans(Map<String, List<String>> subjectAlternativeNames) {
+        try {
+            return OBJECT_MAPPER.writeValueAsString(subjectAlternativeNames);
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
+    }
+
+    /**
+     * Deserialize the subject alternative names from a string
+     * @param subjectAlternativeNames the serialized string
+     * @return the deserialized map
+     */
+    public static Map<String, List<String>> deserializeSans(String subjectAlternativeNames) {
+        if (subjectAlternativeNames == null || subjectAlternativeNames.isEmpty()) {
+            return new HashMap<>();
+        }
+        try {
+            return OBJECT_MAPPER.readValue(subjectAlternativeNames, new TypeReference<>() {
+            });
+        } catch (Exception e) {
+            throw new IllegalStateException(e);
+        }
     }
 }

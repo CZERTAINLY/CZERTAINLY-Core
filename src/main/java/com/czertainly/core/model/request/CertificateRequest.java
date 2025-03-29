@@ -7,6 +7,7 @@ import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -47,7 +48,7 @@ public interface CertificateRequest {
      *
      * @return subject alternative names
      */
-    Map<String, Object> getSubjectAlternativeNames();
+    Map<String, List<String>> getSubjectAlternativeNames();
 
     /**
      * Get the signature algorithm
