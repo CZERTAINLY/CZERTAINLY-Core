@@ -15,8 +15,11 @@ import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.model.request.Pkcs10CertificateRequest;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
@@ -60,7 +63,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
 
 public class CertificateUtil {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
@@ -674,10 +677,19 @@ public class CertificateUtil {
      * @return the serialized string
      */
     public static String serializeSans(Map<String, List<String>> subjectAlternativeNames) {
+        if (subjectAlternativeNames == null) {
+            return "{}";
+        }
+        // Check for null values in the map
+        for (Map.Entry<String, List<String>> entry : subjectAlternativeNames.entrySet()) {
+            if (entry.getValue() == null) {
+                throw new IllegalStateException("SAN list contains a null value for key: " + entry.getKey());
+            }
+        }
         try {
             return OBJECT_MAPPER.writeValueAsString(subjectAlternativeNames);
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to serialize SANs", e);
         }
     }
 
@@ -691,10 +703,10 @@ public class CertificateUtil {
             return new HashMap<>();
         }
         try {
-            return OBJECT_MAPPER.readValue(subjectAlternativeNames, new TypeReference<>() {
-            });
-        } catch (Exception e) {
-            throw new IllegalStateException(e);
+            JsonNode jsonNode = OBJECT_MAPPER.readTree(subjectAlternativeNames);
+            return OBJECT_MAPPER.convertValue(jsonNode, new TypeReference<>() {});
+        } catch (JsonProcessingException e) {
+            throw new IllegalStateException("Failed to deserialize SANs", e);
         }
     }
 }
