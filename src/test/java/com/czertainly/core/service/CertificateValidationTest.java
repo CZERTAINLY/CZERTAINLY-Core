@@ -4,12 +4,11 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.CrlEntryRepository;
-import com.czertainly.core.dao.repository.CrlRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
@@ -28,6 +27,7 @@ import org.bouncycastle.cert.X509v2CRLBuilder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CRLConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v2CRLBuilder;
+import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.operator.ContentSigner;
@@ -54,6 +54,8 @@ import java.io.InputStreamReader;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.*;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.*;
 
 import static com.github.tomakehurst.wiremock.client.WireMock.aResponse;
@@ -79,6 +81,15 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     @Autowired
     private CrlEntryRepository crlEntryRepository;
+
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+
+    @Autowired
+    private ConnectorRepository connectorRepository;
+
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
 
     private Certificate certificate;
 
@@ -147,6 +158,81 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
         Assertions.assertEquals(CertificateValidationStatus.INVALID, signatureVerification.getStatus());
+    }
+
+    @Test
+    void testExpiringCertificate() throws CertificateException, NoSuchAlgorithmException, OperatorCreationException {
+
+        LocalDate today = LocalDate.now();
+        // Expiring according to platform settings with null RA Profile
+        LocalDate expiringDate = today.plusDays(29);
+        X509Certificate x509Certificate = createCertificateWithCustomNotAfter(Date.from(expiringDate.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+        certificate.getCertificateContent().setContent(Base64.getEncoder().encodeToString(x509Certificate.getEncoded()));
+
+        certificateService.validate(certificate);
+        Map<CertificateValidationCheck, CertificateValidationCheckDto> resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
+        Assertions.assertEquals(CertificateValidationStatus.EXPIRING, resultMap.get(CertificateValidationCheck.CERTIFICATE_VALIDITY).getStatus());
+
+        // Expiring according to platform settings with not null RA Profile, but null validation enabled
+        certificate.setRaProfile(getRaProfile(new RaProfileCertificateValidationSettingsUpdateDto()));
+        certificateService.validate(certificate);
+        resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
+        Assertions.assertEquals(CertificateValidationStatus.EXPIRING, resultMap.get(CertificateValidationCheck.CERTIFICATE_VALIDITY).getStatus());
+
+        // Expiring according to RA Profile settings
+        RaProfileCertificateValidationSettingsUpdateDto validationSettingsUpdateDto = new RaProfileCertificateValidationSettingsUpdateDto();
+        validationSettingsUpdateDto.setEnabled(true);
+        validationSettingsUpdateDto.setExpiringThreshold(10);
+        certificate.setRaProfile(getRaProfile(validationSettingsUpdateDto));
+
+        // Certificate is not yet expiring
+        certificateService.validate(certificate);
+        resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
+        Assertions.assertEquals(CertificateValidationStatus.VALID, resultMap.get(CertificateValidationCheck.CERTIFICATE_VALIDITY).getStatus());
+
+        // Certificate is expiring
+        expiringDate = today.plusDays(9);
+        x509Certificate = createCertificateWithCustomNotAfter(Date.from(expiringDate.atStartOfDay(ZoneId.systemDefault()).toInstant()));
+        certificate.getCertificateContent().setContent(Base64.getEncoder().encodeToString(x509Certificate.getEncoded()));
+        certificateService.validate(certificate);
+        resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
+        Assertions.assertEquals(CertificateValidationStatus.EXPIRING, resultMap.get(CertificateValidationCheck.CERTIFICATE_VALIDITY).getStatus());
+    }
+
+    private RaProfile getRaProfile(RaProfileCertificateValidationSettingsUpdateDto validationUpdateDto) {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setEnabled(true);
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setStatus("connected");
+        Connector connector = new Connector();
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connectorRepository.save(connector);
+        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReferenceRepository.save(authorityInstanceReference);
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfile.setValidationEnabled(validationUpdateDto.getEnabled());
+        raProfile.setExpiringThreshold(validationUpdateDto.getExpiringThreshold());
+        raProfileRepository.save(raProfile);
+        return raProfile;
+    }
+
+    private X509Certificate createCertificateWithCustomNotAfter(Date notAfter) throws NoSuchAlgorithmException, OperatorCreationException, CertificateException {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA");
+        keyPairGenerator.initialize(2048, new SecureRandom());
+        KeyPair keyPair = keyPairGenerator.generateKeyPair();
+
+        X500Principal issuer = new X500Principal("CN=" + certificate.getIssuerDn());
+        Date notBefore = new Date();
+        BigInteger serialNumber = BigInteger.ONE;
+
+        X509v3CertificateBuilder certificateBuilder = new JcaX509v3CertificateBuilder(
+                issuer, serialNumber, notBefore, notAfter, issuer, keyPair.getPublic()
+        );
+
+        ContentSigner contentSigner = new JcaContentSignerBuilder("SHA256WithRSA").build(keyPair.getPrivate());
+        X509CertificateHolder certificateHolder = certificateBuilder.build(contentSigner);
+
+        return new JcaX509CertificateConverter().getCertificate(certificateHolder);
     }
 
     @Test
