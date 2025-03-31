@@ -2,10 +2,15 @@ package com.czertainly.core.validation.certificate;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CrlEntry;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.service.CrlService;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.OcspUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -27,7 +32,6 @@ import java.util.concurrent.TimeUnit;
 public class X509CertificateValidator implements ICertificateValidator {
     private static final Logger logger = LoggerFactory.getLogger(X509CertificateValidator.class);
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
-    private static final int DAYS_TO_EXPIRE = 30;
     private CertificateRepository certificateRepository;
 
 
@@ -64,7 +68,8 @@ public class X509CertificateValidator implements ICertificateValidator {
             x509Certificate = CertificateUtil.getX509Certificate(certificateChain.get(i).getCertificateContent().getContent());
 
             boolean isEndCertificate = i == 0;
-            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getSubjectType());
+            validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getSubjectType(),
+                    certificate.getRaProfile());
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 
@@ -76,7 +81,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType, RaProfile raProfile) {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
@@ -85,7 +90,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         // check certificate validity
         // section (a)(2) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
-        validationOutput.put(CertificateValidationCheck.CERTIFICATE_VALIDITY, checkCertificateValidity(certificate));
+        validationOutput.put(CertificateValidationCheck.CERTIFICATE_VALIDITY, checkCertificateValidity(certificate, raProfile));
 
         // check if certificate is not revoked - OCSP & CRL
         // section (a)(3) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
@@ -164,8 +169,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         }
     }
 
-    private CertificateValidationCheckDto checkCertificateValidity(X509Certificate certificate) {
-        long millisToExpiry;
+    private CertificateValidationCheckDto checkCertificateValidity(X509Certificate certificate, RaProfile raProfile) {
         Date currentUtcDate = Date.from(Instant.now());
         Date notAfterDate = certificate.getNotAfter();
         Date notBeforeDate = certificate.getNotBefore();
@@ -173,11 +177,23 @@ public class X509CertificateValidator implements ICertificateValidator {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationStatus.INACTIVE, "Certificate is inactive (not valid yet).");
         } else if (currentUtcDate.after(notAfterDate)) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationStatus.EXPIRED, "Certificate is expired.");
-        } else if ((millisToExpiry = notAfterDate.getTime() - currentUtcDate.getTime()) < TimeUnit.DAYS.toMillis(DAYS_TO_EXPIRE)) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationStatus.EXPIRING, "Certificate will expire in " + convertMillisecondsToTimeString(millisToExpiry));
+        } else if (isExpiring(notAfterDate, raProfile)) {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationStatus.EXPIRING, "Certificate will expire in " + convertMillisecondsToTimeString(notAfterDate.getTime() - currentUtcDate.getTime()));
         } else {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CERTIFICATE_VALIDITY, CertificateValidationStatus.VALID, "Certificate is valid.");
         }
+    }
+
+    private boolean isExpiring(Date notAfterDate, RaProfile raProfile) {
+        int expiringThreshold;
+        if (raProfile == null || !raProfile.getValidationEnabled()) {
+            PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+            CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
+            expiringThreshold = certificateValidationSettings.getExpiringThreshold();
+        } else {
+            expiringThreshold = raProfile.getExpiringThreshold();
+        }
+        return (notAfterDate.getTime() - Date.from(Instant.now()).getTime()) < TimeUnit.DAYS.toMillis(expiringThreshold);
     }
 
     private CertificateValidationCheckDto checkOcspRevocationStatus(X509Certificate certificate, X509Certificate issuerCertificate) {
