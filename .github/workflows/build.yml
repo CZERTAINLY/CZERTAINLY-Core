@@ -1,7 +1,7 @@
 name: Build
 on:
   push:
-    branches: [develop]
+    branches: [main]
   workflow_dispatch:
 
 jobs:
