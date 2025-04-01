@@ -186,7 +186,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private boolean isExpiring(Date notAfterDate, RaProfile raProfile) {
         int expiringThreshold;
-        if (raProfile == null || !raProfile.getValidationEnabled()) {
+        if (raProfile == null || raProfile.getValidationEnabled() == null || Boolean.FALSE.equals(raProfile.getValidationEnabled())) {
             PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
             CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
             expiringThreshold = certificateValidationSettings.getExpiringThreshold();

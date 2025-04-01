@@ -712,6 +712,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.warn("Unable to validate the certificate {}: {}", certificate, e.getMessage());
             newStatus = CertificateValidationStatus.FAILED;
             certificate.setValidationStatus(newStatus);
+            certificate.setCertificateValidationResult(null);
             certificateRepository.save(certificate);
         }
 
