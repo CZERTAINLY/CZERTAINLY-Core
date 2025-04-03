@@ -79,6 +79,12 @@ class AuthServiceTest extends BaseSpringBootTest {
 
         UserProfileDetailDto userProfileDto = authService.getAuthProfile();
         Assertions.assertEquals(3, userProfileDto.getPermissions().getAllowedListings().size());
+
+        // allow also users through group object member permissions
+        injectLocalhostUserProfileChangedToContext();
+        userProfileDto = authService.getAuthProfile();
+        Assertions.assertEquals(5, userProfileDto.getPermissions().getAllowedListings().size());
+
     }
 
     @Test
@@ -137,6 +143,70 @@ class AuthServiceTest extends BaseSpringBootTest {
                             }
                         ]
                     }
+                }
+                """;
+
+        // inject other user profile
+        AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41", "localhost", List.of(), userProfileData);
+        SecurityContextHolder.getContext().setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(info)));
+    }
+
+    private void injectLocalhostUserProfileChangedToContext() {
+        String userProfileData = """
+                {
+                     "user": {
+                         "uuid": "616be97b-0bd0-434c-a582-2d4dee5d0b41",
+                         "username": "localhost",
+                         "description": "System user for localhost operations",
+                         "groups": [],
+                         "enabled": true,
+                         "systemUser": true,
+                         "createdAt": "2024-12-02T10:52:54.36424+00:00",
+                         "updatedAt": "2024-12-02T10:52:54.364241+00:00"
+                     },
+                     "roles": [{
+                             "uuid": "9db01d1f-fb62-4be8-b344-a852e82edf80",
+                             "name": "localhost"
+                         }
+                     ],
+                     "permissions": {
+                         "allowAllResources": false,
+                         "resources": [{
+                                 "name": "certificates",
+                                 "allowAllActions": false,
+                                 "actions": ["create", "detail"],
+                                 "objects": []
+                             }, {
+                                 "name": "groups",
+                                 "allowAllActions": false,
+                                 "actions": ["create", "detail", "list"],
+                                 "objects": [{
+                                         "uuid": "1fa64e9a-1a34-4e87-a7dc-4ed55e3021a5",
+                                         "name": "ABCDEF",
+                                         "allow": [
+                                             "members"
+                                         ],
+                                         "deny": []
+                                     }
+                                 ]
+                             }, {
+                                 "name": "raProfiles",
+                                 "allowAllActions": false,
+                                 "actions": ["members"],
+                                 "objects": []
+                             }, {
+                                 "name": "settings",
+                                 "allowAllActions": false,
+                                 "actions": ["detail", "list", "update"],
+                                 "objects": []
+                             }, {
+                                 "name": "users",
+                                 "allowAllActions": false,
+                                 "actions": ["create", "update"],
+                                 "objects": []
+                             }
+                         ]
+                     }
                 }
                 """;
 
