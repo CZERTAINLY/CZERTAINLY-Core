@@ -76,7 +76,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.LIST)
     public PlatformSettingsDto getPlatformSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
@@ -164,7 +164,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.LIST)
     public NotificationSettingsDto getNotificationSettings() {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
         Map<NotificationType, String> valueMapped = new EnumMap<>(NotificationType.class);
@@ -221,7 +221,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.LIST)
     public LoggingSettingsDto getLoggingSettings() {
         LoggingSettingsDto loggingSettingsDto = new LoggingSettingsDto();
         List<Setting> settings = settingRepository.findBySection(SettingsSection.LOGGING);
@@ -316,7 +316,7 @@ public class SettingServiceImpl implements SettingService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.LIST)
     public AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret) {
         AuthenticationSettingsDto authenticationSettings = new AuthenticationSettingsDto();
 

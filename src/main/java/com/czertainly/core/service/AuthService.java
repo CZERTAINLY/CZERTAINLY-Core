@@ -4,12 +4,13 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
+import com.czertainly.api.model.core.auth.UserProfileDetailDto;
 
 import java.security.cert.CertificateException;
 import java.util.List;
 
 public interface AuthService {
-    UserDetailDto getAuthProfile();
+    UserProfileDetailDto getAuthProfile();
 
     List<AuthResourceDto> getAuthResources();
 
