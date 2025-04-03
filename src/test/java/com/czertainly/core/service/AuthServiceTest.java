@@ -77,7 +77,6 @@ class AuthServiceTest extends BaseSpringBootTest {
     void testAuthProfile() {
         injectLocalhostUserProfileToContext();
 
-        NameAndUuidDto userId = AuthHelper.getUserIdentification();
         UserProfileDetailDto userProfileDto = authService.getAuthProfile();
         Assertions.assertEquals(3, userProfileDto.getPermissions().getAllowedListings().size());
     }
