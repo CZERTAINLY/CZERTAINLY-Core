@@ -1,7 +1,10 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.AuthResourceDto;
+import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDetailDto;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.auth.ResourceListener;
@@ -23,6 +26,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.security.cert.CertificateException;
 import java.util.List;
 
 @SpringBootTest
@@ -50,6 +54,10 @@ class AuthServiceTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/resources")).willReturn(WireMock.okJson(getAuthResourcesMockResponse())));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson(getUserDetailMockResponse())));
+        mockServer.stubFor(WireMock.put(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson(getUserDetailMockResponse())));
     }
 
     @AfterEach
@@ -67,14 +75,32 @@ class AuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testAuthProfile() {
+        injectLocalhostUserProfileToContext();
+
+        NameAndUuidDto userId = AuthHelper.getUserIdentification();
+        UserProfileDetailDto userProfileDto = authService.getAuthProfile();
+        Assertions.assertEquals(3, userProfileDto.getPermissions().getAllowedListings().size());
+    }
+
+    @Test
+    void testUpdateAuthProfile() throws NotFoundException, CertificateException {
+        UpdateUserRequestDto updateUserRequest = new UpdateUserRequestDto();
+        updateUserRequest.setEmail("localhost@example.com");
+
+        UserDetailDto userDetailDto = authService.updateUserProfile(updateUserRequest);
+
+        injectLocalhostUserProfileToContext();
+        NameAndUuidDto userId = AuthHelper.getUserIdentification();
+
+        Assertions.assertEquals(userDetailDto.getUsername(), userId.getName());
+    }
+
+    private void injectLocalhostUserProfileToContext() {
         String userProfileData = """
                 {
                     "user": {
                         "uuid": "616be97b-0bd0-434c-a582-2d4dee5d0b41",
                         "username": "localhost",
-                        "firstName": null,
-                        "lastName": null,
-                        "email": null,
                         "description": "System user for localhost operations",
                         "groups": [],
                         "enabled": true,
@@ -118,36 +144,31 @@ class AuthServiceTest extends BaseSpringBootTest {
         // inject other user profile
         AuthenticationInfo info = new AuthenticationInfo(AuthMethod.USER_PROXY, "616be97b-0bd0-434c-a582-2d4dee5d0b41", "localhost", List.of(), userProfileData);
         SecurityContextHolder.getContext().setAuthentication(new CzertainlyAuthenticationToken(new CzertainlyUserDetails(info)));
+    }
 
-        NameAndUuidDto userId = AuthHelper.getUserIdentification();
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("""
-                        {
-                          "uuid": "%s",
-                          "username": "localhost",
-                          "groups": [],
-                          "enabled": true,
-                          "systemUser": true,
-                          "roles": [
-                            {
-                              "uuid": "9db01d1f-fb62-4be8-b344-a852e82edf80",
-                              "name": "localhost",
-                              "description": "System role with all permissions needed for localhost operations",
-                              "email": null,
-                              "systemRole": true,
-                              "createdAt": "2024-12-02T10:52:54.186481+00:00",
-                              "updatedAt": "2024-12-02T10:52:54.186505+00:00"
-                            }
-                          ],
-                          "createdAt": "2024-12-02T10:52:54.36424+00:00",
-                          "updatedAt": "2024-12-02T10:52:54.364241+00:00"
-                        }
-                        """.formatted(userId.getUuid()))
-        ));
-
-        UserProfileDetailDto userProfileDto = authService.getAuthProfile();
-
-        Assertions.assertEquals(3, userProfileDto.getPermissions().getAllowedListings().size());
+    private String getUserDetailMockResponse() {
+        return """
+                {
+                  "uuid": "616be97b-0bd0-434c-a582-2d4dee5d0b41",
+                  "username": "localhost",
+                  "groups": [],
+                  "enabled": true,
+                  "systemUser": true,
+                  "roles": [
+                    {
+                      "uuid": "9db01d1f-fb62-4be8-b344-a852e82edf80",
+                      "name": "localhost",
+                      "description": "System role with all permissions needed for localhost operations",
+                      "email": null,
+                      "systemRole": true,
+                      "createdAt": "2024-12-02T10:52:54.186481+00:00",
+                      "updatedAt": "2024-12-02T10:52:54.186505+00:00"
+                    }
+                  ],
+                  "createdAt": "2024-12-02T10:52:54.36424+00:00",
+                  "updatedAt": "2024-12-02T10:52:54.364241+00:00"
+                }
+                """;
     }
 
     private String getAuthResourcesMockResponse() {
