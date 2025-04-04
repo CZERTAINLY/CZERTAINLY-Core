@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.attribute.EcdsaSignatureAttributes;
+import com.czertainly.core.attribute.MldsaSignatureAttributes;
 import com.czertainly.core.attribute.RsaEncryptionAttributes;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -519,7 +520,10 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             case ECDSA -> {
                 return EcdsaSignatureAttributes.getEcdsaSignatureAttributes();
             }
-            case FALCON, DILITHIUM, SPHINCSPLUS -> {
+            case MLDSA -> {
+                return MldsaSignatureAttributes.getMldsaSignatureAttributes();
+            }
+            case FALCON, SLHDSA -> {
                 return List.of();
             }
             default -> throw new ValidationException(
@@ -554,7 +558,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
             case ECDSA ->
                     AttributeDefinitionUtils.validateAttributes(EcdsaSignatureAttributes.getEcdsaSignatureAttributes(), attributes);
-            case FALCON, DILITHIUM, SPHINCSPLUS -> {
+            case FALCON, MLDSA, SLHDSA -> {
             }
             default -> throw new ValidationException(
                     ValidationError.create(
