@@ -23,6 +23,7 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -1030,14 +1031,15 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
-        PlatformSettingsDto platformSettingsDto = SettingsCache.getSettings(SettingsSection.PLATFORM);
-        boolean platformEnabled = platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getValidation() == null || platformSettingsDto.getCertificates().getValidation().getEnabled();
+        PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+        CertificateValidationSettingsDto certificateValidationSettings = getValidationSettingsDto(platformSettings);
+        boolean platformEnabled = certificateValidationSettings.getEnabled();
         int certificatesUpdated = 0;
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
-        LocalDateTime before = LocalDateTime.now().minusDays(getValidationFrequency(platformSettingsDto));
+        LocalDateTime before = LocalDateTime.now().minusDays(platformEnabled ? certificateValidationSettings.getFrequency() : 0);
 
         // process 1/24 of eligible certificates for status update
         final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, platformEnabled, PageRequest.of(0, maxCertsToValidate));
@@ -1069,12 +1071,16 @@ public class CertificateServiceImpl implements CertificateService {
         return certificatesUpdated;
     }
 
-    private int getValidationFrequency(PlatformSettingsDto platformSettingsDto) {
-        int validationFrequency = 1;
-        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null && platformSettingsDto.getCertificates().getValidation() != null) {
-            validationFrequency = platformSettingsDto.getCertificates().getValidation().getFrequency();
+    private static CertificateValidationSettingsDto getValidationSettingsDto(PlatformSettingsDto platformSettings) {
+        CertificateValidationSettingsDto certificateValidationSettings;
+        if (platformSettings == null || platformSettings.getCertificates() == null || platformSettings.getCertificates().getValidation() == null) {
+            certificateValidationSettings = new CertificateValidationSettingsDto();
+            certificateValidationSettings.setEnabled(true);
+            certificateValidationSettings.setFrequency(1);
+        } else {
+            certificateValidationSettings = platformSettings.getCertificates().getValidation();
         }
-        return validationFrequency;
+        return certificateValidationSettings;
     }
 
     @Override

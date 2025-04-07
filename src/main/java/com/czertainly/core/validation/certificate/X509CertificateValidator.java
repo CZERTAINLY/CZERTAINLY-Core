@@ -186,14 +186,28 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private boolean isExpiring(Date notAfterDate, RaProfile raProfile) {
         int expiringThreshold;
-        if (raProfile == null || raProfile.getValidationEnabled() == null || Boolean.FALSE.equals(raProfile.getValidationEnabled())) {
+        if (raProfile == null || raProfile.getValidationEnabled() == null) {
             PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-            CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
-            expiringThreshold = certificateValidationSettings.getExpiringThreshold();
+            CertificateValidationSettingsDto validationSettings = getValidationSettingsDto(platformSettings);
+            if (Boolean.FALSE.equals(validationSettings.getEnabled())) return false;
+            expiringThreshold = validationSettings.getExpiringThreshold();
         } else {
+            if (Boolean.FALSE.equals(raProfile.getValidationEnabled())) return false;
             expiringThreshold = raProfile.getExpiringThreshold();
         }
         return (notAfterDate.getTime() - Date.from(Instant.now()).getTime()) < TimeUnit.DAYS.toMillis(expiringThreshold);
+    }
+
+    private static CertificateValidationSettingsDto getValidationSettingsDto(PlatformSettingsDto platformSettings) {
+        CertificateValidationSettingsDto validationSettings;
+        if (platformSettings == null || platformSettings.getCertificates() == null || platformSettings.getCertificates().getValidation() == null) {
+            validationSettings = new CertificateValidationSettingsDto();
+            validationSettings.setExpiringThreshold(30);
+            validationSettings.setEnabled(true);
+        } else {
+            validationSettings = platformSettings.getCertificates().getValidation();
+        }
+        return validationSettings;
     }
 
     private CertificateValidationCheckDto checkOcspRevocationStatus(X509Certificate certificate, X509Certificate issuerCertificate) {
