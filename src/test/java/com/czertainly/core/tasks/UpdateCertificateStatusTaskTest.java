@@ -11,6 +11,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.SettingService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -40,6 +41,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
     @Autowired
     private SettingsCache settingsCache;
+    @Autowired
+    private SettingService settingService;
 
     @Autowired
     private UpdateCertificateStatusTask updateCertificateStatusTask;
@@ -121,7 +124,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert and certToRevalidate2
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
-        settingsCache.cacheSettings(SettingsSection.PLATFORM, new PlatformSettingsDto());
+        settingsCache.cacheSettings(SettingsSection.PLATFORM,settingService.getPlatformSettings());
         assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2), timeNow);
     }
 
@@ -193,7 +196,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         // Should validate certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
         assertCorrectCertificatesHaveBeenValidated(List.of(certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom), timeNow);
-        settingsCache.cacheSettings(SettingsSection.PLATFORM, new PlatformSettingsDto());
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, settingService.getPlatformSettings());
     }
 
 
