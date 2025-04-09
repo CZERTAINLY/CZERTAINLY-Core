@@ -21,6 +21,7 @@ import com.czertainly.api.model.core.authority.CertificateSignRequestDto;
 import com.czertainly.api.model.core.authority.CertificateSignResponseDto;
 import com.czertainly.api.model.core.authority.EditEndEntityRequestDto;
 import com.czertainly.api.model.core.authority.EndEntityDto;
+import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -147,6 +148,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void addEndEntity(String raProfileName, ClientAddEndEntityRequestDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
+        RaProfileDto raProfileDto = raProfile.mapToDto();
+        raProfileDto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
 
         AddEndEntityRequestDto caRequest = new AddEndEntityRequestDto();
         caRequest.setUsername(request.getUsername());
@@ -155,7 +158,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setSubjectDN(request.getSubjectDN());
         caRequest.setSubjectAltName(request.getSubjectAltName());
         caRequest.setExtensionData(request.getExtensionData());
-        caRequest.setRaProfile(raProfile.mapToDto());
+        caRequest.setRaProfile(raProfileDto);
 
         endEntityApiClient.createEndEntity(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
@@ -181,6 +184,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.UPDATE)
     public void editEndEntity(String raProfileName, String username, ClientEditEndEntityRequestDto request) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntityChecked(raProfileName);
+        RaProfileDto raProfileDto = raProfile.mapToDto();
+        raProfileDto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
 
         EditEndEntityRequestDto caRequest = new EditEndEntityRequestDto();
         caRequest.setPassword(request.getPassword());
@@ -189,7 +194,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setSubjectAltName(request.getSubjectAltName());
         caRequest.setExtensionData(request.getExtensionData());
         caRequest.setStatus(request.getStatus());
-        caRequest.setRaProfile(raProfile.mapToDto());
+        caRequest.setRaProfile(raProfileDto);
 
         endEntityApiClient.updateEndEntity(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),

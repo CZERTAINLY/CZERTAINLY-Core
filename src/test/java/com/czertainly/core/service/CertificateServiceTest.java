@@ -384,7 +384,6 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    @Disabled("Necessary to resolve resting of async methods")
     void testBulkRemove() throws NotFoundException {
         RemoveCertificateDto request = new RemoveCertificateDto();
         request.setUuids(List.of(certificate.getUuid().toString()));
