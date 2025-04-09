@@ -188,26 +188,12 @@ public class X509CertificateValidator implements ICertificateValidator {
         int expiringThreshold;
         if (raProfile == null || raProfile.getValidationEnabled() == null) {
             PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-            CertificateValidationSettingsDto validationSettings = getValidationSettingsDto(platformSettings);
-            if (Boolean.FALSE.equals(validationSettings.getEnabled())) return false;
+            CertificateValidationSettingsDto validationSettings = platformSettings.getCertificates().getValidation();
             expiringThreshold = validationSettings.getExpiringThreshold();
         } else {
-            if (Boolean.FALSE.equals(raProfile.getValidationEnabled())) return false;
             expiringThreshold = raProfile.getExpiringThreshold();
         }
         return (notAfterDate.getTime() - Date.from(Instant.now()).getTime()) < TimeUnit.DAYS.toMillis(expiringThreshold);
-    }
-
-    private static CertificateValidationSettingsDto getValidationSettingsDto(PlatformSettingsDto platformSettings) {
-        CertificateValidationSettingsDto validationSettings;
-        if (platformSettings == null || platformSettings.getCertificates() == null || platformSettings.getCertificates().getValidation() == null) {
-            validationSettings = new CertificateValidationSettingsDto();
-            validationSettings.setExpiringThreshold(30);
-            validationSettings.setEnabled(true);
-        } else {
-            validationSettings = platformSettings.getCertificates().getValidation();
-        }
-        return validationSettings;
     }
 
     private CertificateValidationCheckDto checkOcspRevocationStatus(X509Certificate certificate, X509Certificate issuerCertificate) {
