@@ -23,6 +23,7 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -733,21 +734,40 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
+    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
-        if (certificate.getCertificateContent() != null) {
+        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
+
+        Boolean raValidationEnabled = certificate.getRaProfile() != null ? certificate.getRaProfile().getValidationEnabled() : null;
+
+        if (Boolean.FALSE.equals(raValidationEnabled)) {
+            certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+            resultDto.setMessage("Validation of certificates in RA Profile %s is disabled."
+                    .formatted(certificate.getRaProfile().getName()));
+        } else if (raValidationEnabled == null) {
+            PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+            CertificateValidationSettingsDto validationSettings = platformSettings.getCertificates().getValidation();
+
+            if (Boolean.FALSE.equals(validationSettings.getEnabled())) {
+                certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+                resultDto.setMessage("Validation of certificates is disabled in platform settings.");
+            } else if (certificate.getCertificateContent() != null) {
+                validate(certificate);
+            }
+        } else if (certificate.getCertificateContent() != null) {
             validate(certificate);
         }
 
-        String validationResult = certificate.getCertificateValidationResult();
-        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
         resultDto.setResultStatus(certificate.getValidationStatus());
+
+        String validationResult = certificate.getCertificateValidationResult();
         try {
             Map<CertificateValidationCheck, CertificateValidationCheckDto> validationChecks = MetaDefinitions.deserializeValidation(validationResult);
             resultDto.setValidationChecks(validationChecks);
         } catch (IllegalStateException e) {
             logger.error(e.getMessage());
         }
+        resultDto.setValidationTimestamp(certificate.getStatusValidationTimestamp());
         return resultDto;
     }
 
@@ -1036,14 +1056,16 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
-        PlatformSettingsDto platformSettingsDto = SettingsCache.getSettings(SettingsSection.PLATFORM);
-        boolean platformEnabled = platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getValidation() == null || platformSettingsDto.getCertificates().getValidation().getEnabled();
+        PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+        CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
+        boolean platformEnabled = certificateValidationSettings.getEnabled();
         int certificatesUpdated = 0;
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
-        LocalDateTime before = LocalDateTime.now().minusDays(getValidationFrequency(platformSettingsDto));
+        LocalDateTime before = null;
+        if (platformEnabled) before = LocalDateTime.now().minusDays(certificateValidationSettings.getFrequency());
 
         // process 1/24 of eligible certificates for status update
         final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, platformEnabled, PageRequest.of(0, maxCertsToValidate));
@@ -1073,14 +1095,6 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificateUuids.size());
 
         return certificatesUpdated;
-    }
-
-    private int getValidationFrequency(PlatformSettingsDto platformSettingsDto) {
-        int validationFrequency = 1;
-        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null && platformSettingsDto.getCertificates().getValidation() != null) {
-            validationFrequency = platformSettingsDto.getCertificates().getValidation().getFrequency();
-        }
-        return validationFrequency;
     }
 
     @Override
