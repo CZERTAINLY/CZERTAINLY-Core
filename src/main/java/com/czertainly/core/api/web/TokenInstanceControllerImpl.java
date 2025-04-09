@@ -41,19 +41,19 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.DETAIL)
-    public TokenInstanceDetailDto getTokenInstance(@LogResource(uuid = true) String uuid) throws ConnectorException {
+    public TokenInstanceDetailDto getTokenInstance(@LogResource(uuid = true) String uuid) throws ConnectorException, NotFoundException {
         return tokenInstanceService.getTokenInstance(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.CREATE)
-    public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public TokenInstanceDetailDto createTokenInstance(TokenInstanceRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         return tokenInstanceService.createTokenInstance(request);
     }
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.UPDATE)
-    public TokenInstanceDetailDto updateTokenInstance(@LogResource(uuid = true) String uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException {
+    public TokenInstanceDetailDto updateTokenInstance(@LogResource(uuid = true) String uuid, TokenInstanceRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException {
         return tokenInstanceService.updateTokenInstance(SecuredUUID.fromString(uuid), request);
     }
 
@@ -65,13 +65,13 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.ACTIVATE)
-    public void activateTokenInstance(@LogResource(uuid = true) String uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public void activateTokenInstance(@LogResource(uuid = true) String uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
         tokenInstanceService.activateTokenInstance(SecuredUUID.fromString(uuid), attributes);
     }
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.DEACTIVATE)
-    public void deactivateTokenInstance(@LogResource(uuid = true) String uuid) throws ConnectorException {
+    public void deactivateTokenInstance(@LogResource(uuid = true) String uuid) throws ConnectorException, NotFoundException {
         tokenInstanceService.deactivateTokenInstance(SecuredUUID.fromString(uuid));
     }
 
@@ -83,19 +83,19 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.GET_STATUS)
-    public TokenInstanceDetailDto reloadStatus(@LogResource(uuid = true) String uuid) throws ConnectorException {
+    public TokenInstanceDetailDto reloadStatus(@LogResource(uuid = true) String uuid) throws ConnectorException, NotFoundException {
         return tokenInstanceService.reloadStatus(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "tokenProfile", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listTokenProfileAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException {
+    public List<BaseAttribute> listTokenProfileAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException, NotFoundException {
         return tokenInstanceService.listTokenProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "activate", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listTokenInstanceActivationAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException {
+    public List<BaseAttribute> listTokenInstanceActivationAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException, NotFoundException {
         return tokenInstanceService.listTokenInstanceActivationAttributes(SecuredUUID.fromString(uuid));
     }
 }

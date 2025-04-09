@@ -17,9 +17,9 @@ public interface AcmeProfileService extends ResourceExtensionService {
 
     AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException;
 
-    AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException;
+    AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException;
 
-    AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException;
+    AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteAcmeProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
@@ -35,5 +35,5 @@ public interface AcmeProfileService extends ResourceExtensionService {
 
     void updateRaProfile(SecuredUUID uuid, String raProfileUuid) throws NotFoundException;
 
-    List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkForceRemoveACMEProfiles(List<SecuredUUID> uuids) throws ValidationException;
 }

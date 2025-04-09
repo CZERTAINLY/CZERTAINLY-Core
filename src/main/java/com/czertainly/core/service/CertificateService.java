@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public interface CertificateService extends ResourceExtensionService  {
 
-    CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) throws ValidationException;
+    CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request);
 
     CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
@@ -116,7 +116,7 @@ public interface CertificateService extends ResourceExtensionService  {
      *
      * @param request List of uuids of the certificate
      */
-    void checkCompliance(CertificateComplianceCheckDto request);
+    void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException;
 
     /**
      * Update the Certificate Entity
@@ -262,7 +262,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param sourceCertificateUuid UUID of the source certificate specified in case of renew/rekey operation
      * return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException;
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate

@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
@@ -48,7 +49,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.CREATE)
     public ResponseEntity<?> createRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid, AddRaProfileRequestDto request)
-            throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+            throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         RaProfileDto raProfile = raProfileService.addRaProfile(SecuredParentUUID.fromString(authorityUuid), request);
         URI location = ServletUriComponentsBuilder.fromCurrentRequest().path("/{uuid}")
                 .buildAndExpand(raProfile.getUuid()).toUri();
@@ -72,8 +73,14 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
     public RaProfileDto editRaProfile(@LogResource(uuid = true, affiliated = true) String authorityUuid, @LogResource(uuid = true) String raProfileUuid, EditRaProfileRequestDto request)
-            throws ConnectorException, AttributeException {
+            throws ConnectorException, AttributeException, NotFoundException {
         return raProfileService.editRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.UPDATE)
+    public RaProfileDto updateRaProfileValidationConfiguration(String authorityUuid, String raProfileUuid, RaProfileCertificateValidationSettingsUpdateDto request) throws NotFoundException {
+        return raProfileService.updateRaProfileValidationConfiguration(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), request);
     }
 
     @Override
@@ -126,7 +133,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.ACME_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
-    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid, @LogResource(uuid = true, affiliated = true) String acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException {
+    public RaProfileAcmeDetailResponseDto activateAcmeForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid, @LogResource(uuid = true, affiliated = true) String acmeProfileUuid, ActivateAcmeForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException {
         return raProfileService.activateAcmeForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(acmeProfileUuid), request);
     }
 
@@ -144,7 +151,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.SCEP_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
-    public RaProfileScepDetailResponseDto activateScepForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid, @LogResource(uuid = true, affiliated = true) String scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException {
+    public RaProfileScepDetailResponseDto activateScepForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid, @LogResource(uuid = true, affiliated = true) String scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException {
         return raProfileService.activateScepForRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), SecuredUUID.fromString(scepProfileUuid), request);
     }
 
@@ -165,7 +172,7 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.CMP_PROFILE, operation = Operation.ACTIVATE_PROTOCOL)
-    public RaProfileCmpDetailResponseDto activateCmpForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid, @LogResource(uuid = true, affiliated = true) String cmpProfileUuid, ActivateCmpForRaProfileRequestDto request) throws ConnectorException, AttributeException {
+    public RaProfileCmpDetailResponseDto activateCmpForRaProfile(String authorityUuid, @LogResource(uuid = true) String raProfileUuid, @LogResource(uuid = true, affiliated = true) String cmpProfileUuid, ActivateCmpForRaProfileRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return raProfileService.activateCmpForRaProfile(
                 SecuredParentUUID.fromString(authorityUuid),
                 SecuredUUID.fromString(raProfileUuid),
@@ -215,19 +222,19 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.RA_PROFILE, affiliatedResource = Resource.AUTHORITY, operation = Operation.GET_CHAIN)
-    public List<CertificateDetailDto> getAuthorityCertificateChain(@LogResource(uuid = true, affiliated = true) String authorityUuid, @LogResource(uuid = true) String raProfileUuid) throws ConnectorException {
+    public List<CertificateDetailDto> getAuthorityCertificateChain(@LogResource(uuid = true, affiliated = true) String authorityUuid, @LogResource(uuid = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return raProfileService.getAuthorityCertificateChain(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listRevokeCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException {
+    public List<BaseAttribute> listRevokeCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return raProfileService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listIssueCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException {
+    public List<BaseAttribute> listIssueCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return raProfileService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 

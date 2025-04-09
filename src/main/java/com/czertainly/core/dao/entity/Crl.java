@@ -43,7 +43,7 @@ public class Crl extends UniquelyIdentified {
     @Column(name = "last_revocation_date")
     private Date lastRevocationDate;
 
-    @OneToMany(mappedBy = "crl", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "crl", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @JsonBackReference
     @ToString.Exclude
     private List<CrlEntry> crlEntries;

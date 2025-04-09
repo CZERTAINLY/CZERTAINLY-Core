@@ -36,7 +36,7 @@ public interface LocationService extends ResourceExtensionService {
      * @throws LocationException     when the Location failed to be created.
      * @throws NotFoundException     when the Entity instance referred in the Location is not found.
      */
-    LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto addLocationRequestDto) throws AlreadyExistException, LocationException, ConnectorException, AttributeException;
+    LocationDto addLocation(SecuredParentUUID entityUuid, AddLocationRequestDto addLocationRequestDto) throws AlreadyExistException, LocationException, ConnectorException, AttributeException, NotFoundException;
 
     /**
      * Get existing Location by UUID.
@@ -57,7 +57,7 @@ public interface LocationService extends ResourceExtensionService {
      * @throws NotFoundException when the Location with the given UUID is not found.
      * @throws LocationException when the Location failed to be edited.
      */
-    LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws ConnectorException, LocationException, AttributeException;
+    LocationDto editLocation(SecuredParentUUID entityUuid, SecuredUUID locationUuid, EditLocationRequestDto editLocationRequestDto) throws ConnectorException, LocationException, AttributeException, NotFoundException;
 
     /**
      * Remove existing Location with the given UUID.
@@ -132,7 +132,7 @@ public interface LocationService extends ResourceExtensionService {
      * @param certificateLocationId    ID of CertificateLocation entity
      * @throws NotFoundException when the CertificateLocation with the given Id is not found.
      */
-    void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException;
+    void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException;
 
     /**
      * Push existing Certificate to the given Location.

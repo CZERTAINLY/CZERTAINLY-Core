@@ -47,6 +47,22 @@ public class ExceptionHandlingAdvice {
         StringBuilder messageBuilder = new StringBuilder();
         messageBuilder.append(ex.getMessage());
 
+        LOG.warn("HTTP 404: {}", messageBuilder);
+        return ErrorMessageDto.getInstance(messageBuilder.toString());
+    }
+
+    /**
+     * Handler for {@link ConnectorEntityNotFoundException}.
+     *
+     * @param ex Caught {@link ConnectorEntityNotFoundException}.
+     * @return
+     */
+    @ExceptionHandler(ConnectorEntityNotFoundException.class)
+    @ResponseStatus(HttpStatus.NOT_FOUND)
+    public ErrorMessageDto handleConnectorEntityNotFoundException(ConnectorEntityNotFoundException ex) {
+        StringBuilder messageBuilder = new StringBuilder();
+        messageBuilder.append(ex.getMessage());
+
         if (ex.getConnector() != null) {
             messageBuilder
                     .append(" ")

@@ -13,6 +13,7 @@ import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.util.List;
 import java.util.Map;
 
 public class CrmfCertificateRequest implements CertificateRequest {
@@ -59,7 +60,7 @@ public class CrmfCertificateRequest implements CertificateRequest {
     }
 
     @Override
-    public Map<String, Object> getSubjectAlternativeNames() {
+    public Map<String, List<String>> getSubjectAlternativeNames() {
         return CertificateUtil.getSAN(this);
     }
 

@@ -38,7 +38,7 @@ import java.util.List;
 @SpringBootTest
 @Transactional
 @Rollback
-public class TokenInstanceServiceTest extends BaseSpringBootTest {
+class TokenInstanceServiceTest extends BaseSpringBootTest {
 
     private static final String AUTHORITY_INSTANCE_NAME = "testTokenInstance1";
 
@@ -105,7 +105,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListTokenInstances() {
+    void testListTokenInstances() {
         List<TokenInstanceDto> tokenInstances = tokenInstanceService.listTokenInstances(SecurityFilter.create());
         Assertions.assertNotNull(tokenInstances);
         Assertions.assertFalse(tokenInstances.isEmpty());
@@ -114,7 +114,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenInstance() throws ConnectorException {
+    void testGetTokenInstance() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
                 .willReturn(WireMock.okJson("{}")));
@@ -130,7 +130,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenInstance_notFound() {
+    void testGetTokenInstance_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenInstanceService.getTokenInstance(
@@ -140,7 +140,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenInstance() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddTokenInstance() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -170,7 +170,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenInstance_notFound() {
+    void testAddTokenInstance_notFound() {
         TokenInstanceRequestDto request = new TokenInstanceRequestDto();
         request.setName("Demo");
         request.setConnectorUuid("abfbc322-29e1-11ed-a261-0242ac120002");
@@ -178,7 +178,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testAddTokenInstance_alreadyExist() {
+    void testAddTokenInstance_alreadyExist() {
         TokenInstanceRequestDto request = new TokenInstanceRequestDto();
         request.setName(AUTHORITY_INSTANCE_NAME); // authorityInstance with same name exist
 
@@ -186,12 +186,12 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditTokenInstance_notFound() {
+    void testEditTokenInstance_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> tokenInstanceService.updateTokenInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), null));
     }
 
     @Test
-    public void testRemoveTokenInstance() throws ConnectorException {
+    void testRemoveTokenInstance() throws NotFoundException {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -201,7 +201,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenProfileAttributes() throws ConnectorException {
+    void testGetTokenProfileAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes"))
                 .willReturn(WireMock.ok()));
@@ -210,7 +210,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenProfileActivationAttributes() throws ConnectorException {
+    void testGetTokenProfileActivationAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/activate/attributes"))
                 .willReturn(WireMock.ok()));
@@ -219,7 +219,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testActivateTokenInstance() throws ConnectorException {
+    void testActivateTokenInstance() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/activate/attributes"))
                 .willReturn(WireMock.ok()));
@@ -236,7 +236,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testDeactivateTokenInstance() throws ConnectorException {
+    void testDeactivateTokenInstance() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .patch(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/deactivate"))
                 .willReturn(WireMock.ok()));
@@ -245,12 +245,12 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetTokenProfileAttributes_notFound() {
+    void testGetTokenProfileAttributes_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> tokenInstanceService.listTokenProfileAttributes(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testValidateTokenProfileAttributes() throws ConnectorException {
+    void testValidateTokenProfileAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/tokenProfile/attributes/validate"))
                 .willReturn(WireMock.ok()));
@@ -259,7 +259,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testValidateTokenProfileAttributes_notFound() {
+    void testValidateTokenProfileAttributes_notFound() {
         Assertions.assertThrows(
                 NotFoundException.class,
                 () -> tokenInstanceService.validateTokenProfileAttributes(
@@ -270,12 +270,12 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testRemoveTokenInstance_notFound() {
+    void testRemoveTokenInstance_notFound() {
         Assertions.assertThrows(NotFoundException.class, () -> tokenInstanceService.deleteTokenInstance(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002")));
     }
 
     @Test
-    public void testBulkRemove() throws ConnectorException {
+    void testBulkRemove() {
         mockServer.stubFor(WireMock
                 .delete(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+"))
                 .willReturn(WireMock.ok()));
@@ -284,7 +284,7 @@ public class TokenInstanceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetObjectsForResource() {
+    void testGetObjectsForResource() {
         List<NameAndUuidDto> response = tokenInstanceService.listResourceObjects(SecurityFilter.create());
         Assertions.assertEquals(1, response.size());
     }

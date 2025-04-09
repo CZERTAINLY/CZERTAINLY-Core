@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -139,7 +140,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testAddRaProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -179,7 +180,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testEditRaProfile() throws ConnectorException, AttributeException {
+    void testEditRaProfile() throws ConnectorException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/raProfile/attributes"))
                 .willReturn(WireMock.okJson("[]")));
@@ -201,6 +202,33 @@ class RaProfileServiceTest extends ApprovalProfileData {
         EditRaProfileRequestDto request = new EditRaProfileRequestDto();
 
         Assertions.assertThrows(NotFoundException.class, () -> raProfileService.editRaProfile(authorityInstanceReference.getSecuredParentUuid(), SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), request));
+    }
+
+    @Test
+    void testUpdateRaProfileValidation() throws NotFoundException {
+        RaProfileCertificateValidationSettingsUpdateDto updateDto = new RaProfileCertificateValidationSettingsUpdateDto();
+        updateDto.setEnabled(true);
+        updateDto.setFrequency(10);
+        updateDto.setExpiringThreshold(5);
+        RaProfileDto raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertEquals(updateDto.getFrequency(), raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertEquals(updateDto.getExpiringThreshold(), raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
+        RaProfileCertificateValidationSettingsUpdateDto updateDtoDefault = new RaProfileCertificateValidationSettingsUpdateDto();
+        updateDtoDefault.setEnabled(true);
+        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDtoDefault);
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertEquals(1, raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertEquals(30, raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
+        updateDto.setEnabled(false);
+        raProfileDto = raProfileService.updateRaProfileValidationConfiguration(raProfile.getAuthorityInstanceReference().getSecuredParentUuid(), raProfile.getSecuredUuid(), updateDto);
+        Assertions.assertEquals(updateDto.getEnabled(), raProfileDto.getCertificateValidationSettings().getEnabled());
+        Assertions.assertNull(raProfileDto.getCertificateValidationSettings().getFrequency());
+        Assertions.assertNull(raProfileDto.getCertificateValidationSettings().getExpiringThreshold());
+
+
     }
 
     @Test
@@ -300,7 +328,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException {
+    void testGetAuthorityCertificateChain() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/caCertificates"))
                 .willReturn(WireMock.okJson("""
@@ -350,7 +378,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
     }
 
     @Test
-    void testListIssueCertificateAttributes() throws ConnectorException {
+    void testListIssueCertificateAttributes() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("""

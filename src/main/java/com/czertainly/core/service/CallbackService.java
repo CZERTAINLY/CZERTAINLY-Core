@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.auth.Resource;
@@ -24,7 +25,7 @@ public interface CallbackService {
             FunctionGroupCode functionGroup,
             String kind,
             RequestAttributeCallback callback
-    ) throws ConnectorException, ValidationException;
+    ) throws ConnectorException, ValidationException, NotFoundException;
 
     /**
      * Function to execute the callback on the connector. This method executes the callback only for the attributes
@@ -40,5 +41,5 @@ public interface CallbackService {
             Resource resource,
             String resourceUuid,
             RequestAttributeCallback callback
-    ) throws ConnectorException, ValidationException;
+    ) throws ConnectorException, ValidationException, NotFoundException;
 }

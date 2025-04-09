@@ -25,11 +25,11 @@ import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.ValidatorUtil;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -71,17 +71,16 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
     public List<AcmeProfileListDto> listAcmeProfile(SecurityFilter filter) {
         logger.debug("Getting all the ACME Profiles available in the database");
-        List<AcmeProfileListDto> acmeProfileListDtos = acmeProfileRepository.findUsingSecurityFilter(filter)
+        return acmeProfileRepository.findUsingSecurityFilter(filter)
                 .stream()
                 .map(AcmeProfile::mapToDtoSimple)
                 .collect(Collectors.toList());
-        return acmeProfileListDtos;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.DETAIL)
     public AcmeProfileDto getAcmeProfile(SecuredUUID uuid) throws NotFoundException {
-        logger.info("Requesting the details for the ACME Profile with uuid " + uuid);
+        logger.info("Requesting the details for the ACME Profile with uuid {}", uuid);
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         AcmeProfileDto dto = acmeProfile.mapToDto();
         if (acmeProfile.getRaProfile() != null) {
@@ -94,7 +93,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.CREATE)
-    public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public AcmeProfileDto createAcmeProfile(AcmeProfileRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         if (request.getName() == null || request.getName().isEmpty()) {
             throw new ValidationException(ValidationError.create("Name cannot be empty"));
         }
@@ -154,7 +153,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.UPDATE)
-    public AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException {
+    public AcmeProfileDto editAcmeProfile(SecuredUUID uuid, AcmeProfileEditRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         attributeEngine.validateCustomAttributesContent(Resource.ACME_PROFILE, request.getCustomAttributes());
 
@@ -237,7 +236,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     public void enableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (acmeProfile.isEnabled() != null && acmeProfile.isEnabled()) {
-            throw new RuntimeException("ACME Profile is already enabled");
+            throw new ValidationException("ACME Profile is already enabled");
         }
         acmeProfile.setEnabled(true);
         acmeProfileRepository.save(acmeProfile);
@@ -248,7 +247,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     public void disableAcmeProfile(SecuredUUID uuid) throws NotFoundException {
         AcmeProfile acmeProfile = getAcmeProfileEntity(uuid);
         if (!acmeProfile.isEnabled()) {
-            throw new RuntimeException("ACME Profile is already disabled");
+            throw new ValidationException("ACME Profile is already disabled");
         }
         acmeProfile.setEnabled(false);
         acmeProfileRepository.save(acmeProfile);

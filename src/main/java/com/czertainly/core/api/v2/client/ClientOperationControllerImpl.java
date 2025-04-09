@@ -37,7 +37,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public ClientCertificateDataResponseDto issueRequestedCertificate(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            @LogResource(uuid = true) String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException {
+            @LogResource(uuid = true) String certificateUuid) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
         return clientOperationService.issueRequestedCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid);
     }
 
@@ -81,7 +81,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
             @LogResource(uuid = true) String certificateUuid,
-            ClientCertificateRevocationDto request) throws ConnectorException, AttributeException {
+            ClientCertificateRevocationDto request) throws ConnectorException, AttributeException, NotFoundException {
         clientOperationService.revokeCertificate(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), certificateUuid, request);
     }
 
@@ -89,7 +89,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listIssueCertificateAttributes(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException {
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
@@ -98,7 +98,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public void validateIssueCertificateAttributes(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException {
         clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
@@ -106,7 +106,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
     public List<BaseAttribute> listRevokeCertificateAttributes(
             String authorityUuid,
-            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException {
+            @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
@@ -115,7 +115,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public void validateRevokeCertificateAttributes(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException {
+            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException {
         clientOperationService.validateRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
     }
 }

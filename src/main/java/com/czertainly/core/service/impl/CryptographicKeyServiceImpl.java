@@ -265,7 +265,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.CREATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public KeyDetailDto createKey(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException {
+    public KeyDetailDto createKey(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type, KeyRequestDto request) throws AlreadyExistException, ValidationException, ConnectorException, AttributeException, NotFoundException {
         logger.debug("Creating a new key for Token profile {}. Input: {}", tokenProfileUuid, request);
         if (cryptographicKeyRepository.findByName(request.getName()).isPresent()) {
             logger.error("Key with same name already exists");
@@ -442,7 +442,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE)
-    public void deleteKey(UUID uuid, List<String> keyItemUuids) throws ConnectorException {
+    public void deleteKey(UUID uuid, List<String> keyItemUuids) throws ConnectorException, NotFoundException {
         CryptographicKey key = checkKeyRequestToken(uuid, "delete", false, false);
 
         if (keyItemUuids != null && !keyItemUuids.isEmpty()) {
@@ -479,7 +479,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                     keyReferenceUuid.toString()
             );
             logger.info("Key item destroyed in the connector. Removing from the core now.");
-        } catch (NotFoundException e) {
+        } catch (ConnectorEntityNotFoundException e) {
             logger.info("Key item already destroyed in the connector.");
         }
     }
@@ -503,7 +503,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                     keyItem.getKeyReferenceUuid().toString()
                             );
                             logger.info("Key item destroyed in the connector. Removing from the core now.");
-                        } catch (NotFoundException e) {
+                        } catch (ConnectorEntityNotFoundException e) {
                             logger.info("Key item already destroyed in the connector.");
                         }
                     }
@@ -537,7 +537,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                                 keyItem.getKeyReferenceUuid().toString()
                         );
                         logger.info("Key item destroyed in the connector. Removing from the core now.");
-                    } catch (NotFoundException e) {
+                    } catch (ConnectorEntityNotFoundException e) {
                         logger.info("Key item already destroyed in the connector.");
                     }
                 }
@@ -556,7 +556,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE)
-    public void destroyKey(UUID uuid, List<String> keyUuids) throws ConnectorException {
+    public void destroyKey(UUID uuid, List<String> keyUuids) throws ConnectorException, NotFoundException {
         checkKeyRequestToken(uuid, "destroy", false, false);
 
         if (keyUuids != null && !keyUuids.isEmpty()) {
@@ -569,7 +569,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.DELETE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public void destroyKey(List<String> uuids) throws ConnectorException {
+    public void destroyKey(List<String> uuids) throws ConnectorException, NotFoundException {
         logger.debug("Request to destroy the key with UUIDs {}", uuids);
         for (String uuid : uuids) {
             CryptographicKey key = getCryptographicKeyEntity(UUID.fromString(uuid));
@@ -586,13 +586,13 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException {
+    public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException, NotFoundException {
         logger.debug("Request to list the attributes for creating a new key on Token profile: {}", tokenProfileUuid);
         TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
                         tokenProfileUuid.getValue())
                 .orElseThrow(
                         () -> new NotFoundException(
-                                TokenInstanceReference.class,
+                                TokenProfile.class,
                                 tokenProfileUuid
                         )
                 );
@@ -615,7 +615,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.UPDATE, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException {
+    public void syncKeys(SecuredParentUUID tokenInstanceUuid) throws ConnectorException, AttributeException, NotFoundException {
         TokenInstanceReference tokenInstanceReference = tokenInstanceService.getTokenInstanceEntity(
                 tokenInstanceUuid
         );
@@ -1162,7 +1162,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
      *
      * @param uuid UUID of the Key Item
      */
-    private boolean destroyKeyItem(UUID uuid, boolean evaluateTokenPermission) throws ConnectorException {
+    private boolean destroyKeyItem(UUID uuid, boolean evaluateTokenPermission) throws ConnectorException, NotFoundException {
         CryptographicKeyItem keyItem = getKeyItem(uuid, evaluateTokenPermission);
         KeyState finalState = keyItem.getState().equals(KeyState.COMPROMISED) ? KeyState.DESTROYED_COMPROMISED : KeyState.DESTROYED;
         if (!keyItem.getState().equals(KeyState.DEACTIVATED) && !keyItem.getState().equals(KeyState.PRE_ACTIVE) && !keyItem.getState().equals(KeyState.COMPROMISED)) {

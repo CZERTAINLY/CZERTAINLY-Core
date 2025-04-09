@@ -45,25 +45,48 @@ import java.util.stream.Collectors;
 public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private static final Logger logger = LoggerFactory.getLogger(AuthorityInstanceServiceImpl.class);
 
-    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    @Autowired
     private ConnectorService connectorService;
-    @Autowired
     private CredentialService credentialService;
-    @Autowired
     private AuthorityInstanceApiClient authorityInstanceApiClient;
-    @Autowired
     private EndEntityProfileApiClient endEntityProfileApiClient;
-    @Autowired
     private RaProfileService raProfileService;
     private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
+        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
+    }
+
+    @Autowired
+    public void setConnectorService(ConnectorService connectorService) {
+        this.connectorService = connectorService;
+    }
+
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
+    }
+
+    @Autowired
+    public void setAuthorityInstanceApiClient(AuthorityInstanceApiClient authorityInstanceApiClient) {
+        this.authorityInstanceApiClient = authorityInstanceApiClient;
+    }
+
+    @Autowired
+    public void setEndEntityProfileApiClient(EndEntityProfileApiClient endEntityProfileApiClient) {
+        this.endEntityProfileApiClient = endEntityProfileApiClient;
+    }
+
+    @Autowired
+    public void setRaProfileService(RaProfileService raProfileService) {
+        this.raProfileService = raProfileService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }
-
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
@@ -76,7 +99,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
-    public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
+    public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceReference = getAuthorityInstanceReferenceEntity(uuid);
 
         List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid());
@@ -111,7 +134,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.CREATE)
-    public AuthorityInstanceDto createAuthorityInstance(com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
+    public AuthorityInstanceDto createAuthorityInstance(com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         if (authorityInstanceReferenceRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(AuthorityInstanceReference.class, request.getName());
         }
@@ -157,7 +180,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.UPDATE)
-    public AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException {
+    public AuthorityInstanceDto editAuthorityInstance(SecuredUUID uuid, AuthorityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
         AuthorityInstanceDto ref = getAuthorityInstance(uuid);
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(ref.getConnectorUuid()));
@@ -194,14 +217,14 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DELETE)
-    public void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException {
+    public void deleteAuthorityInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
         removeAuthorityInstance(authorityInstanceRef);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
-    public List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException {
+    public List<NameAndIdDto> listEndEntityProfiles(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
         return endEntityProfileApiClient.listEndEntityProfiles(authorityInstanceRef.getConnector().mapToDto(),
@@ -210,7 +233,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
-    public List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException {
+    public List<NameAndIdDto> listCertificateProfiles(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
         return endEntityProfileApiClient.listCertificateProfiles(authorityInstanceRef.getConnector().mapToDto(),
@@ -219,7 +242,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.DETAIL)
-    public List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException {
+    public List<NameAndIdDto> listCAsInProfile(SecuredUUID uuid, Integer endEntityProfileId) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceRef = getAuthorityInstanceReferenceEntity(uuid);
 
         return endEntityProfileApiClient.listCAsInProfile(authorityInstanceRef.getConnector().mapToDto(),
@@ -228,7 +251,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
-    public List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException {
+    public List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 
@@ -237,7 +260,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
-    public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 
@@ -324,7 +347,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         if (authorityInstanceRef.getConnector() != null) {
             try {
                 authorityInstanceApiClient.removeAuthorityInstance(authorityInstanceRef.getConnector().mapToDto(), authorityInstanceRef.getAuthorityInstanceUuid());
-            } catch (NotFoundException notFoundException) {
+            } catch (ConnectorEntityNotFoundException notFoundException) {
                 logger.warn("Authority is already deleted in the connector. Proceeding to remove it from the core");
             } catch (Exception e) {
                 logger.error(e.getMessage());

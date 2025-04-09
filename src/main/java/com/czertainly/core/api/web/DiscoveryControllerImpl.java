@@ -83,7 +83,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.DISCOVERY, resource = Resource.DISCOVERY, operation = Operation.CREATE)
-    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request) throws ConnectorException, AlreadyExistException, AttributeException {
+    public ResponseEntity<?> createDiscovery(@RequestBody DiscoveryDto request) throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         final DiscoveryHistoryDetailDto modal = discoveryService.createDiscovery(request, true);
         discoveryService.runDiscoveryAsync(UUID.fromString(modal.getUuid()));
         URI location = ServletUriComponentsBuilder
@@ -98,7 +98,7 @@ public class DiscoveryControllerImpl implements DiscoveryController {
 
     @Override
     @AuditLogged(module = Module.SCHEDULER, resource = Resource.SCHEDULED_JOB, affiliatedResource = Resource.DISCOVERY, operation = Operation.SCHEDULE)
-    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException {
+    public ResponseEntity<?> scheduleDiscovery(final ScheduleDiscoveryDto scheduleDiscoveryDto) throws SchedulerException, ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
         final DiscoveryDto discoveryDto = scheduleDiscoveryDto.getRequest();
         discoveryService.createDiscovery(discoveryDto, false);
 

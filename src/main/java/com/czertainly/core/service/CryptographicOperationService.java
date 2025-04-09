@@ -35,7 +35,7 @@ public interface CryptographicOperationService {
             UUID uuid,
             UUID keyItemUuid,
             KeyAlgorithm keyAlgorithm
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -52,7 +52,7 @@ public interface CryptographicOperationService {
             UUID uuid,
             UUID keyItemUuid,
             CipherDataRequestDto request
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -69,7 +69,7 @@ public interface CryptographicOperationService {
             UUID uuid,
             UUID keyItemUuid,
             CipherDataRequestDto request
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -86,7 +86,7 @@ public interface CryptographicOperationService {
             UUID uuid,
             UUID keyItemUuid,
             KeyAlgorithm keyAlgorithm
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -102,7 +102,7 @@ public interface CryptographicOperationService {
             SecuredUUID tokenProfileUUID,
             UUID uuid, UUID keyItemUuid,
             SignDataRequestDto request
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -118,7 +118,7 @@ public interface CryptographicOperationService {
             SecuredUUID tokenProfileUUID,
             UUID uuid, UUID keyItemUuid,
             VerifyDataRequestDto request
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -127,7 +127,7 @@ public interface CryptographicOperationService {
      */
     List<BaseAttribute> listRandomAttributes(
             SecuredUUID tokenInstanceUuid
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * @param tokenInstanceUuid UUID of the token instance
@@ -138,7 +138,7 @@ public interface CryptographicOperationService {
     RandomDataResponseDto randomData(
             SecuredUUID tokenInstanceUuid,
             RandomDataRequestDto request
-    ) throws ConnectorException;
+    ) throws ConnectorException, NotFoundException;
 
     /**
      * Generate the CSR with the key and token profile and CSR parameters

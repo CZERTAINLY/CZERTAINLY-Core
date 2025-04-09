@@ -23,21 +23,21 @@ import java.util.Optional;
 
 public interface ConnectorService extends ResourceExtensionService {
 
-    Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException;
+    Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> getAllAttributesOfConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     List<ConnectorDto> listConnectors(SecurityFilter filter, Optional<FunctionGroupCode> functionGroup, Optional<String> kind, Optional<ConnectorStatus> status) throws NotFoundException;
 
-    ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException;
+    ConnectorDto getConnector(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     Connector getConnectorEntity(SecuredUUID uuid) throws NotFoundException;
 
-    ConnectorDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException;
+    ConnectorDto createConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
-    ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException;
+    ConnectorDto createNewWaitingConnector(ConnectorRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException;
 
     ConnectorDto createConnector(ConnectorDto request, ConnectorStatus connectorStatus) throws NotFoundException, AlreadyExistException;
 
-    ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException;
+    ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException;
 
     void deleteConnector(SecuredUUID uuid) throws NotFoundException;
 
@@ -45,19 +45,19 @@ public interface ConnectorService extends ResourceExtensionService {
 
     List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException;
 
-    List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException;
+    List<ConnectDto> reconnect(SecuredUUID uuid) throws ValidationException, ConnectorException, NotFoundException;
 
     void reconnect(List<SecuredUUID> uuids) throws ValidationException, ConnectorException;
 
     void approve(SecuredUUID uuid) throws NotFoundException, ValidationException;
 
-    HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException;
+    HealthDto checkHealth(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException;
+    List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException, NotFoundException;
 
-    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException;
+    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException;
 
-    void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ConnectorException, AttributeException;
+    void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ConnectorException, AttributeException, NotFoundException;
 
     List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 

@@ -1,6 +1,7 @@
 package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.api.clients.NotificationInstanceApiClient;
+import com.czertainly.api.exception.ConnectorEntityNotFoundException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -125,7 +126,7 @@ public class NotificationListener {
             try {
                 sendExternalNotifications(UUID.fromString(notificationInstanceUUID), notificationMessage);
                 logger.debug("Sending notification message externally successful.");
-            } catch (NotFoundException e) {
+            } catch (ConnectorEntityNotFoundException e) {
                 logger.warn("Notification instance {} configured for notification type {} was not found.", notificationInstanceUUID, notificationMessage.getType());
             } catch (ConnectorException e) {
                 logger.warn("Error in sending request to connector of notification instance {} configured for notification type {}: {}", notificationInstanceUUID, notificationMessage.getType(), e.getMessage(), e);
@@ -147,7 +148,7 @@ public class NotificationListener {
     }
 
 
-    private void sendExternalNotifications(UUID notificationInstanceUUID, NotificationMessage notificationMessage) throws ConnectorException, ValidationException {
+    private void sendExternalNotifications(UUID notificationInstanceUUID, NotificationMessage notificationMessage) throws ConnectorException, ValidationException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
 
         List<DataAttribute> mappingAttributes;

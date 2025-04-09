@@ -10,7 +10,7 @@
     </parent>
 
     <artifactId>core</artifactId>
-    <version>2.14.2</version>
+    <version>2.14.3-SNAPSHOT</version>
     <name>CZERTAINLY-Core</name>
 
     <properties>
@@ -52,7 +52,7 @@
         <dependency>
             <groupId>com.czertainly</groupId>
             <artifactId>interfaces</artifactId>
-            <version>2.14.1</version>
+            <version>2.14.2-SNAPSHOT</version>
         </dependency>
 
         <!-- Spring  -->
@@ -168,7 +168,7 @@
         <dependency>
             <groupId>com.github.victools</groupId>
             <artifactId>jsonschema-generator</artifactId>
-            <version>4.36.0</version>
+            <version>4.38.0</version>
         </dependency>
 
         <dependency>

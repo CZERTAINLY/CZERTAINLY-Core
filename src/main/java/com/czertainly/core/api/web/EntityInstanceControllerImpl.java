@@ -3,6 +3,7 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.EntityInstanceController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
@@ -55,13 +56,13 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.DETAIL)
-    public EntityInstanceDto getEntityInstance(@LogResource(uuid = true) String entityUuid) throws ConnectorException {
+    public EntityInstanceDto getEntityInstance(@LogResource(uuid = true) String entityUuid) throws ConnectorException, NotFoundException {
         return entityInstanceService.getEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.CREATE)
-    public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException {
+    public ResponseEntity<?> createEntityInstance(EntityInstanceRequestDto request) throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
         EntityInstanceDto entityInstance = entityInstanceService.createEntityInstance(request);
 
         URI location = ServletUriComponentsBuilder
@@ -76,25 +77,25 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.UPDATE)
-    public EntityInstanceDto editEntityInstance(@LogResource(uuid = true) String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException {
+    public EntityInstanceDto editEntityInstance(@LogResource(uuid = true) String entityUuid, EntityInstanceUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         return entityInstanceService.editEntityInstance(SecuredUUID.fromString(entityUuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ENTITY, operation = Operation.DELETE)
-    public void deleteEntityInstance(@LogResource(uuid = true) String entityUuid) throws ConnectorException {
+    public void deleteEntityInstance(@LogResource(uuid = true) String entityUuid) throws ConnectorException, NotFoundException {
         entityInstanceService.deleteEntityInstance(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid) throws ConnectorException {
+    public List<BaseAttribute> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid) throws ConnectorException, NotFoundException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException {
+    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }
 }
