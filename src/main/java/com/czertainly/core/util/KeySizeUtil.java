@@ -1,17 +1,17 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import org.bouncycastle.jcajce.provider.asymmetric.mldsa.BCMLDSAPublicKey;
+import org.bouncycastle.jcajce.provider.asymmetric.slhdsa.BCSLHDSAPublicKey;
+import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
+import org.bouncycastle.jcajce.spec.SLHDSAParameterSpec;
 import org.bouncycastle.jce.provider.JCEECPublicKey;
-import org.bouncycastle.pqc.jcajce.provider.dilithium.BCDilithiumPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.falcon.BCFalconPublicKey;
-import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPublicKey;
+import org.bouncycastle.pqc.jcajce.spec.FalconParameterSpec;
 
 import java.security.PublicKey;
 import java.security.interfaces.DSAPublicKey;
 import java.security.interfaces.ECPublicKey;
 import java.security.interfaces.RSAPublicKey;
-import java.util.AbstractMap;
 import java.util.Map;
 
 public class KeySizeUtil {
@@ -19,54 +19,45 @@ public class KeySizeUtil {
     private KeySizeUtil() {
     }
 
-    private static final Map<String, Integer> PQCPublicKeySize = Map.ofEntries(
-            // FALCON Parameter Spec
-            new AbstractMap.SimpleEntry<>("falcon-512", 7176),
-            new AbstractMap.SimpleEntry<>("falcon-1024", 14344),
-            //DILITHIUM Parameter Spec
-            new AbstractMap.SimpleEntry<>("dilithium2", 10496),
-            new AbstractMap.SimpleEntry<>("dilithium3", 15616),
-            new AbstractMap.SimpleEntry<>("dilithium5", 20736),
-            new AbstractMap.SimpleEntry<>("dilithium2-aes", 10496),
-            new AbstractMap.SimpleEntry<>("dilithium3-aes", 15616),
-            new AbstractMap.SimpleEntry<>("dilithium5-aes", 20736),
-            // SPHINCS+ Parameter Spec
-            new AbstractMap.SimpleEntry<>("sha2-128f-robust", 256),
-            new AbstractMap.SimpleEntry<>("sha2-128s-robust", 256),
-            new AbstractMap.SimpleEntry<>("sha2-192f-robust", 384),
-            new AbstractMap.SimpleEntry<>("sha2-192s-robust", 384),
-            new AbstractMap.SimpleEntry<>("sha2-256f-robust", 512),
-            new AbstractMap.SimpleEntry<>("sha2-256s-robust", 512),
-            new AbstractMap.SimpleEntry<>("sha2-128s-simple", 256),
-            new AbstractMap.SimpleEntry<>("sha2-128f-simple", 256),
-            new AbstractMap.SimpleEntry<>("sha2-192f-simple", 384),
-            new AbstractMap.SimpleEntry<>("sha2-192s-simple", 384),
-            new AbstractMap.SimpleEntry<>("sha2-256f-simple", 512),
-            new AbstractMap.SimpleEntry<>("sha2-256s-simple", 512),
-            new AbstractMap.SimpleEntry<>("shake-128f-robust", 256),
-            new AbstractMap.SimpleEntry<>("shake-128s-robust", 256),
-            new AbstractMap.SimpleEntry<>("shake-192f-robust", 384),
-            new AbstractMap.SimpleEntry<>("shake-192s-robust", 384),
-            new AbstractMap.SimpleEntry<>("shake-256f-robust", 512),
-            new AbstractMap.SimpleEntry<>("shake-256s-robust", 512),
-            new AbstractMap.SimpleEntry<>("shake-128f-simple", 256),
-            new AbstractMap.SimpleEntry<>("shake-128s-simple", 256),
-            new AbstractMap.SimpleEntry<>("shake-192f-simple", 384),
-            new AbstractMap.SimpleEntry<>("shake-192s-simple", 384),
-            new AbstractMap.SimpleEntry<>("shake-256f-simple", 512),
-            new AbstractMap.SimpleEntry<>("shake-256s-simple", 512),
-            new AbstractMap.SimpleEntry<>("haraka-128f-robust", 256),
-            new AbstractMap.SimpleEntry<>("haraka-128s-robust", 256),
-            new AbstractMap.SimpleEntry<>("haraka-256f-robust", 512),
-            new AbstractMap.SimpleEntry<>("haraka-256s-robust", 512),
-            new AbstractMap.SimpleEntry<>("haraka-192f-robust", 384),
-            new AbstractMap.SimpleEntry<>("haraka-192s-robust", 384),
-            new AbstractMap.SimpleEntry<>("haraka-128f-simple", 256),
-            new AbstractMap.SimpleEntry<>("haraka-128s-simple", 256),
-            new AbstractMap.SimpleEntry<>("haraka-192f-simple", 384),
-            new AbstractMap.SimpleEntry<>("haraka-192s-simple", 384),
-            new AbstractMap.SimpleEntry<>("haraka-256f-simple", 512),
-            new AbstractMap.SimpleEntry<>("haraka-256s-simple", 512)
+    private static final Map<FalconParameterSpec, Integer> falconKeySizes = Map.of(
+            FalconParameterSpec.falcon_512, 7176,
+            FalconParameterSpec.falcon_1024, 14344
+    );
+
+    private static final Map<MLDSAParameterSpec, Integer> mldsaKeySizes = Map.of(
+            MLDSAParameterSpec.ml_dsa_44, 10496,
+            MLDSAParameterSpec.ml_dsa_44_with_sha512, 10496,
+            MLDSAParameterSpec.ml_dsa_65, 15616,
+            MLDSAParameterSpec.ml_dsa_65_with_sha512, 15616,
+            MLDSAParameterSpec.ml_dsa_87, 20736,
+            MLDSAParameterSpec.ml_dsa_87_with_sha512, 20736
+    );
+
+    private static final Map<SLHDSAParameterSpec, Integer> slhdsaKeySizes = Map.ofEntries(
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_128f, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_128s, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_128f_with_sha256, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_128s_with_sha256, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_128f, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_128s, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_128f_with_shake128, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_128s_with_shake128, 256),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_192f, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_192s, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_192f_with_sha512, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_192s_with_sha512, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_192f, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_192s, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_192f_with_shake256, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_192s_with_shake256, 384),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_256f, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_256s, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_256f_with_sha512, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_sha2_256s_with_sha512, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_256f, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_256s, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_256f_with_shake256, 512),
+            Map.entry(SLHDSAParameterSpec.slh_dsa_shake_256s_with_shake256, 512)
     );
 
     /**
@@ -78,55 +69,44 @@ public class KeySizeUtil {
      */
     public static int getKeyLength(final PublicKey publicKey) {
         int len = -1;
-        if (publicKey instanceof final RSAPublicKey rsapub) {
-            len = rsapub.getModulus().bitLength();
-        } else if (publicKey instanceof final JCEECPublicKey ecpriv) {
-            final org.bouncycastle.jce.spec.ECParameterSpec spec = ecpriv.getParameters();
+
+        if (publicKey instanceof final RSAPublicKey rsaPublicKey) {
+            return rsaPublicKey.getModulus().bitLength();
+        } else if (publicKey instanceof final JCEECPublicKey jceecPublicKey) {
+            return getJCECPublicKeyLength(jceecPublicKey);
+        } else if (publicKey instanceof final ECPublicKey ecPublicKey) {
+            final java.security.spec.ECParameterSpec spec = ecPublicKey.getParams();
             if (spec != null) {
-                len = spec.getN().bitLength();
+                return spec.getOrder().bitLength(); // does this really return something we expect?
             } else {
                 // We support the key, but we don't know the key length
-                len = 0;
+                return  0;
             }
-        } else if (publicKey instanceof final ECPublicKey ecpriv) {
-            final java.security.spec.ECParameterSpec spec = ecpriv.getParams();
-            if (spec != null) {
-                len = spec.getOrder().bitLength(); // does this really return something we expect?
+        } else if (publicKey instanceof final DSAPublicKey dsaPublicKey) {
+            if (dsaPublicKey.getParams() != null) {
+                return dsaPublicKey.getParams().getP().bitLength();
             } else {
-                // We support the key, but we don't know the key length
-                len = 0;
-            }
-        } else if (publicKey instanceof final DSAPublicKey dsapub) {
-            if (dsapub.getParams() != null) {
-                len = dsapub.getParams().getP().bitLength();
-            } else {
-                len = dsapub.getY().bitLength();
+                return dsaPublicKey.getY().bitLength();
             }
         } else if (publicKey instanceof final BCFalconPublicKey falconPublicKey) {
-            return getPQCKeySizeFromMap(falconPublicKey.getParameterSpec().getName());
-        } else if (publicKey instanceof final BCSPHINCSPlusPublicKey sphincsPlusPublicKey) {
-            return getPQCKeySizeFromMap(sphincsPlusPublicKey.getParameterSpec().getName());
-        } else if (publicKey instanceof final BCDilithiumPublicKey dilithiumPublicKey) {
-            return getPQCKeySizeFromMap(dilithiumPublicKey.getParameterSpec().getName());
+            return falconKeySizes.get(falconPublicKey.getParameterSpec());
+        } else if (publicKey instanceof final BCMLDSAPublicKey mldsaPublicKey) {
+            return mldsaKeySizes.get(mldsaPublicKey.getParameterSpec());
+        } else if (publicKey instanceof final BCSLHDSAPublicKey slhdsaPublicKey) {
+            return slhdsaKeySizes.get(slhdsaPublicKey.getParameterSpec());
         }
         return len;
     }
 
-    /**
-     * Function to get the key soze of the PQC based on the key algorithm name
-     *
-     * @param name Name of the algorithm
-     * @return Public Key Size
-     */
-    private static Integer getPQCKeySizeFromMap(String name) {
-        Integer publicKeySize = PQCPublicKeySize.get(name.toLowerCase());
-        if (publicKeySize == null) {
-            throw new ValidationException(
-                    ValidationError.create(
-                            "Post Quantum Public Key Algorithm " + name + " is not yet supported"
-                    )
-            );
+    private static int getJCECPublicKeyLength(JCEECPublicKey publicKey) {
+        int len;
+        final org.bouncycastle.jce.spec.ECParameterSpec spec = publicKey.getParameters();
+        if (spec != null) {
+            len = spec.getN().bitLength();
+        } else {
+            // We support the key, but we don't know the key length
+            len = 0;
         }
-        return publicKeySize;
+        return len;
     }
 }

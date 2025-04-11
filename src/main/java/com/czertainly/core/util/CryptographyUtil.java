@@ -13,10 +13,10 @@ import com.czertainly.core.attribute.RsaSignatureAttributes;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
 import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
+import org.bouncycastle.jcajce.provider.asymmetric.mldsa.BCMLDSAPublicKey;
+import org.bouncycastle.jcajce.provider.asymmetric.slhdsa.BCSLHDSAPublicKey;
 import org.bouncycastle.operator.DefaultSignatureAlgorithmIdentifierFinder;
-import org.bouncycastle.pqc.jcajce.provider.dilithium.BCDilithiumPublicKey;
 import org.bouncycastle.pqc.jcajce.provider.falcon.BCFalconPublicKey;
-import org.bouncycastle.pqc.jcajce.provider.sphincsplus.BCSPHINCSPlusPublicKey;
 
 import java.io.IOException;
 import java.util.Base64;
@@ -78,9 +78,9 @@ public class CryptographyUtil {
 
 
             }
-            case DILITHIUM -> {
+            case MLDSA -> {
                 try {
-                    String algorithmName = new BCDilithiumPublicKey(
+                    String algorithmName = new BCMLDSAPublicKey(
                             SubjectPublicKeyInfo.getInstance(
                                     Base64.getDecoder().decode(
                                             publicKey
@@ -97,9 +97,9 @@ public class CryptographyUtil {
                     );
                 }
             }
-            case SPHINCSPLUS -> {
+            case SLHDSA -> {
                 try {
-                    String algorithmName = new BCSPHINCSPlusPublicKey(
+                    String algorithmName = new BCSLHDSAPublicKey(
                             SubjectPublicKeyInfo.getInstance(
                                     Base64.getDecoder().decode(
                                             publicKey
