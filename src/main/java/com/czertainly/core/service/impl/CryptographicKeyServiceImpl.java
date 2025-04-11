@@ -269,7 +269,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Creating a new key for Token profile {}. Input: {}", tokenProfileUuid, request);
         if (cryptographicKeyRepository.findByName(request.getName()).isPresent()) {
             logger.error("Key with same name already exists");
-            throw new AlreadyExistException("Existing Key with same already exists");
+            throw new AlreadyExistException("Existing Key with the same name already exists");
         }
         if (request.getName() == null) {
             logger.error("Name is empty. Cannot create key without name");
