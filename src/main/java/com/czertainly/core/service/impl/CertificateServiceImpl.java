@@ -472,7 +472,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
                 SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.TRUSTED_CA)
+                SearchHelper.prepareSearch(FilterField.TRUSTED_CA),
+                SearchHelper.prepareSearch(FilterField.CERTIFICATE_PROTOCOL)
         );
 
         fields = new ArrayList<>(fields);
