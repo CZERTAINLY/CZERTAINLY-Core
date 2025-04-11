@@ -52,6 +52,7 @@ class PQCTests {
         Assertions.assertTrue(signAndVerify(PURE_SLH_DSA, SLHDSAParameterSpec.slh_dsa_shake_128s, PURE_SLH_DSA));
         Assertions.assertTrue(signAndVerify(PURE_SLH_DSA, SLHDSAParameterSpec.slh_dsa_shake_128s, HASH_SLH_DSA));
         Assertions.assertTrue(signAndVerify(PURE_SLH_DSA, SLHDSAParameterSpec.slh_dsa_sha2_128f_with_sha256, HASH_SLH_DSA));
+        Assertions.assertTrue(signAndVerify(PURE_SLH_DSA, SLHDSAParameterSpec.slh_dsa_sha2_128f_with_sha256,  SLHDSAParameterSpec.slh_dsa_sha2_128f_with_sha256.getName()));
         Assertions.assertThrows(Exception.class, () -> signAndVerify(PURE_SLH_DSA, SLHDSAParameterSpec.slh_dsa_sha2_128f_with_sha256, PURE_SLH_DSA));
     }
 
