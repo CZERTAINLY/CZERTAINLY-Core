@@ -517,10 +517,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             case ECDSA -> {
                 return EcdsaSignatureAttributes.getEcdsaSignatureAttributes();
             }
-            case SLHDSA -> {
-                return SLHDSASignatureAttributes.getSLHDSASignatureAttributes();
-            }
-            case FALCON, MLDSA -> {
+            case FALCON, MLDSA, SLHDSA -> {
                 return List.of();
             }
             default -> throw new ValidationException(
@@ -555,9 +552,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
             case ECDSA ->
                     AttributeDefinitionUtils.validateAttributes(EcdsaSignatureAttributes.getEcdsaSignatureAttributes(), attributes);
-            case SLHDSA ->
-                    AttributeDefinitionUtils.validateAttributes(SLHDSASignatureAttributes.getSLHDSASignatureAttributes(), attributes);
-            case FALCON, MLDSA -> {
+            case FALCON, MLDSA, SLHDSA -> {
                 return true;
             }
             default -> throw new ValidationException(
