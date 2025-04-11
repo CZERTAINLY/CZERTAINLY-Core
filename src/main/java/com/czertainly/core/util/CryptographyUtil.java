@@ -124,26 +124,6 @@ public class CryptographyUtil {
         }
     }
 
-    private static String getPreHashSuffix(String algorithmName) {
-        switch (algorithmName) {
-            case "SLH-DSA-SHA2-128F", "SLH-DSA-SHA2-128S" -> {
-                return "-WITH-SHA256";
-            }
-            case "SLH-DSA-SHA2-192F", "SLH-DSA-SHA2-192S", "SLH-DSA-SHA2-256F", "SLH-DSA-SHA2-256S" -> {
-                return "-WITH-SHA512";
-            }
-            case "SLH-DSA-SHAKE-128F", "SLH-DSA-SHAKE-128S" -> {
-                return "-WITH-SHAKE128";
-            }
-            case "SLH-DSA-SHAKE-192F", "SLH-DSA-SHAKE-192S", "SLH-DSA-SHAKE-256F", "SLH-DSA-SHAKE-256S" -> {
-                return "-WITH-SHAKE256";
-            }
-            default -> {
-                return "";
-            }
-        }
-    }
-
     public static AlgorithmIdentifier getAlgorithmIdentifierInstance(String algorithm) {
         return new DefaultSignatureAlgorithmIdentifierFinder().find(algorithm);
     }
