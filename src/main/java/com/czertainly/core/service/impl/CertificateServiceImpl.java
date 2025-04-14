@@ -304,6 +304,11 @@ public class CertificateServiceImpl implements CertificateService {
     public void deleteCertificate(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
 
+        deleteCertificateInternal(certificate);
+    }
+
+    private void deleteCertificateInternal(Certificate certificate) throws NotFoundException {
+        SecuredUUID uuid = certificate.getSecuredUuid();
         if (certificate.getUserUuid() != null) {
             eventProducer.produceCertificateEventMessage(uuid.getValue(), CertificateEvent.DELETE.getCode(), CertificateEventStatus.FAILED.toString(), "Certificate is used by an User", null);
             throw new ValidationException("Could not delete certificate %s with UUID %s: Certificate is used by some user.".formatted(certificate.getCommonName(), certificate.getUuid().toString()));
@@ -417,16 +422,17 @@ public class CertificateServiceImpl implements CertificateService {
         if (request.getFilters() == null || request.getFilters().isEmpty() || (request.getUuids() != null && !request.getUuids().isEmpty())) {
             int deletedCount = 0;
             for (String uuid : request.getUuids()) {
-                UUID certificateUuid = UUID.fromString(uuid);
+                SecuredUUID certificateUuid = SecuredUUID.fromString(uuid);
                 try {
-                    deleteCertificate(SecuredUUID.fromUUID(certificateUuid));
+                    Certificate certificate = getCertificateEntityWithAssociations(certificateUuid);
+                    deleteCertificateInternal(certificate);
                     ++deletedCount;
                 } catch (Exception e) {
                     logger.error("Unable to delete the certificate {}: {}", certificateUuid, e.getMessage());
                     if (loggedUserUuid == null) {
                         loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
                     }
-                    notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid, NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + certificateUuid, e.getMessage());
+                    notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + certificateUuid, e.getMessage());
                 }
             }
             logger.debug("Bulk deleted {} of {} certificates.", deletedCount, request.getUuids().size());
@@ -467,7 +473,8 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
                 SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.TRUSTED_CA)
+                SearchHelper.prepareSearch(FilterField.TRUSTED_CA),
+                SearchHelper.prepareSearch(FilterField.CERTIFICATE_PROTOCOL)
         );
 
         fields = new ArrayList<>(fields);
