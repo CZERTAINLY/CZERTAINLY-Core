@@ -13,9 +13,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyEvent;
 import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
-import com.czertainly.core.attribute.EcdsaSignatureAttributes;
-import com.czertainly.core.attribute.RsaEncryptionAttributes;
-import com.czertainly.core.attribute.RsaSignatureAttributes;
+import com.czertainly.core.attribute.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.config.TokenContentSigner;
@@ -146,11 +144,11 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData().stream().map(e -> {
-                            CipherRequestData cipherRequestData = new CipherRequestData();
-                            cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
-                            cipherRequestData.setIdentifier(e.getIdentifier());
-                            return cipherRequestData;
-                        }).toList()
+                    CipherRequestData cipherRequestData = new CipherRequestData();
+                    cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
+                    cipherRequestData.setIdentifier(e.getIdentifier());
+                    return cipherRequestData;
+                }).toList()
         );
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
@@ -200,11 +198,11 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
         com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto();
         requestDto.setCipherData(request.getCipherData().stream().map(e -> {
-                            CipherRequestData cipherRequestData = new CipherRequestData();
-                            cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
-                            cipherRequestData.setIdentifier(e.getIdentifier());
-                            return cipherRequestData;
-                        }).toList()
+                    CipherRequestData cipherRequestData = new CipherRequestData();
+                    cipherRequestData.setData(base64EncodedToByteArray(e.getData()));
+                    cipherRequestData.setIdentifier(e.getIdentifier());
+                    return cipherRequestData;
+                }).toList()
         );
         requestDto.setCipherAttributes(request.getCipherAttributes());
         logger.debug("Request to the connector: {}", requestDto);
@@ -265,11 +263,11 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         requestDto.setData(request.getData().stream().map(e -> {
-                            com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
-                            signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
-                            signatureRequestData.setIdentifier(e.getIdentifier());
-                            return signatureRequestData;
-                        }).toList()
+                    com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
+                    signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
+                    signatureRequestData.setIdentifier(e.getIdentifier());
+                    return signatureRequestData;
+                }).toList()
         );
         logger.debug("Request to the connector: {}", requestDto);
         try {
@@ -319,18 +317,18 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto requestDto = new com.czertainly.api.model.connector.cryptography.operations.VerifyDataRequestDto();
         requestDto.setSignatureAttributes(request.getSignatureAttributes());
         if (request.getData() != null) requestDto.setData(request.getData().stream().map(e -> {
-                            com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
-                            signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
-                            signatureRequestData.setIdentifier(e.getIdentifier());
-                            return signatureRequestData;
-                        }).toList()
+                    com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
+                    signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
+                    signatureRequestData.setIdentifier(e.getIdentifier());
+                    return signatureRequestData;
+                }).toList()
         );
         requestDto.setSignatures(request.getSignatures().stream().map(e -> {
-                            com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
-                            signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
-                            signatureRequestData.setIdentifier(e.getIdentifier());
-                            return signatureRequestData;
-                        }).toList()
+                    com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData signatureRequestData = new com.czertainly.api.model.connector.cryptography.operations.data.SignatureRequestData();
+                    signatureRequestData.setData(base64EncodedToByteArray(e.getData()));
+                    signatureRequestData.setIdentifier(e.getIdentifier());
+                    return signatureRequestData;
+                }).toList()
         );
         logger.debug("Request to the connector: {}", requestDto);
         try {
@@ -519,7 +517,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             case ECDSA -> {
                 return EcdsaSignatureAttributes.getEcdsaSignatureAttributes();
             }
-            case FALCON, DILITHIUM, SPHINCSPLUS -> {
+            case FALCON, MLDSA, SLHDSA -> {
                 return List.of();
             }
             default -> throw new ValidationException(
@@ -554,7 +552,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     AttributeDefinitionUtils.validateAttributes(RsaSignatureAttributes.getRsaSignatureAttributes(), attributes);
             case ECDSA ->
                     AttributeDefinitionUtils.validateAttributes(EcdsaSignatureAttributes.getEcdsaSignatureAttributes(), attributes);
-            case FALCON, DILITHIUM, SPHINCSPLUS -> {
+            case FALCON, MLDSA, SLHDSA -> {
+                return true;
             }
             default -> throw new ValidationException(
                     ValidationError.create(
