@@ -160,7 +160,7 @@ public class SettingServiceImpl implements SettingService {
 
         }
 
-        settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
     }
 
     @Override

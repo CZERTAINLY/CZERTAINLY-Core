@@ -24,7 +24,7 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -186,10 +186,10 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private boolean isExpiring(Date notAfterDate, RaProfile raProfile) {
         int expiringThreshold;
-        if (raProfile == null || raProfile.getValidationEnabled() == null || Boolean.FALSE.equals(raProfile.getValidationEnabled())) {
+        if (raProfile == null || raProfile.getValidationEnabled() == null) {
             PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-            CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
-            expiringThreshold = certificateValidationSettings.getExpiringThreshold();
+            CertificateValidationSettingsDto validationSettings = platformSettings.getCertificates().getValidation();
+            expiringThreshold = validationSettings.getExpiringThreshold();
         } else {
             expiringThreshold = raProfile.getExpiringThreshold();
         }
@@ -355,7 +355,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
     private void finalizeValidation(Certificate certificate, CertificateValidationStatus resultStatus, Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput) throws CertificateException {
         certificate.setValidationStatus(resultStatus);
-        certificate.setStatusValidationTimestamp(LocalDateTime.now());
+        certificate.setStatusValidationTimestamp(OffsetDateTime.now());
 
         // change certificate state to revoked if applicable
         if (certificate.getState() == CertificateState.ISSUED

@@ -21,7 +21,7 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serial;
 import java.io.Serializable;
-import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
 
@@ -129,7 +129,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private OwnerAssociation owner;
 
     @Column(name = "status_validation_timestamp")
-    private LocalDateTime statusValidationTimestamp;
+    private OffsetDateTime statusValidationTimestamp;
 
     @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY
             //orphanRemoval = true
