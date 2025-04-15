@@ -6,6 +6,9 @@ import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.CertificateSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
@@ -89,6 +92,9 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     private ConnectorRepository connectorRepository;
 
     @Autowired
+    private SettingService settingService;
+
+    @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
 
     private Certificate certificate;
@@ -144,7 +150,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
 
     @Test
-    void testValidateCertificate() {
+    void testValidateCertificate() throws NotFoundException, CertificateException {
         certificateService.validate(certificate);
 
         String result = certificate.getCertificateValidationResult();
@@ -158,6 +164,38 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         CertificateValidationCheckDto signatureVerification = resultMap.get(CertificateValidationCheck.CERTIFICATE_CHAIN);
         Assertions.assertNotNull(signatureVerification);
         Assertions.assertEquals(CertificateValidationStatus.INVALID, signatureVerification.getStatus());
+
+        // check disabled RA profile validation
+        var validationSettingsUpdateDto = new RaProfileCertificateValidationSettingsUpdateDto();
+        validationSettingsUpdateDto.setEnabled(false);
+        RaProfile raProfile = getRaProfile(validationSettingsUpdateDto);
+        certificate.setRaProfile(raProfile);
+        certificate = certificateRepository.save(certificate);
+        CertificateValidationResultDto validationResult = certificateService.getCertificateValidationResult(certificate.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getResultStatus());
+
+        raProfile.setValidationEnabled(null);
+        raProfile.setExpiringThreshold(null);
+        raProfile.setValidationFrequency(null);
+        raProfileRepository.save(raProfile);
+        validationResult = certificateService.getCertificateValidationResult(certificate.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.INVALID, validationResult.getResultStatus());
+
+        // turn off validation on platform level
+        var settingsUpdateDto = new PlatformSettingsUpdateDto();
+        var certificateSettingsUpdateDto = new CertificateSettingsUpdateDto();
+        var certificateValidationSettingsUpdateDto = new CertificateValidationSettingsUpdateDto();
+        certificateValidationSettingsUpdateDto.setEnabled(false);
+        certificateSettingsUpdateDto.setValidation(certificateValidationSettingsUpdateDto);
+        settingsUpdateDto.setCertificates(certificateSettingsUpdateDto);
+        settingService.updatePlatformSettings(settingsUpdateDto);
+
+        validationResult = certificateService.getCertificateValidationResult(certificate.getSecuredUuid());
+        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getResultStatus());
+
+        // turn validation back on
+        certificateSettingsUpdateDto.setValidation(new CertificateValidationSettingsUpdateDto());
+        settingService.updatePlatformSettings(settingsUpdateDto);
     }
 
     @Test

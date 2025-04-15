@@ -23,6 +23,7 @@ import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -87,7 +88,6 @@ import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
 import java.time.Duration;
 import java.time.Instant;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.Callable;
@@ -99,73 +99,34 @@ import java.util.stream.Collectors;
 @Service
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
-
-
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
-    @Autowired
     private PlatformTransactionManager transactionManager;
 
-    @Autowired
     private CertificateRepository certificateRepository;
-
-    @Autowired
     private CertificateRequestRepository certificateRequestRepository;
-
-    @Autowired
     private RaProfileRepository raProfileRepository;
-
-    @Autowired
     private RaProfileService raProfileService;
-
-    @Autowired
     private GroupRepository groupRepository;
-
-    @Autowired
     private LocationRepository locationRepository;
-
-    @Autowired
     private CertificateContentRepository certificateContentRepository;
-
-    @Autowired
     private DiscoveryCertificateRepository discoveryCertificateRepository;
-
-    @Autowired
     private ComplianceService complianceService;
-
-    @Autowired
     private CertificateEventHistoryService certificateEventHistoryService;
-
-    @Lazy
-    @Autowired
     private LocationService locationService;
-
-    @Lazy
-    @Autowired
     private CryptographicKeyService cryptographicKeyService;
-
-    @Autowired
     private PermissionEvaluator permissionEvaluator;
-
-    @Autowired
     private EventProducer eventProducer;
-
-    @Autowired
     private NotificationProducer notificationProducer;
-
-    @Autowired
     private CertificateApiClient certificateApiClient;
-
-    @Autowired
     private UserManagementApiClient userManagementApiClient;
-
+    private CrlService crlService;
 
     private AttributeEngine attributeEngine;
-
     private ExtendedAttributeService extendedAttributeService;
-
     private ResourceObjectAssociationService objectAssociationService;
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     private ApplicationEventPublisher applicationEventPublisher;
 
     /**
@@ -173,9 +134,97 @@ public class CertificateServiceImpl implements CertificateService {
      */
     private Map<String, ICertificateValidator> certificateValidatorMap;
 
-    private CrlService crlService;
+    @Lazy
+    @Autowired
+    public void setLocationService(LocationService locationService) {
+        this.locationService = locationService;
+    }
 
-    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
+    @Autowired
+    public void setTransactionManager(PlatformTransactionManager transactionManager) {
+        this.transactionManager = transactionManager;
+    }
+
+    @Autowired
+    public void setCertificateRepository(CertificateRepository certificateRepository) {
+        this.certificateRepository = certificateRepository;
+    }
+
+    @Autowired
+    public void setCertificateRequestRepository(CertificateRequestRepository certificateRequestRepository) {
+        this.certificateRequestRepository = certificateRequestRepository;
+    }
+
+    @Autowired
+    public void setRaProfileRepository(RaProfileRepository raProfileRepository) {
+        this.raProfileRepository = raProfileRepository;
+    }
+
+    @Autowired
+    public void setRaProfileService(RaProfileService raProfileService) {
+        this.raProfileService = raProfileService;
+    }
+
+    @Autowired
+    public void setGroupRepository(GroupRepository groupRepository) {
+        this.groupRepository = groupRepository;
+    }
+
+    @Autowired
+    public void setLocationRepository(LocationRepository locationRepository) {
+        this.locationRepository = locationRepository;
+    }
+
+    @Autowired
+    public void setCertificateContentRepository(CertificateContentRepository certificateContentRepository) {
+        this.certificateContentRepository = certificateContentRepository;
+    }
+
+    @Autowired
+    public void setDiscoveryCertificateRepository(DiscoveryCertificateRepository discoveryCertificateRepository) {
+        this.discoveryCertificateRepository = discoveryCertificateRepository;
+    }
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
+    }
+
+    @Autowired
+    public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
+        this.certificateEventHistoryService = certificateEventHistoryService;
+    }
+
+    @Lazy
+    @Autowired
+    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
+        this.cryptographicKeyService = cryptographicKeyService;
+    }
+
+    @Autowired
+    public void setPermissionEvaluator(PermissionEvaluator permissionEvaluator) {
+        this.permissionEvaluator = permissionEvaluator;
+    }
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
+    }
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
+    }
+
+    @Autowired
+    public void setCertificateApiClient(CertificateApiClient certificateApiClient) {
+        this.certificateApiClient = certificateApiClient;
+    }
+
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
+    }
 
     @Autowired
     public void setCertificateProtocolAssociationRepository(CertificateProtocolAssociationRepository certificateProtocolAssociationRepository) {
@@ -734,21 +783,23 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException, CertificateException {
+    public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
-        if (certificate.getCertificateContent() != null) {
+        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
+
+        if (CertificateUtil.isValidationEnabled(certificate, null)) {
             validate(certificate);
         }
+        resultDto.setResultStatus(certificate.getValidationStatus());
 
         String validationResult = certificate.getCertificateValidationResult();
-        CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
-        resultDto.setResultStatus(certificate.getValidationStatus());
         try {
             Map<CertificateValidationCheck, CertificateValidationCheckDto> validationChecks = MetaDefinitions.deserializeValidation(validationResult);
             resultDto.setValidationChecks(validationChecks);
         } catch (IllegalStateException e) {
             logger.error(e.getMessage());
         }
+        resultDto.setValidationTimestamp(certificate.getStatusValidationTimestamp());
         return resultDto;
     }
 
@@ -1037,14 +1088,16 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public int updateCertificatesStatusScheduled() {
-        PlatformSettingsDto platformSettingsDto = SettingsCache.getSettings(SettingsSection.PLATFORM);
-        boolean platformEnabled = platformSettingsDto == null || platformSettingsDto.getCertificates() == null || platformSettingsDto.getCertificates().getValidation() == null || platformSettingsDto.getCertificates().getValidation().getEnabled();
+        PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+        CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
+        boolean platformEnabled = certificateValidationSettings.getEnabled();
         int certificatesUpdated = 0;
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
-        LocalDateTime before = LocalDateTime.now().minusDays(getValidationFrequency(platformSettingsDto));
+        OffsetDateTime before = null;
+        if (platformEnabled) before = OffsetDateTime.now().minusDays(certificateValidationSettings.getFrequency());
 
         // process 1/24 of eligible certificates for status update
         final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, platformEnabled, PageRequest.of(0, maxCertsToValidate));
@@ -1074,14 +1127,6 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificateUuids.size());
 
         return certificatesUpdated;
-    }
-
-    private int getValidationFrequency(PlatformSettingsDto platformSettingsDto) {
-        int validationFrequency = 1;
-        if (platformSettingsDto != null && platformSettingsDto.getCertificates() != null && platformSettingsDto.getCertificates().getValidation() != null) {
-            validationFrequency = platformSettingsDto.getCertificates().getValidation().getFrequency();
-        }
-        return validationFrequency;
     }
 
     @Override

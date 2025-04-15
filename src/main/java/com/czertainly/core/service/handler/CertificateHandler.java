@@ -10,6 +10,10 @@ import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificate
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -28,6 +32,7 @@ import com.czertainly.core.event.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.*;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
@@ -131,7 +136,10 @@ public class CertificateHandler {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void validate(Certificate certificate) {
-        certificateService.validate(certificate);
+        if (CertificateUtil.isValidationEnabled(certificate, null)) {
+            certificateService.validate(certificate);
+        }
+
         try {
             if (certificate.getRaProfileUuid() != null) {
                 complianceService.checkComplianceOfCertificate(certificate);

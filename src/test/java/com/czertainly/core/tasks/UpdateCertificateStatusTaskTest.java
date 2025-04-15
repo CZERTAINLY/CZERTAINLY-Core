@@ -11,6 +11,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.SettingService;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -21,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -40,6 +42,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
     @Autowired
     private SettingsCache settingsCache;
+    @Autowired
+    private SettingService settingService;
 
     @Autowired
     private UpdateCertificateStatusTask updateCertificateStatusTask;
@@ -75,14 +79,14 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
         // A certificate which has been validated in the last day
         alreadyValidatedCert = new Certificate();
-        alreadyValidatedCert.setStatusValidationTimestamp(LocalDateTime.now());
+        alreadyValidatedCert.setStatusValidationTimestamp(OffsetDateTime.now());
         setCertificateContent(alreadyValidatedCert);
         alreadyValidatedCert.setValidationStatus(CertificateValidationStatus.INVALID);
         certificateRepository.save(alreadyValidatedCert);
 
         // A certificate which has been validated later than before one day
         certToRevalidate = new Certificate();
-        certToRevalidate.setStatusValidationTimestamp(LocalDateTime.now().minusHours(25));
+        certToRevalidate.setStatusValidationTimestamp(OffsetDateTime.now().minusHours(25));
         setCertificateContent(certToRevalidate);
         certToRevalidate.setValidationStatus(CertificateValidationStatus.INVALID);
         certificateRepository.save(certToRevalidate);
@@ -90,14 +94,14 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
         // A certificate which has been validated later than before two days
         certToRevalidate2 = new Certificate();
-        certToRevalidate2.setStatusValidationTimestamp(LocalDateTime.now().minusDays(3));
+        certToRevalidate2.setStatusValidationTimestamp(OffsetDateTime.now().minusDays(3));
         setCertificateContent(certToRevalidate2);
         certToRevalidate2.setValidationStatus(CertificateValidationStatus.INVALID);
         certificateRepository.save(certToRevalidate2);
 
         Mockito.doAnswer(execution -> {
             Certificate certificate = execution.getArgument(0);
-            certificate.setStatusValidationTimestamp(LocalDateTime.now());
+            certificate.setStatusValidationTimestamp(OffsetDateTime.now());
             certificateRepository.save(certificate);
             return null;
         }).when(mockedCertificateService).validate(any());
@@ -106,7 +110,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
     @Test
     void testCertificatesValidationDefaultSettings() {
-        LocalDateTime timeNow = LocalDateTime.now();
+        OffsetDateTime timeNow = OffsetDateTime.now();
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate and certToRevalidate2
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("3"));
@@ -117,11 +121,11 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     void testCertificateValidationCustomSettings() {
         PlatformSettingsDto platformSettingsDto = getPlatformSettingsDto(true);
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettingsDto);
-        LocalDateTime timeNow = LocalDateTime.now();
+        OffsetDateTime timeNow = OffsetDateTime.now();
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert and certToRevalidate2
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
-        settingsCache.cacheSettings(SettingsSection.PLATFORM, new PlatformSettingsDto());
+        settingsCache.cacheSettings(SettingsSection.PLATFORM,settingService.getPlatformSettings());
         assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2), timeNow);
     }
 
@@ -142,7 +146,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
         // Certificate which has RA Profile with validation disabled
         Certificate certificateWithRaProfileValidationDisabled = new Certificate();
-        certificateWithRaProfileValidationDisabled.setStatusValidationTimestamp(LocalDateTime.now().minusDays(2));
+        certificateWithRaProfileValidationDisabled.setStatusValidationTimestamp(OffsetDateTime.now().minusDays(2));
         validationUpdateDto.setEnabled(false);
         certificateWithRaProfileValidationDisabled.setRaProfile(getRaProfile(validationUpdateDto));
         setCertificateContent(certificateWithRaProfileValidationDisabled);
@@ -176,31 +180,31 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateWithRaProfileValidationEnabledNull.setValidationStatus(CertificateValidationStatus.VALID);
         certificateRepository.save(certificateWithRaProfileValidationEnabledNull);
 
-        LocalDateTime timeNow = LocalDateTime.now();
+        OffsetDateTime timeNow = OffsetDateTime.now();
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate, certToRevalidate2, certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("6"));
         assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate, certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom, certificateWithRaProfileValidationEnabledNull), timeNow);
 
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettingsDto(false));
-        certificateWithRaProfileValidationEnabledDefault.setStatusValidationTimestamp(LocalDateTime.now().minusDays(10));
-        certificateWithRaProfileValidationEnabledCustom.setStatusValidationTimestamp(LocalDateTime.now().minusDays(10));
+        certificateWithRaProfileValidationEnabledDefault.setStatusValidationTimestamp(OffsetDateTime.now().minusDays(10));
+        certificateWithRaProfileValidationEnabledCustom.setStatusValidationTimestamp(OffsetDateTime.now().minusDays(10));
         certificateRepository.save(certificateWithRaProfileValidationEnabledCustom);
         certificateRepository.save(certificateWithRaProfileValidationEnabledDefault);
 
-        timeNow = LocalDateTime.now();
+        timeNow = OffsetDateTime.now();
         scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
         assertCorrectCertificatesHaveBeenValidated(List.of(certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom), timeNow);
-        settingsCache.cacheSettings(SettingsSection.PLATFORM, new PlatformSettingsDto());
+        settingsCache.cacheSettings(SettingsSection.PLATFORM, settingService.getPlatformSettings());
     }
 
 
     @Test
     void testExceptionThrown() {
         Mockito.doThrow(MatchException.class).when(mockedCertificateService).validate(any());
-        LocalDateTime timeNow = LocalDateTime.now();
+        OffsetDateTime timeNow = OffsetDateTime.now();
         ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should not validate any, since exceptions are thrown
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("0"));
@@ -231,7 +235,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         return raProfile;
     }
 
-    private void assertCorrectCertificatesHaveBeenValidated(List<Certificate> correctCertificates, LocalDateTime timeNow) {
+    private void assertCorrectCertificatesHaveBeenValidated(List<Certificate> correctCertificates, OffsetDateTime timeNow) {
         List<Certificate> validatedCertificates = certificateRepository.findAll().stream()
                 .filter(certificate -> certificate.getStatusValidationTimestamp() != null && certificate.getStatusValidationTimestamp().isAfter(timeNow))
                 .toList();
