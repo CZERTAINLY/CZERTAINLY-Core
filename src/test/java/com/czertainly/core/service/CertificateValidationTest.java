@@ -13,7 +13,6 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
@@ -193,6 +192,10 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
         validationResult = certificateService.getCertificateValidationResult(certificate.getSecuredUuid());
         Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getResultStatus());
+
+        // turn validation back on
+        certificateSettingsUpdateDto.setValidation(new CertificateValidationSettingsUpdateDto());
+        settingService.updatePlatformSettings(settingsUpdateDto);
     }
 
     @Test
