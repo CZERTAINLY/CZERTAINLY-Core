@@ -9,17 +9,22 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.model.request.Pkcs10CertificateRequest;
+import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
+import jakarta.annotation.Nullable;
 import jakarta.xml.bind.DatatypeConverter;
 import org.bouncycastle.asn1.DLSequence;
 import org.bouncycastle.asn1.DLTaggedObject;
@@ -673,6 +678,7 @@ public class CertificateUtil {
 
     /**
      * Serialize the subject alternative names to a string
+     *
      * @param subjectAlternativeNames the subject alternative names
      * @return the serialized string
      */
@@ -695,6 +701,7 @@ public class CertificateUtil {
 
     /**
      * Deserialize the subject alternative names from a string
+     *
      * @param subjectAlternativeNames the serialized string
      * @return the deserialized map
      */
@@ -704,9 +711,34 @@ public class CertificateUtil {
         }
         try {
             JsonNode jsonNode = OBJECT_MAPPER.readTree(subjectAlternativeNames);
-            return OBJECT_MAPPER.convertValue(jsonNode, new TypeReference<>() {});
+            return OBJECT_MAPPER.convertValue(jsonNode, new TypeReference<>() {
+            });
         } catch (JsonProcessingException e) {
             throw new IllegalStateException("Failed to deserialize SANs", e);
         }
+    }
+
+    public static boolean isValidationEnabled(Certificate certificate, @Nullable CertificateValidationResultDto validationResultDto) {
+        Boolean raValidationEnabled = certificate.getRaProfile() != null ? certificate.getRaProfile().getValidationEnabled() : null;
+
+        if (Boolean.FALSE.equals(raValidationEnabled)) {
+            certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+            if (validationResultDto != null) {
+                validationResultDto.setMessage("Validation of certificates in RA Profile %s is disabled."
+                        .formatted(certificate.getRaProfile().getName()));
+            }
+            return false;
+        } else if (raValidationEnabled == null) {
+            PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+            CertificateValidationSettingsDto validationSettings = platformSettings.getCertificates().getValidation();
+
+            if (Boolean.FALSE.equals(validationSettings.getEnabled())) {
+                certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+                if (validationResultDto != null) {
+                    validationResultDto.setMessage("Validation of certificates is disabled in platform settings.");
+                }
+                return false;
+            } else return certificate.getCertificateContent() != null;
+        } else return certificate.getCertificateContent() != null;
     }
 }

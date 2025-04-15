@@ -136,21 +136,7 @@ public class CertificateHandler {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void validate(Certificate certificate) {
-
-        Boolean raValidationEnabled = certificate.getRaProfile() != null ? certificate.getRaProfile().getValidationEnabled() : null;
-
-        if (Boolean.FALSE.equals(raValidationEnabled)) {
-            certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
-        } else if (raValidationEnabled == null) {
-            PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
-            CertificateValidationSettingsDto validationSettings = platformSettings.getCertificates().getValidation();
-
-            if (Boolean.FALSE.equals(validationSettings.getEnabled())) {
-                certificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
-            } else {
-                certificateService.validate(certificate);
-            }
-        } else {
+        if (CertificateUtil.isValidationEnabled(certificate, null)) {
             certificateService.validate(certificate);
         }
 
