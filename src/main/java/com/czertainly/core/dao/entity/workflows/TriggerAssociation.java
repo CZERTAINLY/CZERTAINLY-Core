@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity.workflows;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import jakarta.persistence.*;
 import lombok.*;
@@ -30,12 +31,19 @@ public class TriggerAssociation extends UniquelyIdentified {
     @Column(name = "trigger_order")
     private int triggerOrder;
 
+    @Column(name = "resource_event")
+    @Enumerated(EnumType.STRING)
+    private ResourceEvent resourceEvent;
+
+    @Column(name = "override")
+    private boolean override;
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         TriggerAssociation that = (TriggerAssociation) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -43,6 +51,6 @@ public class TriggerAssociation extends UniquelyIdentified {
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

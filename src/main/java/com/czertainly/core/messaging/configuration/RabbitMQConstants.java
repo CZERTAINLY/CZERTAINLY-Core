@@ -14,7 +14,7 @@ public class RabbitMQConstants {
 
     public static final String EXCHANGE_NAME = "czertainly";
 
-    public static final String EVENT_ROUTING_KEY = "core";
+    public static final String EVENT_ROUTING_KEY = "event";
 
     public static final String NOTIFICATION_ROUTING_KEY = "notification";
 

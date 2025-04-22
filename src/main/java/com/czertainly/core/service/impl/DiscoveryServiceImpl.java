@@ -31,7 +31,7 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.event.transaction.CertificateValidationEvent;
+import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -221,7 +221,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             certificates = discoveryCertificateRepository.findByDiscovery(discoveryHistory, p);
             maxItems = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
         } else {
-            certificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, newlyDiscovered, p);
+            certificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(discoveryHistory.getUuid(), newlyDiscovered, p);
             maxItems = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discoveryHistory, newlyDiscovered);
         }
 
@@ -623,7 +623,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private void processDiscoveredCertificates(DiscoveryHistory discovery) {
         // Get newly discovered certificates
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
+        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(discovery.getUuid(), true, Pageable.unpaged());
         ConcurrentMap<PublicKey, List<UUID>> keyToCertificates = new ConcurrentHashMap<>();
 
         logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());

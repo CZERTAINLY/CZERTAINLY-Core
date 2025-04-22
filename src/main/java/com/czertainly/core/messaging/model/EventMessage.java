@@ -1,8 +1,10 @@
 package com.czertainly.core.messaging.model;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import lombok.*;
 
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -11,20 +13,16 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class EventMessage {
 
+    private ResourceEvent resourceEvent;
+
+    private Resource overrideResource;
+
+    private UUID overrideObjectUuid;
+
     private Resource resource;
 
-    private UUID resourceUUID;
-
-    private String eventName;
-
-    private String eventStatus;
-
-    private String eventMessage;
-
-    private String eventDetail;
+    private List<UUID> objectUuids;
 
     private UUID userUuid;
-
-    private Object eventData;
 
 }

@@ -15,7 +15,7 @@ import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
-import com.czertainly.core.event.transaction.ScheduledJobFinishedEvent;
+import com.czertainly.core.events.transaction.ScheduledJobFinishedEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.ScheduledTaskResult;
