@@ -1,5 +1,6 @@
 package com.czertainly.core.events;
 
+import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
@@ -9,6 +10,8 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.messaging.model.EventMessage;
+import com.czertainly.core.messaging.producers.EventProducer;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.service.TriggerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +28,21 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandler.class);
 
+    protected EventProducer eventProducer;
+    protected NotificationProducer notificationProducer;
+
     private TriggerService triggerService;
     private TriggerAssociationRepository triggerAssociationRepository;
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
+    }
+
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
+    }
 
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
@@ -38,11 +54,11 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
         this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
-    protected abstract EventContext<T> prepareContext(EventMessage eventMessage);
+    protected abstract EventContext<T> prepareContext(EventMessage eventMessage) throws EventException;
 
     protected abstract void sendInternalNotifications(EventContext<T> eventContext);
 
-    public void handleEvent(EventMessage eventMessage) {
+    public void handleEvent(EventMessage eventMessage) throws EventException {
         EventContext<T> eventContext = prepareContext(eventMessage);
         processAllTriggers(eventContext);
         sendInternalNotifications(eventContext);

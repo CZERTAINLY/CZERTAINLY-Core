@@ -4,7 +4,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import lombok.*;
 
-import java.util.List;
 import java.util.UUID;
 
 @Getter

@@ -16,16 +16,18 @@ public class EventContext<T> {
     private final Resource resource;
     private final ResourceEvent resourceEvent;
     private final RuleEvaluator<T> ruleEvaluator;
+    private final UUID userUuid;
     private final UUID associationObjectUuid;
 
     private final List<T> resourceObjects = new ArrayList<>();
     private final List<Trigger> triggers = new ArrayList<>();
     private final List<Trigger> ignoreTriggers = new ArrayList<>();
 
-    public EventContext(Resource resource, ResourceEvent resourceEvent, RuleEvaluator<T> ruleEvaluator, UUID associationObjectUuid) {
+    public EventContext(Resource resource, ResourceEvent resourceEvent, RuleEvaluator<T> ruleEvaluator, UUID userUuid, UUID associationObjectUuid) {
         this.resource = resource;
         this.resourceEvent = resourceEvent;
         this.ruleEvaluator = ruleEvaluator;
+        this.userUuid = userUuid;
         this.associationObjectUuid = associationObjectUuid;
     }
 }

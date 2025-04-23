@@ -1,19 +1,19 @@
 package com.czertainly.core.events;
 
+import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
-import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.events.transaction.TransactionHandler;
-import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.CryptographicKeyService;
 import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.util.CertificateUtil;
 import com.pivovarit.collectors.ParallelCollectors;
@@ -47,9 +47,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private CertificateRuleEvaluator ruleEvaluator;
 
     private CertificateService certificateService;
-    private CryptographicKeyService cryptographicKeyService;
-
-    private CertificateRepository certificateRepository;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
 
@@ -74,16 +71,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Autowired
-    public void setCryptographicKeyService(CryptographicKeyService cryptographicKeyService) {
-        this.cryptographicKeyService = cryptographicKeyService;
-    }
-
-    @Autowired
-    public void setCertificateRepository(CertificateRepository certificateRepository) {
-        this.certificateRepository = certificateRepository;
-    }
-
-    @Autowired
     public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
         this.discoveryRepository = discoveryRepository;
     }
@@ -95,31 +82,33 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     @Override
     protected EventContext<Certificate> prepareContext(EventMessage eventMessage) {
-        return null;
+        EventContext<Certificate> context = new EventContext<>(eventMessage.getResource(), eventMessage.getResourceEvent(), ruleEvaluator, eventMessage.getUserUuid(), eventMessage.getOverrideObjectUuid());
+        // TODO: load event triggers from platform settings
+        loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
+
+        return context;
     }
 
     @Override
     protected void sendInternalNotifications(EventContext<Certificate> eventContext) {
-
+        // No internal notifications needed
     }
 
     @Override
-    public void handleEvent(EventMessage eventMessage) {
-        // TODO: load event triggers from platform settings
+    public void handleEvent(EventMessage eventMessage) throws EventException {
         if (eventMessage.getOverrideResource() == null || eventMessage.getOverrideObjectUuid() == null) {
-            return;
+            throw new EventException(ResourceEvent.CERTIFICATE_DISCOVERED, "Event currently supported only through discovery as overriding resource");
         }
 
+        EventContext<Certificate> context = prepareContext(eventMessage);
+
         // Get newly discovered certificates
-        // TODO: add EventException to handle null resource object
-        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElse(null);
+        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(ResourceEvent.CERTIFICATE_DISCOVERED, "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
         logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
 
         if (discoveredCertificates.isEmpty()) return;
 
-        EventContext<Certificate> context = new EventContext<>(eventMessage.getResource(), eventMessage.getResourceEvent(), ruleEvaluator, eventMessage.getOverrideObjectUuid());
-        loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         AtomicInteger index = new AtomicInteger(0);
@@ -163,6 +152,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 logger.error("Could not create public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
             }
         }
+
+        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid()));
     }
 
     private void processDiscoveredCertificate(EventContext<Certificate> eventContext, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
@@ -214,9 +205,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
-    public void produceCertificatesDiscoveredByDiscovery(UUID discoveryUuid, UUID userUuid) {
-    }
-
-    public void produceCertificatesDiscovered(List<UUID> certificatesUuids) {
+    public EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid) {
+        return new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discoveryUuid, Resource.CERTIFICATE, null, userUuid);
     }
 }
