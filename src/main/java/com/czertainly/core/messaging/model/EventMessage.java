@@ -21,7 +21,7 @@ public class EventMessage {
 
     private Resource resource;
 
-    private List<UUID> objectUuids;
+    private UUID objectUuid;
 
     private UUID userUuid;
 

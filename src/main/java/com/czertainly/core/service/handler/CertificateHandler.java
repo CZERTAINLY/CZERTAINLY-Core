@@ -300,7 +300,7 @@ public class CertificateHandler {
         }
     }
 
-    private void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {
+    public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {
         // Set metadata attributes, create certificate event history entry and validate certificate
         try {
             attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));

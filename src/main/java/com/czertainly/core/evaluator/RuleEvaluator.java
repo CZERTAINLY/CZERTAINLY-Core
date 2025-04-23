@@ -21,7 +21,6 @@ import com.czertainly.core.enums.ResourceToClass;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
-import jakarta.persistence.metamodel.Attribute;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

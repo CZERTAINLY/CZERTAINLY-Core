@@ -3,13 +3,11 @@ package com.czertainly.core.events;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.core.dao.entity.DiscoveryCertificate;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedObject;
 import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
-import com.czertainly.core.evaluator.RuleEvaluator;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.TriggerService;
 import org.slf4j.Logger;
@@ -23,7 +21,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
-public abstract class EventHandler<T> {
+public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandler.class);
 
@@ -40,14 +38,18 @@ public abstract class EventHandler<T> {
         this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
+    protected abstract EventContext<T> prepareContext(EventMessage eventMessage);
+
+    protected abstract void sendInternalNotifications(EventContext<T> eventContext);
+
     public void handleEvent(EventMessage eventMessage) {
         EventContext<T> eventContext = prepareContext(eventMessage);
-        loadTriggers(eventContext, eventMessage.getResource(), eventMessage.getResourceUUID());
-        processTriggers(eventContext);
+        processAllTriggers(eventContext);
+        sendInternalNotifications(eventContext);
     }
 
     protected void loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) {
-        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(resourceEvent, resource, objectUuid);
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(context.getResourceEvent(), resource, objectUuid);
         for (TriggerAssociation triggerAssociation : triggerAssociations) {
             try {
                 Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
@@ -62,45 +64,51 @@ public abstract class EventHandler<T> {
         }
     }
 
-    private void processTriggers(T resourceObject, List<Trigger> triggers, boolean ignoreTriggers) throws RuleException {
-        // First, check the triggers that have action with action type set to ignore
-        boolean ignored = false;
-        List<TriggerHistory> ignoreTriggerHistories = new ArrayList<>();
-        for (Trigger trigger : ignoreTriggers) {
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, null, discoveryCertificate.getUuid());
+    protected void processAllTriggers(EventContext<T> context) {
+        for (T resourceObject : context.getResourceObjects()) {
+            // First, check the triggers that have action with action type set to ignore
+            List<TriggerHistory> triggerHistories = new ArrayList<>();
+            try {
+                boolean processed = processIgnoreTriggers(context, resourceObject, null, triggerHistories);
+
+                // If some trigger ignored this object, processing is stopped
+                if (!processed) {
+                    continue;
+                }
+
+                processTriggers(context, resourceObject, null, triggerHistories);
+            } catch (RuleException e) {
+                logger.error("Unable to process trigger on {} object {}. Message: {}", context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
+            }
+        }
+    }
+
+    protected boolean processIgnoreTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
+        for (Trigger trigger : context.getIgnoreTriggers()) {
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), context.getAssociationObjectUuid(), resourceObject.getUuid(), referenceObjectUuid);
+            triggerHistories.add(triggerHistory);
             if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
-                ignored = true;
                 triggerHistory.setConditionsMatched(true);
                 triggerHistory.setActionsPerformed(true);
-                break;
+                return false;
             } else {
                 triggerHistory.setConditionsMatched(false);
                 triggerHistory.setActionsPerformed(false);
             }
-            ignoreTriggerHistories.add(triggerHistory);
         }
+        return true;
+    }
 
-        // If some trigger ignored this object, processing is stopped
-        if (ignored) {
-            return;
-        }
-
-        // Save certificate to database
-        certificateService.updateCertificateEntity(certificate);
-
-        // update objectUuid of not ignored certs
-        for (TriggerHistory ignoreTriggerHistory : ignoreTriggerHistories) {
-            ignoreTriggerHistory.setObjectUuid(certificate.getUuid());
-        }
-
+    protected void processTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
         // Evaluate rest of the triggers in given order
-        for (Trigger trigger : orderedTriggers) {
+        for (Trigger trigger : context.getTriggers()) {
             // Create trigger history entry
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), discoveryUuid, certificate.getUuid(), discoveryCertificate.getUuid());
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), context.getAssociationObjectUuid(), resourceObject.getUuid(), referenceObjectUuid);
+            triggerHistories.add(triggerHistory);
             // If rules are satisfied, perform defined actions
-            if (certificateRuleEvaluator.evaluateRules(trigger.getRules(), certificate, triggerHistory)) {
+            if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
                 triggerHistory.setConditionsMatched(true);
-                certificateRuleEvaluator.performActions(trigger, certificate, triggerHistory);
+                context.getRuleEvaluator().performActions(trigger, resourceObject, triggerHistory);
                 triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
             } else {
                 triggerHistory.setConditionsMatched(false);
@@ -108,5 +116,4 @@ public abstract class EventHandler<T> {
             }
         }
     }
-
 }

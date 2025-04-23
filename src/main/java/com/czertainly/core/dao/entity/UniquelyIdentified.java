@@ -16,7 +16,7 @@ import java.util.UUID;
 @ToString
 @RequiredArgsConstructor
 @MappedSuperclass
-public abstract class UniquelyIdentified {
+public abstract class UniquelyIdentified implements UniquelyIdentifiedObject {
 
     @Id
     @Column(name = "uuid", nullable = false, updatable = false)

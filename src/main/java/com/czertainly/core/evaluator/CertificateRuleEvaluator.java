@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
-@Component("certificates")
+@Component(Resource.Codes.CERTIFICATE)
 @Transactional
 public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
 

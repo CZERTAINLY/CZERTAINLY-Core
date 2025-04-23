@@ -1,5 +1,6 @@
 package com.czertainly.core.events;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.evaluator.RuleEvaluator;
@@ -7,18 +8,24 @@ import lombok.Getter;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Getter
 public class EventContext<T> {
 
-    private ResourceEvent resourceEvent;
-    private RuleEvaluator<T> ruleEvaluator;
+    private final Resource resource;
+    private final ResourceEvent resourceEvent;
+    private final RuleEvaluator<T> ruleEvaluator;
+    private final UUID associationObjectUuid;
 
-    private List<Trigger> triggers = new ArrayList<>();
-    private List<Trigger> ignoreTriggers = new ArrayList<>();
+    private final List<T> resourceObjects = new ArrayList<>();
+    private final List<Trigger> triggers = new ArrayList<>();
+    private final List<Trigger> ignoreTriggers = new ArrayList<>();
 
-    public EventContext(ResourceEvent resourceEvent, RuleEvaluator<T> ruleEvaluator) {
+    public EventContext(Resource resource, ResourceEvent resourceEvent, RuleEvaluator<T> ruleEvaluator, UUID associationObjectUuid) {
+        this.resource = resource;
         this.resourceEvent = resourceEvent;
         this.ruleEvaluator = ruleEvaluator;
+        this.associationObjectUuid = associationObjectUuid;
     }
 }

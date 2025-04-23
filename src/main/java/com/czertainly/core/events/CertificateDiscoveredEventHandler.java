@@ -1,16 +1,13 @@
 package com.czertainly.core.events;
 
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
-import com.czertainly.core.dao.entity.workflows.Trigger;
-import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
+import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
+import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
@@ -32,10 +29,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
@@ -56,6 +50,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private CryptographicKeyService cryptographicKeyService;
 
     private CertificateRepository certificateRepository;
+    private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
 
     @Autowired
@@ -89,8 +84,23 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Autowired
+    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
+        this.discoveryRepository = discoveryRepository;
+    }
+
+    @Autowired
     public void setDiscoveryCertificateRepository(DiscoveryCertificateRepository discoveryCertificateRepository) {
         this.discoveryCertificateRepository = discoveryCertificateRepository;
+    }
+
+    @Override
+    protected EventContext<Certificate> prepareContext(EventMessage eventMessage) {
+        return null;
+    }
+
+    @Override
+    protected void sendInternalNotifications(EventContext<Certificate> eventContext) {
+
     }
 
     @Override
@@ -101,12 +111,14 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
 
         // Get newly discovered certificates
+        // TODO: add EventException to handle null resource object
+        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElse(null);
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
         logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
 
         if (discoveredCertificates.isEmpty()) return;
 
-        EventContext<Certificate> context = new EventContext<>(ResourceEvent.CERTIFICATE_DISCOVERED, ruleEvaluator);
+        EventContext<Certificate> context = new EventContext<>(eventMessage.getResource(), eventMessage.getResourceEvent(), ruleEvaluator, eventMessage.getOverrideObjectUuid());
         loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
@@ -121,11 +133,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                 int certIndex;
                                 try {
                                     certIndex = index.incrementAndGet();
-                                    logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
                                     processCertSemaphore.acquire();
-                                    logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-
-                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates);
+                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates));
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
                                     logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
@@ -171,33 +180,30 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             return;
         }
 
-        // Get triggers for the discovery, separately for triggers with ignore action, the rest of triggers are in given order
-        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(Resource.DISCOVERY, discovery.getUuid());
-        List<Trigger> orderedTriggers = new ArrayList<>();
-        List<Trigger> ignoreTriggers = new ArrayList<>();
-        for (TriggerAssociation triggerAssociation : triggerAssociations) {
-            try {
-                Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
-                if (triggerAssociation.getTriggerOrder() == -1) {
-                    ignoreTriggers.add(trigger);
-                } else {
-                    orderedTriggers.add(trigger);
-                }
-            } catch (NotFoundException e) {
-                logger.error(e.getMessage());
-            }
-        }
-
         try {
-            processTriggers(discovery.getUuid(), certificate, discoveryCertificate, ignoreTriggers, orderedTriggers);
+            List<TriggerHistory> triggerHistories = new ArrayList<>();
+            boolean processed = processIgnoreTriggers(eventContext, certificate, discoveryCertificate.getUuid(), triggerHistories);
+
+            // If some trigger ignored this certificate, certificate is not saved and continue with next one
+            if (processed) { // certificate was not ignored
+                // Save certificate to database
+                certificateService.updateCertificateEntity(certificate);
+                // update objectUuid of not ignored certs
+                for (TriggerHistory ignoreTriggerHistory : triggerHistories) {
+                    ignoreTriggerHistory.setObjectUuid(certificate.getUuid());
+                }
+
+                // Evaluate rest of the triggers in given order
+                processTriggers(eventContext, certificate, discoveryCertificate.getUuid(), triggerHistories);
+
+                certificateHandler.updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
+                keysToCertificatesMap.computeIfAbsent(x509Cert.getPublicKey(), k -> new ArrayList<>()).add(certificate.getUuid());
+            }
         } catch (RuleException e) {
             logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", certificate.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
         }
 
-        updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
-        keysToCertificatesMap.computeIfAbsent(x509Cert.getPublicKey(), k -> new ArrayList<>()).add(certificate.getUuid());
         discoveryCertificate.setProcessed(true);
-
         discoveryCertificateRepository.save(discoveryCertificate);
 
         // report progress
@@ -208,20 +214,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
-    private void uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
-        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(publicKey.getEncoded()));
-        Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
-        if (keyUuid == null) {
-            keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + firstCertificate.getCommonName(), publicKey, firstCertificate.getPublicKeyAlgorithm(), firstCertificate.getKeySize(), firstCertificate.getPublicKeyFingerprint());
-        }
-        certificateRepository.setKeyUuid(keyUuid, certificateUuids);
-    }
-
     public void produceCertificatesDiscoveredByDiscovery(UUID discoveryUuid, UUID userUuid) {
-
     }
 
     public void produceCertificatesDiscovered(List<UUID> certificatesUuids) {
-        rabbitTemplate.convertAndSend(RabbitMQConstants.EXCHANGE_NAME, RabbitMQConstants.EVENT_ROUTING_KEY, eventMessage);
     }
 }
