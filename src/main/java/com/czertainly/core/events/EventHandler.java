@@ -16,6 +16,7 @@ import com.czertainly.core.service.TriggerService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
@@ -30,6 +31,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
 
     protected EventProducer eventProducer;
     protected NotificationProducer notificationProducer;
+    protected ApplicationEventPublisher applicationEventPublisher;
 
     private TriggerService triggerService;
     private TriggerAssociationRepository triggerAssociationRepository;
@@ -42,6 +44,11 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
     @Autowired
     public void setNotificationProducer(NotificationProducer notificationProducer) {
         this.notificationProducer = notificationProducer;
+    }
+
+    @Autowired
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired
@@ -59,9 +66,12 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
     protected abstract void sendInternalNotifications(EventContext<T> eventContext);
 
     public void handleEvent(EventMessage eventMessage) throws EventException {
+        logger.debug("Going to handle event '{}'", eventMessage.getResourceEvent().getLabel());
+
         EventContext<T> eventContext = prepareContext(eventMessage);
         processAllTriggers(eventContext);
         sendInternalNotifications(eventContext);
+        logger.debug("Event '{}' successfully handled", eventMessage.getResourceEvent().getLabel());
     }
 
     protected void loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) {
@@ -81,6 +91,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
     }
 
     protected void processAllTriggers(EventContext<T> context) {
+        logger.debug("Going to process {} triggers on {} objects registered for event '{}'", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size(), context.getResourceEvent().getLabel());
         for (T resourceObject : context.getResourceObjects()) {
             // First, check the triggers that have action with action type set to ignore
             List<TriggerHistory> triggerHistories = new ArrayList<>();

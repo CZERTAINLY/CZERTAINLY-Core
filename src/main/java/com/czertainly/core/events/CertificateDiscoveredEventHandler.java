@@ -11,10 +11,12 @@ import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
+import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.handler.CertificateHandler;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.CertificateUtil;
 import com.pivovarit.collectors.ParallelCollectors;
 import org.slf4j.Logger;
@@ -82,7 +84,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     @Override
     protected EventContext<Certificate> prepareContext(EventMessage eventMessage) {
-        EventContext<Certificate> context = new EventContext<>(eventMessage.getResource(), eventMessage.getResourceEvent(), ruleEvaluator, eventMessage.getUserUuid(), eventMessage.getOverrideObjectUuid());
+        EventContext<Certificate> context = new EventContext<>(eventMessage.getResource(), eventMessage.getResourceEvent(), ruleEvaluator, eventMessage.getUserUuid(), eventMessage.getOverrideObjectUuid(), eventMessage.getScheduledJobInfo());
         // TODO: load event triggers from platform settings
         loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
 
@@ -105,10 +107,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         // Get newly discovered certificates
         DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(ResourceEvent.CERTIFICATE_DISCOVERED, "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
-        logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
+        logger.debug("Going to process {} triggers on {} discovered certificates", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size());
 
         if (discoveredCertificates.isEmpty()) return;
-
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         AtomicInteger index = new AtomicInteger(0);
@@ -153,7 +154,9 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             }
         }
 
-        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid()));
+        // trigger other events
+        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getScheduledJobInfo()));
+        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discovery.getUuid(), discovery.getName(), null, null));
     }
 
     private void processDiscoveredCertificate(EventContext<Certificate> eventContext, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
@@ -205,7 +208,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
     }
 
-    public EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discoveryUuid, Resource.CERTIFICATE, null, userUuid);
+    public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) {
+        return new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discoveryUuid, Resource.CERTIFICATE, null, userUuid, scheduledJobInfo);
     }
 }

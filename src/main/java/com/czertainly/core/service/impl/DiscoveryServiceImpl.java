@@ -31,8 +31,10 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.events.CertificateDiscoveredEventHandler;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -86,6 +88,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public static final Semaphore downloadCertSemaphore = new Semaphore(10);
     public static final Semaphore processCertSemaphore = new Semaphore(10);
 
+    private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
     private PlatformTransactionManager transactionManager;
     private ApplicationEventPublisher applicationEventPublisher;
@@ -156,6 +159,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     public void setCertificateContentRepository(CertificateContentRepository certificateContentRepository) {
         this.certificateContentRepository = certificateContentRepository;
+    }
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Autowired
@@ -427,14 +435,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
         transactionManager.commit(status);
 
-        logger.debug("Going to process {} certificates", newlyDiscoveredCount);
-
-        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        processDiscoveredCertificates(discovery);
-        discovery.setStatus(DiscoveryStatus.COMPLETED);
-
-        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discoveryUuid, discovery.getName(), null, null));
-        return finalizeDiscovery(discovery, loggedUserUuid, status, preProcessingMessage);
+        eventProducer.produceMessage(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), scheduledJobInfo));
+        return discovery.mapToDto();
     }
 
     private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, TransactionStatus status) throws InterruptedException, DiscoveryException, ConnectorException, NotFoundException {

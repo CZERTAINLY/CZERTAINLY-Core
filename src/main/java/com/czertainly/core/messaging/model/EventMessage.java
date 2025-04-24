@@ -2,6 +2,7 @@ package com.czertainly.core.messaging.model;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 import lombok.*;
 
 import java.util.UUID;
@@ -23,5 +24,7 @@ public class EventMessage {
     private UUID objectUuid;
 
     private UUID userUuid;
+
+    private ScheduledJobInfo scheduledJobInfo;
 
 }
