@@ -16,12 +16,14 @@ import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.tasks.ScheduledJobInfo;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
 import java.util.UUID;
 
 @Transactional
+@Component(ResourceEvent.Codes.DISCOVERY_FINISHED)
 public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory> {
 
     private RuleEvaluator<DiscoveryHistory> ruleEvaluator;

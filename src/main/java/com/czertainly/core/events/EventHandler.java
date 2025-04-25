@@ -27,7 +27,7 @@ import java.util.UUID;
 
 @Component
 @Transactional
-public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
+public abstract class EventHandler<T extends UniquelyIdentifiedObject> implements IEventHandler {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandler.class);
 

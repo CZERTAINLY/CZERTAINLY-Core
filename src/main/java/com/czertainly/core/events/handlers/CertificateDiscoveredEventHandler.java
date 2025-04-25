@@ -28,6 +28,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.NoSuchAlgorithmException;
@@ -39,6 +40,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Stream;
 
 @Transactional
+@Component(ResourceEvent.Codes.CERTIFICATE_DISCOVERED)
 public class CertificateDiscoveredEventHandler extends EventHandler<Certificate> {
 
     private static final Integer MAXIMUM_PARALLELISM = 5;

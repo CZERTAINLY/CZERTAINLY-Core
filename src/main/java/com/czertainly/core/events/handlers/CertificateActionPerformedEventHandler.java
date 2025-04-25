@@ -11,11 +11,13 @@ import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.model.auth.ResourceAction;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Transactional
+@Component(ResourceEvent.Codes.CERTIFICATE_ACTION_PERFORMED)
 public class CertificateActionPerformedEventHandler extends EventHandler<Certificate> {
 
     private CertificateRuleEvaluator ruleEvaluator;

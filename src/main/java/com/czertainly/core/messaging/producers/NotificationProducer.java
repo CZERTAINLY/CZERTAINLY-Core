@@ -1,6 +1,5 @@
 package com.czertainly.core.messaging.producers;
 
-import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approval.ApprovalDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
@@ -88,11 +87,11 @@ public class NotificationProducer {
                 new NotificationDataCertificateActionPerformed(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
     }
 
-    public void produceNotificationScheduledJobCompleted(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String jobName, String jobType, String status) {
+    public void produceNotificationScheduledJobCompleted(UUID scheduledJobUuid, UUID userUuid, String jobName, String jobType, String status) {
         produceMessage(new NotificationMessage(NotificationType.SCHEDULED_JOB_COMPLETED,
-                resource,
-                resourceUUID,
-                recipients,
+                Resource.SCHEDULED_JOB,
+                scheduledJobUuid,
+                NotificationRecipient.buildUserNotificationRecipient(userUuid),
                 new NotificationDataScheduledJobCompleted(jobName, jobType, status)));
     }
 

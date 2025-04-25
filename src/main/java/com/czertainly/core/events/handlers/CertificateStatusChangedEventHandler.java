@@ -14,11 +14,13 @@ import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
 @Transactional
+@Component(ResourceEvent.Codes.CERTIFICATE_STATUS_CHANGED)
 public class CertificateStatusChangedEventHandler extends EventHandler<Certificate> {
 
     private CertificateRuleEvaluator ruleEvaluator;

@@ -61,8 +61,6 @@ public class ApprovalServiceImpl implements ApprovalService {
 
     private ApprovalRecipientHelper approvalRecipientHelper;
 
-    private NotificationProducer notificationProducer;
-
     private ActionProducer actionProducer;
 
     private EventProducer eventProducer;
@@ -358,11 +356,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Autowired
     public void setApprovalStepRepository(ApprovalStepRepository approvalStepRepository) {
         this.approvalStepRepository = approvalStepRepository;
-    }
-
-    @Autowired
-    public void setNotificationProducer(NotificationProducer notificationProducer) {
-        this.notificationProducer = notificationProducer;
     }
 
     @Autowired

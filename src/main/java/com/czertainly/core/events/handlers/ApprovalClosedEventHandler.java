@@ -14,13 +14,28 @@ import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.security.authz.SecuredUUID;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.UUID;
 
+@Transactional
+@Component(ResourceEvent.Codes.APPROVAL_CLOSED)
 public class ApprovalClosedEventHandler extends EventHandler<Approval> {
 
     private RuleEvaluator<Approval> ruleEvaluator;
     private ApprovalRepository approvalRepository;
+
+    @Autowired
+    public void setRuleEvaluator(RuleEvaluator<Approval> ruleEvaluator) {
+        this.ruleEvaluator = ruleEvaluator;
+    }
+
+    @Autowired
+    public void setApprovalRepository(ApprovalRepository approvalRepository) {
+        this.approvalRepository = approvalRepository;
+    }
 
     @Override
     protected EventContext<Approval> prepareContext(EventMessage eventMessage) throws EventException {

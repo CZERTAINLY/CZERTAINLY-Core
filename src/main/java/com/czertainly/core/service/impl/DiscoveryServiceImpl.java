@@ -43,7 +43,6 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.*;
-import com.pivovarit.collectors.ParallelCollectors;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -52,13 +51,9 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -67,12 +62,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
 @Service
 @Transactional
@@ -90,7 +82,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
     private PlatformTransactionManager transactionManager;
-    private ApplicationEventPublisher applicationEventPublisher;
 
     private AttributeEngine attributeEngine;
     private CertificateHandler certificateHandler;
@@ -168,11 +159,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     public void setNotificationProducer(NotificationProducer notificationProducer) {
         this.notificationProducer = notificationProducer;
-    }
-
-    @Autowired
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired
@@ -620,62 +606,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
         logger.debug("{} download tasks for discovery {} finished", futures.size(), discoveryName);
         futures.clear();
-    }
-
-    private void processDiscoveredCertificates(DiscoveryHistory discovery) {
-        // Get newly discovered certificates
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(discovery.getUuid(), true, Pageable.unpaged());
-        ConcurrentMap<PublicKey, List<UUID>> keyToCertificates = new ConcurrentHashMap<>();
-
-        logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
-
-        if (discoveredCertificates.isEmpty()) return;
-
-        // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
-        AtomicInteger index = new AtomicInteger(0);
-        try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-            SecurityContext securityContext = SecurityContextHolder.getContext();
-            DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
-            CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
-                    ParallelCollectors.parallel(
-                            discoveryCertificate -> {
-                                int certIndex;
-                                try {
-                                    certIndex = index.incrementAndGet();
-                                    logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-                                    processCertSemaphore.acquire();
-                                    logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-
-                                    certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates);
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                    logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
-                                } catch (Exception e) {
-                                    logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
-                                } finally {
-                                    logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), index.get());
-                                    processCertSemaphore.release();
-                                }
-                                return null; // Return null to satisfy the return type
-                            },
-                            executor,
-                            MAXIMUM_PARALLELISM
-                    )
-            );
-
-            // Wait for all tasks to complete
-            future.join();
-        }
-
-        // Upload certificate keys out of parallel processing to avoid collisions
-        for (Map.Entry<PublicKey, List<UUID>> entry : keyToCertificates.entrySet()) {
-            try {
-                certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
-            } catch (NoSuchAlgorithmException e) {
-                logger.error("Could not create public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
-            }
-        }
-
     }
 
     private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttribute> metadata) {

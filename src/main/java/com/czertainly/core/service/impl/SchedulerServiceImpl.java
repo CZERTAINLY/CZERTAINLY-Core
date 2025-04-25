@@ -15,9 +15,9 @@ import com.czertainly.core.dao.entity.ScheduledJob;
 import com.czertainly.core.dao.entity.ScheduledJobHistory;
 import com.czertainly.core.dao.repository.ScheduledJobHistoryRepository;
 import com.czertainly.core.dao.repository.ScheduledJobsRepository;
+import com.czertainly.core.events.handlers.ScheduledJobFinishedEventHandler;
 import com.czertainly.core.events.transaction.ScheduledJobFinishedEvent;
-import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -51,7 +51,6 @@ import java.util.Date;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.stream.Collectors;
 
 @Service
 public class SchedulerServiceImpl implements SchedulerService {
@@ -62,7 +61,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
     private ApplicationContext applicationContext;
 
-    private NotificationProducer notificationProducer;
+    private EventProducer eventProducer;
 
     private SchedulerApiClient schedulerApiClient;
 
@@ -81,8 +80,8 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Autowired
-    public void setNotificationProducer(NotificationProducer notificationProducer) {
-        this.notificationProducer = notificationProducer;
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Autowired
@@ -111,7 +110,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         final ScheduledJobsResponseDto responseDto = new ScheduledJobsResponseDto();
         responseDto.setScheduledJobs(scheduledJobList.stream()
                 .map(job -> job.mapToDto(scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(job.getUuid())))
-                .collect(Collectors.toList()));
+                .toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -163,7 +162,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();
-        responseDto.setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).collect(Collectors.toList()));
+        responseDto.setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());
         responseDto.setPageNumber(paginationRequestDto.getPageNumber());
         responseDto.setTotalItems(maxItems);
@@ -232,7 +231,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     }
 
     @Override
-    public void runScheduledJob(final String jobName) throws SchedulerException, NotFoundException {
+    public void runScheduledJob(final String jobName) throws NotFoundException {
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByJobName(jobName).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, jobName));
 
         ScheduledJobTask scheduledJobTask;
@@ -263,20 +262,46 @@ public class SchedulerServiceImpl implements SchedulerService {
         final ScheduledTaskResult result = scheduledJobTask.performJob(new ScheduledJobInfo(scheduledJob.getJobName(), scheduledJob.getUuid(), scheduledJobHistory.getUuid()), scheduledJob.getObjectData());
 
         if (result != null) {
-            updateJobHistory(scheduledJobHistory, result);
-            checkOneTimeJob(scheduledJob, result.getStatus());
+            finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, result);
         }
-        logger.info("Job {} was processed.", scheduledJob.getJobName());
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
-    public void handleScheduledJobFinishedEvent(ScheduledJobFinishedEvent event) throws NotFoundException, SchedulerException {
+    public void handleScheduledJobFinishedEvent(ScheduledJobFinishedEvent event) throws NotFoundException {
         logger.debug("ScheduledJobFinished event handler: {}", event.scheduledJobInfo().jobUuid());
         final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobUuid())).orElseThrow(() -> new NotFoundException(ScheduledJob.class, event.scheduledJobInfo().jobUuid()));
         final ScheduledJobHistory scheduledJobHistory = scheduledJobHistoryRepository.findByUuid(SecuredUUID.fromUUID(event.scheduledJobInfo().jobHistoryUuid())).orElseThrow(() -> new NotFoundException(ScheduledJobHistory.class, event.scheduledJobInfo().jobHistoryUuid()));
-        updateJobHistory(scheduledJobHistory, event.result());
-        checkOneTimeJob(scheduledJob, event.result().getStatus());
+        finalizeFinishedScheduledJob(scheduledJob, scheduledJobHistory, event.result());
+    }
+
+    private void finalizeFinishedScheduledJob(ScheduledJob scheduledJob, ScheduledJobHistory scheduledJobHistory, ScheduledTaskResult result) {
+        logger.debug("Finalizing finished scheduled job '{}'", scheduledJob.getJobName());
+
+        // update job history
+        scheduledJobHistory.setJobEndTime(new Date());
+        scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
+        scheduledJobHistory.setResultMessage(result.getResultMessage());
+        scheduledJobHistory.setResultObjectType(result.getResultObjectType());
+        scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
+        scheduledJobHistoryRepository.save(scheduledJobHistory);
+
+        // deregister one-time job
+        if (SchedulerJobExecutionStatus.SUCCESS.equals(result.getStatus()) && scheduledJob.isOneTime()) {
+            try {
+                schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
+                logger.info("Scheduled job '{}' was deleted/unscheduled because it was one-time job only.", scheduledJob.getJobName());
+            } catch (SchedulerException e) {
+                logger.error("Failed to delete/unschedule finished one-time job '{}'", scheduledJob.getJobName());
+            }
+        }
+
+        // raise event for non-system job
+        if (!scheduledJob.isSystem()) {
+            eventProducer.produceMessage(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), result));
+        }
+
+        logger.info("Scheduled job '{}' has finished", scheduledJob.getJobName());
     }
 
     private ScheduledJobDetailDto registerScheduler(ScheduledJobTask scheduledJobTask, final String jobName, final String cronExpression, final boolean oneTime, final Object taskData) throws SchedulerException {
@@ -289,7 +314,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         Optional<ScheduledJob> scheduledJob = scheduledJobsRepository.findByJobName(jobName);
         if (scheduledJob.isPresent()) {
-            logger.info("Job {} was already registered.", jobName);
+            logger.info("Scheduled job '{}' was already registered.", jobName);
             return scheduledJob.get().mapToDetailDto(null);
         }
 
@@ -310,8 +335,7 @@ public class SchedulerServiceImpl implements SchedulerService {
 
         scheduledJobsRepository.save(scheduledJobEntity);
 
-        logger.info("Scheduler job {} was registered.", jobName);
-
+        logger.info("Scheduled job '{}' was registered.", jobName);
         return scheduledJobEntity.mapToDetailDto(null);
     }
 
@@ -322,31 +346,6 @@ public class SchedulerServiceImpl implements SchedulerService {
         scheduledJobHistory.setSchedulerExecutionStatus(status);
         scheduledJobHistory.setResultMessage(message);
         return scheduledJobHistoryRepository.save(scheduledJobHistory);
-    }
-
-    private void updateJobHistory(final ScheduledJobHistory scheduledJobHistory, final ScheduledTaskResult result) {
-        scheduledJobHistory.setJobEndTime(new Date());
-        scheduledJobHistory.setSchedulerExecutionStatus(result.getStatus());
-        scheduledJobHistory.setResultMessage(result.getResultMessage());
-        scheduledJobHistory.setResultObjectType(result.getResultObjectType());
-        scheduledJobHistory.setResultObjectIdentification(result.getResultObjectIdentification());
-        scheduledJobHistoryRepository.save(scheduledJobHistory);
-    }
-
-    private void checkOneTimeJob(final ScheduledJob scheduledJob, final SchedulerJobExecutionStatus status) throws SchedulerException {
-        if (!scheduledJob.isSystem()) {
-            notificationProducer.produceNotificationScheduledJobCompleted(Resource.SCHEDULED_JOB,
-                    scheduledJob.getUuid(),
-                    NotificationRecipient.buildUserNotificationRecipient(scheduledJob.getUserUuid()),
-                    scheduledJob.getJobName(),
-                    scheduledJob.getJobType(),
-                    status.getLabel());
-        }
-
-        if (SchedulerJobExecutionStatus.SUCCESS.equals(status) && scheduledJob.isOneTime()) {
-            schedulerApiClient.deleteScheduledJob(scheduledJob.getJobName());
-            logger.info("Scheduled job {} was deleted/unscheduled because it was one time job only.", scheduledJob.getJobName());
-        }
     }
 
 }
