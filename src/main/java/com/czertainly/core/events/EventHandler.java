@@ -18,6 +18,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
@@ -25,6 +26,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Component
+@Transactional
 public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandler.class);
@@ -63,15 +65,17 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
 
     protected abstract EventContext<T> prepareContext(EventMessage eventMessage) throws EventException;
 
-    protected abstract void sendInternalNotifications(EventContext<T> eventContext);
-
     public void handleEvent(EventMessage eventMessage) throws EventException {
         logger.debug("Going to handle event '{}'", eventMessage.getResourceEvent().getLabel());
 
         EventContext<T> eventContext = prepareContext(eventMessage);
         processAllTriggers(eventContext);
-        sendInternalNotifications(eventContext);
+        sendFollowUpEventsNotifications(eventContext);
         logger.debug("Event '{}' successfully handled", eventMessage.getResourceEvent().getLabel());
+    }
+
+    protected void sendFollowUpEventsNotifications(EventContext<T> eventContext) {
+        // No follow-up events or internal notifications are sent by default
     }
 
     protected void loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) {
@@ -108,6 +112,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> {
                 logger.error("Unable to process trigger on {} object {}. Message: {}", context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
             }
         }
+        logger.debug("Triggers of event '{}' successfully handled", context.getResourceEvent().getLabel());
     }
 
     protected boolean processIgnoreTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {

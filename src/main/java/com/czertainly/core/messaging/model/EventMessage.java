@@ -14,17 +14,18 @@ import java.util.UUID;
 public class EventMessage {
 
     private ResourceEvent resourceEvent;
-
-    private Resource overrideResource;
-
-    private UUID overrideObjectUuid;
-
     private Resource resource;
-
     private UUID objectUuid;
-
+    private Resource overrideResource;
+    private UUID overrideObjectUuid;
+    private Object data;
     private UUID userUuid;
-
     private ScheduledJobInfo scheduledJobInfo;
 
+    public EventMessage(ResourceEvent resourceEvent, Resource resource, UUID objectUuid, Object data) {
+        this.resourceEvent = resourceEvent;
+        this.resource = resource;
+        this.objectUuid = objectUuid;
+        this.data = data;
+    }
 }

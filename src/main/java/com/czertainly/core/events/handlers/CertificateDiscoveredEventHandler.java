@@ -1,4 +1,4 @@
-package com.czertainly.core.events;
+package com.czertainly.core.events.handlers;
 
 import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.RuleException;
@@ -11,6 +11,8 @@ import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
+import com.czertainly.core.events.EventContext;
+import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.messaging.model.EventMessage;
@@ -84,7 +86,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     @Override
     protected EventContext<Certificate> prepareContext(EventMessage eventMessage) {
-        EventContext<Certificate> context = new EventContext<>(eventMessage.getResource(), eventMessage.getResourceEvent(), ruleEvaluator, eventMessage.getUserUuid(), eventMessage.getOverrideObjectUuid(), eventMessage.getScheduledJobInfo());
+        EventContext<Certificate> context = new EventContext<>(eventMessage, ruleEvaluator, null);
         // TODO: load event triggers from platform settings
         loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
 
@@ -92,20 +94,15 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Override
-    protected void sendInternalNotifications(EventContext<Certificate> eventContext) {
-        // No internal notifications needed
-    }
-
-    @Override
     public void handleEvent(EventMessage eventMessage) throws EventException {
         if (eventMessage.getOverrideResource() == null || eventMessage.getOverrideObjectUuid() == null) {
-            throw new EventException(ResourceEvent.CERTIFICATE_DISCOVERED, "Event currently supported only through discovery as overriding resource");
+            throw new EventException(eventMessage.getResourceEvent(), "Event currently supported only through discovery as overriding resource");
         }
 
         EventContext<Certificate> context = prepareContext(eventMessage);
 
         // Get newly discovered certificates
-        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(ResourceEvent.CERTIFICATE_DISCOVERED, "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
+        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
         logger.debug("Going to process {} triggers on {} discovered certificates", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size());
 
@@ -209,6 +206,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) {
-        return new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discoveryUuid, Resource.CERTIFICATE, null, userUuid, scheduledJobInfo);
+        return new EventMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, null, Resource.DISCOVERY, discoveryUuid, null, userUuid, scheduledJobInfo);
     }
 }
