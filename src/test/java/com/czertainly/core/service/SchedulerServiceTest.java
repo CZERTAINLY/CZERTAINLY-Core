@@ -13,7 +13,6 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
-import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -25,9 +24,14 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
+import com.czertainly.core.messaging.listeners.EventListener;
+import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -49,6 +53,8 @@ class SchedulerServiceTest extends BaseSpringBootTest {
     private ScheduledJobsRepository scheduledJobsRepository;
     @Autowired
     private ScheduledJobHistoryRepository scheduledJobHistoryRepository;
+    @Autowired
+    private EventListener eventListener;
 
     @Autowired
     private AttributeEngine attributeEngine;
@@ -84,7 +90,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
 
     @Test
-    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, CertificateException, IOException {
+    void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, CertificateException, IOException, EventException {
         // register custom attribute
         CustomAttribute certificateDomainAttr = new CustomAttribute();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
@@ -142,8 +148,6 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         triggerRequest.setName("DiscoveryCertificatesCategorization");
         triggerRequest.setType(TriggerType.EVENT);
         triggerRequest.setResource(Resource.CERTIFICATE);
-        triggerRequest.setEvent(ResourceEvent.DISCOVERY_FINISHED);
-        triggerRequest.setEventResource(Resource.DISCOVERY);
         triggerRequest.setRulesUuids(List.of(rule.getUuid()));
         triggerRequest.setActionsUuids(List.of(action.getUuid()));
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
@@ -227,10 +231,18 @@ class SchedulerServiceTest extends BaseSpringBootTest {
 
         schedulerService.runScheduledJob(jobName);
 
+
         List<DiscoveryHistory> discoveries = discoveryRepository.findAll();
         Assertions.assertEquals(1, discoveries.size());
 
+        // simulate events
         DiscoveryHistory discovery = discoveries.getFirst();
+        EventMessage eventMessage = CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, new ScheduledJobInfo(scheduledJobEntity.getJobName(), scheduledJobEntity.getUuid(), scheduledJobHistoryRepository.findAll().getFirst().getUuid()));
+        eventListener.processMessage(eventMessage);
+        eventMessage = DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), eventMessage.getScheduledJobInfo());
+        eventListener.processMessage(eventMessage);
+
+        discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
 
         ScheduledJobHistory jobHistory = scheduledJobHistoryRepository.findTopByScheduledJobUuidOrderByJobExecutionDesc(scheduledJobEntity.getUuid());

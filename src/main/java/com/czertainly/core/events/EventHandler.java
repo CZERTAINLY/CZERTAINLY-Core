@@ -1,7 +1,6 @@
 package com.czertainly.core.events;
 
 import com.czertainly.api.exception.EventException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedObject;
@@ -20,7 +19,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
@@ -79,17 +77,12 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     protected void loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) {
-        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(context.getResourceEvent(), resource, objectUuid);
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(context.getResourceEvent(), resource, objectUuid);
         for (TriggerAssociation triggerAssociation : triggerAssociations) {
-            try {
-                Trigger trigger = triggerService.getTriggerEntity(String.valueOf(triggerAssociation.getTriggerUuid()));
-                if (triggerAssociation.getTriggerOrder() == -1) {
-                    context.getIgnoreTriggers().add(trigger);
-                } else {
-                    context.getTriggers().add(trigger);
-                }
-            } catch (NotFoundException e) {
-                logger.error(e.getMessage());
+            if (triggerAssociation.getTrigger().isIgnoreTrigger()) {
+                context.getIgnoreTriggers().add(triggerAssociation);
+            } else {
+                context.getTriggers().add(triggerAssociation);
             }
         }
     }
@@ -116,8 +109,9 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     protected boolean processIgnoreTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
-        for (Trigger trigger : context.getIgnoreTriggers()) {
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), context.getAssociationObjectUuid(), resourceObject.getUuid(), referenceObjectUuid);
+        for (TriggerAssociation triggerAssociation : context.getIgnoreTriggers()) {
+            Trigger trigger = triggerAssociation.getTrigger();
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation.getUuid(), resourceObject.getUuid(), referenceObjectUuid);
             triggerHistories.add(triggerHistory);
             if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
                 triggerHistory.setConditionsMatched(true);
@@ -133,9 +127,10 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
 
     protected void processTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
         // Evaluate rest of the triggers in given order
-        for (Trigger trigger : context.getTriggers()) {
+        for (TriggerAssociation triggerAssociation : context.getTriggers()) {
             // Create trigger history entry
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), context.getAssociationObjectUuid(), resourceObject.getUuid(), referenceObjectUuid);
+            Trigger trigger = triggerAssociation.getTrigger();
+            TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation.getUuid(), resourceObject.getUuid(), referenceObjectUuid);
             triggerHistories.add(triggerHistory);
             // If rules are satisfied, perform defined actions
             if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {

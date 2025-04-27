@@ -12,6 +12,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.TriggerService;
+import com.czertainly.core.util.AuthHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -73,14 +74,10 @@ public class TriggerServiceImpl implements TriggerService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.LIST)
-    public List<TriggerDto> listTriggers(Resource resource, Resource eventResource) {
+    public List<TriggerDto> listTriggers(Resource resource) {
         List<Trigger> triggers;
-        if (resource != null && eventResource != null) {
-            triggers = triggerRepository.findAllByResourceAndEventResource(resource, eventResource);
-        } else if (resource != null) {
+        if (resource != null) {
             triggers = triggerRepository.findAllByResource(resource);
-        } else if (eventResource != null) {
-            triggers = triggerRepository.findAllByEventResource(eventResource);
         } else {
             triggers = triggerRepository.findAll();
         }
@@ -106,7 +103,7 @@ public class TriggerServiceImpl implements TriggerService {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
         }
-        validateTriggerRequest(request.getType(), request.getEvent(), request.isIgnoreTrigger(), request.getResource(), request.getEventResource(), request.getActionsUuids());
+        validateTriggerRequest(request.isIgnoreTrigger(), request.getResource(), request.getActionsUuids());
 
         if (triggerRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("Trigger with same name already exists.");
@@ -119,8 +116,6 @@ public class TriggerServiceImpl implements TriggerService {
         trigger.setType(request.getType());
         trigger.setResource(request.getResource());
         trigger.setIgnoreTrigger(request.isIgnoreTrigger());
-        trigger.setEvent(request.getEvent());
-        trigger.setEventResource(request.getEventResource());
         triggerRepository.save(trigger);
 
         setTriggerRulesAndActions(trigger, request.getRulesUuids(), request.getActionsUuids());
@@ -131,7 +126,7 @@ public class TriggerServiceImpl implements TriggerService {
     @Override
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.UPDATE)
     public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
-        validateTriggerRequest(request.getType(), request.getEvent(), request.isIgnoreTrigger(), request.getResource(), request.getEventResource(), request.getActionsUuids());
+        validateTriggerRequest(request.isIgnoreTrigger(), request.getResource(), request.getActionsUuids());
 
         Trigger trigger = triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
 
@@ -139,8 +134,6 @@ public class TriggerServiceImpl implements TriggerService {
         trigger.setType(request.getType());
         trigger.setResource(request.getResource());
         trigger.setIgnoreTrigger(request.isIgnoreTrigger());
-        trigger.setEvent(request.getEvent());
-        trigger.setEventResource(request.getEventResource());
 
         setTriggerRulesAndActions(trigger, request.getRulesUuids(), request.getActionsUuids());
 
@@ -182,7 +175,39 @@ public class TriggerServiceImpl implements TriggerService {
 
     //endregion
 
-    //region Trigger History
+    //region Trigger Associations
+
+    @Override
+    public void createTriggerAssociations(ResourceEvent event, Resource resource, UUID associationObjectUuid, List<UUID> triggerUuids) throws NotFoundException {
+        // categorize to ignore and normal triggers
+        List<TriggerAssociation> triggers = new ArrayList<>();
+        List<TriggerAssociation> ignoreTriggers = new ArrayList<>();
+        for (UUID triggerUuid : triggerUuids) {
+            TriggerAssociation triggerAssociation = new TriggerAssociation();
+            triggerAssociation.setTriggerUuid(triggerUuid);
+            triggerAssociation.setResource(resource);
+            triggerAssociation.setObjectUuid(associationObjectUuid);
+            triggerAssociation.setEvent(event);
+            Trigger trigger = getTriggerEntity(triggerUuid.toString());
+            // If it is an ignore trigger, the order is always -1, otherwise increment the order
+            if (trigger.isIgnoreTrigger()) {
+                ignoreTriggers.add(triggerAssociation);
+            } else {
+                triggers.add(triggerAssociation);
+            }
+        }
+
+        // save in order
+        int triggerOrder = -ignoreTriggers.size();
+        for (TriggerAssociation ignoreTrigger : ignoreTriggers) {
+            ignoreTrigger.setTriggerOrder(triggerOrder++);
+            triggerAssociationRepository.save(ignoreTrigger);
+        }
+        for (TriggerAssociation trigger : triggers) {
+            trigger.setTriggerOrder(triggerOrder++);
+            triggerAssociationRepository.save(trigger);
+        }
+    }
 
     @Override
     public void deleteTriggerAssociation(Resource resource, UUID associationObjectUuid) {
@@ -191,6 +216,10 @@ public class TriggerServiceImpl implements TriggerService {
         long deletedHistoryRecords = triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);
         logger.debug("Deleted {} trigger history items for {} with UUID {}.", deletedHistoryRecords, resource.getLabel(), associationObjectUuid);
     }
+
+    //endregion
+
+    //region Trigger History
 
     @Override
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
@@ -212,8 +241,9 @@ public class TriggerServiceImpl implements TriggerService {
         TriggerHistorySummaryDto resultDto = new TriggerHistorySummaryDto();
 
         // set initial summary data
-        Trigger trigger = triggerHistories.get(0).getTrigger();
-        resultDto.setAssociationResource(trigger.getEventResource() != null ? trigger.getEventResource() : trigger.getResource());
+        Trigger trigger = triggerHistories.getFirst().getTrigger();
+        TriggerAssociation triggerAssociation = triggerHistories.getFirst().getTriggerAssociation();
+        resultDto.setAssociationResource(triggerAssociation.getResource());
         resultDto.setAssociationObjectUuid(associationObjectUuid);
         resultDto.setObjectsResource(trigger.getResource());
 
@@ -266,18 +296,21 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public TriggerHistory createTriggerHistory(OffsetDateTime triggeredAt, UUID triggerUuid, UUID triggerAssociationObjectUuid, UUID objectUuid, UUID referenceObjectUuid) {
+    public TriggerHistory createTriggerHistory(UUID triggerUuid, UUID triggerAssociationUuid, UUID objectUuid, UUID referenceObjectUuid) {
         TriggerHistory triggerHistory = new TriggerHistory();
         triggerHistory.setTriggerUuid(triggerUuid);
-        triggerHistory.setTriggerAssociationObjectUuid(triggerAssociationObjectUuid);
-
+        triggerHistory.setTriggerAssociationUuid(triggerAssociationUuid);
         triggerHistory.setObjectUuid(objectUuid);
         triggerHistory.setReferenceObjectUuid(referenceObjectUuid);
-        triggerHistory.setTriggeredAt(triggeredAt);
+        triggerHistory.setTriggeredAt(OffsetDateTime.now());
 
-        triggerHistoryRepository.save(triggerHistory);
+        try {
+            triggerHistory.setTriggeredBy(UUID.fromString(AuthHelper.getUserIdentification().getUuid()));
+        } catch (ValidationException e) {
+            // anonymous user
+        }
 
-        return triggerHistory;
+        return triggerHistoryRepository.save(triggerHistory);
     }
 
     @Override
@@ -294,17 +327,9 @@ public class TriggerServiceImpl implements TriggerService {
 
     //endregion
 
-    private void validateTriggerRequest(TriggerType type, ResourceEvent event, boolean ignoreTrigger, Resource resource, Resource eventResource, List<String> actionsUuids) {
+    private void validateTriggerRequest(boolean ignoreTrigger, Resource resource, List<String> actionsUuids) {
         if (resource == null) {
             throw new ValidationException("Property resource cannot be empty.");
-        }
-
-        if (type == null) {
-            throw new ValidationException("Property trigger type cannot be empty.");
-        }
-
-        if (type == TriggerType.EVENT && (eventResource == null || event == null)) {
-            throw new ValidationException("When trigger type is Event, event and its resource has to be specified.");
         }
 
         if (!ignoreTrigger) {

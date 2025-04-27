@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -19,6 +20,7 @@ import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -26,10 +28,7 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.workflows.Trigger;
-import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -87,7 +86,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private CertificateHandler certificateHandler;
 
     private TriggerService triggerService;
-    private TriggerAssociationRepository triggerAssociationRepository;
     private DiscoveryRepository discoveryRepository;
     private CertificateRepository certificateRepository;
     private DiscoveryApiClient discoveryApiClient;
@@ -99,11 +97,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
         this.triggerService = triggerService;
-    }
-
-    @Autowired
-    public void setTriggerAssociationRepository(TriggerAssociationRepository triggerAssociationRepository) {
-        this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
     @Autowired
@@ -305,21 +298,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
             attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
             if (request.getTriggers() != null) {
-                int triggerOrder = -1;
-                for (UUID triggerUuid : request.getTriggers()) {
-                    TriggerAssociation triggerAssociation = new TriggerAssociation();
-                    triggerAssociation.setResource(Resource.DISCOVERY);
-                    triggerAssociation.setObjectUuid(discovery.getUuid());
-                    triggerAssociation.setTriggerUuid(triggerUuid);
-                    Trigger trigger = triggerService.getTriggerEntity(triggerUuid.toString());
-                    // If it is an ignore trigger, the order is always -1, otherwise increment the order
-                    if (trigger.isIgnoreTrigger()) {
-                        triggerAssociation.setTriggerOrder(-1);
-                    } else {
-                        triggerAssociation.setTriggerOrder(++triggerOrder);
-                    }
-                    triggerAssociationRepository.save(triggerAssociation);
-                }
+                triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers());
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
             }
             return discovery.mapToDto();
@@ -430,7 +409,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         dtoRequest.setKind(discovery.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
+        List<DataAttribute> dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
                 AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
         credentialService.loadFullCredentialData(dataAttributes);
         dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));

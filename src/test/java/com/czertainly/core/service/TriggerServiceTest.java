@@ -6,7 +6,6 @@ import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -41,12 +40,6 @@ class TriggerServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without resource should fail");
 
         triggerRequest.setResource(Resource.CERTIFICATE);
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without event resource should fail");
-
-        triggerRequest.setEventResource(Resource.DISCOVERY);
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without event name should fail");
-
-        triggerRequest.setEvent(ResourceEvent.DISCOVERY_FINISHED);
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without actions should fail");
 
         CustomAttribute certificateDomainAttr = new CustomAttribute();

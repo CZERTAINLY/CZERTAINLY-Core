@@ -27,7 +27,7 @@ public class Trigger extends UniquelyIdentified {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "type", nullable = false)
+    @Column(name = "type")
     @Enumerated(EnumType.STRING)
     private TriggerType type;
 
@@ -37,14 +37,6 @@ public class Trigger extends UniquelyIdentified {
 
     @Column(name = "ignore_trigger", nullable = false)
     private boolean ignoreTrigger;
-
-    @Column(name = "event")
-    @Enumerated(EnumType.STRING)
-    private ResourceEvent event;
-
-    @Column(name = "event_resource")
-    @Enumerated(EnumType.STRING)
-    private Resource eventResource;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -84,8 +76,6 @@ public class Trigger extends UniquelyIdentified {
         triggerDto.setType(type);
         triggerDto.setResource(resource);
         triggerDto.setIgnoreTrigger(ignoreTrigger);
-        triggerDto.setEvent(event);
-        triggerDto.setEventResource(eventResource);
     }
 
     @Override

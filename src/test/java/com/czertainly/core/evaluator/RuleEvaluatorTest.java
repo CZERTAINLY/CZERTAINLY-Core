@@ -422,7 +422,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setFieldIdentifier(FilterField.RA_PROFILE_NAME.toString());
         executionItem.setData(raProfile.getUuid());
 
-        TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), null, certificate.getUuid(), null);
+        TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);
         certificateRuleEvaluator.performActions(trigger, certificate, triggerHistory);
 
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());

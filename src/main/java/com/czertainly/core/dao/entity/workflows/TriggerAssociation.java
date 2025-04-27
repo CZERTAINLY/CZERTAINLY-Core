@@ -21,19 +21,24 @@ public class TriggerAssociation extends UniquelyIdentified {
     @Column(name = "trigger_uuid", nullable = false)
     private UUID triggerUuid;
 
-    @Column(name = "resource", nullable = false)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trigger_uuid", nullable = false, insertable = false, updatable = false)
+    @ToString.Exclude
+    private Trigger trigger;
+
+    @Column(name = "resource")
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
-    @Column(name = "object_uuid", nullable = false)
+    @Column(name = "object_uuid")
     private UUID objectUuid;
 
     @Column(name = "trigger_order")
     private int triggerOrder;
 
-    @Column(name = "resource_event")
+    @Column(name = "event")
     @Enumerated(EnumType.STRING)
-    private ResourceEvent resourceEvent;
+    private ResourceEvent event;
 
     @Column(name = "override")
     private boolean override;

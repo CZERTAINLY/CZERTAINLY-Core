@@ -15,8 +15,4 @@ public interface TriggerRepository extends SecurityFilterRepository<Trigger, UUI
 
     List<Trigger> findAllByResource(Resource resource);
 
-    List<Trigger> findAllByEventResource(Resource eventResource);
-
-    List<Trigger> findAllByResourceAndEventResource(Resource resource, Resource eventResource);
-
 }
