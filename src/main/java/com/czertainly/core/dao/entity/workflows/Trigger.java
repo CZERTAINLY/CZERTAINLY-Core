@@ -38,6 +38,10 @@ public class Trigger extends UniquelyIdentified {
     @Column(name = "ignore_trigger", nullable = false)
     private boolean ignoreTrigger;
 
+    @Column(name = "event")
+    @Enumerated(EnumType.STRING)
+    private ResourceEvent event;
+
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "trigger_2_rule",
@@ -76,14 +80,15 @@ public class Trigger extends UniquelyIdentified {
         triggerDto.setType(type);
         triggerDto.setResource(resource);
         triggerDto.setIgnoreTrigger(ignoreTrigger);
+        triggerDto.setEvent(event);
     }
 
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         Trigger trigger = (Trigger) o;
         return getUuid() != null && Objects.equals(getUuid(), trigger.getUuid());
@@ -91,6 +96,6 @@ public class Trigger extends UniquelyIdentified {
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

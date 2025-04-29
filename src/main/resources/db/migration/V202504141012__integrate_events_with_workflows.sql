@@ -1,24 +1,23 @@
 -- Trigger
 
 ALTER TABLE trigger
-    DROP COLUMN event
-    DROP COLUMN event_resource
+    DROP COLUMN event_resource,
     ALTER COLUMN type DROP NOT NULL;
 
 -- Trigger association
 
 ALTER TABLE trigger_association
-    ADD COLUMN event TEXT
-    ADD COLUMN override BOOLEAN NOT NULL DEFAULT FALSE
-    ALTER COLUMN resource DROP NOT NULL
+    ADD COLUMN event TEXT,
+    ADD COLUMN override BOOLEAN NOT NULL DEFAULT FALSE,
+    ALTER COLUMN resource DROP NOT NULL,
     ALTER COLUMN object_uuid DROP NOT NULL;
 
-UPDATE trigger_association SET resource_event = 'CERTIFICATE_DISCOVERED';
+UPDATE trigger_association SET event = 'CERTIFICATE_DISCOVERED';
 
 -- Trigger history
 
 ALTER TABLE trigger_history
-    ADD COLUMN trigger_association_uuid UUID NULL
+    ADD COLUMN trigger_association_uuid UUID NULL,
     ADD COLUMN triggered_by UUID NULL;
 
 ALTER TABLE trigger_history ADD CONSTRAINT trigger_history_to_trigger_association_FK

@@ -16,6 +16,8 @@ import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.messaging.model.EventMessage;
+import com.czertainly.core.messaging.model.ValidationMessage;
+import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.tasks.ScheduledJobInfo;
@@ -29,6 +31,7 @@ import org.springframework.security.concurrent.DelegatingSecurityContextExecutor
 import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.security.NoSuchAlgorithmException;
@@ -51,6 +54,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     private CertificateHandler certificateHandler;
     private TransactionHandler transactionHandler;
     private CertificateRuleEvaluator ruleEvaluator;
+    private ValidationProducer validationProducer;
 
     private CertificateService certificateService;
     private DiscoveryRepository discoveryRepository;
@@ -69,6 +73,11 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Autowired
     public void setRuleEvaluator(CertificateRuleEvaluator ruleEvaluator) {
         this.ruleEvaluator = ruleEvaluator;
+    }
+
+    @Autowired
+    public void setValidationProducer(ValidationProducer validationProducer) {
+        this.validationProducer = validationProducer;
     }
 
     @Autowired
@@ -96,6 +105,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void handleEvent(EventMessage eventMessage) throws EventException {
         if (eventMessage.getOverrideResource() == null || eventMessage.getOverrideObjectUuid() == null) {
             throw new EventException(eventMessage.getResourceEvent(), "Event currently supported only through discovery as overriding resource");
@@ -123,6 +133,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                 try {
                                     certIndex = index.incrementAndGet();
                                     processCertSemaphore.acquire();
+//                                    certificateHandler.processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates);
                                     transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates));
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
@@ -155,7 +166,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         // trigger other events
         eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getScheduledJobInfo()));
-        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discovery.getUuid(), discovery.getName(), null, null));
+        validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
     }
 
     private void processDiscoveredCertificate(EventContext<Certificate> eventContext, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {

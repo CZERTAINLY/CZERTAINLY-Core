@@ -103,7 +103,7 @@ public class TriggerServiceImpl implements TriggerService {
         if (request.getName() == null) {
             throw new ValidationException("Property name cannot be empty.");
         }
-        validateTriggerRequest(request.isIgnoreTrigger(), request.getResource(), request.getActionsUuids());
+        validateTriggerRequest(request.getType(), request.getEvent(), request.isIgnoreTrigger(), request.getResource(), request.getActionsUuids());
 
         if (triggerRepository.existsByName(request.getName())) {
             throw new AlreadyExistException("Trigger with same name already exists.");
@@ -116,6 +116,7 @@ public class TriggerServiceImpl implements TriggerService {
         trigger.setType(request.getType());
         trigger.setResource(request.getResource());
         trigger.setIgnoreTrigger(request.isIgnoreTrigger());
+        trigger.setEvent(request.getEvent());
         triggerRepository.save(trigger);
 
         setTriggerRulesAndActions(trigger, request.getRulesUuids(), request.getActionsUuids());
@@ -126,7 +127,7 @@ public class TriggerServiceImpl implements TriggerService {
     @Override
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.UPDATE)
     public TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException {
-        validateTriggerRequest(request.isIgnoreTrigger(), request.getResource(), request.getActionsUuids());
+        validateTriggerRequest(request.getType(), request.getEvent(), request.isIgnoreTrigger(), request.getResource(), request.getActionsUuids());
 
         Trigger trigger = triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
 
@@ -134,6 +135,7 @@ public class TriggerServiceImpl implements TriggerService {
         trigger.setType(request.getType());
         trigger.setResource(request.getResource());
         trigger.setIgnoreTrigger(request.isIgnoreTrigger());
+        trigger.setEvent(request.getEvent());
 
         setTriggerRulesAndActions(trigger, request.getRulesUuids(), request.getActionsUuids());
 
@@ -327,9 +329,13 @@ public class TriggerServiceImpl implements TriggerService {
 
     //endregion
 
-    private void validateTriggerRequest(boolean ignoreTrigger, Resource resource, List<String> actionsUuids) {
+    private void validateTriggerRequest(TriggerType type, ResourceEvent event, boolean ignoreTrigger, Resource resource, List<String> actionsUuids) {
         if (resource == null) {
             throw new ValidationException("Property resource cannot be empty.");
+        }
+
+        if (type == TriggerType.EVENT && event == null) {
+            throw new ValidationException("When trigger type is Event, event has to be specified.");
         }
 
         if (!ignoreTrigger) {
