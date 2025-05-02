@@ -11,6 +11,7 @@ import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,7 +46,7 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
     @Override
     protected void sendFollowUpEventsNotifications(EventContext<Approval> eventContext) {
         Approval approval = eventContext.getResourceObjects().getFirst();
-        ApprovalStepDto approvalStepDto = (ApprovalStepDto) eventContext.getData();
+        ApprovalStepDto approvalStepDto = objectMapper.convertValue(eventContext.getData(), ApprovalStepDto.class);
         notificationProducer.produceNotificationApprovalRequested(eventContext.getResource(), approval.getUuid(), approval.mapToDto(), approvalStepDto, approval.getCreatorUuid().toString());
     }
 

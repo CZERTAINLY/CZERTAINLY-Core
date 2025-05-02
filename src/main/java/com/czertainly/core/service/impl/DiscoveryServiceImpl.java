@@ -30,7 +30,9 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
@@ -399,7 +401,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
         transactionManager.commit(status);
 
-        eventProducer.produceMessage(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), UUID.fromString(AuthHelper.getUserIdentification().getUuid()), scheduledJobInfo));
+        eventProducer.produceMessage(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), loggedUserUuid, scheduledJobInfo));
         return discovery.mapToDto();
     }
 
@@ -617,7 +619,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
         transactionManager.commit(status);
 
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus().getLabel()), discovery.getMessage());
+        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), loggedUserUuid, null, new DiscoveryResult(discovery.getStatus(), discovery.getMessage())));
         return discovery.mapToDto();
     }
 

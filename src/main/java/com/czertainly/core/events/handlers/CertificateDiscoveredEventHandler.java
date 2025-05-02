@@ -3,6 +3,7 @@ package com.czertainly.core.events.handlers;
 import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
@@ -13,7 +14,7 @@ import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
-import com.czertainly.core.events.transaction.CertificateValidationEvent;
+import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.transaction.TransactionHandler;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.ValidationMessage;
@@ -115,10 +116,14 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         // Get newly discovered certificates
         DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
+        String originalMessage = discovery.getStatus() != DiscoveryStatus.IN_PROGRESS ? discovery.getMessage() : null;
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
         logger.debug("Going to process {} triggers on {} discovered certificates", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size());
 
-        if (discoveredCertificates.isEmpty()) return;
+        if (discoveredCertificates.isEmpty()) {
+            eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getUserUuid(), context.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage)));
+            return;
+        }
 
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         AtomicInteger index = new AtomicInteger(0);
@@ -133,7 +138,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                 try {
                                     certIndex = index.incrementAndGet();
                                     processCertSemaphore.acquire();
-//                                    certificateHandler.processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates);
                                     transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates));
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
@@ -165,7 +169,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         }
 
         // trigger other events
-        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getScheduledJobInfo()));
+        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getUserUuid(), context.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage)));
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
     }
 
@@ -216,6 +220,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
             discoveryRepository.save(discovery);
         }
+
+        logger.debug("Finalize processing discovered certificate: {}", certificate.toStringShort());
     }
 
     public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo) {

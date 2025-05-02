@@ -47,7 +47,7 @@ public class ScheduledJobFinishedEventHandler extends EventHandler<ScheduledJob>
     @Override
     protected void sendFollowUpEventsNotifications(EventContext<ScheduledJob> eventContext) {
         final ScheduledJob scheduledJob = eventContext.getResourceObjects().getFirst();
-        final ScheduledTaskResult result = (ScheduledTaskResult) eventContext.getData();
+        final ScheduledTaskResult result = objectMapper.convertValue(eventContext.getData(), ScheduledTaskResult.class);
         notificationProducer.produceNotificationScheduledJobCompleted(scheduledJob.getUuid(), scheduledJob.getUserUuid(), scheduledJob.getJobName(), scheduledJob.getJobType(), result.getStatus().getLabel());
     }
 

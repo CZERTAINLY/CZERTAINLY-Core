@@ -11,7 +11,6 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -39,7 +38,7 @@ public class Execution extends UniquelyIdentified {
 
     @OneToMany(mappedBy = "execution", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @ToString.Exclude
-    private List<ExecutionItem> items;
+    private Set<ExecutionItem> items;
 
     @JsonBackReference
     @ManyToMany(mappedBy = "executions", fetch = FetchType.LAZY)

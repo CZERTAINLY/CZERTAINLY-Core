@@ -13,7 +13,7 @@ import java.util.UUID;
 @Repository
 public interface TriggerAssociationRepository extends SecurityFilterRepository<TriggerAssociation, UUID> {
 
-    @EntityGraph(attributePaths = {"trigger"})
+    @EntityGraph(attributePaths = {"trigger", "trigger.rules", "trigger.rules.conditions", "trigger.rules.conditions.items", "trigger.actions", "trigger.actions.executions", "trigger.actions.executions.items"})
     List<TriggerAssociation> findAllByEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(ResourceEvent resourceEvent, Resource resource, UUID objectUuid);
 
     long deleteByTriggerUuid(UUID triggerUuid);

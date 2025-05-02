@@ -153,7 +153,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     private void setTriggerRulesAndActions(Trigger trigger, List<String> rulesUuids, List<String> actionsUuids) throws NotFoundException {
-        List<Rule> rules = new ArrayList<>();
+        Set<Rule> rules = new HashSet<>();
         for (String ruleUuid : rulesUuids) {
             Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
             if (rule.getResource() != trigger.getResource()) {
@@ -162,7 +162,7 @@ public class TriggerServiceImpl implements TriggerService {
             rules.add(rule);
         }
 
-        List<Action> actions = new ArrayList<>();
+        Set<Action> actions = new HashSet<>();
         for (String actionUuid : actionsUuids) {
             Action action = actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
             if (action.getResource() != trigger.getResource()) {

@@ -13,6 +13,7 @@ import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
+import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -47,7 +48,7 @@ public class CertificateStatusChangedEventHandler extends EventHandler<Certifica
     @Override
     protected void sendFollowUpEventsNotifications(EventContext<Certificate> eventContext) {
         Certificate certificate = eventContext.getResourceObjects().getFirst();
-        CertificateValidationStatus[] statusArrayData = (CertificateValidationStatus[]) eventContext.getData();
+        CertificateValidationStatus[] statusArrayData = objectMapper.convertValue(eventContext.getData(), new TypeReference<>() {});
         notificationProducer.produceNotificationCertificateStatusChanged(statusArrayData[0], statusArrayData[1], certificate.mapToListDto());
 
         // handle certificate event history record

@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -33,6 +34,7 @@ class TriggerServiceTest extends BaseSpringBootTest {
         // create trigger
         TriggerRequestDto triggerRequest = new TriggerRequestDto();
         triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
 
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without name should fail");
 

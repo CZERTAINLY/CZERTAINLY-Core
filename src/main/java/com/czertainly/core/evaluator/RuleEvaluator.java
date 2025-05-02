@@ -57,7 +57,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(List<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException {
+    public boolean evaluateRules(Set<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException {
         // if trigger has no rules, return true as it is trigger that should perform actions on all objects
         if (rules.isEmpty()) {
             return true;
@@ -95,7 +95,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException {
+    public boolean evaluateRules(Set<Rule> rules, List<T> listOfObjects) throws RuleException {
         for (T object : listOfObjects) {
             if (!evaluateRules(rules, object, null)) {
                 logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");

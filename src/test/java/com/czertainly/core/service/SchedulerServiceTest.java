@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -24,6 +25,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
 import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.czertainly.core.messaging.listeners.EventListener;
@@ -147,6 +149,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         TriggerRequestDto triggerRequest = new TriggerRequestDto();
         triggerRequest.setName("DiscoveryCertificatesCategorization");
         triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         triggerRequest.setResource(Resource.CERTIFICATE);
         triggerRequest.setRulesUuids(List.of(rule.getUuid()));
         triggerRequest.setActionsUuids(List.of(action.getUuid()));
@@ -239,7 +242,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         DiscoveryHistory discovery = discoveries.getFirst();
         EventMessage eventMessage = CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), null, new ScheduledJobInfo(scheduledJobEntity.getJobName(), scheduledJobEntity.getUuid(), scheduledJobHistoryRepository.findAll().getFirst().getUuid()));
         eventListener.processMessage(eventMessage);
-        eventMessage = DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), eventMessage.getScheduledJobInfo());
+        eventMessage = DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, eventMessage.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, null));
         eventListener.processMessage(eventMessage);
 
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();

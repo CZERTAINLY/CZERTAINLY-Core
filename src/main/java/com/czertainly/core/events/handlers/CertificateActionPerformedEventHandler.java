@@ -45,7 +45,7 @@ public class CertificateActionPerformedEventHandler extends EventHandler<Certifi
     protected void sendFollowUpEventsNotifications(EventContext<Certificate> eventContext) {
         // TODO: move event history logging to event handler? And should it also trigger action performed failed as event?
         Certificate certificate = eventContext.getResourceObjects().getFirst();
-        ResourceAction action = (ResourceAction) eventContext.getData();
+        ResourceAction action = objectMapper.convertValue(eventContext.getData(), ResourceAction.class);
         notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), action, null);
     }
 

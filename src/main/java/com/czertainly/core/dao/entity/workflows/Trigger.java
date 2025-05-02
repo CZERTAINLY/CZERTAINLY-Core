@@ -11,8 +11,8 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
-import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -48,7 +48,7 @@ public class Trigger extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "trigger_uuid"),
             inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
     @ToString.Exclude
-    private List<Rule> rules;
+    private Set<Rule> rules;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -56,7 +56,7 @@ public class Trigger extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "trigger_uuid"),
             inverseJoinColumns = @JoinColumn(name = "action_uuid"))
     @ToString.Exclude
-    private List<Action> actions;
+    private Set<Action> actions;
 
     public TriggerDto mapToDto() {
         TriggerDto triggerDto = new TriggerDto();

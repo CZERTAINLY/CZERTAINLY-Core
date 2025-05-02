@@ -3,7 +3,6 @@ package com.czertainly.core.service.handler;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
@@ -13,13 +12,9 @@ import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.workflows.Trigger;
-import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
-import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
@@ -37,11 +32,11 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.*;
-import java.util.concurrent.ConcurrentMap;
 
 @Service
 @Transactional
@@ -52,7 +47,6 @@ public class CertificateHandler {
     private AttributeEngine attributeEngine;
     private ValidationProducer validationProducer;
 
-    private TriggerService triggerService;
     private ComplianceService complianceService;
     private CertificateService certificateService;
     private CertificateEventHistoryService certificateEventHistoryService;
@@ -61,11 +55,6 @@ public class CertificateHandler {
     private CertificateRepository certificateRepository;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
-
-    @Autowired
-    public void setTriggerService(TriggerService triggerService) {
-        this.triggerService = triggerService;
-    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -175,7 +164,7 @@ public class CertificateHandler {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
-        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(publicKey.getEncoded()));
+        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8)));
         Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
         if (keyUuid == null) {
             keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + firstCertificate.getCommonName(), publicKey, firstCertificate.getPublicKeyAlgorithm(), firstCertificate.getKeySize(), firstCertificate.getPublicKeyFingerprint());
@@ -202,92 +191,6 @@ public class CertificateHandler {
                 "Discovered from Connector: " + discovery.getConnectorName() + " via discovery: " + discovery.getName(),
                 MetaDefinitions.serialize(additionalInfo)
         );
-    }
-
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void processDiscoveredCertificate(EventContext<Certificate> eventContext, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
-        // Get X509 from discovered certificate and create certificate entity, do not save in database yet
-        Certificate certificate;
-        X509Certificate x509Cert;
-        try {
-            x509Cert = CertificateUtil.parseCertificate(discoveryCertificate.getCertificateContent().getContent());
-            certificate = certificateService.createCertificateEntity(x509Cert);
-        } catch (Exception e) {
-            logger.error("Unable to create certificate from discovery certificate with UUID {}: {}", discoveryCertificate.getUuid(), e.getMessage());
-            discoveryCertificate.setProcessed(true);
-            discoveryCertificate.setProcessedError("Unable to create certificate entity: " + e.getMessage());
-            discoveryCertificateRepository.save(discoveryCertificate);
-            return;
-        }
-
-        try {
-            List<TriggerHistory> triggerHistories = new ArrayList<>();
-            boolean processed = processIgnoreTriggers(eventContext, certificate, discoveryCertificate.getUuid(), triggerHistories);
-
-            // If some trigger ignored this certificate, certificate is not saved and continue with next one
-            if (processed) { // certificate was not ignored
-                // Save certificate to database
-                certificateService.updateCertificateEntity(certificate);
-                // update objectUuid of not ignored certs
-                for (TriggerHistory ignoreTriggerHistory : triggerHistories) {
-                    ignoreTriggerHistory.setObjectUuid(certificate.getUuid());
-                }
-
-                // Evaluate rest of the triggers in given order
-                processTriggers(eventContext, certificate, discoveryCertificate.getUuid(), triggerHistories);
-
-                updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
-                keysToCertificatesMap.computeIfAbsent(x509Cert.getPublicKey(), k -> new ArrayList<>()).add(certificate.getUuid());
-            }
-        } catch (RuleException e) {
-            logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", certificate.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
-        }
-
-        discoveryCertificate.setProcessed(true);
-        discoveryCertificateRepository.save(discoveryCertificate);
-
-        // report progress
-        if (certIndex % 2 == 0) {
-            long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
-            discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
-            discoveryRepository.save(discovery);
-        }
-    }
-
-    private <T extends UniquelyIdentifiedObject> boolean processIgnoreTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
-        for (TriggerAssociation triggerAssociation : context.getIgnoreTriggers()) {
-            Trigger trigger = triggerAssociation.getTrigger();
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation.getUuid(), resourceObject.getUuid(), referenceObjectUuid);
-            triggerHistories.add(triggerHistory);
-            if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
-                triggerHistory.setConditionsMatched(true);
-                triggerHistory.setActionsPerformed(true);
-                return false;
-            } else {
-                triggerHistory.setConditionsMatched(false);
-                triggerHistory.setActionsPerformed(false);
-            }
-        }
-        return true;
-    }
-
-    private <T extends UniquelyIdentifiedObject> void processTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
-        // Evaluate rest of the triggers in given order
-        for (TriggerAssociation triggerAssociation : context.getTriggers()) {
-            // Create trigger history entry
-            Trigger trigger = triggerAssociation.getTrigger();
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation.getUuid(), resourceObject.getUuid(), referenceObjectUuid);
-            triggerHistories.add(triggerHistory);
-            // If rules are satisfied, perform defined actions
-            if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
-                triggerHistory.setConditionsMatched(true);
-                context.getRuleEvaluator().performActions(trigger, resourceObject, triggerHistory);
-                triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
-            } else {
-                triggerHistory.setConditionsMatched(false);
-                triggerHistory.setActionsPerformed(false);
-            }
-        }
     }
 
     @Transactional(propagation = Propagation.NOT_SUPPORTED)

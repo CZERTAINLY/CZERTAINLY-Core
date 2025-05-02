@@ -10,6 +10,7 @@ import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.RuleEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
+import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.transaction.ScheduledJobFinishedEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -42,12 +43,16 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     @Override
     protected EventContext<DiscoveryHistory> prepareContext(EventMessage eventMessage) throws EventException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
+        DiscoveryResult discoveryResult = objectMapper.convertValue(eventMessage.getData(), DiscoveryResult.class);
 
-        // set discovery status
-        discovery.setMessage(discovery.getStatus() == DiscoveryStatus.IN_PROGRESS ? "Discovery completed successfully" : "Discovery completed. " + discovery.getMessage());
-        discovery.setStatus(DiscoveryStatus.COMPLETED);
-        discovery.setEndTime(new Date());
-        discoveryRepository.save(discovery);
+        // set discovery status to completed when discovery is in preprocessing state coming from certificate discovered event
+        if (discoveryResult.getDiscoveryStatus() == DiscoveryStatus.PROCESSING) {
+            String message = discoveryResult.getMessage() == null ? "Discovery completed successfully." : "Discovery completed successfully. " + discoveryResult.getMessage();
+            discovery.setMessage(message);
+            discovery.setStatus(DiscoveryStatus.COMPLETED);
+            discovery.setEndTime(new Date());
+            discoveryRepository.save(discovery);
+        }
 
         // TODO: load triggers from platform
         return new EventContext<>(eventMessage, ruleEvaluator, discovery);
@@ -65,8 +70,8 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
         }
     }
 
-    public static EventMessage constructEventMessage(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
-        return new EventMessage(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null, null, null, null, scheduledJobInfo);
+    public static EventMessage constructEventMessage(UUID discoveryUuid, UUID userUuid, ScheduledJobInfo scheduledJobInfo, DiscoveryResult discoveryResult) {
+        return new EventMessage(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discoveryUuid, null, null, discoveryResult, userUuid, scheduledJobInfo);
     }
 
 }

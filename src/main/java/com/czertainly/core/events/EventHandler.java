@@ -12,6 +12,7 @@ import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.service.TriggerService;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -29,12 +30,18 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandler.class);
 
+    protected ObjectMapper objectMapper;
     protected EventProducer eventProducer;
     protected NotificationProducer notificationProducer;
     protected ApplicationEventPublisher applicationEventPublisher;
 
     private TriggerService triggerService;
     private TriggerAssociationRepository triggerAssociationRepository;
+
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
