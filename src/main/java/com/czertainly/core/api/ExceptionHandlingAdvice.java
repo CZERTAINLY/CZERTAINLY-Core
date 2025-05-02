@@ -488,6 +488,17 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link EventException}.
+     *
+     * @return
+     */
+    @ExceptionHandler(EventException.class)
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    public ErrorMessageDto handleEventException(EventException ex) {
+        return ErrorMessageDto.getInstance("Event `%s` error: %s".formatted(ex.getEvent().getLabel(), ex.getMessage()));
+    }
+
+    /**
      * Handler for {@link CertificateRequestException}.
      *
      * @return {@link ErrorMessageDto}

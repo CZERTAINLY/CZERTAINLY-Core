@@ -2,6 +2,7 @@ package com.czertainly.core.messaging.producers;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.approval.ApprovalDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.connector.notification.data.*;
 import com.czertainly.api.model.core.auth.Resource;
@@ -22,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -85,11 +87,11 @@ public class NotificationProducer {
                 new NotificationDataCertificateActionPerformed(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
     }
 
-    public void produceNotificationScheduledJobCompleted(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String jobName, String jobType, String status) {
+    public void produceNotificationScheduledJobCompleted(UUID scheduledJobUuid, UUID userUuid, String jobName, String jobType, String status) {
         produceMessage(new NotificationMessage(NotificationType.SCHEDULED_JOB_COMPLETED,
-                resource,
-                resourceUUID,
-                recipients,
+                Resource.SCHEDULED_JOB,
+                scheduledJobUuid,
+                NotificationRecipient.buildUserNotificationRecipient(userUuid),
                 new NotificationDataScheduledJobCompleted(jobName, jobType, status)));
     }
 
@@ -101,7 +103,18 @@ public class NotificationProducer {
                 new NotificationDataText(text, detail)));
     }
 
-    public void produceNotificationApprovalRequested(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, ApprovalDto approvalDto, String creatorUuid) {
+    public void produceNotificationApprovalRequested(Resource resource, UUID resourceUUID, ApprovalDto approvalDto, ApprovalStepDto approvalStepDto, String creatorUuid) {
+        List<NotificationRecipient> recipients;
+        if (approvalStepDto.getUserUuid() != null) {
+            recipients = NotificationRecipient.buildUserNotificationRecipient(approvalStepDto.getUserUuid());
+        } else if (approvalStepDto.getRoleUuid() != null) {
+            recipients = NotificationRecipient.buildRoleNotificationRecipient(approvalStepDto.getRoleUuid());
+        } else if (approvalStepDto.getGroupUuid() != null) {
+            recipients = NotificationRecipient.buildGroupNotificationRecipient(approvalStepDto.getGroupUuid());
+        } else {
+            recipients = new ArrayList<>();
+        }
+
         produceMessage(new NotificationMessage(NotificationType.APPROVAL_REQUESTED,
                 resource,
                 resourceUUID,
@@ -110,13 +123,13 @@ public class NotificationProducer {
                         approvalDto.getClosedAt(), approvalDto.getResource(), approvalDto.getResourceAction(), approvalDto.getObjectUuid(), creatorUuid, getCreatorUsername(creatorUuid))));
     }
 
-    public void produceNotificationApprovalClosed(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, ApprovalDto approvalDto, String creatorUuid) {
+    public void produceNotificationApprovalClosed(Resource resource, UUID resourceUUID, ApprovalDto approvalDto) {
         produceMessage(new NotificationMessage(NotificationType.APPROVAL_CLOSED,
                 resource,
                 resourceUUID,
-                recipients,
+                NotificationRecipient.buildUserNotificationRecipient(UUID.fromString(approvalDto.getCreatorUuid())),
                 new NotificationDataApproval(approvalDto.getApprovalUuid(), approvalDto.getApprovalProfileUuid(), approvalDto.getApprovalProfileName(), approvalDto.getVersion(), approvalDto.getStatus(), approvalDto.getExpiryAt(),
-                        approvalDto.getClosedAt(), approvalDto.getResource(), approvalDto.getResourceAction(), approvalDto.getObjectUuid(), creatorUuid, getCreatorUsername(creatorUuid))));
+                        approvalDto.getClosedAt(), approvalDto.getResource(), approvalDto.getResourceAction(), approvalDto.getObjectUuid(), approvalDto.getCreatorUuid(), getCreatorUsername(approvalDto.getCreatorUuid()))));
     }
 
     private String getCreatorUsername(String creatorUuid) {

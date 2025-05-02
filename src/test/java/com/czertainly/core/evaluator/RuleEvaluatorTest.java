@@ -149,15 +149,15 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setFieldSource(FilterFieldSource.PROPERTY);
         executionItem.setFieldIdentifier(FilterField.RA_PROFILE_NAME.toString());
         executionItem.setExecution(execution);
-        execution.setItems(List.of(executionItem));
+        execution.setItems(Set.of(executionItem));
         executionItemRepository.save(executionItem);
 
         action = new Action();
         action.setName("TestAction");
         action.setResource(Resource.CERTIFICATE);
-        action.setExecutions(List.of(execution));
+        action.setExecutions(Set.of(execution));
         actionRepository.save(action);
-        trigger.setActions(List.of(action));
+        trigger.setActions(Set.of(action));
         trigger.setType(TriggerType.EVENT);
         trigger.setResource(Resource.CERTIFICATE);
         trigger = triggerRepository.save(trigger);
@@ -232,7 +232,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         Rule rule = new Rule();
         rule.setResource(Resource.CRYPTOGRAPHIC_KEY);
         TriggerHistory triggerHistory = new TriggerHistory();
-        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(List.of(rule), certificate, triggerHistory));
+        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(Set.of(rule), certificate, triggerHistory));
 
         condition.setFieldIdentifier("invalid");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
@@ -422,7 +422,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setFieldIdentifier(FilterField.RA_PROFILE_NAME.toString());
         executionItem.setData(raProfile.getUuid());
 
-        TriggerHistory triggerHistory = triggerService.createTriggerHistory(OffsetDateTime.now(), trigger.getUuid(), null, certificate.getUuid(), null);
+        TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);
         certificateRuleEvaluator.performActions(trigger, certificate, triggerHistory);
 
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());

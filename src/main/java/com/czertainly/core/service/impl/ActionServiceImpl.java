@@ -19,9 +19,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -119,8 +117,8 @@ public class ActionServiceImpl implements ActionService {
         executionRepository.delete(execution);
     }
 
-    private List<ExecutionItem> createExecutionItems(List<ExecutionItemRequestDto> executionItemRequestDtos, Execution execution) {
-        List<ExecutionItem> executionItems = new ArrayList<>();
+    private Set<ExecutionItem> createExecutionItems(List<ExecutionItemRequestDto> executionItemRequestDtos, Execution execution) {
+        Set<ExecutionItem> executionItems = new HashSet<>();
         for (ExecutionItemRequestDto executionItemRequestDto : executionItemRequestDtos) {
             if (executionItemRequestDto.getFieldSource() == null || executionItemRequestDto.getFieldIdentifier() == null) {
                 throw new ValidationException("Missing field source or field identifier in an execution.");
@@ -188,7 +186,7 @@ public class ActionServiceImpl implements ActionService {
         }
 
         Action action = new Action();
-        List<Execution> executions = new ArrayList<>();
+        Set<Execution> executions = new HashSet<>();
 
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
@@ -214,7 +212,7 @@ public class ActionServiceImpl implements ActionService {
             throw new ValidationException("Action has to contain at least one execution.");
         }
 
-        List<Execution> executions = new ArrayList<>();
+        Set<Execution> executions = new HashSet<>();
         Action action = actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
 
         for (String executionUuid : request.getExecutionsUuids()) {

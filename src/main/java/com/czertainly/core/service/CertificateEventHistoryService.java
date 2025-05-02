@@ -4,18 +4,14 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventHistoryDto;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateEventHistory;
 
 import java.util.HashMap;
 import java.util.List;
 import java.util.UUID;
 
-// TODO AUTH - should be secured?
 public interface CertificateEventHistoryService {
+
     List<CertificateEventHistoryDto> getCertificateEventHistory(UUID uuid) throws NotFoundException;
-    CertificateEventHistory getEventHistory(CertificateEvent event, CertificateEventStatus status, String message, String additionalInformation, Certificate certificate);
-    void asyncSaveAllInBatch(List<CertificateEventHistory> certificateEventHistories);
 
     /**
      * Method to add event into the Certificate history.

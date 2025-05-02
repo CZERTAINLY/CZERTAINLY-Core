@@ -8,6 +8,7 @@ import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 
 import java.util.List;
+import java.util.Set;
 
 public interface IRuleEvaluator<T> {
 
@@ -18,7 +19,7 @@ public interface IRuleEvaluator<T> {
      * @param object   Object to evaluate Rules on
      * @return True if all the rules are satisfied, false otherwise
      */
-    public boolean evaluateRules(List<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException;
+    public boolean evaluateRules(Set<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException;
     /**
      * Method to evaluate a list of Rules on a list of Objects
      *
@@ -26,7 +27,7 @@ public interface IRuleEvaluator<T> {
      * @param listOfObjects   List of Objects to evaluate rules on
      * @return True if all the rules for all the objects are satisfied, false otherwise
      */
-    public boolean evaluateRules(List<Rule> rules, List<T> listOfObjects) throws RuleException;
+    public boolean evaluateRules(Set<Rule> rules, List<T> listOfObjects) throws RuleException;
     /**
      * Method to evaluate a Condition item on an Object
      *

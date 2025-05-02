@@ -119,8 +119,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
         triggerRequestDto.setName("name");
         triggerRequestDto.setResource(Resource.CERTIFICATE);
         triggerRequestDto.setType(TriggerType.EVENT);
-        triggerRequestDto.setEvent(ResourceEvent.DISCOVERY_FINISHED);
-        triggerRequestDto.setEventResource(Resource.DISCOVERY);
+        triggerRequestDto.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequestDto));
 
         ActionRequestDto actionRequestDto = new ActionRequestDto();
@@ -136,15 +135,14 @@ public class RuleServiceTest extends BaseSpringBootTest {
         UpdateTriggerRequestDto updateTriggerRequestDto = new UpdateTriggerRequestDto();
         updateTriggerRequestDto.setDescription("description");
         updateTriggerRequestDto.setType(TriggerType.EVENT);
-        updateTriggerRequestDto.setEvent(ResourceEvent.DISCOVERY_FINISHED);
-        updateTriggerRequestDto.setEventResource(Resource.DISCOVERY);
+        updateTriggerRequestDto.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
         updateTriggerRequestDto.setResource(Resource.CERTIFICATE);
         updateTriggerRequestDto.setActionsUuids(triggerRequestDto.getActionsUuids());
         Assertions.assertEquals("description", triggerService.updateTrigger(triggerDetailDto.getUuid(), updateTriggerRequestDto).getDescription());
 
         Assertions.assertNotNull(triggerService.getTrigger(triggerDetailDto.getUuid()));
 
-        Assertions.assertNotEquals(0, triggerService.listTriggers(null, null).size());
+        Assertions.assertNotEquals(0, triggerService.listTriggers(null).size());
 
         triggerService.deleteTrigger(triggerDetailDto.getUuid());
 

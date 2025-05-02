@@ -11,7 +11,6 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -38,7 +37,7 @@ public class Rule extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "rule_uuid"),
             inverseJoinColumns = @JoinColumn(name = "condition_uuid"))
     @ToString.Exclude
-    private List<Condition> conditions;
+    private Set<Condition> conditions;
 
     @JsonBackReference
     @ManyToMany(mappedBy = "rules", fetch = FetchType.LAZY)

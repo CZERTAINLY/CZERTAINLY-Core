@@ -35,8 +35,8 @@ public class TriggerControllerImpl implements TriggerController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.LIST)
-    public List<TriggerDto> listTriggers(Resource resource, Resource eventResource) {
-        return triggerService.listTriggers(resource, eventResource);
+    public List<TriggerDto> listTriggers(Resource resource) {
+        return triggerService.listTriggers(resource);
     }
 
     @Override

@@ -24,6 +24,9 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.events.handlers.CertificateActionPerformedEventHandler;
+import com.czertainly.core.events.handlers.CertificateStatusChangedEventHandler;
+import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.messaging.producers.EventProducer;
@@ -45,6 +48,7 @@ import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -77,8 +81,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private AttributeEngine attributeEngine;
 
     private ActionProducer actionProducer;
-    private NotificationProducer notificationProducer;
     private EventProducer eventProducer;
+    private ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
@@ -91,13 +95,13 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Autowired
-    public void setNotificationProducer(NotificationProducer notificationProducer) {
-        this.notificationProducer = notificationProducer;
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Autowired
-    public void setEventProducer(EventProducer eventProducer) {
-        this.eventProducer = eventProducer;
+    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
+        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired
@@ -291,13 +295,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to issue certificate: " + e.getMessage());
         }
 
-        // notify
-        try {
-            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.ISSUE, null);
-        } catch (Exception e) {
-            logger.error("Sending notification for certificate issue failed. Certificate: {}. Error: {}", certificate, e.getMessage());
-        }
-
         // push certificate to locations
         for (CertificateLocation cl : certificate.getLocations()) {
             try {
@@ -306,6 +303,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 logger.error("Failed to push issued certificate to location: {}", e.getMessage());
             }
         }
+
+        // raise event
+        eventProducer.produceMessage(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.ISSUE));
 
         logger.debug("Certificate issued: {}", certificate);
     }
@@ -351,7 +351,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificate.setState(CertificateState.REJECTED);
         certificateRepository.save(certificate);
 
-        eventProducer.produceCertificateStatusChangeEventMessage(certificate.getUuid(), CertificateEvent.UPDATE_STATE, CertificateEventStatus.SUCCESS, oldState, CertificateState.REJECTED);
+        applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(certificate.getUuid(), CertificateEvent.UPDATE_STATE, CertificateEventStatus.SUCCESS, oldState, CertificateState.REJECTED));
     }
 
     @Override
@@ -454,13 +454,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
         }
 
-        // notify
-        try {
-            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.RENEW, null);
-        } catch (Exception e) {
-            logger.error("Sending notification for certificate renewal failed. Certificate: {}. Error: {}", certificate, e.getMessage());
-        }
-
         Location location = null;
         try {
             // replace certificate in the locations if needed
@@ -495,6 +488,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 }
             }
         }
+
+        // raise event
+        eventProducer.produceMessage(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.RENEW));
 
         logger.debug("Certificate Renewed: {}", certificate);
     }
@@ -642,12 +638,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to replace certificate in all locations during rekey operation: " + e.getMessage());
         }
 
-        // notify
-        try {
-            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.REKEY, null);
-        } catch (Exception e) {
-            logger.error("Sending notification for certificate rekey failed. Certificate: {}. Error: {}", certificate, e.getMessage());
-        }
+        // raise event
+        eventProducer.produceMessage(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.REKEY));
 
         logger.debug("Certificate rekeyed: {}", certificate);
     }
@@ -724,12 +716,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             }
         }
 
-        // notify
-        try {
-            notificationProducer.produceNotificationCertificateActionPerformed(certificate.mapToListDto(), ResourceAction.REVOKE, null);
-        } catch (Exception e) {
-            logger.error("Sending notification for certificate revoke failed. Certificate: {}. Error: {}", certificate, e.getMessage());
-        }
+        // raise event
+        eventProducer.produceMessage(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.REVOKE));
 
         logger.debug("Certificate revoked: {}", certificate);
     }
