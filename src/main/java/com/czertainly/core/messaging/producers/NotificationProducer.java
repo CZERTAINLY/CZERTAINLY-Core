@@ -54,10 +54,6 @@ public class NotificationProducer {
         }
     }
 
-    public void produceNotification(NotificationType type, Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, Object data) {
-        produceMessage(new NotificationMessage(type, resource, resourceUUID, recipients, data));
-    }
-
     public void produceNotificationCertificateStatusChanged(CertificateValidationStatus oldStatus, CertificateValidationStatus newStatus, CertificateDto certificateDto) {
         if (certificateDto.getOwnerUuid() == null && certificateDto.getGroups() == null) {
             return;
