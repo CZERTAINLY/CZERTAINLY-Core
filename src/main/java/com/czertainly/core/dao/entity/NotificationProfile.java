@@ -40,6 +40,7 @@ public class NotificationProfile extends UniquelyIdentified {
     @OrderBy("version DESC")
     private List<NotificationProfileVersion> versions = new ArrayList<>();
 
+    @JsonBackReference
     public NotificationProfileVersion getCurrentVersion() {
         return versions.isEmpty() ? null : versions.getFirst();
     }

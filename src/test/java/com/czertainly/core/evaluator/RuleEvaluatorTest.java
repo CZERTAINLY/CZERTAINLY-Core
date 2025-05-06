@@ -48,7 +48,6 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.OffsetDateTime;
 import java.util.*;
 
 class RuleEvaluatorTest extends BaseSpringBootTest {
