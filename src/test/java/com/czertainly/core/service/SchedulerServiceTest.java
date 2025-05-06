@@ -15,11 +15,14 @@ import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobDetailDto;
 import com.czertainly.api.model.core.scheduler.ScheduledJobHistoryResponseDto;
+import com.czertainly.api.model.core.scheduler.ScheduledJobsResponseDto;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.api.model.scheduler.UpdateScheduledJob;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -48,6 +51,8 @@ import java.util.List;
 import java.util.UUID;
 
 class SchedulerServiceTest extends BaseSpringBootTest {
+
+    private static final int SCHEDULER_PORT = 8080;
 
     @Autowired
     private SchedulerService schedulerService;
@@ -276,4 +281,39 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         }
         Assertions.assertTrue(matched);
     }
+
+    @Test
+    void testRegisterScheduledJobAndOperations() throws SchedulerException, NotFoundException {
+        final String jobName = "TestDiscoveryScheduled";
+        final String cronExpressionUpdate = "0 0/30 * * * ? *";
+
+        WireMockServer mockServer = new WireMockServer(SCHEDULER_PORT);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/scheduler/create")).willReturn(
+                WireMock.ok()));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/scheduler/update")).willReturn(
+                WireMock.ok()));
+        mockServer.stubFor(WireMock.delete(WireMock.urlPathMatching("/v1/scheduler/" + jobName)).willReturn(
+                WireMock.noContent()));
+
+        ScheduledJobDetailDto jobDetailDto = schedulerService.registerScheduledJob(DiscoveryCertificateTask.class,jobName, "0 0/3 * * * ? *", true, null);
+
+        UpdateScheduledJob updateScheduledJob = new UpdateScheduledJob();
+        updateScheduledJob.setCronExpression(cronExpressionUpdate);
+        schedulerService.updateScheduledJob(jobDetailDto.getUuid().toString(), updateScheduledJob);
+
+        jobDetailDto = schedulerService.getScheduledJobDetail(jobDetailDto.getUuid().toString());
+        Assertions.assertEquals(jobName, jobDetailDto.getJobName());
+        Assertions.assertEquals(cronExpressionUpdate, jobDetailDto.getCronExpression());
+
+        schedulerService.deleteScheduledJob(jobDetailDto.getUuid().toString());
+
+        ScheduledJobsResponseDto listResponse = schedulerService.listScheduledJobs(SecurityFilter.create(), new PaginationRequestDto());
+        Assertions.assertEquals(0, listResponse.getTotalItems());
+
+        mockServer.shutdown();
+    }
+
 }

@@ -51,11 +51,14 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         GroupDto groupDto = groupService.createGroup(groupRequestDto);
 
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
-        requestDto.setName("TestProfile");
+        requestDto.setName(originalNotificationProfile.getName());
         requestDto.setRecipientType(RecipientType.GROUP);
         requestDto.setRecipientUuid(UUID.fromString(groupDto.getUuid()));
         requestDto.setRepetitions(1);
         requestDto.setInternalNotification(true);
+        Assertions.assertThrows(AlreadyExistException.class, () -> notificationProfileService.createNotificationProfile(requestDto));
+
+        requestDto.setName("TestProfile");
         NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
 
         Assertions.assertEquals(1, notificationProfileDetailDto.getVersion());
