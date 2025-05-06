@@ -75,6 +75,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.DETAIL)
     public NotificationProfileDetailDto getNotificationProfile(SecuredUUID uuid, Integer version) throws NotFoundException {
         NotificationProfileVersion notificationProfileVersion;
         if (version == null) {
@@ -89,6 +90,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.DELETE)
     public void deleteNotificationProfile(SecuredUUID uuid) throws NotFoundException {
         NotificationProfile notificationProfile = notificationProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
 
@@ -97,6 +99,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.CREATE)
     public NotificationProfileDetailDto createNotificationProfile(NotificationProfileRequestDto requestDto) throws AlreadyExistException, NotFoundException {
         if (notificationProfileRepository.findByName(requestDto.getName()).isPresent()) {
             throw new AlreadyExistException("Notification profile with name " + requestDto.getName() + " already exists.");
@@ -127,6 +130,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.NOTIFICATION_PROFILE, action = ResourceAction.UPDATE)
     public NotificationProfileDetailDto editNotificationProfile(SecuredUUID uuid, NotificationProfileUpdateRequestDto updateRequestDto) throws NotFoundException {
         NotificationProfile notificationProfile = notificationProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
         NotificationProfileVersion currentVersion = notificationProfile.getCurrentVersion();
