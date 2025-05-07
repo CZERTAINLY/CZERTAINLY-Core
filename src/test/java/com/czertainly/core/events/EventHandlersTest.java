@@ -7,19 +7,25 @@ import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRequestDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
+import com.czertainly.api.model.connector.notification.NotificationType;
+import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.settings.NotificationSettingsDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.*;
+import com.czertainly.core.messaging.listeners.NotificationListener;
+import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalProfileService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.service.SettingService;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -30,6 +36,7 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 class EventHandlersTest extends BaseSpringBootTest {
@@ -66,6 +73,12 @@ class EventHandlersTest extends BaseSpringBootTest {
     @Autowired
     private ScheduledJobFinishedEventHandler scheduledJobFinishedEventHandler;
 
+    @Autowired
+    private SettingService settingService;
+    @Autowired
+    private NotificationListener notificationListener;
+    @Autowired
+    private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
 
     @Test
     void testCertificateStatusChangedAndApprovalEvents() throws EventException, NotFoundException, AlreadyExistException {
@@ -160,6 +173,20 @@ class EventHandlersTest extends BaseSpringBootTest {
         scheduledJobsRepository.save(scheduledJob);
 
         Assertions.assertDoesNotThrow(() -> scheduledJobFinishedEventHandler.handleEvent(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Test"))));
+    }
+
+    @Test
+    void testNotificationListener() {
+        NotificationInstanceReference notificationInstance = new NotificationInstanceReference();
+        notificationInstance.setName("TestNotifInstance");
+        notificationInstance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(notificationInstance);
+
+        NotificationSettingsDto notificationSettingsDto = new NotificationSettingsDto();
+        notificationSettingsDto.setNotificationsMapping(Map.of(NotificationType.SCHEDULED_JOB_COMPLETED, notificationInstance.getUuid().toString()));
+        settingService.updateNotificationSettings(notificationSettingsDto);
+
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(new NotificationMessage(NotificationType.SCHEDULED_JOB_COMPLETED, Resource.SCHEDULED_JOB, UUID.randomUUID(), List.of(), new NotificationDataScheduledJobCompleted("TestJob", "JobType", "Finished"))));
     }
 
 }
