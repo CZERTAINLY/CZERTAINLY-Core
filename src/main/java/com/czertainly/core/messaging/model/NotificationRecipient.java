@@ -27,11 +27,6 @@ public class NotificationRecipient {
         return groupUuid != null ? List.of(new NotificationRecipient(RecipientType.GROUP, groupUuid)) : null;
     }
 
-    public static List<NotificationRecipient> buildUserOrGroupNotificationRecipient(UUID userUuid, UUID groupUuid) {
-        return userUuid != null ? List.of(new NotificationRecipient(RecipientType.USER, userUuid))
-                : (groupUuid != null ? List.of(new NotificationRecipient(RecipientType.GROUP, groupUuid)) : null);
-    }
-
     public static List<NotificationRecipient> buildUsersAndGroupsNotificationRecipients(List<UUID> userUuids, List<UUID> groupUuids) {
         List<NotificationRecipient> recipients = new ArrayList<>();
         if(userUuids != null) {
