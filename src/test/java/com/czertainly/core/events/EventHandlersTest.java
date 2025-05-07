@@ -5,22 +5,22 @@ import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRequestDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
-import com.czertainly.core.dao.entity.Approval;
-import com.czertainly.core.dao.entity.ApprovalProfile;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.repository.ApprovalRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.events.handlers.ApprovalClosedEventHandler;
-import com.czertainly.core.events.handlers.CertificateStatusChangedEventHandler;
+import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.events.data.DiscoveryResult;
+import com.czertainly.core.events.handlers.*;
+import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalProfileService;
 import com.czertainly.core.service.CertificateEventHistoryService;
 import com.czertainly.core.service.CertificateService;
+import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -44,6 +44,8 @@ class EventHandlersTest extends BaseSpringBootTest {
     private CertificateContentRepository certificateContentRepository;
     @Autowired
     private CertificateStatusChangedEventHandler certificateStatusChangedEventHandler;
+    @Autowired
+    private CertificateActionPerformedEventHandler certificateActionPerformedEventHandler;
 
     @Autowired
     private ApprovalRepository approvalRepository;
@@ -51,14 +53,27 @@ class EventHandlersTest extends BaseSpringBootTest {
     private ApprovalProfileService approvalProfileService;
     @Autowired
     private ApprovalClosedEventHandler approvalClosedEventHandler;
+    @Autowired
+    private ApprovalRequestedEventHandler approvalRequestedEventHandler;
+
+    @Autowired
+    private DiscoveryRepository discoveryRepository;
+    @Autowired
+    private DiscoveryFinishedEventHandler discoveryFinishedEventHandler;
+
+    @Autowired
+    private ScheduledJobsRepository scheduledJobsRepository;
+    @Autowired
+    private ScheduledJobFinishedEventHandler scheduledJobFinishedEventHandler;
+
 
     @Test
-    void testCertificateStatusChangedAndApprovalClosedEvent() throws EventException, NotFoundException, AlreadyExistException {
+    void testCertificateStatusChangedAndApprovalEvents() throws EventException, NotFoundException, AlreadyExistException {
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
 
-        Certificate certificate = new Certificate();
+        final Certificate certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCercertificatetificate");
         certificate.setSerialNumber("123456789");
@@ -69,7 +84,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         certificate.setValidationStatus(CertificateValidationStatus.INACTIVE);
         certificate.setCertificateContent(certificateContent);
         certificate.setCertificateContentId(certificateContent.getId());
-        certificate = certificateRepository.save(certificate);
+        certificateRepository.save(certificate);
 
         certificateService.validate(certificate);
         certificateStatusChangedEventHandler.handleEvent(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), CertificateValidationStatus.INACTIVE, certificate.getValidationStatus()));
@@ -100,10 +115,51 @@ class EventHandlersTest extends BaseSpringBootTest {
         approval.setExpiryAt(Date.from(Instant.now().plus(7, ChronoUnit.DAYS)));
         approval = approvalRepository.save(approval);
 
-        approvalClosedEventHandler.handleEvent(ApprovalClosedEventHandler.constructEventMessage(approval.getUuid()));
+        ApprovalStepDto approvalStepDto = approvalProfile.getTheLatestApprovalProfileVersion().getApprovalSteps().getFirst().mapToDto();
+        approvalStepDto.setUserUuid(null);
+        approvalRequestedEventHandler.handleEvent(ApprovalRequestedEventHandler.constructEventMessage(approval.getUuid(), approvalStepDto));
         historyList = certificateEventHistoryService.getCertificateEventHistory(certificate.getUuid());
         Assertions.assertEquals(2, historyList.size());
+        Assertions.assertEquals(CertificateEvent.APPROVAL_REQUEST, historyList.getFirst().getEvent());
+
+        Assertions.assertDoesNotThrow(() -> certificateActionPerformedEventHandler.handleEvent(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.REVOKE)));
+
+        approvalClosedEventHandler.handleEvent(ApprovalClosedEventHandler.constructEventMessage(approval.getUuid()));
+        historyList = certificateEventHistoryService.getCertificateEventHistory(certificate.getUuid());
+        Assertions.assertEquals(3, historyList.size());
         Assertions.assertEquals(CertificateEvent.APPROVAL_CLOSE, historyList.getFirst().getEvent());
+    }
+
+    @Test
+    void testDiscoveryFinishedEvent() throws EventException {
+        DiscoveryHistory discovery = new DiscoveryHistory();
+        discovery.setName("TestDiscovery");
+        discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
+        discovery.setConnectorUuid(UUID.randomUUID());
+        discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
+        discovery = discoveryRepository.save(discovery);
+
+        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null,null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
+        discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.IN_PROGRESS, discovery.getStatus());
+
+        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null,null, new DiscoveryResult(DiscoveryStatus.PROCESSING, "Test finalize")));
+        discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
+    }
+
+    @Test
+    void testScheduledJobFinishedEvent() {
+        final ScheduledJob scheduledJob = new ScheduledJob();
+        scheduledJob.setJobName("TestJob");
+        scheduledJob.setCronExpression("0 0/3 * * * ? *");
+        scheduledJob.setEnabled(true);
+        scheduledJob.setSystem(false);
+        scheduledJob.setOneTime(false);
+        scheduledJob.setJobClassName(DiscoveryCertificateTask.class.getName());
+        scheduledJobsRepository.save(scheduledJob);
+
+        Assertions.assertDoesNotThrow(() -> scheduledJobFinishedEventHandler.handleEvent(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Test"))));
     }
 
 }

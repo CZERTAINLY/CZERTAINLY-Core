@@ -7,8 +7,6 @@ import com.czertainly.api.model.client.approval.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
@@ -19,7 +17,6 @@ import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.dao.repository.ApprovalStepRepository;
 import com.czertainly.core.events.handlers.ApprovalClosedEventHandler;
 import com.czertainly.core.events.handlers.ApprovalRequestedEventHandler;
-import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.messaging.producers.EventProducer;
@@ -36,7 +33,6 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -62,8 +58,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     private ActionProducer actionProducer;
 
     private EventProducer eventProducer;
-
-    private ApplicationEventPublisher applicationEventPublisher;
 
     @Override
     @ExternalAuthorization(resource = Resource.APPROVAL, action = ResourceAction.LIST)
@@ -174,11 +168,6 @@ public class ApprovalServiceImpl implements ApprovalService {
         }
 
         approvalRepository.save(approval);
-
-        // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
-        if (resource == Resource.CERTIFICATE) {
-            applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(objectUuid, CertificateEvent.APPROVAL_REQUEST, CertificateEventStatus.SUCCESS, "Approval requested for action %s with approval profile %s".formatted(resourceAction.getCode(), approvalProfileVersion.getApprovalProfile().getName()), null));
-        }
 
         processApprovalToTheNextStep(approval.getUuid().toString(), null);
         return approval;
@@ -364,11 +353,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
         this.eventProducer = eventProducer;
-    }
-
-    @Autowired
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired

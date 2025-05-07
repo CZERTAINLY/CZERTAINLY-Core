@@ -51,7 +51,7 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
         ApprovalDto approvalDto = approval.mapToDto();
         notificationProducer.produceNotificationApprovalClosed(eventContext.getResource(), approval.getUuid(), approvalDto);
 
-        // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
+        // produce only for certificates for now until refactoring and uniting of event history for all resources
         if (approval.getResource() == Resource.CERTIFICATE) {
             applicationEventPublisher.publishEvent(new UpdateCertificateHistoryEvent(approval.getObjectUuid(), CertificateEvent.APPROVAL_CLOSE, CertificateEventStatus.SUCCESS, "Approval for action %s with approval profile %s closed with status %s".formatted(approval.getAction().getCode(), approvalDto.getApprovalProfileName(), approvalDto.getStatus().getLabel()), null));
         }
