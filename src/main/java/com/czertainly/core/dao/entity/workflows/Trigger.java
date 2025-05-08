@@ -9,9 +9,7 @@ import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
 
-import java.util.Objects;
 import java.util.Set;
 
 @Getter
@@ -84,18 +82,13 @@ public class Trigger extends UniquelyIdentified {
     }
 
     @Override
-    public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null || this.getClass() != o.getClass()) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        Trigger trigger = (Trigger) o;
-        return getUuid() != null && Objects.equals(getUuid(), trigger.getUuid());
+    public boolean equals(Object o) {
+        return super.equals(o);
     }
 
     @Override
-    public final int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    public int hashCode() {
+        return super.hashCode();
     }
+
 }

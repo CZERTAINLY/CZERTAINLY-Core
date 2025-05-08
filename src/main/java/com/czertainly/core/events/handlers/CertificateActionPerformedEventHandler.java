@@ -1,6 +1,5 @@
 package com.czertainly.core.events.handlers;
 
-import com.czertainly.api.exception.EventException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.Certificate;
@@ -10,7 +9,6 @@ import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.model.auth.ResourceAction;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,25 +18,8 @@ import java.util.UUID;
 @Component(ResourceEvent.Codes.CERTIFICATE_ACTION_PERFORMED)
 public class CertificateActionPerformedEventHandler extends EventHandler<Certificate> {
 
-    private CertificateRuleEvaluator ruleEvaluator;
-    private CertificateRepository certificateRepository;
-
-    @Autowired
-    public void setRuleEvaluator(CertificateRuleEvaluator ruleEvaluator) {
-        this.ruleEvaluator = ruleEvaluator;
-    }
-
-    @Autowired
-    public void setCertificateRepository(CertificateRepository certificateRepository) {
-        this.certificateRepository = certificateRepository;
-    }
-
-    @Override
-    protected EventContext<Certificate> prepareContext(EventMessage eventMessage) throws EventException {
-        Certificate certificate = certificateRepository.findWithAssociationsByUuid(eventMessage.getObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Certificate with UUID %s not found".formatted(eventMessage.getObjectUuid())));
-
-        // TODO: load triggers from platform
-        return new EventContext<>(eventMessage, ruleEvaluator, certificate);
+    protected CertificateActionPerformedEventHandler(CertificateRepository repository, CertificateRuleEvaluator ruleEvaluator) {
+        super(repository, ruleEvaluator);
     }
 
     @Override

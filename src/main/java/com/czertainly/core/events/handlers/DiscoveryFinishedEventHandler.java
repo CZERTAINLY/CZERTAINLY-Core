@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
+import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import com.czertainly.core.evaluator.RuleEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
@@ -27,17 +28,11 @@ import java.util.UUID;
 @Component(ResourceEvent.Codes.DISCOVERY_FINISHED)
 public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory> {
 
-    private RuleEvaluator<DiscoveryHistory> ruleEvaluator;
-    private DiscoveryRepository discoveryRepository;
+    private final DiscoveryRepository discoveryRepository;
 
-    @Autowired
-    public void setRuleEvaluator(RuleEvaluator<DiscoveryHistory> ruleEvaluator) {
-        this.ruleEvaluator = ruleEvaluator;
-    }
-
-    @Autowired
-    public void setDiscoveryRepository(DiscoveryRepository discoveryRepository) {
-        this.discoveryRepository = discoveryRepository;
+    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository, RuleEvaluator<DiscoveryHistory> ruleEvaluator) {
+        super(repository, ruleEvaluator);
+        discoveryRepository = repository;
     }
 
     @Override

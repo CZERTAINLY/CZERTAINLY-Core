@@ -1,6 +1,5 @@
 package com.czertainly.core.events.handlers;
 
-import com.czertainly.api.exception.EventException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.ScheduledJob;
@@ -10,8 +9,6 @@ import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.model.ScheduledTaskResult;
-import com.czertainly.core.security.authz.SecuredUUID;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -21,25 +18,8 @@ import java.util.UUID;
 @Component(ResourceEvent.Codes.SCHEDULED_JOB_FINISHED)
 public class ScheduledJobFinishedEventHandler extends EventHandler<ScheduledJob> {
 
-    private RuleEvaluator<ScheduledJob> ruleEvaluator;
-    private ScheduledJobsRepository scheduledJobsRepository;
-
-    @Autowired
-    public void setRuleEvaluator(RuleEvaluator<ScheduledJob> ruleEvaluator) {
-        this.ruleEvaluator = ruleEvaluator;
-    }
-
-    @Autowired
-    public void setScheduledJobsRepository(ScheduledJobsRepository scheduledJobsRepository) {
-        this.scheduledJobsRepository = scheduledJobsRepository;
-    }
-
-    @Override
-    protected EventContext<ScheduledJob> prepareContext(EventMessage eventMessage) throws EventException {
-        final ScheduledJob scheduledJob = scheduledJobsRepository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Scheduled job with UUID %s not found".formatted(eventMessage.getObjectUuid())));
-
-        // TODO: load triggers from platform
-        return new EventContext<>(eventMessage, ruleEvaluator, scheduledJob);
+    protected ScheduledJobFinishedEventHandler(ScheduledJobsRepository repository, RuleEvaluator<ScheduledJob> ruleEvaluator) {
+        super(repository, ruleEvaluator);
     }
 
     @Override

@@ -9,6 +9,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
+import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateRuleEvaluator;
@@ -54,12 +55,16 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
     private CertificateHandler certificateHandler;
     private TransactionHandler transactionHandler;
-    private CertificateRuleEvaluator ruleEvaluator;
     private ValidationProducer validationProducer;
 
     private CertificateService certificateService;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+
+    @Autowired
+    protected CertificateDiscoveredEventHandler(CertificateRepository repository, CertificateRuleEvaluator ruleEvaluator) {
+        super(repository, ruleEvaluator);
+    }
 
     @Autowired
     public void setDiscoveryCertificateHandler(CertificateHandler certificateHandler) {
@@ -69,11 +74,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Autowired
     public void setTransactionHandler(TransactionHandler transactionHandler) {
         this.transactionHandler = transactionHandler;
-    }
-
-    @Autowired
-    public void setRuleEvaluator(CertificateRuleEvaluator ruleEvaluator) {
-        this.ruleEvaluator = ruleEvaluator;
     }
 
     @Autowired

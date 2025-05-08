@@ -7,10 +7,13 @@ import com.czertainly.core.dao.entity.UniquelyIdentifiedObject;
 import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
+import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
+import com.czertainly.core.evaluator.RuleEvaluator;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.TriggerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
@@ -34,6 +37,9 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     protected EventProducer eventProducer;
     protected NotificationProducer notificationProducer;
     protected ApplicationEventPublisher applicationEventPublisher;
+
+    protected final RuleEvaluator<T> ruleEvaluator;
+    protected final SecurityFilterRepository<T, UUID> repository;
 
     private TriggerService triggerService;
     private TriggerAssociationRepository triggerAssociationRepository;
@@ -68,7 +74,17 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
-    protected abstract EventContext<T> prepareContext(EventMessage eventMessage) throws EventException;
+    protected EventHandler(SecurityFilterRepository<T, UUID> repository, RuleEvaluator<T> ruleEvaluator) {
+        this.repository = repository;
+        this.ruleEvaluator = ruleEvaluator;
+    }
+
+    protected EventContext<T> prepareContext(EventMessage eventMessage) throws EventException {
+        T resourceObject = repository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "%s with UUID %s not found".formatted(eventMessage.getResource().getLabel(), eventMessage.getObjectUuid())));
+
+        // TODO: load triggers from platform
+        return new EventContext<>(eventMessage, ruleEvaluator, resourceObject);
+    }
 
     public void handleEvent(EventMessage eventMessage) throws EventException {
         logger.debug("Going to handle event '{}'", eventMessage.getResourceEvent().getLabel());
