@@ -20,11 +20,18 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Duration;
 import java.util.UUID;
 
 class NotificationProfileServiceTest extends BaseSpringBootTest {
+
+    @DynamicPropertySource
+    static void authServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+    }
 
     @Autowired
     private GroupService groupService;
@@ -83,11 +90,15 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("{ \"username\": \"ownerName\"}")
-        ));
+        UUID roleUuid = UUID.randomUUID();
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+")).willReturn(
-                WireMock.okJson("{ \"name\": \"TestRole\"}")
+                WireMock.okJson("""
+                        {
+                            "uuid": "%s",
+                            "name": "TestRole",
+                            "systemRole": false
+                        },
+                        """.formatted(roleUuid.toString()))
         ));
 
         NotificationProfileUpdateRequestDto requestDto = new NotificationProfileUpdateRequestDto();
@@ -97,16 +108,14 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         NotificationProfileDetailDto updatedNotificationProfileDetailDto = notificationProfileService.editNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), requestDto);
         Assertions.assertEquals(originalNotificationProfile.getVersion(), updatedNotificationProfileDetailDto.getVersion(), "Versions should not change, no change in profile props");
 
-        GroupRequestDto groupRequestDto = new GroupRequestDto();
-        groupRequestDto.setName("Test group");
-        GroupDto groupDto = groupService.createGroup(groupRequestDto);
-
         requestDto.setFrequency(Duration.ofDays(1));
         requestDto.setRepetitions(5);
         requestDto.setRecipientType(RecipientType.ROLE);
-        requestDto.setRecipientUuid(UUID.randomUUID());
+        requestDto.setRecipientUuid(roleUuid);
         updatedNotificationProfileDetailDto = notificationProfileService.editNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), requestDto);
         Assertions.assertEquals(originalNotificationProfile.getVersion() + 1, updatedNotificationProfileDetailDto.getVersion(), "Versions should change, updated profile props");
+        Assertions.assertEquals(requestDto.getRecipientType(), updatedNotificationProfileDetailDto.getRecipient().getType(), "Recipient type should be correct");
+        Assertions.assertEquals(roleUuid.toString(), updatedNotificationProfileDetailDto.getRecipient().getUuid(), "Recipient type should be correct");
 
         NotificationProfileDetailDto olderVersion = notificationProfileService.getNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), originalNotificationProfile.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getVersion(), olderVersion.getVersion());
