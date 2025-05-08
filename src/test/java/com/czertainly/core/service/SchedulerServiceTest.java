@@ -109,7 +109,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         certificateDomainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(certificateDomainAttr, List.of(Resource.CERTIFICATE));
 
-        // create condition
+        // create conditions
         ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
         conditionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
         conditionItemRequest.setFieldIdentifier(FilterField.COMMON_NAME.name());
@@ -123,12 +123,22 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         conditionRequest.setItems(List.of(conditionItemRequest));
         ConditionDto condition = ruleService.createCondition(conditionRequest);
 
+        // create ignore condition
+        conditionItemRequest.setValue(".com");
+        conditionRequest.setName("CommonNameEndsCOMCondition");
+        ConditionDto conditionIgnore = ruleService.createCondition(conditionRequest);
+
         // create rule
         RuleRequestDto ruleRequest = new RuleRequestDto();
         ruleRequest.setName("CommonNameEndsCZRule");
         ruleRequest.setResource(Resource.CERTIFICATE);
         ruleRequest.setConditionsUuids(List.of(condition.getUuid()));
         RuleDetailDto rule = ruleService.createRule(ruleRequest);
+
+        // create ignore rule
+        ruleRequest.setName("CommonNameEndsCOMRule");
+        ruleRequest.setConditionsUuids(List.of(conditionIgnore.getUuid()));
+        RuleDetailDto ruleIgnore = ruleService.createRule(ruleRequest);
 
         // create execution
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
@@ -159,6 +169,13 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         triggerRequest.setRulesUuids(List.of(rule.getUuid()));
         triggerRequest.setActionsUuids(List.of(action.getUuid()));
         TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
+
+        // create ignore trigger
+        triggerRequest.setName("DiscoveryCertificatesCategorizationIgnore");
+        triggerRequest.setRulesUuids(List.of(ruleIgnore.getUuid()));
+        triggerRequest.setIgnoreTrigger(true);
+        triggerRequest.setActionsUuids(List.of());
+        TriggerDetailDto triggerIgnore = triggerService.createTrigger(triggerRequest);
 
         WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
@@ -192,7 +209,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         discoveryDto.setKind("IP-Hostname");
         discoveryDto.setConnectorUuid(connector.getUuid().toString());
         discoveryDto.setAttributes(List.of());
-        discoveryDto.setTriggers(List.of(UUID.fromString(trigger.getUuid())));
+        discoveryDto.setTriggers(List.of(UUID.fromString(triggerIgnore.getUuid()), UUID.fromString(trigger.getUuid())));
 
         ScheduledJob scheduledJobEntity = new ScheduledJob();
         scheduledJobEntity.setJobName(jobName);
@@ -217,6 +234,11 @@ class SchedulerServiceTest extends BaseSpringBootTest {
                         {
                             "uuid": "ea119f0f-80fb-4d51-aa43-a049f9794a80",
                             "base64Content": "MIIDzDCCArSgAwIBAgIUZIyXNStxHEmQiOtuYAj7C7fJ9NQwDQYJKoZIhvcNAQELBQAwZTEVMBMGA1UEAwwMdGVzdGNlcnQuY29tMQswCQYDVQQGEwJDWjEYMBYGA1UECAwPQ2VudHJhbCBCb2hlbWlhMQ8wDQYDVQQHDAZTbGFuw70xFDASBgNVBAoMCzNLZXlDb21wYW55MB4XDTI0MTAyMTEwMzUwOFoXDTI1MTAyMTEwMzUwOFowZTEVMBMGA1UEAwwMdGVzdGNlcnQuY29tMQswCQYDVQQGEwJDWjEYMBYGA1UECAwPQ2VudHJhbCBCb2hlbWlhMQ8wDQYDVQQHDAZTbGFuw70xFDASBgNVBAoMCzNLZXlDb21wYW55MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA2CDSXCL/6oE6jOHAxmPMwPSz11P4A4On0R2vo4ff6828lztprQZfdZFpDHiTMi8KRmZWCLtvbwO9inrIB0Ucs0psOuDOOuQdBe6PxmED2jG0NZFXk6N2oz4Ii8HjzDdvkNuPPDSPRrNoHZj4AGp00e5Eap5BXjEyWfp+Q/YO8Jxe96VFRtjZAV2u0/ooX1iu79E9Kuy59dyddGUTP0NCFML21VNp+G2LSRdDjlXPAjpftZ/f2l/1/6V55HI78R2fH801fEgwsPfB60k/LGX5O4f7erbZmTTUxCAq2LUZ4jjbJmuxqI9ExJkI0Oj5f1del6/216VVGZzB3OsaniatfQIDAQABo3QwcjAdBgNVHQ4EFgQUWLvLB6z1rgd0blgV8FPXHYXJQqgwHwYDVR0jBBgwFoAUWLvLB6z1rgd0blgV8FPXHYXJQqgwDgYDVR0PAQH/BAQDAgWgMCAGA1UdJQEB/wQWMBQGCCsGAQUFBwMBBggrBgEFBQcDAjANBgkqhkiG9w0BAQsFAAOCAQEADYJZwsU1ucUOvq45aGZ4T9/4/H8Cy+HE761j+9CB6IV2ARnM5xG9CLSKRaDkzHwwbtREJljCcg1b8ZzjmGwjwBqvHDesWw87oz/6w2CdqEoILnUxkYoLLQ6wRtEKSUZEUzeEwqeVVcvo6TrsVz3dPkoeHubkEhhdaNyOjtbQs2F3JMrjhXsu2vXJ4D7ugFAsMx4w2LsxYLuAeG/njXseca80G+0f8NqFz+q4WpjxNdSY1Z4FrP2OGkVpSjFzJEWwMsdXSKB3QjaL1XW7QSjgefVXA+NPpgzXlFvxo+c4SnoCZ3QwcQIQ+QEEwCwA9Xvw96cFheLinFmLLsuobsNEHQ==",
+                            "meta": []
+                        },
+                        {
+                            "uuid": "dd601efe-0252-4b65-bd68-967201122dc8",
+                            "base64Content": "MIIDZTCCAkygAwIBAgIBADANBgkqhkiG9w0BAQ0FADBMMQswCQYDVQQGEwJzazERMA8GA1UECAwIU2xvdmFraWExFDASBgNVBAoMC1Rlc3RDb21wYW55MRQwEgYDVQQDDAt0ZXN0Y2VydC5zazAeFw0yNTA1MDgxMjQ1MjZaFw0yNjA1MDgxMjQ1MjZaMEwxCzAJBgNVBAYTAnNrMREwDwYDVQQIDAhTbG92YWtpYTEUMBIGA1UECgwLVGVzdENvbXBhbnkxFDASBgNVBAMMC3Rlc3RjZXJ0LnNrMIIBIzANBgkqhkiG9w0BAQEFAAOCARAAMIIBCwKCAQIArQGMK3T2SgsCI+zxOkUK2FPAr/RArYb9PDn7SEa9j+HvQIMSIo3wHnI5X/jUwt113uy3QIyvvE4mLVc8IM+IPxXSrlGdrCMgjbPKsS+Byz1hixP7q5pMPl+GW7IlqCCV4HKxpVwIPOHc8kDKj45kZlG/kg1cjYjIcut0nMwE8yYkQJJt3fDmV+MMrGdFwTcpD+FMxwYLwtTfNXyjZmjbVjsztdP5UmVpnVMJEBQK3ghyev1jjN9loGuvebUIuYLPkN+ppZKpdZTMo+KTZI0G43GTK9nb4eAz9SATk4aea64yAIlO8CLkGOzCG+rhABSFQGJQNfqjqdg5N/+oUq9ETC8CAwEAAaNQME4wHQYDVR0OBBYEFEJImX9Y09Nf4y4RbodubMU8qb/NMB8GA1UdIwQYMBaAFEJImX9Y09Nf4y4RbodubMU8qb/NMAwGA1UdEwQFMAMBAf8wDQYJKoZIhvcNAQENBQADggECAE+HNIPiaFGIwNrCxqkeRIlyNPfcG3sQPbcdFZyvGtmvRO62IoXq3YLRMQh9eMQ6fPyR/3Tf5EcQE/8RMiC1Of4hLeCHiptHYg3QslP0Cm15UGDTSg1A0ehG/KvINSfwxJr3r62MmaulgLE+1rvatyAsEDVkxdTGdKvsE8eTu8jS7KYaV27/rKmzDgB8VKbfkHBRUVEgsbbaUVdsM0vDVUMNZIn3voWnaq7zE+dwvSLds/95L/cGvhfEH6Vq5k5piBp3Nwpj8X0JABCmyk9ihbmecIhNeY/tWA/cr3sPwC+Gy2ezPbTO0siEEjAleD4DjP3NfGjfSNJnzOGcoBMRxUPN",
                             "meta": []
                         }
                     ],
@@ -263,11 +285,12 @@ class SchedulerServiceTest extends BaseSpringBootTest {
 
         // assert triggers evaluation
         TriggerHistorySummaryDto triggerSummary = triggerService.getTriggerHistorySummary(discovery.getUuid().toString());
-        Assertions.assertEquals(2, triggerSummary.getObjectsEvaluated());
-        Assertions.assertEquals(1, triggerSummary.getObjectsMatched());
+        Assertions.assertEquals(3, triggerSummary.getObjectsEvaluated());
+        Assertions.assertEquals(2, triggerSummary.getObjectsMatched());
+        Assertions.assertEquals(1, triggerSummary.getObjectsIgnored());
 
         DiscoveryCertificateResponseDto discoveredCertificates = discoveryService.getDiscoveryCertificates(discovery.getSecuredUuid(), null, 10, 1);
-        Assertions.assertEquals(2, discoveredCertificates.getCertificates().size());
+        Assertions.assertEquals(3, discoveredCertificates.getCertificates().size());
 
         boolean matched = false;
         for (DiscoveryCertificateDto discoveryCertificate : discoveredCertificates.getCertificates()) {
