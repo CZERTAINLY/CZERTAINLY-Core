@@ -19,7 +19,6 @@ public enum Resource {
     CONNECTOR("connectors"),
     ATTRIBUTE("attributes"),
     SCHEDULED_JOB("jobs"),
-    NOTIFICATION_INSTANCE("notificationInstances"),
 
     // AUTH
     USER("users"),
@@ -55,8 +54,12 @@ public enum Resource {
     // APPROVALS
     APPROVAL_PROFILE("approvalProfiles"),
     APPROVAL("approvals"),
-    // WORKFLOWS
 
+    // NOTIFICATIONS
+    NOTIFICATION_PROFILE("notificationProfiles"),
+    NOTIFICATION_INSTANCE("notificationInstances"),
+
+    // WORKFLOWS
     RULE("rules"),
     ACTION("actions"),
     TRIGGER("triggers"),

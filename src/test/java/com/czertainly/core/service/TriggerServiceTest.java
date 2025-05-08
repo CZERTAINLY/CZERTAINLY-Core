@@ -34,6 +34,7 @@ class TriggerServiceTest extends BaseSpringBootTest {
         // create trigger
         TriggerRequestDto triggerRequest = new TriggerRequestDto();
         triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.CERTIFICATE_DISCOVERED);
 
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without name should fail");
 
@@ -41,12 +42,6 @@ class TriggerServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without resource should fail");
 
         triggerRequest.setResource(Resource.CERTIFICATE);
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without event resource should fail");
-
-        triggerRequest.setEventResource(Resource.DISCOVERY);
-        Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without event name should fail");
-
-        triggerRequest.setEvent(ResourceEvent.DISCOVERY_FINISHED);
         Assertions.assertThrows(ValidationException.class, () -> triggerService.createTrigger(triggerRequest), "Creating trigger without actions should fail");
 
         CustomAttribute certificateDomainAttr = new CustomAttribute();

@@ -24,7 +24,7 @@ import com.czertainly.core.dao.entity.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.NotificationInstanceReference;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.NotificationInstanceReferenceRepository;
-import com.czertainly.core.enums.RecipientTypeEnum;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -166,7 +166,7 @@ public class NotificationListener {
             NotificationRecipientDto recipientDto = null;
             List<ResponseAttributeDto> recipientCustomAttributes = List.of();
 
-            if (recipient.getRecipientType().equals(RecipientTypeEnum.USER)) {
+            if (recipient.getRecipientType().equals(RecipientType.USER)) {
                 UUID recipientUuid = recipient.getRecipientUuid();
                 try {
                     UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(recipientUuid.toString());
@@ -179,7 +179,7 @@ public class NotificationListener {
                     logger.warn("User with UUID {} was not found, notification was not sent for this user.", recipientUuid);
                 }
             }
-            if (recipient.getRecipientType().equals(RecipientTypeEnum.ROLE)) {
+            if (recipient.getRecipientType().equals(RecipientType.ROLE)) {
                 UUID roleUuid = recipient.getRecipientUuid();
                 try {
                     RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(roleUuid.toString());
@@ -197,7 +197,7 @@ public class NotificationListener {
                     logger.warn("Role with UUID {} was not found, notification was not sent for this role.", roleUuid);
                 }
             }
-            if (recipient.getRecipientType().equals(RecipientTypeEnum.GROUP)) {
+            if (recipient.getRecipientType().equals(RecipientType.GROUP)) {
                 UUID groupUuid = recipient.getRecipientUuid();
                 Optional<Group> group = groupRepository.findByUuid(groupUuid);
                 if (group.isPresent()) {

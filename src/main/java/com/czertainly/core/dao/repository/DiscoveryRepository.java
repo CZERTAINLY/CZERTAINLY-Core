@@ -10,7 +10,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface DiscoveryRepository extends SecurityFilterRepository<DiscoveryHistory, Long> {
+public interface DiscoveryRepository extends SecurityFilterRepository<DiscoveryHistory, UUID> {
 
     Optional<DiscoveryHistory> findByUuid(UUID uuid);
 

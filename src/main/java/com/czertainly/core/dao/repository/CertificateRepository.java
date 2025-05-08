@@ -18,7 +18,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface CertificateRepository extends SecurityFilterRepository<Certificate, Long>, CustomCertificateRepository {
+public interface CertificateRepository extends SecurityFilterRepository<Certificate, UUID>, CustomCertificateRepository {
 
     @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
