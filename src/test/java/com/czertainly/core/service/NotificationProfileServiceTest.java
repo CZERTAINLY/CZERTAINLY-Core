@@ -14,6 +14,8 @@ import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -77,6 +79,17 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testUpdateNotificationProfile() throws NotFoundException, AlreadyExistException, AttributeException {
+        WireMockServer mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"ownerName\"}")
+        ));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+")).willReturn(
+                WireMock.okJson("{ \"name\": \"TestRole\"}")
+        ));
+
         NotificationProfileUpdateRequestDto requestDto = new NotificationProfileUpdateRequestDto();
         requestDto.setDescription("Updated description");
         requestDto.setRecipientType(RecipientType.OWNER);
@@ -90,14 +103,16 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
 
         requestDto.setFrequency(Duration.ofDays(1));
         requestDto.setRepetitions(5);
-        requestDto.setRecipientType(RecipientType.GROUP);
-        requestDto.setRecipientUuid(UUID.fromString(groupDto.getUuid()));
+        requestDto.setRecipientType(RecipientType.ROLE);
+        requestDto.setRecipientUuid(UUID.randomUUID());
         updatedNotificationProfileDetailDto = notificationProfileService.editNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), requestDto);
         Assertions.assertEquals(originalNotificationProfile.getVersion() + 1, updatedNotificationProfileDetailDto.getVersion(), "Versions should change, updated profile props");
 
         NotificationProfileDetailDto olderVersion = notificationProfileService.getNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), originalNotificationProfile.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getVersion(), olderVersion.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getRecipient().getType(), olderVersion.getRecipient().getType());
+
+        mockServer.shutdown();
     }
 
     @Test

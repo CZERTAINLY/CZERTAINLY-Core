@@ -111,7 +111,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         approvalProfileRequestDto.setEnabled(true);
 
         ApprovalStepRequestDto approvalStepRequestDto = new ApprovalStepRequestDto();
-        approvalStepRequestDto.setUserUuid(UUID.randomUUID());
+        approvalStepRequestDto.setRoleUuid(UUID.randomUUID());
         approvalStepRequestDto.setRequiredApprovals(1);
         approvalStepRequestDto.setOrder(1);
         approvalProfileRequestDto.getApprovalSteps().add(approvalStepRequestDto);
@@ -129,7 +129,6 @@ class EventHandlersTest extends BaseSpringBootTest {
         approval = approvalRepository.save(approval);
 
         ApprovalStepDto approvalStepDto = approvalProfile.getTheLatestApprovalProfileVersion().getApprovalSteps().getFirst().mapToDto();
-        approvalStepDto.setUserUuid(null);
         approvalRequestedEventHandler.handleEvent(ApprovalRequestedEventHandler.constructEventMessage(approval.getUuid(), approvalStepDto));
         historyList = certificateEventHistoryService.getCertificateEventHistory(certificate.getUuid());
         Assertions.assertEquals(2, historyList.size());
