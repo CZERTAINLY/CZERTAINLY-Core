@@ -3,14 +3,17 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.GroupAssociation;
 import com.czertainly.core.dao.entity.OwnerAssociation;
 import com.czertainly.core.dao.repository.GroupAssociationRepository;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.OwnerAssociationRepository;
+import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.util.AuthHelper;
@@ -28,12 +31,14 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     private static final Logger logger = LoggerFactory.getLogger(ResourceObjectAssociationServiceImpl.class);
 
     private UserManagementApiClient userManagementApiClient;
+    private RoleManagementApiClient roleManagementApiClient;
 
     private GroupRepository groupRepository;
     private GroupAssociationRepository groupAssociationRepository;
     private OwnerAssociationRepository ownerAssociationRepository;
 
     private final Map<UUID, String> mappedUsers = new HashMap<>();
+    private final Map<UUID, String> mappedRoles = new HashMap<>();
 
     @Autowired
     public void setGroupAssociationRepository(GroupAssociationRepository groupAssociationRepository) {
@@ -53,6 +58,11 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     @Autowired
     public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
         this.userManagementApiClient = userManagementApiClient;
+    }
+
+    @Autowired
+    public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
+        this.roleManagementApiClient = roleManagementApiClient;
     }
 
     @Override
@@ -121,15 +131,7 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
             }
         } else {
             if (ownerAssociation == null || !ownerAssociation.getOwnerUuid().equals(ownerUuid)) {
-                if ((ownerUsername = mappedUsers.get(ownerUuid)) == null) {
-                    try {
-                        UserDetailDto userDetail = userManagementApiClient.getUserDetail(ownerUuid.toString());
-                        ownerUsername = userDetail.getUsername();
-                        mappedUsers.put(ownerUuid, ownerUsername);
-                    } catch (Exception ex) {
-                        throw new NotFoundException("User", ownerUuid);
-                    }
-                }
+                ownerUsername = getUserUsername(ownerUuid);
 
                 if (ownerAssociation == null) {
                     createOwnerAssociation(resource, objectUuid, ownerUuid, ownerUsername);
@@ -167,6 +169,21 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     public void removeObjectAssociations(Resource resource, UUID objectUuid) {
         removeOwner(resource, objectUuid);
         removeGroups(resource, objectUuid);
+    }
+
+    @Override
+    public NameAndUuidDto getAssociationObjectInfo(RecipientType recipientType, UUID objectUuid) throws NotFoundException {
+        String name = switch (recipientType) {
+            case USER -> getUserUsername(objectUuid);
+            case GROUP -> {
+                Group group = groupRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Group.class, objectUuid));
+                yield group.getName();
+            }
+            case ROLE -> getRoleName(objectUuid);
+            default -> null;
+        };
+
+        return name == null ? null : new NameAndUuidDto(objectUuid.toString(), name);
     }
 
     private void removeGroups(Resource resource, UUID objectUuid) {
@@ -223,5 +240,35 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
         association.setOwnerUuid(ownerUuid);
         association.setOwnerUsername(username);
         ownerAssociationRepository.save(association);
+    }
+
+    private String getUserUsername(UUID userUuid) throws NotFoundException {
+        String username;
+        if ((username = mappedUsers.get(userUuid)) == null) {
+            try {
+                UserDetailDto userDetail = userManagementApiClient.getUserDetail(userUuid.toString());
+                username = userDetail.getUsername();
+                mappedUsers.put(userUuid, username);
+            } catch (Exception ex) {
+                throw new NotFoundException("User", userUuid);
+            }
+        }
+
+        return username;
+    }
+
+    private String getRoleName(UUID roleUuid) throws NotFoundException {
+        String name;
+        if ((name = mappedRoles.get(roleUuid)) == null) {
+            try {
+                RoleDetailDto roleDetail = roleManagementApiClient.getRoleDetail(roleUuid.toString());
+                name = roleDetail.getName();
+                mappedRoles.put(roleUuid, name);
+            } catch (Exception ex) {
+                throw new NotFoundException("Role", roleUuid);
+            }
+        }
+
+        return name;
     }
 }

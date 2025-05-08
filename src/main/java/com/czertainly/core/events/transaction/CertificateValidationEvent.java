@@ -1,4 +1,4 @@
-package com.czertainly.core.event.transaction;
+package com.czertainly.core.events.transaction;
 
 import java.util.List;
 import java.util.UUID;

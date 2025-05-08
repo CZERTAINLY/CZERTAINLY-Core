@@ -19,7 +19,7 @@ public interface DiscoveryCertificateRepository extends SecurityFilterRepository
     List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history, Pageable pagable);
 
     @EntityGraph(attributePaths = {"certificateContent"})
-    List<DiscoveryCertificate> findByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered, Pageable pageable);
+    List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscovered(UUID discoveryUuid, boolean newlyDiscovered, Pageable pageable);
 
     long countByDiscovery(DiscoveryHistory history);
 

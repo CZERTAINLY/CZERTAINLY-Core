@@ -28,8 +28,13 @@ public class TriggerHistory extends UniquelyIdentified {
     @ToString.Exclude
     private Trigger trigger;
 
-    @Column(name = "trigger_association_object_uuid")
-    private UUID triggerAssociationObjectUuid;
+    @Column(name = "trigger_association_uuid")
+    private UUID triggerAssociationUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "trigger_association_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private TriggerAssociation triggerAssociation;
 
     @Column(name = "object_uuid")
     private UUID objectUuid;
@@ -45,6 +50,9 @@ public class TriggerHistory extends UniquelyIdentified {
 
     @Column(name = "triggered_at", nullable = false)
     private OffsetDateTime triggeredAt;
+
+    @Column(name = "triggered_by")
+    private UUID triggeredBy;
 
     @Column(name = "message")
     private String message;

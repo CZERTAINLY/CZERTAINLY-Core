@@ -17,7 +17,7 @@ import java.util.UUID;
 @ToString
 @RequiredArgsConstructor
 @MappedSuperclass
-public abstract class UniquelyIdentifiedAndAudited extends Audited {
+public abstract class UniquelyIdentifiedAndAudited extends Audited implements UniquelyIdentifiedObject {
 
     @Id
     @Column(name = "uuid", nullable = false, updatable = false)

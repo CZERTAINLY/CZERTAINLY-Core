@@ -1,4 +1,4 @@
-package com.czertainly.core.event.transaction;
+package com.czertainly.core.events.transaction;
 
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.tasks.ScheduledJobInfo;

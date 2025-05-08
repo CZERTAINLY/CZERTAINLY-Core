@@ -9,10 +9,8 @@ import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
 
-import java.util.List;
-import java.util.Objects;
+import java.util.Set;
 
 @Getter
 @Setter
@@ -27,7 +25,7 @@ public class Trigger extends UniquelyIdentified {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "type", nullable = false)
+    @Column(name = "type")
     @Enumerated(EnumType.STRING)
     private TriggerType type;
 
@@ -42,17 +40,13 @@ public class Trigger extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private ResourceEvent event;
 
-    @Column(name = "event_resource")
-    @Enumerated(EnumType.STRING)
-    private Resource eventResource;
-
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
             name = "trigger_2_rule",
             joinColumns = @JoinColumn(name = "trigger_uuid"),
             inverseJoinColumns = @JoinColumn(name = "rule_uuid"))
     @ToString.Exclude
-    private List<Rule> rules;
+    private Set<Rule> rules;
 
     @ManyToMany(fetch = FetchType.LAZY)
     @JoinTable(
@@ -60,7 +54,7 @@ public class Trigger extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "trigger_uuid"),
             inverseJoinColumns = @JoinColumn(name = "action_uuid"))
     @ToString.Exclude
-    private List<Action> actions;
+    private Set<Action> actions;
 
     public TriggerDto mapToDto() {
         TriggerDto triggerDto = new TriggerDto();
@@ -85,22 +79,16 @@ public class Trigger extends UniquelyIdentified {
         triggerDto.setResource(resource);
         triggerDto.setIgnoreTrigger(ignoreTrigger);
         triggerDto.setEvent(event);
-        triggerDto.setEventResource(eventResource);
     }
 
     @Override
-    public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        Trigger trigger = (Trigger) o;
-        return getUuid() != null && Objects.equals(getUuid(), trigger.getUuid());
+    public boolean equals(Object o) {
+        return super.equals(o);
     }
 
     @Override
-    public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    public int hashCode() {
+        return super.hashCode();
     }
+
 }

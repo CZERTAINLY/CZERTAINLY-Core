@@ -514,6 +514,19 @@ class AuthServiceTest extends BaseSpringBootTest {
                         ]
                     },
                     {
+                        "uuid": "21fb8c77-328a-4d58-82bb-df092affb93f",
+                        "name": "notificationProfiles",
+                        "displayName": "Notification Profiles",
+                        "objectAccess": false,
+                        "actions": [
+                          {
+                            "uuid": "df199f09-142b-4256-be1a-3140727a6c39",
+                            "name": "list",
+                            "displayName": "List"
+                          }
+                        ]
+                    },
+                    {
                         "uuid": "23c08ec0-ec49-4253-a69c-f7fd3296363a",
                         "name": "raProfiles",
                         "displayName": "Ra Profiles",

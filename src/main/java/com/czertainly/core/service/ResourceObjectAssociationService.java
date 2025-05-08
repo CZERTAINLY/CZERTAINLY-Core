@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.Group;
 
 import java.util.List;
@@ -22,4 +23,6 @@ public interface ResourceObjectAssociationService {
     void removeOwnerAssociations(UUID ownerUuid);
 
     void removeObjectAssociations(Resource resource, UUID objectUuid);
+
+    NameAndUuidDto getAssociationObjectInfo(RecipientType recipientType, UUID objectUuid) throws NotFoundException;
 }

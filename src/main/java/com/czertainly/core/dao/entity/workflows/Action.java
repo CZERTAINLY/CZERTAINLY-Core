@@ -11,7 +11,6 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -39,7 +38,7 @@ public class Action extends UniquelyIdentified {
             joinColumns = @JoinColumn(name = "action_uuid"),
             inverseJoinColumns = @JoinColumn(name = "execution_uuid"))
     @ToString.Exclude
-    private List<Execution> executions;
+    private Set<Execution> executions;
 
     @JsonBackReference
     @ManyToMany(mappedBy = "actions", fetch = FetchType.LAZY)
