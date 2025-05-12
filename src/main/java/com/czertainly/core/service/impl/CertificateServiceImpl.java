@@ -448,7 +448,7 @@ public class CertificateServiceImpl implements CertificateService {
                 if (loggedUserUuid == null) {
                     loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
                 }
-                notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to update properties of the certificate " + certificateUuid, e.getMessage());
+                notificationProducer.produceInternalNotificationMessage(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to update properties of the certificate " + certificateUuid, e.getMessage());
             }
         }
     }
@@ -482,7 +482,7 @@ public class CertificateServiceImpl implements CertificateService {
                     if (loggedUserUuid == null) {
                         loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
                     }
-                    notificationProducer.produceNotificationText(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + certificateUuid, e.getMessage());
+                    notificationProducer.produceInternalNotificationMessage(Resource.CERTIFICATE, certificateUuid.getValue(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Unable to delete the certificate " + certificateUuid, e.getMessage());
                 }
             }
             logger.debug("Bulk deleted {} of {} certificates.", deletedCount, request.getUuids().size());

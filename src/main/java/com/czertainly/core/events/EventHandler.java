@@ -9,7 +9,7 @@ import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
-import com.czertainly.core.evaluator.RuleEvaluator;
+import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
@@ -23,7 +23,6 @@ import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -38,10 +37,9 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     protected NotificationProducer notificationProducer;
     protected ApplicationEventPublisher applicationEventPublisher;
 
-    protected final RuleEvaluator<T> ruleEvaluator;
+    protected final TriggerEvaluator<T> triggerEvaluator;
     protected final SecurityFilterRepository<T, UUID> repository;
 
-    private TriggerService triggerService;
     private TriggerAssociationRepository triggerAssociationRepository;
 
     @Autowired
@@ -65,26 +63,23 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     @Autowired
-    public void setTriggerService(TriggerService triggerService) {
-        this.triggerService = triggerService;
-    }
-
-    @Autowired
     public void setTriggerAssociationRepository(TriggerAssociationRepository triggerAssociationRepository) {
         this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
-    protected EventHandler(SecurityFilterRepository<T, UUID> repository, RuleEvaluator<T> ruleEvaluator) {
+    protected EventHandler(SecurityFilterRepository<T, UUID> repository, TriggerEvaluator<T> triggerEvaluator) {
         this.repository = repository;
-        this.ruleEvaluator = ruleEvaluator;
+        this.triggerEvaluator = triggerEvaluator;
     }
 
     protected EventContext<T> prepareContext(EventMessage eventMessage) throws EventException {
         T resourceObject = repository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "%s with UUID %s not found".formatted(eventMessage.getResource().getLabel(), eventMessage.getObjectUuid())));
 
         // TODO: load triggers from platform
-        return new EventContext<>(eventMessage, ruleEvaluator, resourceObject);
+        return new EventContext<>(eventMessage, triggerEvaluator, resourceObject, getEventData(resourceObject, eventMessage.getData()));
     }
+
+    protected abstract Object getEventData(T object, Object eventMessageData);
 
     public void handleEvent(EventMessage eventMessage) throws EventException {
         logger.debug("Going to handle event '{}'", eventMessage.getResourceEvent().getLabel());
@@ -112,58 +107,35 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
 
     protected void processAllTriggers(EventContext<T> context) {
         logger.debug("Going to process {} triggers on {} objects registered for event '{}'", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size(), context.getResourceEvent().getLabel());
-        for (T resourceObject : context.getResourceObjects()) {
-            // First, check the triggers that have action with action type set to ignore
-            List<TriggerHistory> triggerHistories = new ArrayList<>();
+        for (int i = 0; i < context.getResourceObjects().size(); i++) {
+            T resourceObject = context.getResourceObjects().get(i);
+            Object eventData = context.getResourceObjectsEventData().get(i);
             try {
-                boolean processed = processIgnoreTriggers(context, resourceObject, null, triggerHistories);
+                // First, check the ignore triggers
+                boolean isIgnored = false;
+                for (TriggerAssociation triggerAssociation : context.getIgnoreTriggers()) {
+                    Trigger trigger = triggerAssociation.getTrigger();
+                    TriggerHistory triggerHistory = context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
+                    if (triggerHistory.isActionsPerformed()) {
+                        isIgnored = true;
+                    }
+                }
 
                 // If some trigger ignored this object, processing is stopped
-                if (!processed) {
+                if (isIgnored) {
                     continue;
                 }
 
-                processTriggers(context, resourceObject, null, triggerHistories);
+                // Evaluate rest of the triggers in given order
+                for (TriggerAssociation triggerAssociation : context.getTriggers()) {
+                    // Create trigger history entry
+                    Trigger trigger = triggerAssociation.getTrigger();
+                    context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
+                }
             } catch (RuleException e) {
                 logger.error("Unable to process trigger on {} object {}. Message: {}", context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
             }
         }
         logger.debug("Triggers of event '{}' successfully handled", context.getResourceEvent().getLabel());
-    }
-
-    protected boolean processIgnoreTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
-        for (TriggerAssociation triggerAssociation : context.getIgnoreTriggers()) {
-            Trigger trigger = triggerAssociation.getTrigger();
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation.getUuid(), resourceObject.getUuid(), referenceObjectUuid);
-            triggerHistories.add(triggerHistory);
-            if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
-                triggerHistory.setConditionsMatched(true);
-                triggerHistory.setActionsPerformed(true);
-                return false;
-            } else {
-                triggerHistory.setConditionsMatched(false);
-                triggerHistory.setActionsPerformed(false);
-            }
-        }
-        return true;
-    }
-
-    protected void processTriggers(EventContext<T> context, T resourceObject, UUID referenceObjectUuid, List<TriggerHistory> triggerHistories) throws RuleException {
-        // Evaluate rest of the triggers in given order
-        for (TriggerAssociation triggerAssociation : context.getTriggers()) {
-            // Create trigger history entry
-            Trigger trigger = triggerAssociation.getTrigger();
-            TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociation.getUuid(), resourceObject.getUuid(), referenceObjectUuid);
-            triggerHistories.add(triggerHistory);
-            // If rules are satisfied, perform defined actions
-            if (context.getRuleEvaluator().evaluateRules(trigger.getRules(), resourceObject, triggerHistory)) {
-                triggerHistory.setConditionsMatched(true);
-                context.getRuleEvaluator().performActions(trigger, resourceObject, triggerHistory);
-                triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
-            } else {
-                triggerHistory.setConditionsMatched(false);
-                triggerHistory.setActionsPerformed(false);
-            }
-        }
     }
 }

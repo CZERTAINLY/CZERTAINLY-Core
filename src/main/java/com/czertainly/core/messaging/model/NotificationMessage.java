@@ -1,38 +1,39 @@
 package com.czertainly.core.messaging.model;
 
-import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import lombok.ToString;
 
 import java.util.List;
 import java.util.UUID;
 
 @Getter
+@ToString
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class NotificationMessage {
 
-    private NotificationType type;
+    private ResourceEvent event;
 
     private Resource resource;
 
-    private UUID resourceUUID;
+    private UUID objectUuid;
 
-    private Object data;
+    private UUID notificationProfileUuid;
 
     private List<NotificationRecipient> recipients;
 
-    public NotificationMessage(NotificationType type, Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, Object data) {
-        this.type = type;
+    private Object data;
+
+    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid, UUID notificationProfileUuid, List<NotificationRecipient> recipients, Object data) {
+        this.event = event;
         this.resource = resource;
-        this.resourceUUID = resourceUUID;
+        this.objectUuid = objectUuid;
+        this.notificationProfileUuid = notificationProfileUuid;
         this.recipients = recipients;
         this.data = data;
     }
 
-    @Override
-    public String toString() {
-        return String.format("NotificationMessage (%s, %s, %s, %s, %s)", type, resource, resourceUUID, recipients, data);
-    }
 }

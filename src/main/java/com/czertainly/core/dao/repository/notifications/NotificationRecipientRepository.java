@@ -1,7 +1,7 @@
-package com.czertainly.core.dao.repository;
+package com.czertainly.core.dao.repository.notifications;
 
 import com.czertainly.api.model.client.notification.NotificationDto;
-import com.czertainly.core.dao.entity.NotificationRecipient;
+import com.czertainly.core.dao.entity.notifications.NotificationRecipient;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;

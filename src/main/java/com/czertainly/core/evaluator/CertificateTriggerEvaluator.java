@@ -19,7 +19,7 @@ import java.util.*;
 
 @Component(Resource.Codes.CERTIFICATE)
 @Transactional
-public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
+public class CertificateTriggerEvaluator extends TriggerEvaluator<Certificate> {
 
     private CertificateService certificateService;
 
@@ -29,7 +29,7 @@ public class CertificateRuleEvaluator extends RuleEvaluator<Certificate> {
     }
 
     @Override
-    public void performAction(ExecutionItem executionItem, Certificate object, Resource resource) throws NotFoundException, AttributeException, CertificateOperationException, RuleException {
+    public void performAction(ExecutionItem executionItem, Certificate object, Resource resource) throws NotFoundException, AttributeException, RuleException, CertificateOperationException {
         if (executionItem.getFieldSource() != FilterFieldSource.PROPERTY) {
             super.performAction(executionItem, object, Resource.CERTIFICATE);
             return;

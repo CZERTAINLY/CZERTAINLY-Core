@@ -1,29 +1,16 @@
 package com.czertainly.core.messaging.producers;
 
-import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.approval.ApprovalDto;
-import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
-import com.czertainly.api.model.connector.notification.NotificationType;
-import com.czertainly.api.model.connector.notification.data.*;
+import com.czertainly.api.model.common.events.data.InternalNotificationEventData;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.auth.UserDetailDto;
-import com.czertainly.api.model.core.auth.UserProfileDto;
-import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.security.authn.client.UserManagementApiClient;
-import com.czertainly.core.util.AuthHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
-import java.time.ZoneId;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -34,26 +21,29 @@ public class NotificationProducer {
 
     private RabbitTemplate rabbitTemplate;
 
-    private UserManagementApiClient userManagementApiClient;
-
     @Autowired
     public void setRabbitTemplate(final RabbitTemplate rabbitTemplate) {
         this.rabbitTemplate = rabbitTemplate;
     }
 
-    @Autowired
-    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
-        this.userManagementApiClient = userManagementApiClient;
-    }
-
-    protected void produceMessage(final NotificationMessage notificationMessage) {
+    public void produceMessage(final NotificationMessage notificationMessage) {
         if (notificationMessage.getRecipients() == null || notificationMessage.getRecipients().isEmpty()) {
-            logger.warn("Recipients for notification {} is empty. Message: {}", notificationMessage.getType(), notificationMessage);
+            logger.warn("Recipients for notification of event {} is empty. Message: {}", notificationMessage.getEvent().getLabel(), notificationMessage);
         } else {
             rabbitTemplate.convertAndSend(RabbitMQConstants.EXCHANGE_NAME, RabbitMQConstants.NOTIFICATION_ROUTING_KEY, notificationMessage);
         }
     }
 
+    public void produceInternalNotificationMessage(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String text, String detail) {
+        produceMessage(new NotificationMessage(null,
+                resource,
+                resourceUUID,
+                null,
+                recipients,
+                new InternalNotificationEventData(text, detail)));
+    }
+
+    /*
     public void produceNotificationCertificateStatusChanged(CertificateValidationStatus oldStatus, CertificateValidationStatus newStatus, CertificateDto certificateDto) {
         if (certificateDto.getOwnerUuid() == null && certificateDto.getGroups() == null) {
             return;
@@ -64,9 +54,9 @@ public class NotificationProducer {
         logger.debug("Sending notification of certificate status change. Certificate: {}", certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_STATUS_CHANGED,
                 Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
-                certificateDto.getRaProfile() == null ? new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(),
+                certificateDto.getRaProfile() == null ? new CertificateStatusChangedEventData(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(),
                         certificateDto.getNotBefore().toInstant().atZone(ZoneId.systemDefault()), certificateDto.getNotAfter().toInstant().atZone(ZoneId.systemDefault()))
-                        : new NotificationDataCertificateStatusChanged(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName(),
+                        : new CertificateStatusChangedEventData(oldStatus.getLabel(), newStatus.getLabel(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile().getAuthorityInstanceUuid(), certificateDto.getRaProfile().getUuid(), certificateDto.getRaProfile().getName(),
                         certificateDto.getNotBefore().toInstant().atZone(ZoneId.systemDefault()), certificateDto.getNotAfter().toInstant().atZone(ZoneId.systemDefault()))));
     }
 
@@ -80,7 +70,7 @@ public class NotificationProducer {
         logger.debug("Sending notification of certificate action {} performed. Certificate: {}", action.getCode(), certificateDto.getUuid());
         produceMessage(new NotificationMessage(NotificationType.CERTIFICATE_ACTION_PERFORMED,
                 Resource.CERTIFICATE, UUID.fromString(certificateDto.getUuid()), recipients,
-                new NotificationDataCertificateActionPerformed(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
+                new CertificateActionPerformedEventData(action.getCode(), certificateDto.getUuid(), certificateDto.getFingerprint(), certificateDto.getSerialNumber(), certificateDto.getSubjectDn(), certificateDto.getIssuerDn(), certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getAuthorityInstanceUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getUuid() : null, certificateDto.getRaProfile() != null ? certificateDto.getRaProfile().getName() : null, errorMessage)));
     }
 
     public void produceNotificationScheduledJobCompleted(UUID scheduledJobUuid, UUID userUuid, String jobName, String jobType, String status) {
@@ -88,7 +78,7 @@ public class NotificationProducer {
                 Resource.SCHEDULED_JOB,
                 scheduledJobUuid,
                 NotificationRecipient.buildUserNotificationRecipient(userUuid),
-                new NotificationDataScheduledJobCompleted(jobName, jobType, status)));
+                new ScheduledJobCompletedEventData(jobName, jobType, status)));
     }
 
     public void produceNotificationText(Resource resource, UUID resourceUUID, List<NotificationRecipient> recipients, String text, String detail) {
@@ -115,7 +105,7 @@ public class NotificationProducer {
                 resource,
                 resourceUUID,
                 recipients,
-                new NotificationDataApproval(approvalDto.getApprovalUuid(), approvalDto.getApprovalProfileUuid(), approvalDto.getApprovalProfileName(), approvalDto.getVersion(), approvalDto.getStatus(), approvalDto.getExpiryAt(),
+                new ApprovalEventData(approvalDto.getApprovalUuid(), approvalDto.getApprovalProfileUuid(), approvalDto.getApprovalProfileName(), approvalDto.getVersion(), approvalDto.getStatus(), approvalDto.getExpiryAt(),
                         approvalDto.getClosedAt(), approvalDto.getResource(), approvalDto.getResourceAction(), approvalDto.getObjectUuid(), creatorUuid, getCreatorUsername(creatorUuid))));
     }
 
@@ -124,7 +114,7 @@ public class NotificationProducer {
                 resource,
                 resourceUUID,
                 NotificationRecipient.buildUserNotificationRecipient(UUID.fromString(approvalDto.getCreatorUuid())),
-                new NotificationDataApproval(approvalDto.getApprovalUuid(), approvalDto.getApprovalProfileUuid(), approvalDto.getApprovalProfileName(), approvalDto.getVersion(), approvalDto.getStatus(), approvalDto.getExpiryAt(),
+                new ApprovalEventData(approvalDto.getApprovalUuid(), approvalDto.getApprovalProfileUuid(), approvalDto.getApprovalProfileName(), approvalDto.getVersion(), approvalDto.getStatus(), approvalDto.getExpiryAt(),
                         approvalDto.getClosedAt(), approvalDto.getResource(), approvalDto.getResourceAction(), approvalDto.getObjectUuid(), approvalDto.getCreatorUuid(), getCreatorUsername(approvalDto.getCreatorUuid()))));
     }
 
@@ -146,5 +136,7 @@ public class NotificationProducer {
             return creatorUuid;
         }
     }
+
+     */
 
 }

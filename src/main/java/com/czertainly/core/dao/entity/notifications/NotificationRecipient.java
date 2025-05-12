@@ -1,5 +1,6 @@
-package com.czertainly.core.dao.entity;
+package com.czertainly.core.dao.entity.notifications;
 
+import com.czertainly.core.dao.entity.UniquelyIdentified;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;

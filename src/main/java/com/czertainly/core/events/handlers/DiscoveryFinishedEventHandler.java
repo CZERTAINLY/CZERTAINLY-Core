@@ -1,23 +1,23 @@
 package com.czertainly.core.events.handlers;
 
 import com.czertainly.api.exception.EventException;
+import com.czertainly.api.model.common.events.data.DiscoveryFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.dao.repository.SecurityFilterRepository;
-import com.czertainly.core.evaluator.RuleEvaluator;
+import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.transaction.ScheduledJobFinishedEvent;
 import com.czertainly.core.messaging.model.EventMessage;
+import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.tasks.ScheduledJobInfo;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -30,7 +30,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
 
     private final DiscoveryRepository discoveryRepository;
 
-    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository, RuleEvaluator<DiscoveryHistory> ruleEvaluator) {
+    protected DiscoveryFinishedEventHandler(DiscoveryRepository repository, TriggerEvaluator<DiscoveryHistory> ruleEvaluator) {
         super(repository, ruleEvaluator);
         discoveryRepository = repository;
     }
@@ -50,13 +50,29 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
         }
 
         // TODO: load triggers from platform
-        return new EventContext<>(eventMessage, ruleEvaluator, discovery);
+        return new EventContext<>(eventMessage, triggerEvaluator, discovery, getEventData(discovery, eventMessage.getData()));
+    }
+
+    @Override
+    protected Object getEventData(DiscoveryHistory discovery, Object eventMessageData) {
+        DiscoveryFinishedEventData eventData = new DiscoveryFinishedEventData();
+        eventData.setDiscoveryUuid(discovery.getUuid().toString());
+        eventData.setDiscoveryName(discovery.getName());
+        eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid().toString());
+        eventData.setDiscoveryConnectorName(discovery.getConnectorName());
+        eventData.setDiscoveryStatus(discovery.getStatus());
+        eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered());
+        eventData.setDiscoveryMessage(discovery.getMessage());
+
+        return eventData;
     }
 
     @Override
     protected void sendFollowUpEventsNotifications(EventContext<DiscoveryHistory> eventContext) {
         DiscoveryHistory discovery = eventContext.getResourceObjects().getFirst();
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(eventContext.getUserUuid()), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus().getLabel()), discovery.getMessage());
+        Object eventData = eventContext.getResourceObjectsEventData().getFirst();
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.DISCOVERY, discovery.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(eventContext.getUserUuid()), eventData);
+        notificationProducer.produceMessage(notificationMessage);
 
         // if discovery was scheduled, raise application event to notify that scheduled discovery has finished
         if (eventContext.getScheduledJobInfo() != null) {

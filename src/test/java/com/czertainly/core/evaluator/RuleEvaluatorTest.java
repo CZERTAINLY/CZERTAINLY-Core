@@ -58,13 +58,13 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Autowired
-    private RuleEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
+    private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
 
     @Autowired
     private GroupRepository groupRepository;
 
     @Autowired
-    private RuleEvaluator<DiscoveryHistory> discoveryHistoryRuleEvaluator;
+    private TriggerEvaluator<DiscoveryHistory> discoveryHistoryRuleEvaluator;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -105,7 +105,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     @Autowired
-    private CertificateRuleEvaluator certificateRuleEvaluator;
+    private CertificateTriggerEvaluator certificateRuleEvaluator;
 
     @Autowired
     private ResourceObjectAssociationService associationService;
@@ -231,7 +231,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         Rule rule = new Rule();
         rule.setResource(Resource.CRYPTOGRAPHIC_KEY);
         TriggerHistory triggerHistory = new TriggerHistory();
-        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(Set.of(rule), certificate, triggerHistory));
+        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(triggerHistory, Set.of(rule), certificate));
 
         condition.setFieldIdentifier("invalid");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
@@ -354,7 +354,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         group2.setName("groupName2");
         group2 = groupRepository.save(group2);
         executionItem.setData(List.of(group.getUuid().toString(), group2.getUuid().toString()));
-        certificateRuleEvaluator.performActions(trigger, certificate, new TriggerHistory());
+        certificateRuleEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
 
         List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(2, groupUuids.size());
@@ -376,7 +376,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
                 WireMock.okJson("{ \"username\": \"ownerName\"}")
         ));
 
-        certificateRuleEvaluator.performActions(trigger, certificate, new TriggerHistory());
+        certificateRuleEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
 
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
@@ -422,7 +422,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setData(raProfile.getUuid());
 
         TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);
-        certificateRuleEvaluator.performActions(trigger, certificate, triggerHistory);
+        certificateRuleEvaluator.performActions(trigger, triggerHistory, certificate, null);
 
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(certificate);
@@ -443,7 +443,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setFieldSource(FilterFieldSource.CUSTOM);
         executionItem.setFieldIdentifier("custom|STRING");
         executionItem.setData(List.of(linkedHashSet));
-        certificateRuleEvaluator.performActions(trigger, certificate, new TriggerHistory());
+        certificateRuleEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
     }

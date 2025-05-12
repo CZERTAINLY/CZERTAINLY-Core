@@ -7,27 +7,23 @@ import com.czertainly.core.dao.entity.workflows.ConditionItem;
 import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 
-import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
-public interface IRuleEvaluator<T> {
+public interface ITriggerEvaluator<T> {
+
+    TriggerHistory evaluateTrigger(Trigger trigger, UUID triggerAssociationUuid, T object, UUID referenceObjectUuid, Object data) throws RuleException;
 
     /**
      * Method to evaluate a list of Rules on an Object
      *
+     * @param triggerHistory Trigger History to fill rules evaluation results records for
      * @param rules    List of the Rules
      * @param object   Object to evaluate Rules on
      * @return True if all the rules are satisfied, false otherwise
      */
-    public boolean evaluateRules(Set<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException;
-    /**
-     * Method to evaluate a list of Rules on a list of Objects
-     *
-     * @param rules    List of the Rules
-     * @param listOfObjects   List of Objects to evaluate rules on
-     * @return True if all the rules for all the objects are satisfied, false otherwise
-     */
-    public boolean evaluateRules(Set<Rule> rules, List<T> listOfObjects) throws RuleException;
+    boolean evaluateRules(TriggerHistory triggerHistory, Set<Rule> rules, T object) throws RuleException;
+
     /**
      * Method to evaluate a Condition item on an Object
      *
@@ -35,15 +31,16 @@ public interface IRuleEvaluator<T> {
      * @param object   Object to evaluate conditionItem on
      * @return True if the condition item is satisfied, false otherwise
      */
-    public Boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource) throws RuleException;
+    boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource) throws RuleException;
 
     /**
      * Method to perform Actions and Action Groups in a Trigger on an Object
      *
      * @param trigger        Trigger
-     * @param object         Object to perform Actions in Trigger on
      * @param triggerHistory Trigger History to fill action results records for
+     * @param object         Object to perform Actions in Trigger on
+     * @param data           Data associated with event associated with trigger
      */
-    public void performActions(Trigger trigger, T object, TriggerHistory triggerHistory) throws RuleException;
+    void performActions(Trigger trigger, TriggerHistory triggerHistory, T object, Object data) throws RuleException;
 
 }

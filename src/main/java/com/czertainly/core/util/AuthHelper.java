@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.logging.enums.ActorType;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
@@ -15,6 +16,7 @@ import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
 import com.czertainly.core.security.authn.client.AuthenticationInfo;
 import com.czertainly.core.security.authn.client.CzertainlyAuthenticationClient;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.OpaPolicy;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.security.authz.opa.OpaClient;
@@ -63,12 +65,19 @@ public class AuthHelper {
     private static final Logger logger = LoggerFactory.getLogger(AuthHelper.class);
 
     private OpaClient opaClient;
+    private UserManagementApiClient userManagementApiClient;
     private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+
     private static final Set<String> protocolUsers = Set.of(ACME_USERNAME, SCEP_USERNAME, CMP_USERNAME);
 
     @Autowired
     public void setOpaClient(OpaClient opaClient) {
         this.opaClient = opaClient;
+    }
+
+    @Autowired
+    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
+        this.userManagementApiClient = userManagementApiClient;
     }
 
     @Autowired
@@ -106,6 +115,25 @@ public class AuthHelper {
         } catch (Exception e) {
             logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));
+        }
+    }
+
+    public String getUserUsername(String userUuid) {
+        // check first if user is not logged in now to save call
+        try {
+            NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
+            if (userInfo.getUuid().equals(userUuid)) return userInfo.getName();
+        } catch (ValidationException e) {
+            // anonymous user, retrieve user details
+        }
+
+        try {
+            UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(userUuid);
+            return userDetailDto.getUsername();
+        } catch (Exception e) {
+            // in case Auth service call fails, return just creator UUID
+            // TODO: mostly problem in tests, need mock of Auth service in tests scope
+            return userUuid;
         }
     }
 

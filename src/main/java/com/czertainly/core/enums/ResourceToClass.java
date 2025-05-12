@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.notifications.Notification;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
 
 public enum ResourceToClass {

@@ -1,7 +1,6 @@
 package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
@@ -10,14 +9,19 @@ import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.FilterFieldType;
+import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.czertainly.core.dao.entity.UniquelyIdentifiedObject;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.ResourceToClass;
+import com.czertainly.core.messaging.model.NotificationMessage;
+import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
@@ -38,13 +42,15 @@ import java.util.function.BiFunction;
 
 @Component
 @Transactional
-public class RuleEvaluator<T> implements IRuleEvaluator<T> {
+public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITriggerEvaluator<T> {
 
-    private static final Logger logger = LoggerFactory.getLogger(RuleEvaluator.class);
+    private static final Logger logger = LoggerFactory.getLogger(TriggerEvaluator.class);
     private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
     private AttributeEngine attributeEngine;
+
     private TriggerService triggerService;
+    private NotificationProducer notificationProducer;
 
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
@@ -56,8 +62,32 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         this.attributeEngine = attributeEngine;
     }
 
+    @Autowired
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
+    }
+
     @Override
-    public boolean evaluateRules(Set<Rule> rules, T object, TriggerHistory triggerHistory) throws RuleException {
+    public TriggerHistory evaluateTrigger(Trigger trigger, UUID triggerAssociationUuid, T object, UUID referenceObjectUuid, Object data) throws RuleException {
+        TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), triggerAssociationUuid, object.getUuid(), referenceObjectUuid);
+        if (evaluateRules(triggerHistory, trigger.getRules(), object)) {
+            triggerHistory.setConditionsMatched(true);
+            if (trigger.isIgnoreTrigger()) {
+                triggerHistory.setActionsPerformed(true);
+            } else {
+                performActions(trigger, triggerHistory, object, data);
+                triggerHistory.setActionsPerformed(triggerHistory.getRecords().isEmpty());
+            }
+        } else {
+            triggerHistory.setConditionsMatched(false);
+            triggerHistory.setActionsPerformed(false);
+        }
+
+        return triggerHistory;
+    }
+
+    @Override
+    public boolean evaluateRules(TriggerHistory triggerHistory, Set<Rule> rules, T object) throws RuleException {
         // if trigger has no rules, return true as it is trigger that should perform actions on all objects
         if (rules.isEmpty()) {
             return true;
@@ -95,19 +125,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public boolean evaluateRules(Set<Rule> rules, List<T> listOfObjects) throws RuleException {
-        for (T object : listOfObjects) {
-            if (!evaluateRules(rules, object, null)) {
-                logger.debug("Rules have not been satisfied for a object in the list, the list does not contain objects satisfying the rules.");
-                return false;
-            }
-        }
-        logger.debug("All objects in the list satisfy the rules.");
-        return true;
-    }
-
-    @Override
-    public Boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource) throws RuleException {
+    public boolean evaluateConditionItem(ConditionItem conditionItem, T object, Resource resource) throws RuleException {
         FilterFieldSource fieldSource = conditionItem.getFieldSource();
         String fieldIdentifier = conditionItem.getFieldIdentifier();
         FilterConditionOperator operator = conditionItem.getOperator();
@@ -137,7 +155,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 }
                 for (Object item : objectValues) {
                     Object o = getPropertyValue(item, field, true);
-                    if (!fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue)) {
+                    if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
                         return false;
                     }
                 }
@@ -175,7 +193,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
                 List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(resource, objectUuid));
                 for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
                     for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
-                        if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) & fieldAttributeContentType == responseAttributeDto.getContentType()) {
+                        if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) && fieldAttributeContentType == responseAttributeDto.getContentType()) {
                             // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
                             if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
                                 return true;
@@ -191,7 +209,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
     @Override
-    public void performActions(Trigger trigger, T object, TriggerHistory triggerHistory) throws RuleException {
+    public void performActions(Trigger trigger, TriggerHistory triggerHistory, T object, Object data) throws RuleException {
         Class resourceClass = ResourceToClass.getClassByResource(trigger.getResource());
         if (resourceClass == null) {
             throw new RuleException("Unknown class for resource " + trigger.getResource().getLabel());
@@ -202,12 +220,21 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             return;
         }
 
+        ResourceEvent event = null;
+        if (triggerHistory.getTriggerAssociationUuid() != null) {
+            event = triggerHistory.getTriggerAssociation().getEvent();
+        }
+
         if (trigger.getActions() != null) {
             for (Action action : trigger.getActions()) {
                 for (Execution execution : action.getExecutions()) {
                     for (ExecutionItem executionItem : execution.getItems()) {
                         try {
-                            performAction(executionItem, object, trigger.getResource());
+                            if(execution.getType() == ExecutionType.SET_FIELD) {
+                                performSetFieldExecution(trigger.getResource(), executionItem, object);
+                            } else {
+                                performSendNotificationAction(trigger.getResource(), event, executionItem, object, data);
+                            }
                             logger.debug("Action with UUID {} has been performed.", action.getUuid());
                         } catch (Exception e) {
                             logger.debug("Action with UUID {} has not been performed. Reason: {}", action.getUuid(), e.getMessage());
@@ -221,7 +248,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
     }
 
 
-    public void performAction(ExecutionItem executionItem, T object, Resource resource) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
+    public void performSetFieldExecution(Resource resource, ExecutionItem executionItem, T object) throws RuleException, NotFoundException, AttributeException {
         String fieldIdentifier = executionItem.getFieldIdentifier();
         Object actionData = executionItem.getData();
         FilterFieldSource fieldSource = executionItem.getFieldSource();
@@ -256,6 +283,12 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
             List<BaseAttributeContent> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
             attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
         }
+    }
+
+    private void performSendNotificationAction(Resource resource, ResourceEvent event, ExecutionItem executionItem, T object, Object data) throws NotFoundException {
+        UUID notificationProfileUuid = UUID.fromString(executionItem.getData().toString());
+        NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuid, null, data);
+        notificationProducer.produceMessage(message);
     }
 
     private Object getPropertyValue(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
@@ -310,15 +343,15 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
 
 
     static {
-        commonOperatorFunctionMap = new HashMap<>();
+        commonOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         commonOperatorFunctionMap.put(FilterConditionOperator.EQUALS, Object::equals);
         commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> !o.equals(c));
         commonOperatorFunctionMap.put(FilterConditionOperator.EMPTY, (o, c) -> o == null);
         commonOperatorFunctionMap.put(FilterConditionOperator.NOT_EMPTY, (o, c) -> o != null);
 
-        fieldTypeToOperatorActionMap = new HashMap<>();
+        fieldTypeToOperatorActionMap = new EnumMap<>(FilterFieldType.class);
 
-        stringOperatorFunctionMap = new HashMap<>();
+        stringOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         stringOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         stringOperatorFunctionMap.put(FilterConditionOperator.CONTAINS, (o, c) -> o.toString().contains(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.NOT_CONTAINS, (o, c) -> !o.toString().contains(c.toString()));
@@ -326,7 +359,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         stringOperatorFunctionMap.put(FilterConditionOperator.ENDS_WITH, (o, c) -> o.toString().endsWith(c.toString()));
         fieldTypeToOperatorActionMap.put(FilterFieldType.STRING, stringOperatorFunctionMap);
 
-        numberOperatorFunctionMap = new HashMap<>();
+        numberOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         numberOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, (Number) c) > 0);
         numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) > 0 || compareNumbers((Number) o, (Number) c) == 0);
@@ -334,7 +367,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) < 0 || compareNumbers((Number) o, (Number) c) == 0);
         fieldTypeToOperatorActionMap.put(FilterFieldType.NUMBER, numberOperatorFunctionMap);
 
-        dateOperatorFunctionMap = new HashMap<>();
+        dateOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         dateOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         dateOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(LocalDate.parse(c.toString())));
         dateOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.parse(c.toString()))));
@@ -342,7 +375,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         dateOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(LocalDate.parse(c.toString()))));
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATE, dateOperatorFunctionMap);
 
-        datetimeOperatorFunctionMap = new HashMap<>();
+        datetimeOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         datetimeOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
         datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
@@ -364,7 +397,7 @@ public class RuleEvaluator<T> implements IRuleEvaluator<T> {
         for (BaseAttributeContent attributeContent : attributeDto.getContent()) {
             Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();
             try {
-                if (fieldTypeToOperatorActionMap.get(contentTypeToFieldType(contentType)).get(operator).apply(attributeValue, conditionValue))
+                if (Boolean.TRUE.equals(fieldTypeToOperatorActionMap.get(contentTypeToFieldType(contentType)).get(operator).apply(attributeValue, conditionValue)))
                     return true;
             } catch (Exception e) {
                 throw new RuleException("Invalid condition.");
