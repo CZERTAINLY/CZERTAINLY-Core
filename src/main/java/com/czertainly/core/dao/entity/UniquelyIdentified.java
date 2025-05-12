@@ -16,7 +16,7 @@ import java.util.UUID;
 @ToString
 @RequiredArgsConstructor
 @MappedSuperclass
-public abstract class UniquelyIdentified {
+public abstract class UniquelyIdentified implements UniquelyIdentifiedObject {
 
     @Id
     @Column(name = "uuid", nullable = false, updatable = false)
@@ -36,7 +36,7 @@ public abstract class UniquelyIdentified {
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
-        if (o == null) return false;
+        if (o == null || this.getClass() != o.getClass()) return false;
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;

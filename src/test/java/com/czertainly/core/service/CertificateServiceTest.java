@@ -323,11 +323,13 @@ class CertificateServiceTest extends BaseSpringBootTest {
         uuidDto.setGroupUuids(List.of(group.getUuid().toString()));
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        Certificate certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals(1, certificateEntity.getGroups().size());
+        Assertions.assertEquals(group.getUuid(), certificateEntity.getGroups().stream().findFirst().get().getUuid());
 
-        // use association service to load certificate group associations since groups are not lazy loaded to mapped certificate relation due to scope of transaction in test
-        List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(1, groupUuids.size());
-        Assertions.assertEquals(group.getUuid(), groupUuids.get(0));
+        associationService.removeGroup(Resource.CERTIFICATE, certificate.getUuid(), group.getUuid());
+        certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals(0, certificateEntity.getGroups().size());
     }
 
     @Test
@@ -365,6 +367,22 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(owner);
         Assertions.assertEquals(request.getOwnerUuid(), owner.getUuid());
         Assertions.assertEquals("newOwner", owner.getName());
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"newOwner2\"}")
+        ));
+        request.setOwnerUuid(UUID.randomUUID().toString());
+        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
+
+        owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertNotNull(owner);
+        Assertions.assertEquals(request.getOwnerUuid(), owner.getUuid());
+        Assertions.assertEquals("newOwner2", owner.getName());
+
+        request.setOwnerUuid(null);
+        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
+        owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertNull(owner);
     }
 
     @Test
@@ -419,22 +437,22 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteCertificateWithUser() throws CertificateEncodingException, com.czertainly.api.exception.CertificateException {
-        Certificate certificate = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
-        certificate.setUserUuid(UUID.randomUUID());
-        certificateRepository.save(certificate);
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.deleteCertificate(certificate.getSecuredUuid()));
+        Certificate certificateNew = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        certificateNew.setUserUuid(UUID.randomUUID());
+        certificateRepository.save(certificateNew);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.deleteCertificate(certificateNew.getSecuredUuid()));
     }
 
     @Test
     void bulkUpdate() throws CertificateException, com.czertainly.api.exception.CertificateException, NotFoundException, IOException {
-        Certificate certificate = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
+        Certificate certificateNew = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
 
         MultipleCertificateObjectUpdateDto request = new MultipleCertificateObjectUpdateDto();
-        request.setCertificateUuids(List.of(certificate.getUuid().toString()));
+        request.setCertificateUuids(List.of(certificateNew.getUuid().toString()));
         request.setGroupUuids(List.of(group.getUuid().toString()));
         certificateService.bulkUpdateCertificatesObjects(SecurityFilter.create(), request);
 
-        CertificateDetailDto detailDto = certificateService.getCertificate(certificate.getSecuredUuid());
+        CertificateDetailDto detailDto = certificateService.getCertificate(certificateNew.getSecuredUuid());
         Assertions.assertEquals(1, detailDto.getGroups().size());
         Assertions.assertEquals(group.getUuid().toString(), detailDto.getGroups().getFirst().getUuid());
     }

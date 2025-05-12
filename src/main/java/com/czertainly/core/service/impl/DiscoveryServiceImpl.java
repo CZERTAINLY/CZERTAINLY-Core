@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
@@ -19,6 +20,7 @@ import com.czertainly.api.model.connector.discovery.DiscoveryRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -26,13 +28,13 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.workflows.Trigger;
-import com.czertainly.core.dao.entity.workflows.TriggerAssociation;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.event.transaction.CertificateValidationEvent;
+import com.czertainly.core.events.data.DiscoveryResult;
+import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -42,7 +44,6 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.*;
-import com.pivovarit.collectors.ParallelCollectors;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -51,13 +52,9 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.concurrent.DelegatingSecurityContextExecutor;
-import org.springframework.security.core.context.SecurityContext;
-import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -66,12 +63,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import java.security.NoSuchAlgorithmException;
-import java.security.PublicKey;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.stream.Stream;
 
 @Service
 @Transactional
@@ -86,15 +80,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public static final Semaphore downloadCertSemaphore = new Semaphore(10);
     public static final Semaphore processCertSemaphore = new Semaphore(10);
 
+    private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
     private PlatformTransactionManager transactionManager;
-    private ApplicationEventPublisher applicationEventPublisher;
 
     private AttributeEngine attributeEngine;
     private CertificateHandler certificateHandler;
 
     private TriggerService triggerService;
-    private TriggerAssociationRepository triggerAssociationRepository;
     private DiscoveryRepository discoveryRepository;
     private CertificateRepository certificateRepository;
     private DiscoveryApiClient discoveryApiClient;
@@ -106,11 +99,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
         this.triggerService = triggerService;
-    }
-
-    @Autowired
-    public void setTriggerAssociationRepository(TriggerAssociationRepository triggerAssociationRepository) {
-        this.triggerAssociationRepository = triggerAssociationRepository;
     }
 
     @Autowired
@@ -159,13 +147,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Autowired
-    public void setNotificationProducer(NotificationProducer notificationProducer) {
-        this.notificationProducer = notificationProducer;
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
     }
 
     @Autowired
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
+    public void setNotificationProducer(NotificationProducer notificationProducer) {
+        this.notificationProducer = notificationProducer;
     }
 
     @Autowired
@@ -221,7 +209,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             certificates = discoveryCertificateRepository.findByDiscovery(discoveryHistory, p);
             maxItems = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
         } else {
-            certificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discoveryHistory, newlyDiscovered, p);
+            certificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(discoveryHistory.getUuid(), newlyDiscovered, p);
             maxItems = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discoveryHistory, newlyDiscovered);
         }
 
@@ -312,21 +300,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
             attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
             if (request.getTriggers() != null) {
-                int triggerOrder = -1;
-                for (UUID triggerUuid : request.getTriggers()) {
-                    TriggerAssociation triggerAssociation = new TriggerAssociation();
-                    triggerAssociation.setResource(Resource.DISCOVERY);
-                    triggerAssociation.setObjectUuid(discovery.getUuid());
-                    triggerAssociation.setTriggerUuid(triggerUuid);
-                    Trigger trigger = triggerService.getTriggerEntity(triggerUuid.toString());
-                    // If it is an ignore trigger, the order is always -1, otherwise increment the order
-                    if (trigger.isIgnoreTrigger()) {
-                        triggerAssociation.setTriggerOrder(-1);
-                    } else {
-                        triggerAssociation.setTriggerOrder(++triggerOrder);
-                    }
-                    triggerAssociationRepository.save(triggerAssociation);
-                }
+                triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers());
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
             }
             return discovery.mapToDto();
@@ -427,14 +401,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
         transactionManager.commit(status);
 
-        logger.debug("Going to process {} certificates", newlyDiscoveredCount);
-
-        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        processDiscoveredCertificates(discovery);
-        discovery.setStatus(DiscoveryStatus.COMPLETED);
-
-        applicationEventPublisher.publishEvent(new CertificateValidationEvent(null, discoveryUuid, discovery.getName(), null, null));
-        return finalizeDiscovery(discovery, loggedUserUuid, status, preProcessingMessage);
+        eventProducer.produceMessage(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), loggedUserUuid, scheduledJobInfo));
+        return discovery.mapToDto();
     }
 
     private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, TransactionStatus status) throws InterruptedException, DiscoveryException, ConnectorException, NotFoundException {
@@ -443,7 +411,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         dtoRequest.setKind(discovery.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
+        List<DataAttribute> dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
                 AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
         credentialService.loadFullCredentialData(dataAttributes);
         dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -621,62 +589,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         futures.clear();
     }
 
-    private void processDiscoveredCertificates(DiscoveryHistory discovery) {
-        // Get newly discovered certificates
-        List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryAndNewlyDiscovered(discovery, true, Pageable.unpaged());
-        ConcurrentMap<PublicKey, List<UUID>> keyToCertificates = new ConcurrentHashMap<>();
-
-        logger.debug("Number of discovered certificates to process: {}", discoveredCertificates.size());
-
-        if (discoveredCertificates.isEmpty()) return;
-
-        // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
-        AtomicInteger index = new AtomicInteger(0);
-        try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
-            SecurityContext securityContext = SecurityContextHolder.getContext();
-            DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
-            CompletableFuture<Stream<Object>> future = discoveredCertificates.stream().collect(
-                    ParallelCollectors.parallel(
-                            discoveryCertificate -> {
-                                int certIndex;
-                                try {
-                                    certIndex = index.incrementAndGet();
-                                    logger.trace("Waiting to process cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-                                    processCertSemaphore.acquire();
-                                    logger.trace("Processing cert {} of discovered certificates for discovery {}.", certIndex, discovery.getName());
-
-                                    certificateHandler.processDiscoveredCertificate(certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates);
-                                } catch (InterruptedException e) {
-                                    Thread.currentThread().interrupt();
-                                    logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
-                                } catch (Exception e) {
-                                    logger.error("Unable to process certificate {}: {}", discoveryCertificate.getCommonName(), e.getMessage(), e);
-                                } finally {
-                                    logger.trace("Thread {} processing cert {} of discovered certificates finalized. Released semaphore.", Thread.currentThread().getName(), index.get());
-                                    processCertSemaphore.release();
-                                }
-                                return null; // Return null to satisfy the return type
-                            },
-                            executor,
-                            MAXIMUM_PARALLELISM
-                    )
-            );
-
-            // Wait for all tasks to complete
-            future.join();
-        }
-
-        // Upload certificate keys out of parallel processing to avoid collisions
-        for (Map.Entry<PublicKey, List<UUID>> entry : keyToCertificates.entrySet()) {
-            try {
-                certificateHandler.uploadDiscoveredCertificateKey(entry.getKey(), entry.getValue());
-            } catch (NoSuchAlgorithmException e) {
-                logger.error("Could not create public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
-            }
-        }
-
-    }
-
     private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttribute> metadata) {
         discovery.setStatus(status);
         if (connectorStatus != null) discovery.setConnectorStatus(connectorStatus);
@@ -707,7 +619,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         discoveryRepository.save(discovery);
         transactionManager.commit(status);
 
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, discovery.getUuid(), NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), String.format("Discovery %s has finished with status %s", discovery.getName(), discovery.getStatus().getLabel()), discovery.getMessage());
+        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), loggedUserUuid, null, new DiscoveryResult(discovery.getStatus(), discovery.getMessage())));
         return discovery.mapToDto();
     }
 

@@ -1,39 +1,51 @@
 package com.czertainly.core.messaging.listeners;
 
-import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
+import com.czertainly.api.exception.EventException;
+import com.czertainly.core.events.IEventHandler;
 import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.EventMessage;
-import com.czertainly.core.service.CertificateEventHistoryService;
+import com.czertainly.core.util.AuthHelper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.Objects;
+import java.util.Map;
 
 @Component
-@Transactional
+@Transactional(propagation = Propagation.NOT_SUPPORTED)
 public class EventListener {
 
     private static final Logger logger = LoggerFactory.getLogger(EventListener.class);
 
-    private CertificateEventHistoryService certificateEventHistoryService;
+    private AuthHelper authHelper;
+
+    private Map<String, IEventHandler> eventHandlers;
 
     @Autowired
-    public void setCertificateEventHistoryService(CertificateEventHistoryService certificateEventHistoryService) {
-        this.certificateEventHistoryService = certificateEventHistoryService;
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
+    }
+
+    @Autowired
+    public void setEventHandlers(Map<String, IEventHandler> eventHandlers) {
+        this.eventHandlers = eventHandlers;
     }
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter", concurrency = "3")
     public void processMessage(EventMessage eventMessage) {
-        if (Objects.requireNonNull(eventMessage.getResource()) == Resource.CERTIFICATE) {
-            certificateEventHistoryService.addEventHistory(eventMessage.getResourceUUID(), CertificateEvent.findByCode(eventMessage.getEventName()), CertificateEventStatus.valueOf(eventMessage.getEventStatus()), eventMessage.getEventMessage(), eventMessage.getEventDetail());
-        } else {
-            logger.warn("Event handling is supported only for certificates for now");
+        if (eventMessage.getUserUuid() != null) {
+            authHelper.authenticateAsUser(eventMessage.getUserUuid());
+        }
+
+        IEventHandler eventHandler = eventHandlers.get(eventMessage.getResourceEvent().getCode());
+        try {
+            eventHandler.handleEvent(eventMessage);
+        } catch (EventException e) {
+            logger.error("Error in handling event {}: {}. Message: {}", eventMessage.getResourceEvent().getLabel(), e.getMessage(), eventMessage);
         }
     }
 

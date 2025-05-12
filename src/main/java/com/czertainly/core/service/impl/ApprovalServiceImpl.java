@@ -7,8 +7,6 @@ import com.czertainly.api.model.client.approval.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserProfileDto;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
@@ -17,11 +15,11 @@ import com.czertainly.core.dao.entity.ApprovalStep;
 import com.czertainly.core.dao.repository.ApprovalRecipientRepository;
 import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.dao.repository.ApprovalStepRepository;
+import com.czertainly.core.events.handlers.ApprovalClosedEventHandler;
+import com.czertainly.core.events.handlers.ApprovalRequestedEventHandler;
 import com.czertainly.core.messaging.model.ActionMessage;
-import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.messaging.producers.EventProducer;
-import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -56,8 +54,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     private ApprovalStepRepository approvalStepRepository;
 
     private ApprovalRecipientHelper approvalRecipientHelper;
-
-    private NotificationProducer notificationProducer;
 
     private ActionProducer actionProducer;
 
@@ -173,11 +169,6 @@ public class ApprovalServiceImpl implements ApprovalService {
 
         approvalRepository.save(approval);
 
-        // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
-        if (resource == Resource.CERTIFICATE) {
-            eventProducer.produceCertificateEventMessage(objectUuid, CertificateEvent.APPROVAL_REQUEST.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Approval requested for action %s with approval profile %s", resourceAction.getCode(), approvalProfileVersion.getApprovalProfile().getName()), null);
-        }
-
         processApprovalToTheNextStep(approval.getUuid().toString(), null);
         return approval;
     }
@@ -256,13 +247,8 @@ public class ApprovalServiceImpl implements ApprovalService {
                     || lastProcessedApprovalRecipient.getApprovalStep().getOrder() != nextApprovalStep.getOrder()) {
 
                 final Approval approval = findApprovalByUuid(approvalUuid);
-                notificationProducer.produceNotificationApprovalRequested(
-                        Resource.APPROVAL,
-                        approval.getUuid(),
-                        prepareNotificationRecipients(nextApprovalStep),
-                        approval.mapToDto(),
-                        approval.getCreatorUuid().toString());
-                logger.info("Notification message about new approvals needed for the step was sent. Approval UUID: {}", approvalUuid);
+                eventProducer.produceMessage(ApprovalRequestedEventHandler.constructEventMessage(approval.getUuid(), nextApprovalStep.mapToDto()));
+                logger.debug("Notification message about new approvals needed for the step was sent. Approval UUID: {}", approvalUuid);
             }
         } else {
             logger.info("There is no more steps and the approval can be closed as successful.");
@@ -312,28 +298,7 @@ public class ApprovalServiceImpl implements ApprovalService {
         actionProducer.produceMessage(actionMessage);
 
         // send event of approval closed
-        // TODO: produce only for certificates for now until refactoring and uniting of event history for all resources
-        ApprovalDto approvalDto = approval.mapToDto();
-        if (approval.getResource() == Resource.CERTIFICATE) {
-            eventProducer.produceCertificateEventMessage(approval.getObjectUuid(), CertificateEvent.APPROVAL_CLOSE.getCode(), CertificateEventStatus.SUCCESS.toString(), String.format("Approval for action %s with approval profile %s closed with status %s", approval.getAction().getCode(), approvalDto.getApprovalProfileName(), approvalStatus.getLabel()), null);
-        }
-
-        // send notification of closing approval
-        notificationProducer.produceNotificationApprovalClosed(approval.getResource(), approval.getObjectUuid(),
-                NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()),
-                approvalDto, approval.getCreatorUuid().toString());
-        logger.info(String.format("Notification that the approval was closed with status %s was sent. Approval UUID: %s", approvalStatus, approval.getUuid()));
-    }
-
-    private List<NotificationRecipient> prepareNotificationRecipients(final ApprovalStep approvalStep) {
-        if (approvalStep.getUserUuid() != null) {
-            return NotificationRecipient.buildUserNotificationRecipient(approvalStep.getUserUuid());
-        } else if (approvalStep.getRoleUuid() != null) {
-            return NotificationRecipient.buildRoleNotificationRecipient(approvalStep.getRoleUuid());
-        } else if (approvalStep.getGroupUuid() != null) {
-            return NotificationRecipient.buildGroupNotificationRecipient(approvalStep.getGroupUuid());
-        }
-        throw new ValidationException(ValidationError.create("There is not specified recipients"));
+        eventProducer.produceMessage(ApprovalClosedEventHandler.constructEventMessage(approval.getUuid()));
     }
 
     private Approval findApprovalByUuid(final String uuid) throws NotFoundException {
@@ -378,11 +343,6 @@ public class ApprovalServiceImpl implements ApprovalService {
     @Autowired
     public void setApprovalStepRepository(ApprovalStepRepository approvalStepRepository) {
         this.approvalStepRepository = approvalStepRepository;
-    }
-
-    @Autowired
-    public void setNotificationProducer(NotificationProducer notificationProducer) {
-        this.notificationProducer = notificationProducer;
     }
 
     @Autowired

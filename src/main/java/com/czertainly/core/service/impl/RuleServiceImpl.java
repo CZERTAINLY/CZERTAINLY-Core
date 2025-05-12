@@ -20,9 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -120,8 +118,8 @@ public class RuleServiceImpl implements RuleService {
         conditionRepository.delete(condition);
     }
 
-    private List<ConditionItem> createConditionItems(List<ConditionItemRequestDto> conditionItemRequestDtos, Condition condition) {
-        List<ConditionItem> conditionItems = new ArrayList<>();
+    private Set<ConditionItem> createConditionItems(List<ConditionItemRequestDto> conditionItemRequestDtos, Condition condition) {
+        Set<ConditionItem> conditionItems = new HashSet<>();
         for (ConditionItemRequestDto conditionItemRequestDto : conditionItemRequestDtos) {
             if (conditionItemRequestDto.getFieldSource() == null
                     || conditionItemRequestDto.getFieldIdentifier() == null
@@ -178,7 +176,7 @@ public class RuleServiceImpl implements RuleService {
         }
 
         Rule rule = new Rule();
-        List<Condition> conditions = new ArrayList<>();
+        Set<Condition> conditions = new HashSet<>();
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
@@ -204,7 +202,7 @@ public class RuleServiceImpl implements RuleService {
             throw new ValidationException("Rule has to contain at least one condition.");
         }
 
-        List<Condition> conditions = new ArrayList<>();
+        Set<Condition> conditions = new HashSet<>();
         Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
 
         for (String conditionUuid : request.getConditionsUuids()) {

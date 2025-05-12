@@ -314,7 +314,7 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public List<ResourceEventDto> listResourceEvents(Resource resource) {
-        return ResourceEvent.listEventsByResource(resource).stream().map(e -> new ResourceEventDto(e, e.getProducedResource())).toList();
+        return ResourceEvent.listEventsByResource(resource).stream().map(ResourceEventDto::new).toList();
     }
 
 }

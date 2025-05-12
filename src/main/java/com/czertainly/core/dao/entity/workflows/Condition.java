@@ -11,7 +11,6 @@ import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.util.HashSet;
-import java.util.List;
 import java.util.Objects;
 import java.util.Set;
 
@@ -39,7 +38,7 @@ public class Condition extends UniquelyIdentified {
 
     @OneToMany(mappedBy = "condition", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
     @ToString.Exclude
-    private List<ConditionItem> items;
+    private Set<ConditionItem> items;
 
     @JsonBackReference
     @ManyToMany(mappedBy = "conditions", fetch = FetchType.LAZY)
