@@ -21,17 +21,17 @@ public class NotificationMessage {
 
     private UUID objectUuid;
 
-    private UUID notificationProfileUuid;
+    private List<UUID> notificationProfileUuids;
 
     private List<NotificationRecipient> recipients;
 
     private Object data;
 
-    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid, UUID notificationProfileUuid, List<NotificationRecipient> recipients, Object data) {
+    public NotificationMessage(ResourceEvent event, Resource resource, UUID objectUuid, List<UUID> notificationProfileUuids, List<NotificationRecipient> recipients, Object data) {
         this.event = event;
         this.resource = resource;
         this.objectUuid = objectUuid;
-        this.notificationProfileUuid = notificationProfileUuid;
+        this.notificationProfileUuids = notificationProfileUuids;
         this.recipients = recipients;
         this.data = data;
     }

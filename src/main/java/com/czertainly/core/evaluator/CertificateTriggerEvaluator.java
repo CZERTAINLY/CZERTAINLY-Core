@@ -7,7 +7,6 @@ import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.workflows.ExecutionItem;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
@@ -29,26 +28,20 @@ public class CertificateTriggerEvaluator extends TriggerEvaluator<Certificate> {
     }
 
     @Override
-    public void performAction(ExecutionItem executionItem, Certificate object, Resource resource) throws NotFoundException, AttributeException, RuleException, CertificateOperationException {
-        if (executionItem.getFieldSource() != FilterFieldSource.PROPERTY) {
-            super.performAction(executionItem, object, Resource.CERTIFICATE);
-            return;
-        }
-
+    protected void performSetFieldPropertyExecution(String fieldIdentifier, Object actionData, Certificate object) throws RuleException, CertificateOperationException, NotFoundException, AttributeException {
         SecuredUUID certificateUuid = object.getSecuredUuid();
-
         FilterField searchableField;
         try {
-            searchableField = Enum.valueOf(FilterField.class, executionItem.getFieldIdentifier());
+            searchableField = Enum.valueOf(FilterField.class, fieldIdentifier);
         } catch (IllegalArgumentException e) {
-            throw new RuleException("Field identifier '" + executionItem.getFieldIdentifier() + "' is not supported.");
+            throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
         }
 
         UUID propertyUuid = null;
         List<UUID> propertyUuids = null;
-        boolean removeValue = executionItem.getData() == null;
+        boolean removeValue = actionData == null;
         if (!removeValue) {
-            if (executionItem.getData() instanceof Iterable<?> actionDataItems) {
+            if (actionData instanceof Iterable<?> actionDataItems) {
                 try {
                     propertyUuids = new ArrayList<>();
                     for (Object actionDataItem : actionDataItems) {
@@ -59,7 +52,7 @@ public class CertificateTriggerEvaluator extends TriggerEvaluator<Certificate> {
                     propertyUuids = null;
                 }
             } else {
-                String propertyUuidStr = executionItem.getData().toString();
+                String propertyUuidStr = actionData.toString();
                 try {
                     propertyUuid = UUID.fromString(propertyUuidStr);
                 } catch (IllegalArgumentException e) {
@@ -70,16 +63,17 @@ public class CertificateTriggerEvaluator extends TriggerEvaluator<Certificate> {
         removeValue = removeValue || (propertyUuids != null && propertyUuids.isEmpty());
 
         if (!removeValue && propertyUuid == null && propertyUuids == null) {
-            throw new RuleException(String.format("Wrong action data for set field %s %s of %s %s: %s", executionItem.getFieldSource().getLabel(), executionItem.getFieldIdentifier(), resource.getLabel(), object.getUuid().toString(), executionItem.getData().toString()));
+            throw new RuleException(String.format("Wrong action data for set field %s %s of %s %s: %s", FilterFieldSource.PROPERTY.getLabel(), fieldIdentifier, Resource.CERTIFICATE.getLabel(), object.getUuid().toString(), actionData.toString()));
         }
 
-        SecuredUUID newPropertyUuid = removeValue ? null : SecuredUUID.fromUUID(propertyUuid != null ? propertyUuid : propertyUuids.get(0));
+        SecuredUUID newPropertyUuid = removeValue ? null : SecuredUUID.fromUUID(propertyUuid != null ? propertyUuid : propertyUuids.getFirst());
         switch (searchableField) {
             case RA_PROFILE_NAME -> certificateService.switchRaProfile(certificateUuid, newPropertyUuid);
             case GROUP_NAME ->
                     certificateService.updateCertificateGroups(object.getSecuredUuid(), removeValue ? Set.of() : (propertyUuids == null ? Set.of(newPropertyUuid.getValue()) : new HashSet<>(propertyUuids)));
             case OWNER ->
                     certificateService.updateOwner(certificateUuid, newPropertyUuid == null ? null : newPropertyUuid.toString());
+            default -> throw new RuleException("Field identifier '%s' is not supported field to set for certificate.".formatted(fieldIdentifier));
         }
     }
 }

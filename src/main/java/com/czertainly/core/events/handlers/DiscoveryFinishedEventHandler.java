@@ -61,7 +61,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
         eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid().toString());
         eventData.setDiscoveryConnectorName(discovery.getConnectorName());
         eventData.setDiscoveryStatus(discovery.getStatus());
-        eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered());
+        eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered() == null ? 0 : discovery.getTotalCertificatesDiscovered());
         eventData.setDiscoveryMessage(discovery.getMessage());
 
         return eventData;

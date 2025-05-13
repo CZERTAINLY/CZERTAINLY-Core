@@ -39,8 +39,8 @@ public class PendingNotification  extends ResourceObjectAssociation {
     @UpdateTimestamp
     protected OffsetDateTime lastSentAt;
 
-    @Column(name = "repetitions")
-    private Integer repetitions;
+    @Column(name = "repetitions", nullable = false)
+    private int repetitions;
 
     @Override
     public boolean equals(Object o) {

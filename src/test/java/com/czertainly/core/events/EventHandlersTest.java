@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
@@ -187,7 +188,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         notificationSettingsDto.setNotificationsMapping(Map.of(NotificationType.SCHEDULED_JOB_COMPLETED, notificationInstance.getUuid().toString()));
         settingService.updateNotificationSettings(notificationSettingsDto);
 
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(new NotificationMessage(NotificationType.SCHEDULED_JOB_COMPLETED, Resource.SCHEDULED_JOB, UUID.randomUUID(), List.of(), new ScheduledJobFinishedEventData("TestJob", "JobType", "Finished"))));
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(new NotificationMessage(ResourceEvent.SCHEDULED_JOB_FINISHED, Resource.SCHEDULED_JOB, UUID.randomUUID(), null, List.of(), new ScheduledJobFinishedEventData("TestJob", "JobType", "Finished"))));
     }
 
 }

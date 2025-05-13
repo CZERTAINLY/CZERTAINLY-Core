@@ -1,11 +1,13 @@
 package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.AttributeException;
+import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
@@ -25,6 +27,7 @@ import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -44,13 +47,19 @@ import java.util.function.BiFunction;
 @Transactional
 public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITriggerEvaluator<T> {
 
-    private static final Logger logger = LoggerFactory.getLogger(TriggerEvaluator.class);
+    protected static final Logger logger = LoggerFactory.getLogger(TriggerEvaluator.class);
     private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
+    private ObjectMapper objectMapper;
     private AttributeEngine attributeEngine;
 
     private TriggerService triggerService;
     private NotificationProducer notificationProducer;
+
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
@@ -228,66 +237,75 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         if (trigger.getActions() != null) {
             for (Action action : trigger.getActions()) {
                 for (Execution execution : action.getExecutions()) {
-                    for (ExecutionItem executionItem : execution.getItems()) {
-                        try {
-                            if(execution.getType() == ExecutionType.SET_FIELD) {
-                                performSetFieldExecution(trigger.getResource(), executionItem, object);
-                            } else {
-                                performSendNotificationAction(trigger.getResource(), event, executionItem, object, data);
-                            }
-                            logger.debug("Action with UUID {} has been performed.", action.getUuid());
-                        } catch (Exception e) {
-                            logger.debug("Action with UUID {} has not been performed. Reason: {}", action.getUuid(), e.getMessage());
-                            TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, null, execution.getUuid(), e.getMessage());
-                            triggerHistory.getRecords().add(triggerHistoryRecord);
+                    try {
+                        if (execution.getType() == ExecutionType.SET_FIELD) {
+                            performSetFieldExecution(trigger.getResource(), execution, object);
+                        } else {
+                            performSendNotificationAction(trigger.getResource(), event, execution, object, data);
                         }
+                        logger.debug("Execution '{}' of action '{}' has been performed.", action.getName(), execution.getName());
+                    } catch (Exception e) {
+                        logger.debug("Execution '{}' of action '{}' has not been performed. Reason: {}", action.getName(), execution.getName(), e.getMessage());
+                        TriggerHistoryRecord triggerHistoryRecord = triggerService.createTriggerHistoryRecord(triggerHistory, null, execution.getUuid(), e.getMessage());
+                        triggerHistory.getRecords().add(triggerHistoryRecord);
                     }
                 }
+                logger.debug("Action '{}' has been performed.", action.getName());
             }
         }
     }
 
+    protected void performSetFieldExecution(Resource resource, Execution execution, T object) throws RuleException, NotFoundException, AttributeException, CertificateOperationException {
+        for (ExecutionItem executionItem : execution.getItems()) {
+            String fieldIdentifier = executionItem.getFieldIdentifier();
+            Object actionData = executionItem.getData();
+            FilterFieldSource fieldSource = executionItem.getFieldSource();
 
-    public void performSetFieldExecution(Resource resource, ExecutionItem executionItem, T object) throws RuleException, NotFoundException, AttributeException {
-        String fieldIdentifier = executionItem.getFieldIdentifier();
-        Object actionData = executionItem.getData();
-        FilterFieldSource fieldSource = executionItem.getFieldSource();
-
-        // Set a property of the object using setter, the property must be set as settable
-        if (fieldSource == FilterFieldSource.PROPERTY) {
-            FilterField propertyEnum = Enum.valueOf(FilterField.class, fieldIdentifier);
-            if (propertyEnum == null) {
-                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
+            // Set a property of the object using setter, the property must be set as settable
+            if (fieldSource == FilterFieldSource.PROPERTY) {
+                performSetFieldPropertyExecution(fieldIdentifier, actionData, object);
+            } else if (fieldSource == FilterFieldSource.CUSTOM) { // Set a custom attribute for the object
+                performSetFieldAttributeExecution(resource, fieldIdentifier, actionData, object);
             }
-            if (!propertyEnum.isSettable())
-                throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
-            try {
-                PropertyUtils.setProperty(object, propertyEnum.getFieldAttribute().getName(), actionData);
-            } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
-                     NoSuchMethodException e) {
-                throw new RuleException(e.getMessage());
-            }
-        }
-        // Set a custom attribute for the object
-        if (fieldSource == FilterFieldSource.CUSTOM) {
-            UUID objectUuid;
-            try {
-                objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
-            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                throw new RuleException("Cannot get uuid from resource " + resource + ".");
-            }
-
-            if (objectUuid == null)
-                throw new RuleException("Cannot set custom attributes for an object not in database.");
-
-            List<BaseAttributeContent> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
-            attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
         }
     }
 
-    private void performSendNotificationAction(Resource resource, ResourceEvent event, ExecutionItem executionItem, T object, Object data) throws NotFoundException {
-        UUID notificationProfileUuid = UUID.fromString(executionItem.getData().toString());
-        NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuid, null, data);
+    protected void performSetFieldPropertyExecution(String fieldIdentifier, Object actionData, T object) throws RuleException, CertificateOperationException, NotFoundException, AttributeException {
+        FilterField propertyEnum = Enum.valueOf(FilterField.class, fieldIdentifier);
+        if (!propertyEnum.isSettable())
+            throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
+        try {
+            PropertyUtils.setProperty(object, propertyEnum.getFieldAttribute().getName(), actionData);
+        } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
+                 NoSuchMethodException e) {
+            throw new RuleException(e.getMessage());
+        }
+    }
+
+    protected void performSetFieldAttributeExecution(Resource resource, String fieldIdentifier, Object actionData, T object) throws RuleException, NotFoundException, AttributeException {
+        UUID objectUuid;
+        try {
+            objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuleException("Cannot get uuid from resource " + resource + ".");
+        }
+
+        if (objectUuid == null) {
+            throw new RuleException("Cannot set custom attributes for an object not in database.");
+        }
+
+        List<BaseAttributeContent> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
+        attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
+    }
+
+    protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data) throws NotFoundException {
+        List<UUID> notificationProfileUuids = new ArrayList<>();
+        for (ExecutionItem executionItem : execution.getItems()) {
+            NameAndUuidDto notificationProfileInfo = objectMapper.convertValue(executionItem.getData(), NameAndUuidDto.class);
+            notificationProfileUuids.add(UUID.fromString(notificationProfileInfo.getUuid()));
+        }
+
+        NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuids, null, data);
         notificationProducer.produceMessage(message);
     }
 
@@ -309,13 +327,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             if (tmpValue instanceof Collection<?>) {
                 return tmpValue;
             }
-
             throw e;
-
         }
-
     }
-
 
     private boolean getConditionEvaluationResult(ConditionItem conditionItem, T object, TriggerHistory triggerHistory, Rule rule) {
         try {

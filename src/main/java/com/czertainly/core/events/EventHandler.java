@@ -14,7 +14,6 @@ import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.TriggerService;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;

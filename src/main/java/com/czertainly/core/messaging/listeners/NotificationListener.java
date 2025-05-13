@@ -1,10 +1,7 @@
 package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.api.clients.NotificationInstanceApiClient;
-import com.czertainly.api.exception.ConnectorEntityNotFoundException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -49,6 +46,7 @@ import java.util.*;
 public class NotificationListener {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
+    private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
 
     private ObjectMapper mapper;
     private AttributeEngine attributeEngine;
@@ -63,6 +61,16 @@ public class NotificationListener {
     private UserManagementApiClient userManagementApiClient;
     private RoleManagementApiClient roleManagementApiClient;
     private ResourceObjectAssociationService resourceObjectAssociationService;
+
+    private static final Map<ResourceEvent, String> eventToLegacyNotificationTypeMapping = new EnumMap<>(ResourceEvent.class);
+
+    static {
+        eventToLegacyNotificationTypeMapping.put(ResourceEvent.CERTIFICATE_STATUS_CHANGED, "certificate_status_changed");
+        eventToLegacyNotificationTypeMapping.put(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, "certificate_action_performed");
+        eventToLegacyNotificationTypeMapping.put(ResourceEvent.APPROVAL_REQUESTED, "approval_requested");
+        eventToLegacyNotificationTypeMapping.put(ResourceEvent.APPROVAL_CLOSED, "approval_closed");
+        eventToLegacyNotificationTypeMapping.put(ResourceEvent.SCHEDULED_JOB_FINISHED, "scheduled_job_completed");
+    }
 
     @Autowired
     public void setObjectMapper(ObjectMapper mapper) {
@@ -123,30 +131,31 @@ public class NotificationListener {
     public void processMessage(NotificationMessage message) {
         logger.debug("Received notification message: {}", message);
 
-        if (message.getNotificationProfileUuid() == null) {
+        if (message.getNotificationProfileUuids() == null) {
             try {
-                sendInternalNotifications(message);
+                sendInternalNotifications(message.getRecipients(), getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
             } catch (ValidationException e) {
                 logger.error("Error in internal notification: {}", e.toString());
             }
         } else {
-            try {
-                sendByNotificationProfile(message);
-            } catch (Exception e) {
-                logger.error("Error in sending notifications based on notification profile: {}", e.toString());
+            for (UUID notificationProfileUuid : message.getNotificationProfileUuids()) {
+                try {
+                    sendByNotificationProfile(notificationProfileUuid, message);
+                } catch (Exception e) {
+                    logger.error("Error in sending notifications based on notification profile {}: {}", notificationProfileUuid, e.getMessage());
+                }
             }
+
         }
 
         logger.debug("Notification message handled");
     }
 
-    private void sendByNotificationProfile(NotificationMessage message) throws NotFoundException {
-        boolean proceedWithNotifying = false;
+    private void sendByNotificationProfile(UUID notificationProfileUuid, NotificationMessage message) throws NotFoundException {
         NotificationProfileVersion notificationProfileVersion;
-        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(message.getNotificationProfileUuid(), message.getResource(), message.getObjectUuid(), message.getEvent());
+        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuid, message.getResource(), message.getObjectUuid(), message.getEvent());
         if (pendingNotification == null) {
-            proceedWithNotifying = true;
-            notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(message.getNotificationProfileUuid()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, message.getNotificationProfileUuid()));
+            notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
             if (notificationProfileVersion.getFrequency() != null || notificationProfileVersion.getRepetitions() != null) {
                 pendingNotification = new PendingNotification();
                 pendingNotification.setNotificationProfileUuid(notificationProfileVersion.getNotificationProfileUuid());
@@ -154,33 +163,29 @@ public class NotificationListener {
                 pendingNotification.setEvent(message.getEvent());
                 pendingNotification.setResource(message.getResource());
                 pendingNotification.setObjectUuid(message.getObjectUuid());
-                pendingNotification.setRepetitions(0);
             }
         } else {
-            OffsetDateTime now = OffsetDateTime.now();
-            notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(message.getNotificationProfileUuid(), pendingNotification.getVersion()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, message.getNotificationProfileUuid()));
-            proceedWithNotifying = (notificationProfileVersion.getFrequency() == null || Duration.between(pendingNotification.getLastSentAt(), now).getNano() > notificationProfileVersion.getFrequency().getNano())
-                    && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
+            notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(notificationProfileUuid, pendingNotification.getVersion()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
         }
 
-        if (!proceedWithNotifying) {
-            logger.debug("Notification suppressed by configuration of notification profile {} for event {}. Notification send last time {} and was repeated {} times.", notificationProfileVersion.getNotificationProfile().getName(), message.getEvent(), pendingNotification.getLastSentAt().toString(), pendingNotification.getRepetitions());
+        if (!proceedWithNotifying(notificationProfileVersion, pendingNotification)) {
+            logger.debug("Notification suppressed by configuration of notification profile {} for event {}. Notification sent last time at {} and was repeated {} times.", notificationProfileVersion.getNotificationProfile().getName(), message.getEvent(), pendingNotification.getLastSentAt(), pendingNotification.getRepetitions());
             return;
         }
 
         List<NotificationRecipient> recipients = getRecipients(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuid(), message.getResource(), message.getObjectUuid());
 
         // send external notification
+        boolean notificationSent = false;
         if (notificationProfileVersion.getNotificationInstanceRefUuid() != null) {
             UUID notificationInstanceUUID = notificationProfileVersion.getNotificationInstanceRefUuid();
             logger.debug("Sending notification message externally. Notification instance UUID: {}", notificationInstanceUUID);
             try {
                 sendExternalNotifications(notificationInstanceUUID, recipients, message.getData(), message.getEvent(), message.getResource());
                 logger.debug("Sending notification message externally successful.");
+                notificationSent = true;
             } catch (ConnectorEntityNotFoundException e) {
                 logger.warn("Notification instance {} configured for notification profile {} in event {} was not found.", notificationInstanceUUID, notificationProfileVersion.getNotificationProfile().getName(), message.getEvent());
-            } catch (ConnectorException e) {
-                logger.warn("Error in sending request to connector of notification instance {} configured for notification profile {} in event {}: {}", notificationInstanceUUID, notificationProfileVersion.getNotificationProfile().getName(), message.getEvent(), e.getMessage(), e);
             } catch (ValidationException e) {
                 logger.warn("Validation error in sending notification to connector of notification instance {} configured for notification profile {} in event {}: {}", notificationInstanceUUID, notificationProfileVersion.getNotificationProfile().getName(), message.getEvent(), e.getMessage());
             } catch (Exception e) {
@@ -192,15 +197,26 @@ public class NotificationListener {
         if (notificationProfileVersion.isInternalNotification()) {
             try {
                 sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
+                notificationSent = true;
             } catch (ValidationException e) {
                 logger.error("Error in internal notification: {}", e.toString());
             }
         }
 
-        if (pendingNotification != null) {
+        if (pendingNotification != null && notificationSent) {
             pendingNotification.setRepetitions(pendingNotification.getRepetitions() + 1);
             pendingNotificationRepository.save(pendingNotification);
         }
+    }
+
+    private boolean proceedWithNotifying(NotificationProfileVersion notificationProfileVersion, PendingNotification pendingNotification) {
+        if (pendingNotification == null) {
+            return true;
+        }
+
+        OffsetDateTime now = OffsetDateTime.now();
+        return (notificationProfileVersion.getFrequency() == null || pendingNotification.getLastSentAt() == null || Duration.between(pendingNotification.getLastSentAt(), now).getNano() > notificationProfileVersion.getFrequency().getNano())
+                && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
     }
 
     private List<NotificationRecipient> getRecipients(RecipientType recipientType, UUID recipientUuid, Resource resource, UUID objectUuid) {
@@ -230,97 +246,16 @@ public class NotificationListener {
         List<NotificationRecipientDto> recipientsDto = new ArrayList<>();
         for (NotificationRecipient recipient : recipients) {
             logger.debug("Processing recipient {} of type {}.", recipient.getRecipientUuid(), recipient.getRecipientType());
-            NotificationRecipientDto recipientDto = null;
-            List<ResponseAttributeDto> recipientCustomAttributes = List.of();
-
-            if (recipient.getRecipientType().equals(RecipientType.USER)) {
-                UUID recipientUuid = recipient.getRecipientUuid();
-                try {
-                    UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(recipientUuid.toString());
-                    recipientDto = new NotificationRecipientDto();
-                    recipientDto.setEmail(userDetailDto.getEmail());
-                    recipientDto.setName(userDetailDto.getUsername());
-
-                    recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.USER, recipientUuid);
-                } catch (Exception e) {
-                    logger.warn("User with UUID {} was not found, notification was not sent for this user.", recipientUuid);
-                }
-            }
-            if (recipient.getRecipientType().equals(RecipientType.ROLE)) {
-                UUID roleUuid = recipient.getRecipientUuid();
-                try {
-                    RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(roleUuid.toString());
-                    String email = roleDetailDto.getEmail();
-                    if (email == null || email.isBlank()) {
-                        logger.warn("Role with UUID {} does not have specified email, notification was not sent for this role.", roleUuid);
-                    } else {
-                        recipientDto = new NotificationRecipientDto();
-                        recipientDto.setEmail(email);
-                        recipientDto.setName(roleDetailDto.getName());
-                    }
-
-                    recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.ROLE, roleUuid);
-                } catch (Exception e) {
-                    logger.warn("Role with UUID {} was not found, notification was not sent for this role.", roleUuid);
-                }
-            }
-            if (recipient.getRecipientType().equals(RecipientType.GROUP)) {
-                UUID groupUuid = recipient.getRecipientUuid();
-                Optional<Group> group = groupRepository.findByUuid(groupUuid);
-                if (group.isPresent()) {
-                    String email = group.get().getEmail();
-                    if (email == null || email.isBlank()) {
-                        logger.warn("Group with UUID {} does not have specified email, notification was not sent for this group.", groupUuid);
-                    } else {
-                        recipientDto = new NotificationRecipientDto();
-                        recipientDto.setName(group.get().getName());
-                        recipientDto.setEmail(email);
-                    }
-
-                    recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.GROUP, groupUuid);
-                } else {
-                    logger.warn("Group with UUID {} was not found, notification was not sent for this group.", groupUuid);
-                }
-            }
-
-            if (recipientDto != null) {
-                logger.debug("Setting mapped attributes for recipient {} of type {}.", recipientDto.getName(), recipient.getRecipientType());
+            try {
+                // construct recipient DTO
+                NotificationRecipientDto recipientDto = constructNotificationRecipientDto(recipient, notificationInstanceReference.getKind());
+                List<ResponseAttributeDto> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(recipient.getRecipientType().getRecipientResource(), recipient.getRecipientUuid());
 
                 // prepare mapped attributes
-                List<RequestAttributeDto> mappedAttributes = new ArrayList<>();
-                HashMap<String, ResponseAttributeDto> mappedContent = new HashMap<>();
-                for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
-                    Optional<ResponseAttributeDto> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
-                    if (recipientCustomAttribute.isPresent()) {
-                        mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), recipientCustomAttribute.get());
-                    }
-                }
-
-                for (DataAttribute mappingAttribute : mappingAttributes) {
-                    ResponseAttributeDto recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
-
-                    if (recipientCustomAttribute == null) {
-                        if (mappingAttribute.getProperties().isRequired()) {
-                            throw new ValidationException(String.format("Missing mapping attribute %s with UUID %s in recipient custom attributes.", mappingAttribute.getName(), mappingAttribute.getUuid()));
-                        }
-                        continue;
-                    }
-
-                    if (!mappingAttribute.getContentType().equals(recipientCustomAttribute.getContentType())) {
-                        throw new ValidationException(String.format("Mapped custom attribute %s with UUID %s has different content type (%s) as mapping attribute %s with UUID %s (%s).",
-                                recipientCustomAttribute.getName(), recipientCustomAttribute.getUuid(), recipientCustomAttribute.getContentType().getLabel(),
-                                mappingAttribute.getName(), mappingAttribute.getUuid(), mappingAttribute.getContentType().getLabel()));
-                    }
-
-                    RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-                    requestAttributeDto.setUuid(mappingAttribute.getUuid());
-                    requestAttributeDto.setName(mappingAttribute.getName());
-                    requestAttributeDto.setContentType(mappingAttribute.getContentType());
-                    requestAttributeDto.setContent(recipientCustomAttribute.getContent());
-                    mappedAttributes.add(requestAttributeDto);
-                }
-                recipientDto.setMappedAttributes(mappedAttributes);
+                recipientDto.setMappedAttributes(getMappedAttributes(notificationInstanceReference, mappingAttributes, recipientCustomAttributes));
                 recipientsDto.add(recipientDto);
+            } catch (Exception e) {
+                logger.warn("{} with UUID {} was not found or retrieval of its attributes failed: {}. Notification was not sent for this recipient.", recipient.getRecipientType().getLabel(), recipient.getRecipientUuid(), e.getMessage());
             }
         }
 
@@ -329,6 +264,7 @@ public class NotificationListener {
             notificationProviderNotifyRequestDto.setNotificationData(notificationData);
             notificationProviderNotifyRequestDto.setResource(resource);
             notificationProviderNotifyRequestDto.setEvent(event);
+            notificationProviderNotifyRequestDto.setEventType(eventToLegacyNotificationTypeMapping.getOrDefault(event, "other")); // legacy
             notificationProviderNotifyRequestDto.setRecipients(recipientsDto);
 
             try {
@@ -338,22 +274,83 @@ public class NotificationListener {
                 throw e;
             }
         } else {
-            logger.info("No recipients were provided, notifications were not sent.");
+            logger.debug("No recipients were provided, notifications were not sent.");
         }
     }
 
-    private void sendInternalNotifications(NotificationMessage message) throws ValidationException {
-        InternalNotificationEventData notificationData;
-        try {
-            notificationData = mapper.convertValue(message.getData(), InternalNotificationEventData.class);
-        } catch (IllegalArgumentException e) {
-            throw new ValidationException("NotificationMessage for internal notification contains invalid data.");
+    private NotificationRecipientDto constructNotificationRecipientDto(NotificationRecipient recipient, String notificationProviderKind) {
+        NotificationRecipientDto recipientDto;
+        switch (recipient.getRecipientType()) {
+            case USER -> {
+                UserDetailDto userDetailDto = userManagementApiClient.getUserDetail(recipient.getRecipientUuid().toString());
+                recipientDto = new NotificationRecipientDto();
+                recipientDto.setEmail(userDetailDto.getEmail());
+                recipientDto.setName(userDetailDto.getUsername());
+            }
+            case ROLE -> {
+                RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(recipient.getRecipientUuid().toString());
+                String email = roleDetailDto.getEmail();
+                if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)
+                        && (email == null || email.isBlank())) {
+                    throw new NotSupportedException("Role with UUID %s does not have specified email, notification was not sent for this role.".formatted(recipient.getRecipientUuid()));
+                }
+                recipientDto = new NotificationRecipientDto();
+                recipientDto.setEmail(email);
+                recipientDto.setName(roleDetailDto.getName());
+            }
+            case GROUP -> {
+                Group group = groupRepository.findByUuid(recipient.getRecipientUuid()).orElseThrow();
+                String email = group.getEmail();
+                if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)
+                        && (email == null || email.isBlank())) {
+                    throw new NotSupportedException("Group with UUID %s does not have specified email, notification was not sent for this group.".formatted(recipient.getRecipientUuid()));
+                }
+                recipientDto = new NotificationRecipientDto();
+                recipientDto.setName(group.getName());
+                recipientDto.setEmail(email);
+            }
+            default -> throw new NotSupportedException("Notification recipient type Owner is not supported");
+        }
+        return recipientDto;
+    }
+
+    private List<RequestAttributeDto> getMappedAttributes(NotificationInstanceReference notificationInstanceReference, List<DataAttribute> mappingAttributes, List<ResponseAttributeDto> recipientCustomAttributes) throws ValidationException {
+        List<RequestAttributeDto> mappedAttributes = new ArrayList<>();
+        HashMap<String, ResponseAttributeDto> mappedContent = new HashMap<>();
+        for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
+            Optional<ResponseAttributeDto> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
+            recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
-        sendInternalNotifications(message.getRecipients(), notificationData, message.getResource(), message.getObjectUuid());
+        for (DataAttribute mappingAttribute : mappingAttributes) {
+            ResponseAttributeDto recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
+
+            if (recipientCustomAttribute == null) {
+                if (mappingAttribute.getProperties().isRequired()) {
+                    throw new ValidationException(String.format("Missing mapping attribute %s with UUID %s in recipient custom attributes.", mappingAttribute.getName(), mappingAttribute.getUuid()));
+                }
+                continue;
+            }
+
+            if (!mappingAttribute.getContentType().equals(recipientCustomAttribute.getContentType())) {
+                throw new ValidationException(String.format("Mapped custom attribute %s with UUID %s has different content type (%s) as mapping attribute %s with UUID %s (%s).",
+                        recipientCustomAttribute.getName(), recipientCustomAttribute.getUuid(), recipientCustomAttribute.getContentType().getLabel(),
+                        mappingAttribute.getName(), mappingAttribute.getUuid(), mappingAttribute.getContentType().getLabel()));
+            }
+
+            RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+            requestAttributeDto.setUuid(mappingAttribute.getUuid());
+            requestAttributeDto.setName(mappingAttribute.getName());
+            requestAttributeDto.setContentType(mappingAttribute.getContentType());
+            requestAttributeDto.setContent(recipientCustomAttribute.getContent());
+            mappedAttributes.add(requestAttributeDto);
+        }
+
+        return mappedAttributes;
     }
 
     private void sendInternalNotifications(List<NotificationRecipient> recipients, InternalNotificationEventData notificationData, Resource resource, UUID objectUuid) {
+        logger.debug("Sending internal notification. Message: {}. Detail: {}", notificationData.getText(), notificationData.getDetail());
         for (NotificationRecipient recipient : recipients) {
             switch (recipient.getRecipientType()) {
                 case USER ->
@@ -407,7 +404,7 @@ public class NotificationListener {
             }
             case DISCOVERY_FINISHED -> {
                 DiscoveryFinishedEventData data = (DiscoveryFinishedEventData) notificationData;
-                yield new InternalNotificationEventData("Discovery %s has finished with status %s".formatted(data.getDiscoveryName(), data.getDiscoveryStatus().getLabel()), data.getDiscoveryMessage());
+                yield new InternalNotificationEventData("Discovery %s has finished with status %s and discovered %d certificates".formatted(data.getDiscoveryName(), data.getDiscoveryStatus().getLabel(), data.getTotalCertificateDiscovered()), data.getDiscoveryMessage());
             }
             case APPROVAL_REQUESTED -> {
                 ApprovalEventData data = (ApprovalEventData) notificationData;

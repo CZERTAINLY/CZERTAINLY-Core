@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -18,6 +19,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ActionService;
 import com.czertainly.core.service.NotificationProfileService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -28,11 +30,17 @@ import java.util.*;
 @Transactional
 public class ActionServiceImpl implements ActionService {
 
+    private ObjectMapper objectMapper;
+
     private ExecutionRepository executionRepository;
     private ExecutionItemRepository executionItemRepository;
     private ActionRepository actionRepository;
-
     private NotificationProfileService notificationProfileService;
+
+    @Autowired
+    public void setObjectMapper(ObjectMapper objectMapper) {
+        this.objectMapper = objectMapper;
+    }
 
     @Autowired
     public void setExecutionRepository(ExecutionRepository executionRepository) {
@@ -174,13 +182,22 @@ public class ActionServiceImpl implements ActionService {
     }
 
     private ExecutionItem createSendNotificationExecutionItem(Execution execution, ExecutionItemRequestDto executionItemRequestDto) {
-        NameAndUuidDto notificationProfileInfo;
+        NameAndUuidDto notificationProfileInfo = null;
         try {
-            UUID notificationProfileUuid = UUID.fromString(executionItemRequestDto.getData().toString());
-            NotificationProfileDetailDto notificationProfile = notificationProfileService.getNotificationProfile(SecuredUUID.fromUUID(notificationProfileUuid), null);
-            notificationProfileInfo = new NameAndUuidDto(notificationProfile.getUuid(), notificationProfile.getName());
-        } catch (IllegalArgumentException | NotFoundException e) {
-            throw new ValidationException("Invalid data of Send notification execution. Data should contain UUID of existing notification profile");
+            notificationProfileInfo = objectMapper.convertValue(executionItemRequestDto.getData(), NameAndUuidDto.class);
+        } catch (IllegalArgumentException e) {
+            // requested with UUID only
+        }
+
+        if (notificationProfileInfo == null) {
+            // try parsing data as UUID now
+            try {
+                UUID notificationProfileUuid = UUID.fromString(executionItemRequestDto.getData().toString());
+                NotificationProfileDetailDto notificationProfile = notificationProfileService.getNotificationProfile(SecuredUUID.fromUUID(notificationProfileUuid), null);
+                notificationProfileInfo = new NameAndUuidDto(notificationProfile.getUuid(), notificationProfile.getName());
+            } catch (IllegalArgumentException | NotFoundException e) {
+                throw new ValidationException("Invalid data of Send notification execution. Data should contain UUID of existing notification profile");
+            }
         }
 
         ExecutionItem executionItem = new ExecutionItem();

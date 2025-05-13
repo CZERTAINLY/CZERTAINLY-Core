@@ -302,6 +302,7 @@ public class TriggerServiceImpl implements TriggerService {
         TriggerHistory triggerHistory = new TriggerHistory();
         triggerHistory.setTriggerUuid(triggerUuid);
         triggerHistory.setTriggerAssociationUuid(triggerAssociationUuid);
+        triggerHistory.setTriggerAssociation(triggerAssociationRepository.findByUuid(SecuredUUID.fromUUID(triggerAssociationUuid)).orElse(null));
         triggerHistory.setObjectUuid(objectUuid);
         triggerHistory.setReferenceObjectUuid(referenceObjectUuid);
         triggerHistory.setTriggeredAt(OffsetDateTime.now());
