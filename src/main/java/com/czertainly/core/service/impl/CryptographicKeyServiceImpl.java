@@ -484,7 +484,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             logger.info("Key item already destroyed in the connector.");
         } catch (Exception e) {
             if (tokenInstanceReference.getStatus().equals(TokenInstanceStatus.DEACTIVATED)) {
-                logger.info("Key cannot be accessed from the token. Key will not destroyed in connector.");
+                logger.info("Key cannot be accessed from the token. Key will not be destroyed in connector.");
             } else throw e;
         }
     }
@@ -941,8 +941,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     private CryptographicKey createKeyTypeOfKeyPair(Connector connector, TokenProfile tokenProfile, KeyRequestDto request, CreateKeyRequestDto createKeyRequestDto) throws ConnectorException, AttributeException {
         boolean enabled = Boolean.TRUE.equals(request.getEnabled());
-        KeyPairDataResponseDto response;
-        response = keyManagementApiClient.createKeyPair(
+        KeyPairDataResponseDto response = keyManagementApiClient.createKeyPair(
                 connector.mapToDto(),
                 tokenProfile.getTokenInstanceReference().getTokenInstanceUuid(),
                 createKeyRequestDto
