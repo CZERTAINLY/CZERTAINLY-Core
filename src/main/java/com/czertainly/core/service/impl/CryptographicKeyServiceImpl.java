@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.api.model.connector.cryptography.key.CreateKeyRequestDto;
 import com.czertainly.api.model.connector.cryptography.key.KeyData;
 import com.czertainly.api.model.connector.cryptography.key.KeyDataResponseDto;
@@ -481,8 +482,10 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
             logger.info("Key item destroyed in the connector. Removing from the core now.");
         } catch (ConnectorEntityNotFoundException e) {
             logger.info("Key item already destroyed in the connector.");
-        } catch (ValidationException e) {
-            logger.info("Key cannot be accessed from the token. Key will not destroyed in connector.");
+        } catch (Exception e) {
+            if (tokenInstanceReference.getStatus().equals(TokenInstanceStatus.DEACTIVATED)) {
+                logger.info("Key cannot be accessed from the token. Key will not destroyed in connector.");
+            } else throw e;
         }
     }
 
