@@ -48,6 +48,8 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private static final String RA_BASE_URI = BASE_URI + "raProfiles/";
     private static final String ACME_PROFILE_NAME = "testAcmeProfile1";
     private static final String RA_PROFILE_NAME = "testRaProfile1";
+    private static final String ACME_PROFILE_NAME_2 = "testAcmeProfile2";
+    private static final String RA_PROFILE_NAME_2 = "testRaProfile2";
     private static final String NONCE_HEADER_CUSTOM_PARAM = "nonce";
     private static final String URL_HEADER_CUSTOM_PARAM = "url";
     private static final String ACME_ACCOUNT_ID_VALID = "RMAl70zrRrs";
@@ -146,6 +148,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile = raProfileRepository.save(raProfile);
 
+        RaProfile raProfile2 = new RaProfile();
+        raProfile2.setEnabled(true);
+        raProfile2.setName(RA_PROFILE_NAME_2);
+        raProfile2.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfileRepository.save(raProfile2);
+
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent(b64Certificate);
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -178,6 +186,25 @@ class AcmeServiceTest extends BaseSpringBootTest {
 
         raProfile.setAcmeProfile(acmeProfile);
         raProfileRepository.save(raProfile);
+
+        AcmeProfile acmeProfile2 = new AcmeProfile();
+        acmeProfile2.setRaProfile(raProfile2);
+        acmeProfile2.setWebsite("sample website");
+        acmeProfile2.setTermsOfServiceUrl("sample terms");
+        acmeProfile2.setValidity(30);
+        acmeProfile2.setRetryInterval(30);
+        acmeProfile2.setDescription("sample description");
+        acmeProfile2.setName(ACME_PROFILE_NAME_2);
+        acmeProfile2.setDnsResolverPort("53");
+        acmeProfile2.setDnsResolverIp("localhost");
+        acmeProfile2.setTermsOfServiceChangeUrl("change url");
+        acmeProfile2.setEnabled(true);
+        acmeProfile2.setDisableNewOrders(false);
+        acmeProfile2.setRequireContact(true);
+        acmeProfileRepository.save(acmeProfile2);
+
+        raProfile2.setAcmeProfile(acmeProfile2);
+        raProfileRepository.save(raProfile2);
 
         AcmeAccount acmeAccount = new AcmeAccount();
         acmeAccount.setStatus(AccountStatus.VALID);
@@ -396,6 +423,20 @@ class AcmeServiceTest extends BaseSpringBootTest {
                 newRsa2048Signer
         );
         return jwsObjectJSON.serializeFlattened();
+    }
+
+    @Test
+    void testNewAccountOnExisting_wrongConfiguration() throws URISyntaxException {
+        URI requestUri = new URI(BASE_URI + ACME_PROFILE_NAME_2 + "/new-account");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newAccount(ACME_PROFILE_NAME_2, buildNewAccountRequestJSON(requestUri), requestUri, false));
+    }
+
+    @Test
+    void testNewAccountOnExisting_wrongConfiguration_raProfileBased() throws URISyntaxException {
+        URI requestUri = new URI(RA_BASE_URI + RA_PROFILE_NAME_2 + "/new-account");
+        Assertions.assertThrows(AcmeProblemDocumentException.class,
+                () -> acmeService.newAccount(RA_PROFILE_NAME_2, buildNewAccountRequestJSON(requestUri), requestUri, true));
     }
 
     @Test
