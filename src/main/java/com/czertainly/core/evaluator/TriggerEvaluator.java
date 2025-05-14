@@ -298,7 +298,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
     }
 
-    protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data) throws NotFoundException {
+    protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data) {
         List<UUID> notificationProfileUuids = new ArrayList<>();
         for (ExecutionItem executionItem : execution.getItems()) {
             NameAndUuidDto notificationProfileInfo = objectMapper.convertValue(executionItem.getData(), NameAndUuidDto.class);
