@@ -249,6 +249,11 @@ public class NotificationListener {
             try {
                 // construct recipient DTO
                 NotificationRecipientDto recipientDto = constructNotificationRecipientDto(recipient, notificationInstanceReference.getKind());
+                if (recipientDto == null) {
+                    // this should happen only in case of recipient type NONE
+                    continue;
+                }
+
                 List<ResponseAttributeDto> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(recipient.getRecipientType().getRecipientResource(), recipient.getRecipientUuid());
 
                 // prepare mapped attributes
@@ -308,6 +313,13 @@ public class NotificationListener {
                 recipientDto = new NotificationRecipientDto();
                 recipientDto.setName(group.getName());
                 recipientDto.setEmail(email);
+            }
+            case NONE -> {
+                if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)) {
+                    throw new NotSupportedException("Notification recipient type None is not supported for kind " + EMAIL_NOTIFICATION_PROVIDER_KIND);
+                }
+
+                recipientDto = null;
             }
             default -> throw new NotSupportedException("Notification recipient type Owner is not supported");
         }
