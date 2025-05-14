@@ -1237,7 +1237,7 @@ public class AcmeServiceImpl implements AcmeService {
             try {
                 raProfileToUse = getRaProfileEntity(profileName);
             } catch (NotFoundException e) {
-                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "Given profile name is not found");
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "RA Profile is not found");
             }
             acmeProfile = raProfileToUse.getAcmeProfile();
         } else {
