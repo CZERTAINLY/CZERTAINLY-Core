@@ -48,6 +48,8 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.*;
 
 class RuleEvaluatorTest extends BaseSpringBootTest {
@@ -268,9 +270,41 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
         Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+    }
+
+    @Test
+    void testEvaluatorDateInterval() throws RuleException {
+        certificate.setNotAfter(convertToDateViaInstant(LocalDateTime.now().plusDays(10)));
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setFieldIdentifier(FilterField.NOT_AFTER.toString());
+        condition.setValue("P11D");
+        condition.setOperator(FilterConditionOperator.IN_NEXT);
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setValue("P5D");
+        Assertions.assertFalse(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        certificate.setNotAfter(convertToDateViaInstant(LocalDateTime.now().minusDays(10)));
+        condition.setOperator(FilterConditionOperator.IN_PAST);
+        condition.setValue("P11D");
+        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setValue("P5D");
+        Assertions.assertFalse(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        DiscoveryHistory discovery = new DiscoveryHistory();
+        discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().minusDays(5).minusHours(3)));
+        condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
+        condition.setValue("P5DT4H");
+        Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
 
     }
 
+    private Date convertToDateViaInstant(LocalDateTime dateToConvert) {
+        return java.util.Date
+                .from(dateToConvert.atZone(ZoneId.systemDefault())
+                        .toInstant());
+    }
 
     @Test
     void testsCryptographicKeyRuleEvaluator() throws RuleException {

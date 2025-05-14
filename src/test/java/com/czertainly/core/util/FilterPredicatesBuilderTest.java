@@ -3,6 +3,7 @@ package com.czertainly.core.util;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.certificate.CertificateResponseDto;
@@ -49,13 +50,8 @@ import org.springframework.test.context.DynamicPropertySource;
 import java.io.Serializable;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.time.ZonedDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.time.*;
+import java.util.*;
 import java.util.stream.Collectors;
 
 /**
@@ -689,6 +685,41 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         SearchRequestDto searchRequestDto8 = new SearchRequestDto();
         searchRequestDto8.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.NOT_EMPTY, null)));
         Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto8)));
+    }
+
+    @Test
+    void testIntervalFilters() {
+        certificate1.setNotAfter(convertToDateViaInstant(LocalDateTime.now().plusDays(10)));
+        certificate2.setNotAfter(convertToDateViaInstant(LocalDateTime.now().plusDays(2)));
+        certificate3.setNotAfter(convertToDateViaInstant(LocalDateTime.now().minusDays(4)));
+        certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3));
+
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+        String duration = "P3DT2H";
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.IN_NEXT, duration)));
+        Assertions.assertEquals(Set.of(certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+
+        duration = "P1MT2H";
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.IN_NEXT, duration)));
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+
+        duration = "P5D";
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.IN_PAST, duration)));
+        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+
+        duration = "P1D";
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.IN_PAST, duration)));
+        Assertions.assertEquals(Set.of(), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+
+        duration = "invalid";
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.IN_PAST, duration)));
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.listCertificates(new SecurityFilter(), searchRequestDto));
+    }
+
+    private Date convertToDateViaInstant(LocalDateTime dateToConvert) {
+        return java.util.Date
+                .from(dateToConvert.atZone(ZoneId.systemDefault())
+                        .toInstant());
     }
 
     @Test
