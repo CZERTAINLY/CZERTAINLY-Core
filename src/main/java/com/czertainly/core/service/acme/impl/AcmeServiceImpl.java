@@ -235,6 +235,9 @@ public class AcmeServiceImpl implements AcmeService {
             }
         }
 
+        // Check that the account is not used for different configuration
+        checkAccountConfiguration(account, acmeProfileName, isRaProfileBased);
+
         Account accountDto = account.mapToDto();
         String baseUri = getAcmeBaseUri();
         LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, account.getUuid().toString(), account.getAccountId());
@@ -757,24 +760,9 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     private AcmeAccount addNewAccount(String profileName, String publicKey, NewAccountRequest accountRequest, boolean isRaProfileBased) throws AcmeProblemDocumentException {
-        AcmeProfile acmeProfile;
-        RaProfile raProfileToUse;
-
-        if (isRaProfileBased) {
-            try {
-                raProfileToUse = getRaProfileEntity(profileName);
-            } catch (NotFoundException e) {
-                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "Given profile name is not found");
-            }
-            acmeProfile = raProfileToUse.getAcmeProfile();
-        } else {
-            try {
-                acmeProfile = getAcmeProfileEntityByName(profileName);
-            } catch (NotFoundException e) {
-                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "ACME Profile is not found");
-            }
-            raProfileToUse = acmeProfile.getRaProfile();
-        }
+        AcmeRaProfiles acmeRaProfiles = getProfiles(profileName, isRaProfileBased);
+        AcmeProfile acmeProfile = acmeRaProfiles.acmeProfile;
+        RaProfile raProfileToUse = acmeRaProfiles.raProfile;
 
         if (logger.isDebugEnabled()) {
             logger.debug("RA Profile for new Account: {}, ACME Profile: {}", raProfileToUse.toString(), acmeProfile.toString());
@@ -1232,6 +1220,40 @@ public class AcmeServiceImpl implements AcmeService {
         return CertificateUtil.getX509Certificate(CertificateUtil.normalizeCertificateContent(certificate));
     }
 
+    private void checkAccountConfiguration(AcmeAccount account, String profileName, boolean isRaProfileBased) throws AcmeProblemDocumentException {
+        AcmeRaProfiles acmeRaProfiles = getProfiles(profileName, isRaProfileBased);
+
+        if (!account.getAcmeProfileUuid().equals(acmeRaProfiles.acmeProfile.getUuid()) ||
+                !account.getRaProfileUuid().equals(acmeRaProfiles.raProfile.getUuid())) {
+            throw new AcmeProblemDocumentException(HttpStatus.UNAUTHORIZED, Problem.UNAUTHORIZED, "Account does not belong to this profile");
+        }
+    }
+
+    private AcmeRaProfiles getProfiles(String profileName, boolean isRaProfileBased) throws AcmeProblemDocumentException {
+        AcmeProfile acmeProfile;
+        RaProfile raProfileToUse;
+
+        if (isRaProfileBased) {
+            try {
+                raProfileToUse = getRaProfileEntity(profileName);
+            } catch (NotFoundException e) {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "Given profile name is not found");
+            }
+            acmeProfile = raProfileToUse.getAcmeProfile();
+        } else {
+            try {
+                acmeProfile = getAcmeProfileEntityByName(profileName);
+            } catch (NotFoundException e) {
+                throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.MALFORMED, "ACME Profile is not found");
+            }
+            raProfileToUse = acmeProfile.getRaProfile();
+        }
+
+        return new AcmeRaProfiles(acmeProfile, raProfileToUse);
+    }
+
+    private record AcmeRaProfiles(AcmeProfile acmeProfile, RaProfile raProfile) {}
+
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
     // Validation of ACME requests
     ////////////////////////////////////////////////////////////////////////////////////////////////////////////////
@@ -1401,4 +1423,5 @@ public class AcmeServiceImpl implements AcmeService {
                         new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST));
         validateAccount(acmeAccount);
     }
+
 }
