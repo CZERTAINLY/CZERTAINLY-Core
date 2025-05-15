@@ -18,7 +18,7 @@ public enum SearchFieldTypeEnum {
             , false, LocalDate.class),
     DATETIME(FilterFieldType.DATETIME,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.GREATER_OR_EQUAL, FilterConditionOperator.LESSER, FilterConditionOperator.LESSER_OR_EQUAL, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY,
-                    FilterConditionOperator.IN_PAST, FilterConditionOperator.IN_PAST)
+                    FilterConditionOperator.IN_NEXT, FilterConditionOperator.IN_PAST)
             , false, LocalDateTime.class),
     NUMBER(FilterFieldType.NUMBER,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.GREATER_OR_EQUAL, FilterConditionOperator.LESSER, FilterConditionOperator.LESSER_OR_EQUAL, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
