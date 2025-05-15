@@ -30,12 +30,12 @@ import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
@@ -233,6 +233,9 @@ public class NotificationListener {
 
     private void sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent event, Resource resource) throws ConnectorException, ValidationException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
+        if (notificationInstanceReference.getConnectorUuid() == null) {
+            throw new ValidationException("Notification instance does not have assigned connector");
+        }
 
         List<DataAttribute> mappingAttributes;
         ConnectorDto connector = notificationInstanceReference.getConnector().mapToDto();
@@ -264,22 +267,18 @@ public class NotificationListener {
             }
         }
 
-        if (!recipientsDto.isEmpty()) {
-            NotificationProviderNotifyRequestDto notificationProviderNotifyRequestDto = new NotificationProviderNotifyRequestDto();
-            notificationProviderNotifyRequestDto.setNotificationData(notificationData);
-            notificationProviderNotifyRequestDto.setResource(resource);
-            notificationProviderNotifyRequestDto.setEvent(event);
-            notificationProviderNotifyRequestDto.setEventType(eventToLegacyNotificationTypeMapping.getOrDefault(event, "other")); // legacy
-            notificationProviderNotifyRequestDto.setRecipients(recipientsDto);
+        NotificationProviderNotifyRequestDto notificationProviderNotifyRequestDto = new NotificationProviderNotifyRequestDto();
+        notificationProviderNotifyRequestDto.setNotificationData(notificationData);
+        notificationProviderNotifyRequestDto.setResource(resource);
+        notificationProviderNotifyRequestDto.setEvent(event);
+        notificationProviderNotifyRequestDto.setEventType(eventToLegacyNotificationTypeMapping.getOrDefault(event, "other")); // legacy
+        notificationProviderNotifyRequestDto.setRecipients(recipientsDto);
 
-            try {
-                notificationInstanceApiClient.sendNotification(connector, notificationInstanceReference.getNotificationInstanceUuid().toString(), notificationProviderNotifyRequestDto);
-            } catch (ConnectorException e) {
-                logger.error("Cannot send notification to connector: {}", e.getMessage());
-                throw e;
-            }
-        } else {
-            logger.debug("No recipients were provided, notifications were not sent.");
+        try {
+            notificationInstanceApiClient.sendNotification(connector, notificationInstanceReference.getNotificationInstanceUuid().toString(), notificationProviderNotifyRequestDto);
+        } catch (ConnectorException e) {
+            logger.error("Cannot send notification to connector: {}", e.getMessage());
+            throw e;
         }
     }
 
@@ -297,7 +296,7 @@ public class NotificationListener {
                 String email = roleDetailDto.getEmail();
                 if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)
                         && (email == null || email.isBlank())) {
-                    throw new NotSupportedException("Role with UUID %s does not have specified email, notification was not sent for this role.".formatted(recipient.getRecipientUuid()));
+                    throw new NotSupportedException("Role does not have specified email");
                 }
                 recipientDto = new NotificationRecipientDto();
                 recipientDto.setEmail(email);
@@ -308,7 +307,7 @@ public class NotificationListener {
                 String email = group.getEmail();
                 if (notificationProviderKind.equals(EMAIL_NOTIFICATION_PROVIDER_KIND)
                         && (email == null || email.isBlank())) {
-                    throw new NotSupportedException("Group with UUID %s does not have specified email, notification was not sent for this group.".formatted(recipient.getRecipientUuid()));
+                    throw new NotSupportedException("Group does not have specified email");
                 }
                 recipientDto = new NotificationRecipientDto();
                 recipientDto.setName(group.getName());

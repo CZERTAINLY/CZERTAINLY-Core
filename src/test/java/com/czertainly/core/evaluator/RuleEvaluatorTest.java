@@ -448,4 +448,17 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
     }
 
+    @Test
+    void testSendNotificationExecution() throws RuleException {
+        execution.setType(ExecutionType.SEND_NOTIFICATION);
+        executionRepository.save(execution);
+
+        executionItem.setData(new NameAndUuidDto(UUID.randomUUID().toString(),"TestNotifProfile"));
+        executionItemRepository.save(executionItem);
+
+        TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);
+        certificateRuleEvaluator.performActions(trigger, triggerHistory, certificate, null);
+        Assertions.assertEquals(0, triggerHistory.getRecords().size());
+    }
+
 }
