@@ -1,5 +1,6 @@
 package com.czertainly.core.events.handlers;
 
+import com.czertainly.api.model.client.approval.ApprovalDto;
 import com.czertainly.api.model.common.events.data.ApprovalEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
@@ -40,23 +41,8 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
 
     @Override
     protected Object getEventData(Approval approval, Object eventMessageData) {
-        ApprovalProfile approvalProfile = approval.getApprovalProfileVersion().getApprovalProfile();
-
-        ApprovalEventData eventData = new ApprovalEventData();
-        eventData.setApprovalUuid(approval.getUuid().toString());
-        eventData.setApprovalProfileUuid(approvalProfile.getUuid().toString());
-        eventData.setApprovalProfileName(approvalProfile.getName());
-        eventData.setVersion(approval.getApprovalProfileVersion().getVersion());
-        eventData.setStatus(approval.getStatus());
-        eventData.setExpiryAt(approval.getExpiryAt());
-        eventData.setClosedAt(approval.getClosedAt());
-        eventData.setResource(approval.getResource());
-        eventData.setResourceAction(approval.getAction().getCode());
-        eventData.setObjectUuid(approval.getObjectUuid().toString());
-        eventData.setCreatorUuid(approval.getCreatorUuid().toString());
-        eventData.setCreatorUsername(authHelper.getUserUsername(eventData.getCreatorUuid()));
-
-        return eventData;
+        ApprovalDto approvalDto = approval.mapToDto();
+        return new ApprovalEventData(approvalDto, authHelper.getUserUsername(approvalDto.getCreatorUuid()));
     }
 
     @Override
