@@ -706,7 +706,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
         duration = "invalid";
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.NOT_AFTER.name(), FilterConditionOperator.IN_PAST, duration)));
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.listCertificates(new SecurityFilter(), searchRequestDto));
+        SecurityFilter securityFilter = new SecurityFilter();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.listCertificates(securityFilter, searchRequestDto));
     }
 
     @Test
