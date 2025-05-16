@@ -1,9 +1,6 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
@@ -52,7 +49,7 @@ import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.util.*;
 
-class RuleEvaluatorTest extends BaseSpringBootTest {
+class TriggerEvaluatorTest extends BaseSpringBootTest {
 
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
@@ -60,13 +57,13 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Autowired
-    private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyRuleEvaluator;
+    private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyTriggerEvaluator;
 
     @Autowired
     private GroupRepository groupRepository;
 
     @Autowired
-    private TriggerEvaluator<DiscoveryHistory> discoveryHistoryRuleEvaluator;
+    private TriggerEvaluator<DiscoveryHistory> discoveryHistoryTriggerEvaluator;
 
     @Autowired
     private CertificateRepository certificateRepository;
@@ -107,7 +104,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     @Autowired
-    private CertificateTriggerEvaluator certificateRuleEvaluator;
+    private CertificateTriggerEvaluator certificateTriggerEvaluator;
 
     @Autowired
     private ResourceObjectAssociationService associationService;
@@ -171,28 +168,28 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setValue("Common Name");
         condition.setOperator(FilterConditionOperator.EQUALS);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EQUALS);
         certificate.setCommonName("Common NameE");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.CONTAINS);
         condition.setValue("Name");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_CONTAINS);
         condition.setValue("abc");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.STARTS_WITH);
         condition.setValue("Comm");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.ENDS_WITH);
         condition.setValue("eE");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         certificate.setCommonName(null);
         condition.setOperator(FilterConditionOperator.EMPTY);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         Group group = new Group();
         group.setName("group");
@@ -204,13 +201,13 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setFieldIdentifier(FilterField.GROUP_NAME.toString());
         condition.setValue(group.getName());
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         certificate.setTrustedCa(true);
         condition.setFieldIdentifier(FilterField.TRUSTED_CA.toString());
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(true);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         Location location = new Location();
         location.setName("loc");
@@ -223,7 +220,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldIdentifier(FilterField.CERT_LOCATION_NAME.name());
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue("loc");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
 
     }
@@ -233,26 +230,26 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         Rule rule = new Rule();
         rule.setResource(Resource.CRYPTOGRAPHIC_KEY);
         TriggerHistory triggerHistory = new TriggerHistory();
-        Assertions.assertFalse(certificateRuleEvaluator.evaluateRules(triggerHistory, Set.of(rule), certificate));
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateRules(triggerHistory, Set.of(rule), certificate));
 
         condition.setFieldIdentifier("invalid");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
-        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setOperator(FilterConditionOperator.GREATER);
-        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setValue(123);
         condition.setOperator(FilterConditionOperator.CONTAINS);
-        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setFieldIdentifier("expiryInDays");
         condition.setOperator(FilterConditionOperator.GREATER);
         condition.setValue(1);
         certificate.setNotAfter(new SimpleDateFormat(("dd.MM.yyyy")).parse("01.01.5000"));
-        Assertions.assertThrows(RuleException.class, () -> certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
     }
 
 
@@ -263,13 +260,13 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldIdentifier(FilterField.NOT_BEFORE.toString());
         condition.setValue("2010-12-12");
         condition.setOperator(FilterConditionOperator.GREATER);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setStartTime(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("2019-12-01T22:10:00.274+00:00");
-        Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        Assertions.assertTrue(discoveryHistoryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
     }
 
     @Test
@@ -279,24 +276,31 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         condition.setFieldIdentifier(FilterField.NOT_AFTER.toString());
         condition.setValue("P11D");
         condition.setOperator(FilterConditionOperator.IN_NEXT);
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setValue("P5D");
-        Assertions.assertFalse(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         certificate.setNotAfter(convertToDateViaInstant(LocalDateTime.now().minusDays(10)));
         condition.setOperator(FilterConditionOperator.IN_PAST);
         condition.setValue("P11D");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setValue("P5D");
-        Assertions.assertFalse(certificateRuleEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setValue("invalid");
+        Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().minusDays(5).minusHours(3)));
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("P5DT4H");
-        Assertions.assertTrue(discoveryHistoryRuleEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        Assertions.assertTrue(discoveryHistoryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
+        discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().plusDays(5).plusHours(3)));
+        condition.setValue("P5DT4H");
+        condition.setOperator(FilterConditionOperator.IN_NEXT);
+        Assertions.assertTrue(discoveryHistoryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
 
     }
 
@@ -314,14 +318,14 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         newCondition.setFieldSource(FilterFieldSource.PROPERTY);
         newCondition.setFieldIdentifier(FilterField.CKI_NAME.toString());
         newCondition.setOperator(FilterConditionOperator.NOT_EMPTY);
-        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         cryptographicKey.setLength(256);
         newCondition.setFieldIdentifier(FilterField.CKI_LENGTH.toString());
         newCondition.setOperator(FilterConditionOperator.GREATER);
         newCondition.setValue(255);
-        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         newCondition.setValue(255.4);
-        Assertions.assertTrue(cryptographicKeyRuleEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
 
 
     }
@@ -345,7 +349,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         newCondition.setFieldIdentifier("custom");
         newCondition.setOperator(FilterConditionOperator.EQUALS);
         newCondition.setValue("data");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
     }
 
     @Test
@@ -373,7 +377,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         newCondition.setFieldIdentifier("meta|STRING");
         newCondition.setOperator(FilterConditionOperator.EQUALS);
         newCondition.setValue("data");
-        Assertions.assertTrue(certificateRuleEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
     }
 
     @Test
@@ -388,7 +392,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         group2.setName("groupName2");
         group2 = groupRepository.save(group2);
         executionItem.setData(List.of(group.getUuid().toString(), group2.getUuid().toString()));
-        certificateRuleEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
 
         List<UUID> groupUuids = associationService.getGroupUuids(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(2, groupUuids.size());
@@ -410,7 +414,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
                 WireMock.okJson("{ \"username\": \"ownerName\"}")
         ));
 
-        certificateRuleEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
 
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
@@ -456,7 +460,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setData(raProfile.getUuid());
 
         TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);
-        certificateRuleEvaluator.performActions(trigger, triggerHistory, certificate, null);
+        certificateTriggerEvaluator.performActions(trigger, triggerHistory, certificate, null);
 
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(certificate);
@@ -477,7 +481,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItem.setFieldSource(FilterFieldSource.CUSTOM);
         executionItem.setFieldIdentifier("custom|STRING");
         executionItem.setData(List.of(linkedHashSet));
-        certificateRuleEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
     }
@@ -491,7 +495,7 @@ class RuleEvaluatorTest extends BaseSpringBootTest {
         executionItemRepository.save(executionItem);
 
         TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);
-        certificateRuleEvaluator.performActions(trigger, triggerHistory, certificate, null);
+        certificateTriggerEvaluator.performActions(trigger, triggerHistory, certificate, null);
         Assertions.assertEquals(0, triggerHistory.getRecords().size());
     }
 
