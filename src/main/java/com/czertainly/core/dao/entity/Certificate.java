@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -190,6 +191,21 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Column(name = "trusted_ca")
     private Boolean trustedCa;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alternative_key_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private CryptographicKey alternativeKey;
+
+    @Column(name = "alternative_signature_algorithm")
+    private String alternativeSignatureAlgorithm;
+
+    @Column(name = "alternative_signature_value")
+    private String alternativeSignatureValue;
+
+    @Column(name = "hybrid_certificate")
+    private boolean hybridCertificate;
+
 
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate", cascade = CascadeType.ALL)
     @ToString.Exclude

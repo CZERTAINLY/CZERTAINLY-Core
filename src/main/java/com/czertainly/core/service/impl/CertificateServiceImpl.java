@@ -57,7 +57,10 @@ import com.czertainly.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.function.TriFunction;
 import org.bouncycastle.asn1.ASN1Primitive;
+import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
@@ -921,6 +924,15 @@ public class CertificateServiceImpl implements CertificateService {
             }
             certificate.setKeyUuid(keyUuid);
         }
+//        if (alternativePublicKeyEncoded != null) {
+//            try {
+//                SubjectAltPublicKeyInfo subjectAltPublicKeyInfo = CertificateUtil.getAltPublicKeyInfo(alternativePublicKeyEncoded);
+//            } catch (IOException e) {
+//                throw new ValidationException("Cannot parse alternative Public Key: " + e.getMessage());
+//            }
+//            // check fingerprint, else
+//
+//        }
     }
 
     @Override

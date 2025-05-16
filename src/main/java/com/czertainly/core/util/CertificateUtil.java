@@ -26,17 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.annotation.Nullable;
 import jakarta.xml.bind.DatatypeConverter;
-import org.bouncycastle.asn1.DLSequence;
-import org.bouncycastle.asn1.DLTaggedObject;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -52,6 +48,7 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.thymeleaf.model.IModel;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -407,6 +404,23 @@ public class CertificateUtil {
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
+        byte[] alternativePublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        byte[] alternativeSignatureAlgorithm = certificate.getExtensionValue(Extension.altSignatureAlgorithm.getId());
+        byte[] alternativeSignature = certificate.getExtensionValue(Extension.altSignatureValue.getId());
+        if (alternativePublicKey != null && alternativeSignatureAlgorithm != null && alternativeSignature != null) {
+            modal.setHybridCertificate(true);
+            try {
+                modal.setAlternativeSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
+            } catch (IOException e) {
+                throw new ValidationException("Cannot read Alternative Signature Algorithm from extension: " + e.getMessage());
+            }
+            try {
+                modal.setAlternativeSignatureValue(getAltSignatureValue(alternativeSignature));
+            } catch (IOException e) {
+                throw new ValidationException("Cannot read Alternative Signature Value from extension: " + e.getMessage());
+            }
+        }
+
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(CertificateUtil.getSAN(certificate)));
         try {
             modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
@@ -423,6 +437,36 @@ public class CertificateUtil {
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)
             modal.setTrustedCa(false);
+    }
+
+    private static String getAlternativeSignatureAlgorithm(byte[] alternativeSignatureAlgorithm) throws IOException {
+        ASN1Primitive derObj2 = getAsn1Primitive(alternativeSignatureAlgorithm);
+        AltSignatureAlgorithm algorithm = AltSignatureAlgorithm.getInstance(derObj2);
+        return new DefaultAlgorithmNameFinder().getAlgorithmName(algorithm.getAlgorithm());
+    }
+
+    private static String getAltSignatureValue(byte[] altSignatureValue) throws IOException {
+        ASN1Primitive primitive = getAsn1Primitive(altSignatureValue);
+        AltSignatureValue signatureValue = AltSignatureValue.getInstance(primitive);
+        return signatureValue.toString();
+    }
+
+    public static SubjectAltPublicKeyInfo getAltPublicKeyInfo(byte[] altPublicKeyInfoEncoded) throws IOException {
+        ASN1Primitive primitive = getAsn1Primitive(altPublicKeyInfoEncoded);
+        return SubjectAltPublicKeyInfo.getInstance(primitive);
+    }
+
+
+    private static ASN1Primitive getAsn1Primitive(byte[] encodedAsn1Primitive) throws IOException {
+        ASN1InputStream asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(encodedAsn1Primitive));
+        ASN1Primitive asn1Primitive = asn1InputStream.readObject();
+        DEROctetString derOctetString = (DEROctetString) asn1Primitive;
+
+        asn1InputStream.close();
+
+        byte[] octets = derOctetString.getOctets();
+        ASN1InputStream asn1InputStreamInner = new ASN1InputStream(new ByteArrayInputStream(octets));
+        return asn1InputStreamInner.readObject();
     }
 
 
