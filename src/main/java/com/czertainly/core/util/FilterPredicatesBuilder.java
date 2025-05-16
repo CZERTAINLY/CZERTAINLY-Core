@@ -103,7 +103,6 @@ public class FilterPredicatesBuilder {
         Object filterValue = filterValues.isEmpty() ? null : filterValues.getFirst();
         FilterConditionOperator conditionOperator = (filterDto.getCondition() == FilterConditionOperator.NOT_EQUALS) ? FilterConditionOperator.EQUALS : ((filterDto.getCondition() == FilterConditionOperator.NOT_CONTAINS) ? FilterConditionOperator.CONTAINS : filterDto.getCondition());
         ZonedDateTime nowDateTime = ZonedDateTime.now();
-        LocalTime nowTime = LocalTime.now();
         return switch (conditionOperator) {
             case EQUALS ->
                     multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValue);
@@ -118,24 +117,12 @@ public class FilterPredicatesBuilder {
                     criteriaBuilder.lessThanOrEqualTo(expression, (Expression) criteriaBuilder.literal(filterValue));
             case IN_PAST -> {
                 Duration duration = (Duration) filterValues.getFirst();
-                if (contentType == AttributeContentType.TIME) {
-                    LocalTime subtractedTime = nowTime.minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds());
-                    if (subtractedTime.isAfter(nowTime)) yield criteriaBuilder.not(criteriaBuilder.between(expression, nowTime, subtractedTime));
-                    yield criteriaBuilder.between(expression,
-                            subtractedTime,
-                            nowTime);
-                }
                 yield criteriaBuilder.between(expression,
                         nowDateTime.minus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds()),
                        nowDateTime);
             }
             case IN_NEXT -> {
                 Duration duration = (Duration) filterValues.getFirst();
-                if (contentType == AttributeContentType.TIME) {
-                    LocalTime addedTime = nowTime.plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds());
-                    if (addedTime.isBefore(nowTime)) yield criteriaBuilder.not(criteriaBuilder.between(expression, addedTime, nowTime));
-                    yield criteriaBuilder.between(expression, nowTime, addedTime);
-                }
                 yield criteriaBuilder.between(expression, nowDateTime,
                         nowDateTime.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
@@ -184,11 +171,6 @@ public class FilterPredicatesBuilder {
         Object preparedValue;
         if (contentType == AttributeContentType.DATE) {
             stringValue = extractDateFromDuration(stringValue);
-        } else if (contentType == AttributeContentType.TIME) {
-            if (!stringValue.contains("T")) {
-                throw new ValidationException("Duration must contain a time part.");
-            }
-            stringValue =  "P" + stringValue.substring(stringValue.indexOf('T'));
         }
         try {
             preparedValue = DatatypeFactory.newInstance().newDuration(stringValue);
