@@ -1,11 +1,15 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
+import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
@@ -28,6 +32,9 @@ class TriggerServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private TriggerService triggerService;
+
+    @Autowired
+    private NotificationProfileService notificationProfileService;
 
     @Test
     void testCreateTrigger() throws AttributeException, NotFoundException, AlreadyExistException {
@@ -86,5 +93,27 @@ class TriggerServiceTest extends BaseSpringBootTest {
         update.setResource(Resource.CERTIFICATE);
 
         Assertions.assertThrows(ValidationException.class, () -> triggerService.updateTrigger(triggerDetailDto.getUuid(), update));
+
+        // create execution with send notification type
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("TestProfile");
+        requestDto.setRecipientType(RecipientType.NONE);
+        requestDto.setRepetitions(1);
+        requestDto.setInternalNotification(true);
+        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
+
+        executionItemRequest = new ExecutionItemRequestDto();
+        executionItemRequest.setData(new NameAndUuidDto(notificationProfileDetailDto.getUuid(), notificationProfileDetailDto.getName()));
+
+        executionRequest = new ExecutionRequestDto();
+        executionRequest.setName("SendNotification");
+        executionRequest.setResource(Resource.CERTIFICATE);
+        executionRequest.setType(ExecutionType.SEND_NOTIFICATION);
+        executionRequest.setItems(List.of(executionItemRequest));
+        execution = actionService.createExecution(executionRequest);
+
+        UpdateActionRequestDto updateActionRequestDto = new UpdateActionRequestDto();
+        updateActionRequestDto.setExecutionsUuids(List.of(execution.getUuid()));
+        actionService.updateAction(action.getUuid(), updateActionRequestDto);
     }
 }

@@ -2,6 +2,7 @@ package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.v2.ClientCertificateRekeyRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateRevocationDto;
@@ -13,6 +14,7 @@ import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
@@ -27,6 +29,7 @@ import org.springframework.stereotype.Component;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 
 @Component
@@ -63,7 +66,7 @@ public class ActionListener {
                 } catch (Exception e) {
                     String errorMessage = String.format("Cannot create new approval to approve %s %s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode());
                     logger.error("{}: {}", errorMessage, e.getMessage());
-                    notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
+                    notificationProducer.produceInternalNotificationMessage(actionMessage.getResource(), actionMessage.getResourceUuid(),
                             NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
                     throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
@@ -77,36 +80,35 @@ public class ActionListener {
         } catch (Exception e) {
             String errorMessage = String.format("Failed to perform %s %s%s action!", actionMessage.getResource().getLabel(), actionMessage.getResourceAction().getCode(), !hasApproval || isApproved ? "" : " rejected");
             logger.error("{}: {}", errorMessage, e.getMessage());
-            notificationProducer.produceNotificationText(actionMessage.getResource(), actionMessage.getResourceUuid(),
+            notificationProducer.produceInternalNotificationMessage(actionMessage.getResource(), actionMessage.getResourceUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
             throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Unable to process action: " + e.getMessage());
         }
     }
 
     private void processApprovalCreated(final ActionMessage actionMessage) throws NotFoundException {
-        switch (actionMessage.getResource()) {
-            case CERTIFICATE -> clientOperationService.approvalCreatedAction(actionMessage.getResourceUuid());
-            default ->
-                    logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
+        if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
+            clientOperationService.approvalCreatedAction(actionMessage.getResourceUuid());
+        } else {
+            logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }
 
     private void processAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws CertificateOperationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException {
-        switch (actionMessage.getResource()) {
-            case CERTIFICATE -> processCertificateAction(actionMessage, hasApproval, isApproved);
-            default ->
-                    logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
+        if (Objects.requireNonNull(actionMessage.getResource()) == Resource.CERTIFICATE) {
+            processCertificateAction(actionMessage, hasApproval, isApproved);
+        } else {
+            logger.error("Action listener does not support resource {}", actionMessage.getResource().getLabel());
         }
     }
 
     private void processCertificateAction(final ActionMessage actionMessage, boolean hasApproval, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException, NotFoundException {
         // handle rejected actions
         if (hasApproval && !isApproved) {
-            switch (actionMessage.getResourceAction()) {
-                case ISSUE, RENEW, REKEY ->
-                        clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
-                default ->
-                        logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
+            if (Objects.requireNonNull(actionMessage.getResourceAction()) == ResourceAction.ISSUE || actionMessage.getResourceAction() == ResourceAction.RENEW || actionMessage.getResourceAction() == ResourceAction.REKEY) {
+                clientOperationService.issueCertificateRejectedAction(actionMessage.getResourceUuid());
+            } else {
+                logger.debug("Action listener does not handle reject of action {} for resource {}", actionMessage.getResourceAction().getCode(), actionMessage.getResource().getLabel());
             }
             return;
         }

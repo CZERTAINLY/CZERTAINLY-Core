@@ -1,6 +1,7 @@
-package com.czertainly.core.dao.repository;
+package com.czertainly.core.dao.repository.notifications;
 
-import com.czertainly.core.dao.entity.NotificationProfile;
+import com.czertainly.core.dao.entity.notifications.NotificationProfile;
+import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 

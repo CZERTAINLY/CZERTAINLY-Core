@@ -6,10 +6,10 @@ import com.czertainly.api.model.client.notification.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
-import com.czertainly.core.dao.entity.NotificationProfile;
-import com.czertainly.core.dao.entity.NotificationProfileVersion;
-import com.czertainly.core.dao.repository.NotificationProfileRepository;
-import com.czertainly.core.dao.repository.NotificationProfileVersionRepository;
+import com.czertainly.core.dao.entity.notifications.NotificationProfile;
+import com.czertainly.core.dao.entity.notifications.NotificationProfileVersion;
+import com.czertainly.core.dao.repository.notifications.NotificationProfileRepository;
+import com.czertainly.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -79,7 +79,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     public NotificationProfileDetailDto getNotificationProfile(SecuredUUID uuid, Integer version) throws NotFoundException {
         NotificationProfileVersion notificationProfileVersion;
         if (version == null) {
-            notificationProfileVersion = notificationProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid)).getCurrentVersion();
+            notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(uuid.getValue()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
         } else {
             notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(uuid.getValue(), version).orElseThrow(() -> new NotFoundException(NotificationProfileVersion.class, uuid));
         }
