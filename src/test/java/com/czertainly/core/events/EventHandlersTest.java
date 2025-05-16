@@ -8,14 +8,17 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRequestDto
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.czertainly.api.model.connector.notification.NotificationType;
-import com.czertainly.api.model.connector.notification.data.NotificationDataScheduledJobCompleted;
+import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.settings.NotificationSettingsDto;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.*;
 import com.czertainly.core.messaging.listeners.NotificationListener;
@@ -185,7 +188,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         notificationSettingsDto.setNotificationsMapping(Map.of(NotificationType.SCHEDULED_JOB_COMPLETED, notificationInstance.getUuid().toString()));
         settingService.updateNotificationSettings(notificationSettingsDto);
 
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(new NotificationMessage(NotificationType.SCHEDULED_JOB_COMPLETED, Resource.SCHEDULED_JOB, UUID.randomUUID(), List.of(), new NotificationDataScheduledJobCompleted("TestJob", "JobType", "Finished"))));
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(new NotificationMessage(ResourceEvent.SCHEDULED_JOB_FINISHED, Resource.SCHEDULED_JOB, UUID.randomUUID(), null, List.of(), new ScheduledJobFinishedEventData("TestJob", "JobType", "Finished"))));
     }
 
 }

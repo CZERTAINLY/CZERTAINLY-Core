@@ -6,10 +6,8 @@ import jakarta.persistence.EnumType;
 import jakarta.persistence.Enumerated;
 import jakarta.persistence.MappedSuperclass;
 import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
 
 @Getter
@@ -28,18 +26,12 @@ public class ResourceObjectAssociation extends UniquelyIdentified implements Ser
 
     @Override
     public boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        ResourceObjectAssociation that = (ResourceObjectAssociation) o;
-        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
+        return super.equals(o);
     }
 
     @Override
     public int hashCode() {
-        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return super.hashCode();
     }
 }
 

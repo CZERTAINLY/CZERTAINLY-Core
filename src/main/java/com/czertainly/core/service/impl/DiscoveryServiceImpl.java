@@ -263,7 +263,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         for (SecuredUUID uuid : discoveryUuids) {
             deleteDiscovery(uuid);
         }
-        notificationProducer.produceNotificationText(Resource.DISCOVERY, null, NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Discovery histories have been deleted.", null);
+        notificationProducer.produceInternalNotificationMessage(Resource.DISCOVERY, null, NotificationRecipient.buildUserNotificationRecipient(loggedUserUuid), "Discovery histories have been deleted.", null);
     }
 
     @Override

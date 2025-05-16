@@ -1,13 +1,13 @@
-package com.czertainly.core.dao.entity;
+package com.czertainly.core.dao.entity.notifications;
 
 import com.czertainly.api.model.core.notification.AttributeMappingDto;
+import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import lombok.*;
-import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
-import java.util.Objects;
 import java.util.UUID;
 
 @Getter
@@ -51,18 +51,12 @@ public class NotificationInstanceMappedAttributes extends UniquelyIdentified imp
     }
 
     @Override
-    public final boolean equals(Object o) {
-        if (this == o) return true;
-        if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
-        if (thisEffectiveClass != oEffectiveClass) return false;
-        NotificationInstanceMappedAttributes that = (NotificationInstanceMappedAttributes) o;
-        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
+    public boolean equals(Object o) {
+        return super.equals(o);
     }
 
     @Override
-    public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    public int hashCode() {
+        return super.hashCode();
     }
 }

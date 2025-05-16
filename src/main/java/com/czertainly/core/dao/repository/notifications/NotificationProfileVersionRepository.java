@@ -1,6 +1,7 @@
-package com.czertainly.core.dao.repository;
+package com.czertainly.core.dao.repository.notifications;
 
-import com.czertainly.core.dao.entity.NotificationProfileVersion;
+import com.czertainly.core.dao.entity.notifications.NotificationProfileVersion;
+import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
@@ -13,5 +14,7 @@ public interface NotificationProfileVersionRepository extends SecurityFilterRepo
     @EntityGraph(attributePaths = {"notificationProfile", "notificationInstance"})
     Optional<NotificationProfileVersion> findByNotificationProfileUuidAndVersion(UUID notificationProfileUuid, int version);
 
+    @EntityGraph(attributePaths = {"notificationProfile", "notificationInstance"})
+    Optional<NotificationProfileVersion> findTopByNotificationProfileUuidOrderByVersionDesc(UUID notificationProfileUuid);
 
 }

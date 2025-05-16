@@ -1,5 +1,6 @@
-package com.czertainly.core.dao.entity;
+package com.czertainly.core.dao.entity.notifications;
 
+import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
