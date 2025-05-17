@@ -2,14 +2,19 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.notification.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.dao.entity.notifications.NotificationProfileVersion;
+import com.czertainly.core.dao.entity.notifications.PendingNotification;
+import com.czertainly.core.dao.entity.workflows.Execution;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileVersionRepository;
+import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
+import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -37,6 +42,9 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     private NotificationProfileRepository notificationProfileRepository;
     private NotificationProfileVersionRepository notificationProfileVersionRepository;
 
+    private ExecutionRepository executionRepository;
+    private PendingNotificationRepository pendingNotificationRepository;
+
     private ResourceObjectAssociationService resourceObjectAssociationService;
 
     @Autowired
@@ -47,6 +55,16 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     @Autowired
     public void setNotificationProfileVersionRepository(NotificationProfileVersionRepository notificationProfileVersionRepository) {
         this.notificationProfileVersionRepository = notificationProfileVersionRepository;
+    }
+
+    @Autowired
+    public void setExecutionRepository(ExecutionRepository executionRepository) {
+        this.executionRepository = executionRepository;
+    }
+
+    @Autowired
+    public void setPendingNotificationRepository(PendingNotificationRepository pendingNotificationRepository) {
+        this.pendingNotificationRepository = pendingNotificationRepository;
     }
 
     @Autowired
@@ -94,7 +112,12 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     public void deleteNotificationProfile(SecuredUUID uuid) throws NotFoundException {
         NotificationProfile notificationProfile = notificationProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
 
-        // TODO: check if there are no pending notifications referencing this notification profile before deleting
+        // check execution items referencing notification profile
+        List<Execution> executions = executionRepository.findByItemsNotificationProfileUuid(uuid.getValue());
+        if (!executions.isEmpty()) {
+            throw new ValidationException("Cannot delete notification profile. %d execution(s) are referencing this notification profile".formatted(executions.size()));
+        }
+
         notificationProfileRepository.delete(notificationProfile);
     }
 

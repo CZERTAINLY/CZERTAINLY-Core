@@ -103,7 +103,7 @@ class TriggerServiceTest extends BaseSpringBootTest {
         NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
 
         executionItemRequest = new ExecutionItemRequestDto();
-        executionItemRequest.setData(new NameAndUuidDto(notificationProfileDetailDto.getUuid(), notificationProfileDetailDto.getName()));
+        executionItemRequest.setNotificationProfileUuid(notificationProfileDetailDto.getUuid());
 
         executionRequest = new ExecutionRequestDto();
         executionRequest.setName("SendNotification");

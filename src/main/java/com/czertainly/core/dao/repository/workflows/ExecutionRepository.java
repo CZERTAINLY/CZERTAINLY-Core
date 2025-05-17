@@ -18,6 +18,15 @@ public interface ExecutionRepository extends SecurityFilterRepository<Execution,
     @EntityGraph(attributePaths = {"actions"})
     Optional<Execution> findWithActionsByUuid(UUID uuid);
 
+    @EntityGraph(attributePaths = {"items", "items.notificationProfile"})
+    Optional<Execution> findWithItemsByUuid(UUID uuid);
+
+    @EntityGraph(attributePaths = {"items", "items.notificationProfile"})
+    List<Execution> findAllWithItemsBy();
+
+    @EntityGraph(attributePaths = {"items", "items.notificationProfile"})
     List<Execution> findAllByResource(Resource resource);
+
+    List<Execution> findByItemsNotificationProfileUuid(UUID uuid);
 
 }

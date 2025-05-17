@@ -1,6 +1,8 @@
 ALTER TABLE execution_item
+    ADD COLUMN notification_profile_uuid UUID NULL DEFAULT NULL,
     ALTER COLUMN field_source DROP NOT NULL,
-    ALTER COLUMN field_identifier DROP NOT NULL;
+    ALTER COLUMN field_identifier DROP NOT NULL,
+    ADD CONSTRAINT fk_execution_item_notification_profile FOREIGN KEY (notification_profile_uuid) REFERENCES notification_profile(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
 
 CREATE TABLE "pending_notification"
 (
