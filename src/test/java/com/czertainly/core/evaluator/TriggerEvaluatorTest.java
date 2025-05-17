@@ -4,6 +4,8 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
+import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
+import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
@@ -13,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -27,10 +30,7 @@ import com.czertainly.core.dao.repository.workflows.ExecutionItemRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
 import com.czertainly.core.dao.repository.workflows.TriggerRepository;
 import com.czertainly.core.enums.FilterField;
-import com.czertainly.core.service.AttributeService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ResourceObjectAssociationService;
-import com.czertainly.core.service.TriggerService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -105,6 +105,9 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateTriggerEvaluator certificateTriggerEvaluator;
+
+    @Autowired
+    private NotificationProfileService notificationProfileService;
 
     @Autowired
     private ResourceObjectAssociationService associationService;
@@ -487,11 +490,18 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSendNotificationExecution() throws RuleException {
+    void testSendNotificationExecution() throws RuleException, NotFoundException, AlreadyExistException {
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("TestProfile");
+        requestDto.setRecipientType(RecipientType.NONE);
+        requestDto.setRepetitions(1);
+        requestDto.setInternalNotification(true);
+        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
+
         execution.setType(ExecutionType.SEND_NOTIFICATION);
         executionRepository.save(execution);
 
-        executionItem.setData(new NameAndUuidDto(UUID.randomUUID().toString(),"TestNotifProfile"));
+        executionItem.setNotificationProfileUuid(UUID.fromString(notificationProfileDetailDto.getUuid()));
         executionItemRepository.save(executionItem);
 
         TriggerHistory triggerHistory = triggerService.createTriggerHistory(trigger.getUuid(), null, certificate.getUuid(), null);

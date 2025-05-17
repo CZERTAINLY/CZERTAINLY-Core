@@ -16,7 +16,7 @@ public interface ActionService {
 
     List<ExecutionDto> listExecutions(Resource resource);
     ExecutionDto getExecution(String executionUuid) throws NotFoundException;
-    ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException;
+    ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException, NotFoundException;
     ExecutionDto updateExecution(String executionUuid, UpdateExecutionRequestDto request) throws NotFoundException;
     void deleteExecution(String executionUuid) throws NotFoundException;
 
