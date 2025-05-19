@@ -41,7 +41,7 @@ public class ActionControllerImpl implements ActionController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.EXECUTION, operation = Operation.CREATE)
-    public ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException {
+    public ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException, NotFoundException {
         return actionService.createExecution(request);
     }
 

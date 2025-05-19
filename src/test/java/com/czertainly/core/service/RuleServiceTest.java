@@ -36,7 +36,7 @@ public class RuleServiceTest extends BaseSpringBootTest {
 
 
     @BeforeEach
-    public void setUp() throws AlreadyExistException {
+    public void setUp() throws AlreadyExistException, NotFoundException {
         conditionItemRequestDto = new ConditionItemRequestDto();
         conditionItemRequestDto.setFieldSource(FilterFieldSource.PROPERTY);
         conditionItemRequestDto.setFieldIdentifier("identifier");

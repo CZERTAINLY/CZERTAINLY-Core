@@ -302,8 +302,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data) {
         List<UUID> notificationProfileUuids = new ArrayList<>();
         for (ExecutionItem executionItem : execution.getItems()) {
-            NameAndUuidDto notificationProfileInfo = objectMapper.convertValue(executionItem.getData(), NameAndUuidDto.class);
-            notificationProfileUuids.add(UUID.fromString(notificationProfileInfo.getUuid()));
+            notificationProfileUuids.add(executionItem.getNotificationProfileUuid());
         }
 
         NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuids, null, data);
