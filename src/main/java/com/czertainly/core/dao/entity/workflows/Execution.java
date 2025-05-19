@@ -36,7 +36,7 @@ public class Execution extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private Resource resource;
 
-    @OneToMany(mappedBy = "execution", fetch = FetchType.LAZY, cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "execution", fetch = FetchType.LAZY, cascade = CascadeType.ALL, orphanRemoval = true)
     @ToString.Exclude
     private Set<ExecutionItem> items;
 
