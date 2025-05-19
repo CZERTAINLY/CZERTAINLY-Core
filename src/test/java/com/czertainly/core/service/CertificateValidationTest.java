@@ -15,6 +15,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CertificateUtilTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -33,6 +34,7 @@ import org.bouncycastle.cert.jcajce.JcaX509v2CRLBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
+import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.util.Store;
 import org.bouncycastle.util.io.pem.PemObject;
@@ -50,10 +52,7 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 
 import javax.security.auth.x500.X500Principal;
-import java.io.ByteArrayInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.*;
@@ -196,6 +195,16 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         // turn validation back on
         certificateSettingsUpdateDto.setValidation(new CertificateValidationSettingsUpdateDto());
         settingService.updatePlatformSettings(settingsUpdateDto);
+    }
+
+    @Test
+    void testValidateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, IOException {
+        X509Certificate x509Certificate = CertificateUtilTest.createHybridCertificate();
+        certificate.getCertificateContent().setContent(Base64.getEncoder().encodeToString(x509Certificate.getEncoded()));
+        certificate.setHybridCertificate(true);
+        certificateService.validate(certificate);
+        Map<CertificateValidationCheck, CertificateValidationCheckDto> resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
+        Assertions.assertEquals(CertificateValidationStatus.VALID, resultMap.get(CertificateValidationCheck.CERTIFICATE_VALIDITY).getStatus());
     }
 
     @Test

@@ -17,13 +17,18 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CertificateUtilTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.bouncycastle.cert.CertIOException;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
@@ -32,16 +37,11 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
 import java.io.InputStream;
-import java.security.GeneralSecurityException;
-import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
+import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.Base64;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 class CertificateServiceTest extends BaseSpringBootTest {
 
@@ -67,6 +67,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
     private ResourceObjectAssociationService associationService;
     @Autowired
     private OwnerAssociationRepository ownerAssociationRepository;
+    @Autowired
+    private CryptographicKeyRepository cryptographicKeyRepository;
 
     private AttributeEngine attributeEngine;
 
@@ -214,6 +216,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(cert);
         Assertions.assertEquals("CLIENT1", cert.getCommonName());
         Assertions.assertEquals("177e75f42e95ecb98f831eb57de27b0bc8c47643", cert.getSerialNumber());
+    }
+
+    @Test
+    void testCreateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, CertIOException, AlreadyExistException {
+        Certificate hybridCertificate = certificateService.checkCreateCertificate(Base64.getEncoder().encodeToString(
+                CertificateUtilTest.createHybridCertificate().getEncoded()));
+
+        Assertions.assertTrue(hybridCertificate.isHybridCertificate());
+        Assertions.assertNotNull(hybridCertificate.getAltSignatureAlgorithm());
+        Assertions.assertNotNull(hybridCertificate.getAltKeyUuid());
+
+        Optional<CryptographicKey> altCryptographicKey = cryptographicKeyRepository.findByUuid(hybridCertificate.getAltKeyUuid());
+        Assertions.assertTrue(altCryptographicKey.isPresent());
     }
 
     @Test

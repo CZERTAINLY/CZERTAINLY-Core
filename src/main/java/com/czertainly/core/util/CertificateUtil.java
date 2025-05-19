@@ -48,7 +48,6 @@ import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.util.io.pem.PemObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.thymeleaf.model.IModel;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -60,6 +59,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -90,6 +91,9 @@ public class CertificateUtil {
     static {
         CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
         CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-44", KeyAlgorithm.MLDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-65", KeyAlgorithm.MLDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-87", KeyAlgorithm.MLDSA.toString());
     }
 
     private CertificateUtil() {
@@ -410,14 +414,9 @@ public class CertificateUtil {
         if (alternativePublicKey != null && alternativeSignatureAlgorithm != null && alternativeSignature != null) {
             modal.setHybridCertificate(true);
             try {
-                modal.setAlternativeSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
+                modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
             } catch (IOException e) {
                 throw new ValidationException("Cannot read Alternative Signature Algorithm from extension: " + e.getMessage());
-            }
-            try {
-                modal.setAlternativeSignatureValue(getAltSignatureValue(alternativeSignature));
-            } catch (IOException e) {
-                throw new ValidationException("Cannot read Alternative Signature Value from extension: " + e.getMessage());
             }
         }
 
@@ -439,21 +438,23 @@ public class CertificateUtil {
             modal.setTrustedCa(false);
     }
 
-    private static String getAlternativeSignatureAlgorithm(byte[] alternativeSignatureAlgorithm) throws IOException {
+    public static String getAlternativeSignatureAlgorithm(byte[] alternativeSignatureAlgorithm) throws IOException {
         ASN1Primitive derObj2 = getAsn1Primitive(alternativeSignatureAlgorithm);
         AltSignatureAlgorithm algorithm = AltSignatureAlgorithm.getInstance(derObj2);
         return new DefaultAlgorithmNameFinder().getAlgorithmName(algorithm.getAlgorithm());
     }
 
-    private static String getAltSignatureValue(byte[] altSignatureValue) throws IOException {
+    public static byte[] getAltSignatureValue(byte[] altSignatureValue) throws IOException {
         ASN1Primitive primitive = getAsn1Primitive(altSignatureValue);
         AltSignatureValue signatureValue = AltSignatureValue.getInstance(primitive);
-        return signatureValue.toString();
+        return signatureValue.getSignature().getEncoded();
     }
 
-    public static SubjectAltPublicKeyInfo getAltPublicKeyInfo(byte[] altPublicKeyInfoEncoded) throws IOException {
+    public static PublicKey getAltPublicKey(byte[] altPublicKeyInfoEncoded) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
         ASN1Primitive primitive = getAsn1Primitive(altPublicKeyInfoEncoded);
-        return SubjectAltPublicKeyInfo.getInstance(primitive);
+        SubjectAltPublicKeyInfo subjectAltPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(primitive);
+        KeyFactory keyFactory = KeyFactory.getInstance(subjectAltPublicKeyInfo.getAlgorithm().getAlgorithm().getId());
+        return keyFactory.generatePublic(new X509EncodedKeySpec(subjectAltPublicKeyInfo.getEncoded()));
     }
 
 

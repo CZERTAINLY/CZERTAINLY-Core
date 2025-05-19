@@ -21,8 +21,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.security.InvalidKeyException;
+import java.security.NoSuchAlgorithmException;
+import java.security.Signature;
+import java.security.SignatureException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.*;
@@ -54,6 +59,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         ArrayList<Certificate> certificateChain = new ArrayList<>();
         Certificate lastCertificate = certificate;
+        boolean isHybrid = certificate.isHybridCertificate();
         do {
             certificateChain.add(lastCertificate);
             lastCertificate = lastCertificate.getIssuerCertificateUuid() == null ? null : certificateRepository.findByUuid(lastCertificate.getIssuerCertificateUuid()).orElse(null);
@@ -69,7 +75,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
             boolean isEndCertificate = i == 0;
             validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getSubjectType(),
-                    certificate.getRaProfile());
+                    certificate.getRaProfile(), isHybrid);
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 
@@ -81,12 +87,13 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType, RaProfile raProfile) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType, RaProfile raProfile,
+                                                                                                   boolean isHybrid) {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
         // section (a)(1) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
-        validationOutput.put(CertificateValidationCheck.SIGNATURE_VERIFICATION, checkCertificateSignature(certificate, issuerCertificate, isCompleteChain));
+        validationOutput.put(CertificateValidationCheck.SIGNATURE_VERIFICATION, checkCertificateSignature(certificate, issuerCertificate, isCompleteChain, isHybrid));
 
         // check certificate validity
         // section (a)(2) in https://datatracker.ietf.org/doc/html/rfc5280#section-6.1.3
@@ -149,19 +156,19 @@ public class X509CertificateValidator implements ICertificateValidator {
         }
     }
 
-    private CertificateValidationCheckDto checkCertificateSignature(X509Certificate certificate, X509Certificate issuerCertificate, boolean isCompleteChain) {
+    private CertificateValidationCheckDto checkCertificateSignature(X509Certificate certificate, X509Certificate issuerCertificate, boolean isCompleteChain, boolean isHybrid) {
         if (issuerCertificate == null) { // self-signed root CA
             if (!isCompleteChain) {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "Issuer certificate is not available.");
             }
 
-            if (verifySignature(certificate, certificate)) {
+            if (verifySignature(certificate, certificate, isHybrid)) {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.VALID, "Self-signed signature verification successful.");
             } else {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.FAILED, "Self-signed signature verification failed.");
             }
         } else {
-            if (verifySignature(certificate, issuerCertificate)) {
+            if (verifySignature(certificate, issuerCertificate, isHybrid)) {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.VALID, "Signature verification successful.");
             } else {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.FAILED, "Signature verification failed.");
@@ -372,7 +379,22 @@ public class X509CertificateValidator implements ICertificateValidator {
         }
     }
 
-    private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
+    private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate, boolean isHybrid) {
+        if (isHybrid) {
+            try {
+                byte[] altCertificateSignature = CertificateUtil.getAltSignatureValue(subjectCertificate.getExtensionValue(Extension.altSignatureValue.getId()));
+                Signature signature = Signature.getInstance(CertificateUtil.getAlternativeSignatureAlgorithm(subjectCertificate.getExtensionValue(Extension.altSignatureAlgorithm.getId())));
+                signature.initVerify(CertificateUtil.getAltPublicKey(issuerCertificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())));
+                signature.update(CertificateUtil.getAltPublicKey(subjectCertificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())).getEncoded());
+                signature.verify(altCertificateSignature);
+                return true;
+            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | InvalidKeySpecException |
+                     SignatureException e) {
+                logger.debug("Unable to verify certificate for alternative signature", e);
+                return false;
+            }
+
+        }
         try {
             subjectCertificate.verify(issuerCertificate.getPublicKey());
             return true;

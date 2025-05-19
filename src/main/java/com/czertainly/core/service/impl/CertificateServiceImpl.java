@@ -57,7 +57,6 @@ import com.czertainly.core.validation.certificate.ICertificateValidator;
 import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.function.TriFunction;
 import org.bouncycastle.asn1.ASN1Primitive;
-import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.cms.ContentInfo;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
@@ -91,6 +90,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -777,7 +778,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
-            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(),  oldStatus, newStatus));
+            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), oldStatus, newStatus));
         }
     }
 
@@ -875,7 +876,10 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             CertificateUtil.prepareIssuedCertificate(entity, certificate);
-            uploadCertificateKey(certificate.getPublicKey(), entity);
+            byte[] altPublicKey = null;
+            if (entity.isHybridCertificate())
+                altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
@@ -915,7 +919,7 @@ public class CertificateServiceImpl implements CertificateService {
         return modal;
     }
 
-    private void uploadCertificateKey(PublicKey publicKey, Certificate certificate) {
+    private void uploadCertificateKey(PublicKey publicKey, Certificate certificate, byte[] altPublicKeyEncoded) {
         UUID keyUuid;
         if (certificate.getKeyUuid() == null) {
             keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
@@ -924,15 +928,26 @@ public class CertificateServiceImpl implements CertificateService {
             }
             certificate.setKeyUuid(keyUuid);
         }
-//        if (alternativePublicKeyEncoded != null) {
-//            try {
-//                SubjectAltPublicKeyInfo subjectAltPublicKeyInfo = CertificateUtil.getAltPublicKeyInfo(alternativePublicKeyEncoded);
-//            } catch (IOException e) {
-//                throw new ValidationException("Cannot parse alternative Public Key: " + e.getMessage());
-//            }
-//            // check fingerprint, else
-//
-//        }
+        if (altPublicKeyEncoded != null) {
+            PublicKey altPublicKey;
+            try {
+                altPublicKey = CertificateUtil.getAltPublicKey(altPublicKeyEncoded);
+            } catch (NoSuchAlgorithmException | InvalidKeySpecException | IOException e) {
+                throw new ValidationException("Could not retrieve alternative public key from the certificate: " + e.getMessage());
+            }
+            String fingerprint = null;
+            try {
+                fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(altPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+            } catch (NoSuchAlgorithmException e) {
+                logger.error("Cannot create fingerprint for Alternative Public Key: {}", e.getMessage());
+            }
+            UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+            if (altKeyUuid == null) {
+                altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey,
+                        altPublicKey.getAlgorithm(), KeySizeUtil.getKeyLength(altPublicKey), fingerprint);
+            }
+            certificate.setAltKeyUuid(altKeyUuid);
+        }
     }
 
     @Override
@@ -964,7 +979,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         Certificate entity = createCertificateEntity(certificate);
-        uploadCertificateKey(certificate.getPublicKey(), entity);
+        byte[] altPublicKey = null;
+        if (entity.isHybridCertificate())
+            altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
         certificateRepository.save(entity);
 
         CertificateDetailDto dto = entity.mapToDto();
@@ -986,7 +1004,10 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
-        uploadCertificateKey(x509Cert.getPublicKey(), entity);
+        byte[] altPublicKey = null;
+        if (entity.isHybridCertificate())
+            altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        uploadCertificateKey(x509Cert.getPublicKey(), entity, altPublicKey);
         entity = certificateRepository.save(entity);
 
         // set owner of certificate to logged user
@@ -1021,7 +1042,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         // certificate was actually inserted
         if (countInserted == 1) {
-            uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity);
+            byte[] altPublicKey = null;
+            if (certificateEntity.isHybridCertificate())
+                altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity, altPublicKey);
 
             // set owner of certificateEntity to logged user
             if (assignOwner) {
@@ -1046,7 +1070,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
         if (certificate != null) {
-            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(),  oldStatus, CertificateValidationStatus.REVOKED));
+            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), oldStatus, CertificateValidationStatus.REVOKED));
         }
     }
 

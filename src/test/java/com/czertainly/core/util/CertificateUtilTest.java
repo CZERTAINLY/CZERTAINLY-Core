@@ -5,13 +5,13 @@ import org.bouncycastle.asn1.ASN1Sequence;
 import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
+import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
-import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.junit.jupiter.api.Assertions;
@@ -27,7 +27,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-class CertificateUtilTest {
+public class CertificateUtilTest {
 
     private static final String VALID_SAN_STRING = "{\"dNSName\":[\"czertainly.com\"],\"directoryName\":[],\"ediPartyName\":[],\"iPAddress\":[\"192.168.10.10\"],\"otherName\":[\"1.2.3.4=example othername\"],\"registeredID\":[],\"rfc822Name\":[],\"uniformResourceIdentifier\":[],\"x400Address\":[]}";
 
@@ -82,7 +82,17 @@ class CertificateUtilTest {
     }
 
     @Test
-    void hybridCerts() throws IOException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
+    void testParseHybridCertificate() throws IOException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
+        X509Certificate certificate = createHybridCertificate();
+
+        Certificate certificateEntity = new Certificate();
+        CertificateUtil.prepareIssuedCertificate(certificateEntity, certificate);
+        Assertions.assertTrue(certificateEntity.isHybridCertificate());
+        Assertions.assertEquals("ML-DSA-44", certificateEntity.getAltSignatureAlgorithm());
+
+    }
+
+    public static X509Certificate createHybridCertificate() throws NoSuchAlgorithmException, InvalidAlgorithmParameterException, CertIOException, InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
         Provider provider = Security.getProvider(BouncyCastleProvider.PROVIDER_NAME);
         if (provider == null) {
             provider = new BouncyCastleProvider();
@@ -120,12 +130,7 @@ class CertificateUtilTest {
 
         ContentSigner signer = new JcaContentSignerBuilder("SHA256withRSA")
                 .setProvider(BouncyCastleProvider.PROVIDER_NAME).build(defaultKeyPair.getPrivate());
-        X509Certificate certificate = converter.getCertificate(certBuilder.build(signer));
-
-        com.czertainly.core.dao.entity.Certificate certificate1 = new Certificate();
-        CertificateUtil.prepareIssuedCertificate(certificate1, certificate);
-        Assertions.assertTrue(certificate1.isHybridCertificate());
-        Assertions.assertEquals(new DefaultAlgorithmNameFinder().getAlgorithmName(altSignatureAlgorithm.getAlgorithm()), certificate1.getAlternativeSignatureAlgorithm());
+        return converter.getCertificate(certBuilder.build(signer));
     }
 
 }

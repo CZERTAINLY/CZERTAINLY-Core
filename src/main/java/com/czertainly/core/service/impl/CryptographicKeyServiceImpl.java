@@ -42,8 +42,6 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.apache.commons.lang3.function.TriFunction;
-import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
-import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -52,7 +50,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
@@ -769,38 +766,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         cryptographicKeyItem.setKeyData(Base64.getEncoder().encodeToString(publicKey.getEncoded()));
         cryptographicKeyItem.setFormat(CryptographyUtil.getPublicKeyFormat(publicKey.getEncoded()));
         cryptographicKeyItem.setLength(keyLength);
-        cryptographicKeyItem.setFingerprint(fingerprint);
-        cryptographicKeyItem.setState(KeyState.ACTIVE);
-        cryptographicKeyItem.setEnabled(true);
-        cryptographicKeyItemRepository.save(cryptographicKeyItem);
-        return cryptographicKey.getUuid();
-    }
-
-    @Override
-    public UUID uploadCertificateAltPublicKey(String name, SubjectAltPublicKeyInfo altPublicKeyInfo, String fingerprint) {
-        CryptographicKey cryptographicKey = new CryptographicKey();
-        cryptographicKey.setName(name);
-        cryptographicKeyRepository.save(cryptographicKey);
-        CryptographicKeyItem cryptographicKeyItem = new CryptographicKeyItem();
-        cryptographicKeyItem.setName(name);
-        cryptographicKeyItem.setType(KeyType.PUBLIC_KEY);
-        cryptographicKeyItem.setKey(cryptographicKey);
-        KeyAlgorithm keyAlgorithmEnumValue;
-        try {
-            String algorithm = new DefaultAlgorithmNameFinder().getAlgorithmName(altPublicKeyInfo.getAlgorithm().getAlgorithm());
-            keyAlgorithmEnumValue = KeyAlgorithm.valueOf(CertificateUtil.getAlgorithmFromProviderName(algorithm));
-        } catch (IllegalArgumentException e) {
-            keyAlgorithmEnumValue = KeyAlgorithm.UNKNOWN;
-        }
-        cryptographicKeyItem.setKeyAlgorithm(keyAlgorithmEnumValue);
-        try {
-            cryptographicKeyItem.setKeyData(Base64.getEncoder().encodeToString(altPublicKeyInfo.getEncoded()));
-        } catch (IOException e) {
-            throw new ValidationException("Cannot get encoded alternative public key value.");
-        }
-        cryptographicKeyItem.setFormat(KeyFormat.SPKI);
-        // TODO: Get public key size based on algorithm identifier
-        cryptographicKeyItem.setLength(KeySizeUtil.getKeyLength(null));
         cryptographicKeyItem.setFingerprint(fingerprint);
         cryptographicKeyItem.setState(KeyState.ACTIVE);
         cryptographicKeyItem.setEnabled(true);

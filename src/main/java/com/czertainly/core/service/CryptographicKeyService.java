@@ -16,7 +16,6 @@ import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
 
 import java.security.PublicKey;
 import java.util.List;
@@ -306,16 +305,6 @@ public interface CryptographicKeyService extends ResourceExtensionService {
      * @return UUID of the uploaded Cryptographic Key
      */
     UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength, String fingerprint);
-
-    /**
-     * Upload alternative public key of existing certificate
-     *
-     * @param name         Name of the cryptographic key
-     * @param altPublicKeyInfo    Public Key to be uploaded
-     * @param fingerprint  Unique fingerprint of the Public Key
-     * @return UUID of the uploaded Cryptographic Key
-     */
-    UUID uploadCertificateAltPublicKey(String name, SubjectAltPublicKeyInfo altPublicKeyInfo, String fingerprint);
 
     /**
      * Edit Key Item
