@@ -106,10 +106,10 @@ public class ActionServiceImpl implements ActionService {
         }
 
         Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
+        executionItemRepository.deleteByExecution(execution);
 
         execution.setDescription(request.getDescription());
-        execution.getItems().clear(); // old rows become orphans → DELETE
-        execution.getItems().addAll(createExecutionItems(request.getItems(), execution)); // new rows → INSERT
+        execution.setItems(createExecutionItems(request.getItems(), execution));
 
         executionRepository.save(execution);
 
