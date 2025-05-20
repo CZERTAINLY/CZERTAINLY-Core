@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.settings.*;
 
 import com.czertainly.api.model.core.settings.authentication.*;
@@ -20,9 +21,11 @@ public interface SettingService {
      */
     void updatePlatformSettings(PlatformSettingsUpdateDto platformSettings);
 
-    NotificationSettingsDto getNotificationSettings();
+    EventsSettingsDto getEventsSettings();
 
-    void updateNotificationSettings(NotificationSettingsDto notificationSettings);
+    void updateEventsSettings(EventsSettingsDto eventsSettingsDto) throws NotFoundException;
+
+    void updateEventSettings(EventSettingsDto eventSettingsDto) throws NotFoundException;
 
     AuthenticationSettingsDto getAuthenticationSettings(boolean withClientSecret);
 

@@ -10,6 +10,7 @@ import com.czertainly.core.dao.entity.workflows.TriggerHistory;
 import com.czertainly.core.dao.entity.workflows.TriggerHistoryRecord;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface TriggerService {
@@ -21,8 +22,9 @@ public interface TriggerService {
     TriggerDetailDto updateTrigger(String triggerUuid, UpdateTriggerRequestDto request) throws NotFoundException;
     void deleteTrigger(String triggerUuid) throws NotFoundException;
 
-    void createTriggerAssociations(ResourceEvent event, Resource resource, UUID associationObjectUuid, List<UUID> triggerUuids) throws NotFoundException;
-    void deleteTriggerAssociation(Resource resource, UUID associationObjectUuid);
+    Map<ResourceEvent, List<UUID>> getTriggersAssociations(Resource resource, UUID associationObjectUuid);
+    void createTriggerAssociations(ResourceEvent event, Resource resource, UUID associationObjectUuid, List<UUID> triggerUuids, boolean replace) throws NotFoundException;
+    void deleteTriggerAssociations(Resource resource, UUID associationObjectUuid);
 
     List<TriggerHistoryDto> getTriggerHistory(String triggerUuid, String associationObjectUuid);
     TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException;

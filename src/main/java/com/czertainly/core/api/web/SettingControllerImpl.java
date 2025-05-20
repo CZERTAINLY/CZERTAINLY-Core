@@ -1,18 +1,16 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.settings.PlatformSettingsUpdateDto;
+import com.czertainly.api.model.core.settings.*;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsResponseDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsUpdateDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
-import com.czertainly.api.model.core.settings.NotificationSettingsDto;
-import com.czertainly.api.model.core.settings.PlatformSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.SettingService;
@@ -50,15 +48,21 @@ public class SettingControllerImpl implements SettingController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.DETAIL, name = "notifications")
-    public NotificationSettingsDto getNotificationsSettings() {
-        return settingService.getNotificationSettings();
+    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.DETAIL, name = "events")
+    public EventsSettingsDto getEventsSettings() {
+        return settingService.getEventsSettings();
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "notifications")
-    public void updateNotificationsSettings(NotificationSettingsDto notificationSettingsDto) {
-        settingService.updateNotificationSettings(notificationSettingsDto);
+    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "events")
+    public void updateEventsSettings(EventsSettingsDto eventsSettingsDto) throws NotFoundException {
+        settingService.updateEventsSettings(eventsSettingsDto);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.UPDATE, name = "events")
+    public void updateEventSettings(EventSettingsDto eventSettingsDto) throws NotFoundException {
+        settingService.updateEventSettings(eventSettingsDto);
     }
 
     @Override
@@ -90,7 +94,7 @@ public class SettingControllerImpl implements SettingController {
     public void removeOAuth2Provider(@LogResource(name = true, affiliated = true) String providerName) {
         settingService.removeOAuth2Provider(providerName);
     }
-    
+
     @AuditLogged(module = Module.CORE, resource = Resource.SETTINGS, operation = Operation.DETAIL, name = "logging")
     public LoggingSettingsDto getLoggingSettings() {
         return settingService.getLoggingSettings();

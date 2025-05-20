@@ -1,9 +1,10 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.settings.*;
 import com.czertainly.api.model.core.settings.authentication.*;
 import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
@@ -14,11 +15,11 @@ import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.service.SettingService;
+import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.SecretEncodingVersion;
 import com.czertainly.core.util.SecretsUtil;
 import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.jwk.JWK;
@@ -56,13 +57,16 @@ public class SettingServiceImpl implements SettingService {
     private final SettingsCache settingsCache;
     private final SettingRepository settingRepository;
 
+    private final TriggerService triggerService;
+
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @Autowired
-    public SettingServiceImpl(SettingsCache settingsCache, SettingRepository settingRepository, ObjectMapper mapper) {
+    public SettingServiceImpl(SettingsCache settingsCache, SettingRepository settingRepository, TriggerService triggerService, ObjectMapper mapper) {
         this.mapper = mapper;
         this.settingsCache = settingsCache;
         this.settingRepository = settingRepository;
+        this.triggerService = triggerService;
 
         refreshCache();
     }
@@ -71,7 +75,7 @@ public class SettingServiceImpl implements SettingService {
     public void refreshCache() {
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettings());
         settingsCache.cacheSettings(SettingsSection.LOGGING, getLoggingSettings());
-        settingsCache.cacheSettings(SettingsSection.NOTIFICATIONS, getNotificationSettings());
+        settingsCache.cacheSettings(SettingsSection.EVENTS, getEventsSettings());
         settingsCache.cacheSettings(SettingsSection.AUTHENTICATION, getAuthenticationSettings(true));
     }
 
@@ -165,59 +169,26 @@ public class SettingServiceImpl implements SettingService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.LIST)
-    public NotificationSettingsDto getNotificationSettings() {
-        List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
-        Map<NotificationType, String> valueMapped = new EnumMap<>(NotificationType.class);
-        if (!settings.isEmpty()) {
-            String valueJson = settings.getFirst().getValue();
-            if (valueJson != null) {
-                TypeReference<Map<NotificationType, String>> typeReference = new TypeReference<>() {
-                };
-
-                try {
-                    valueMapped = objectMapper.readValue(valueJson, typeReference);
-                } catch (JsonProcessingException e) {
-                    logger.warn("Cannot deserialize notification mapping settings. Returning empty mapping.");
-                    valueMapped = new EnumMap<>(NotificationType.class);
-                }
-            }
-        }
-
-        NotificationSettingsDto notificationSettings = new NotificationSettingsDto();
-        notificationSettings.setNotificationsMapping(valueMapped);
-
-        return notificationSettings;
+    public EventsSettingsDto getEventsSettings() {
+        Map<ResourceEvent, List<UUID>> eventsTriggerMapping = triggerService.getTriggersAssociations(null, null);
+        return new EventsSettingsDto(eventsTriggerMapping);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
-    public void updateNotificationSettings(NotificationSettingsDto notificationSettings) {
-        List<Setting> settings = settingRepository.findBySection(SettingsSection.NOTIFICATIONS);
-        Setting setting;
-        if (settings.isEmpty()) {
-            setting = new Setting();
-            setting.setSection(SettingsSection.NOTIFICATIONS);
-            setting.setName(NOTIFICATIONS_MAPPING_NAME);
-        } else {
-            setting = settings.getFirst();
+    public void updateEventsSettings(EventsSettingsDto eventsSettingsDto) throws NotFoundException {
+        for (ResourceEvent event : eventsSettingsDto.getNotificationsMapping().keySet()) {
+            triggerService.createTriggerAssociations(event, null, null, eventsSettingsDto.getNotificationsMapping().get(event), true);
         }
 
-        Map<NotificationType, String> notificationTypeStringMap = notificationSettings.getNotificationsMapping();
-        for (String uuid : notificationTypeStringMap.values()) {
-            try {
-                UUID.fromString(uuid);
-            } catch (IllegalArgumentException e) {
-                throw new ValidationException("Invalid UUID of a notification instance reference.");
-            }
-        }
-        try {
-            setting.setValue(objectMapper.writeValueAsString(notificationTypeStringMap));
-        } catch (JsonProcessingException e) {
-            throw new ValidationException("Cannot serialize notification mapping settings: " + e.getMessage());
-        }
-        settingRepository.save(setting);
-        settingsCache.cacheSettings(SettingsSection.NOTIFICATIONS, notificationSettings);
+        settingsCache.cacheSettings(SettingsSection.EVENTS, eventsSettingsDto);
+    }
 
+    @Override
+    @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
+    public void updateEventSettings(EventSettingsDto eventSettingsDto) throws NotFoundException {
+        triggerService.createTriggerAssociations(eventSettingsDto.getEvent(), null, null, eventSettingsDto.getTriggerUuids(), true);
+        settingsCache.cacheSettings(SettingsSection.EVENTS, getEventsSettings());
     }
 
     @Override
