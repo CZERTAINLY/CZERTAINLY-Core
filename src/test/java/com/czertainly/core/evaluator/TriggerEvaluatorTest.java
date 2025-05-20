@@ -257,11 +257,11 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
 
     @Test
-    void testEvaluatorDate() throws RuleException, ParseException {
+    void testEvaluatorDateTime() throws RuleException, ParseException {
         certificate.setNotBefore(new SimpleDateFormat(("yyyy-MM-dd HH:mm:ss")).parse("2019-12-01 22:10:15"));
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier(FilterField.NOT_BEFORE.toString());
-        condition.setValue("2010-12-12");
+        condition.setValue("2019-12-01T22:10:00.274+00:00");
         condition.setOperator(FilterConditionOperator.GREATER);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
@@ -295,8 +295,15 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setValue("invalid");
         Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
+        condition.setValue("P1D");
+        certificate.setNotAfter(convertToDateViaInstant(LocalDateTime.now().plusHours(1)));
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.IN_NEXT);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setStartTime(convertToDateViaInstant(LocalDateTime.now().minusDays(5).minusHours(3)));
+        condition.setOperator(FilterConditionOperator.IN_PAST);
         condition.setFieldIdentifier(FilterField.DISCOVERY_START_TIME.toString());
         condition.setValue("P5DT4H");
         Assertions.assertTrue(discoveryHistoryTriggerEvaluator.evaluateConditionItem(condition, discovery, Resource.DISCOVERY));
