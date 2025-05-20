@@ -177,8 +177,8 @@ public class SettingServiceImpl implements SettingService {
     @Override
     @ExternalAuthorization(resource = Resource.SETTINGS, action = ResourceAction.UPDATE)
     public void updateEventsSettings(EventsSettingsDto eventsSettingsDto) throws NotFoundException {
-        for (ResourceEvent event : eventsSettingsDto.getNotificationsMapping().keySet()) {
-            triggerService.createTriggerAssociations(event, null, null, eventsSettingsDto.getNotificationsMapping().get(event), true);
+        for (ResourceEvent event : eventsSettingsDto.getEventsMapping().keySet()) {
+            triggerService.createTriggerAssociations(event, null, null, eventsSettingsDto.getEventsMapping().get(event), true);
         }
 
         settingsCache.cacheSettings(SettingsSection.EVENTS, eventsSettingsDto);
