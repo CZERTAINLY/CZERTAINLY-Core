@@ -52,6 +52,7 @@ public enum FilterField {
     PRIVATE_KEY(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, List.of(Certificate_.key, CryptographicKey_.items), CryptographicKeyItem_.type, "Has private key", SearchFieldTypeEnum.BOOLEAN, null, KeyType.PRIVATE_KEY, false, null),
     TRUSTED_CA(Resource.CERTIFICATE, null, null, Certificate_.trustedCa, "Trusted CA", SearchFieldTypeEnum.BOOLEAN),
     CERTIFICATE_PROTOCOL(Resource.CERTIFICATE, null, List.of(Certificate_.protocolAssociation), CertificateProtocolAssociation_.protocol, "Certificate Protocol", SearchFieldTypeEnum.LIST, CertificateProtocol.class),
+    HYBRID_CERTIFICATE(Resource.CERTIFICATE, null, null, Certificate_.hybridCertificate, "Hybrid Certificate", SearchFieldTypeEnum.BOOLEAN),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),

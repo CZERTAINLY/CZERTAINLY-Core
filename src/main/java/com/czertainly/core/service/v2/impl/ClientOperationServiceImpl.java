@@ -181,8 +181,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException("Cannot submit certificate request without specifying key or uploaded request content");
         }
 
-        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
-        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
+        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
+        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
         protocolInfo);
 
         // create custom Attributes
@@ -521,11 +521,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     ? request.getSignatureAttributes()
                     : (oldCertificate.getCertificateRequest() != null ? attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid()) : null);
 
+            // TODO: add alt to rekey
             String requestContent = generateBase64EncodedCsr(
                     keyUuid,
                     getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
                     principal,
-                    signatureAttributes
+                    signatureAttributes,
+                    request.getKeyUuid(),
+                    request.getTokenProfileUuid(),
+                    request.getSignatureAttributes()
             );
 
             certificateRequestDto.setKeyUuid(keyUuid);
@@ -868,14 +872,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      * @return Base64 encoded CSR string
      * @throws NotFoundException When the key or tokenProfile UUID is not found
      */
-    private String generateBase64EncodedCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException {
+    private String generateBase64EncodedCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes, UUID altKeyUUid,
+                                            UUID altTokenProfileUuid,
+                                            List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException {
         try {
             // Generate the CSR with the above-mentioned information
             return cryptographicOperationService.generateCsr(
                     keyUuid,
                     tokenProfileUuid,
                     principal,
-                    signatureAttributes
+                    signatureAttributes,
+                    altKeyUUid,
+                    altTokenProfileUuid,
+                    altSignatureAttributes
             );
         } catch (InvalidKeySpecException | IOException | NoSuchAlgorithmException | AttributeException e) {
             throw new ValidationException(
@@ -932,7 +941,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
-    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
+    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes,
+                                            UUID altKeyUUid, UUID altTokenProfileUuid, List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
         String requestB64;
         String csr;
         if (uploadedRequest != null && !uploadedRequest.isEmpty()) {
@@ -952,7 +962,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     keyUUid,
                     tokenProfileUuid,
                     CertificateRequestUtils.buildSubject(csrAttributes),
-                    signatureAttributes
+                    signatureAttributes,
+                    altKeyUUid,
+                    altTokenProfileUuid,
+                    altSignatureAttributes
             );
         }
         try {

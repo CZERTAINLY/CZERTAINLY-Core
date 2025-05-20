@@ -528,6 +528,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
                 SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.TRUSTED_CA),
+                SearchHelper.prepareSearch(FilterField.HYBRID_CERTIFICATE),
                 SearchHelper.prepareSearch(FilterField.CERTIFICATE_PROTOCOL)
         );
 
@@ -1341,9 +1342,11 @@ public class CertificateServiceImpl implements CertificateService {
             String certificateRequest,
             CertificateRequestFormat certificateRequestFormat,
             List<RequestAttributeDto> signatureAttributes,
+            List<RequestAttributeDto> altSignatureAttributes,
             List<RequestAttributeDto> csrAttributes,
             List<RequestAttributeDto> issueAttributes,
             UUID keyUuid,
+            UUID altKeyUuid,
             UUID raProfileUuid,
             UUID sourceCertificateUuid,
             CertificateProtocolInfo protocolInfo
