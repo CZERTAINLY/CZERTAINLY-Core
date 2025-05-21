@@ -74,8 +74,10 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     protected EventContext<T> prepareContext(EventMessage eventMessage) throws EventException {
         T resourceObject = repository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "%s with UUID %s not found".formatted(eventMessage.getResource().getLabel(), eventMessage.getObjectUuid())));
 
-        // TODO: load triggers from platform
-        return new EventContext<>(eventMessage, triggerEvaluator, resourceObject, getEventData(resourceObject, eventMessage.getData()));
+        EventContext<T> context = new EventContext<>(eventMessage, triggerEvaluator, resourceObject, getEventData(resourceObject, eventMessage.getData()));
+        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
+
+        return context;
     }
 
     protected abstract Object getEventData(T object, Object eventMessageData);

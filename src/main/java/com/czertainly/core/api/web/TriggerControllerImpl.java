@@ -74,4 +74,10 @@ public class TriggerControllerImpl implements TriggerController {
     public TriggerHistorySummaryDto getTriggerHistorySummary(String associationObjectUuid) throws NotFoundException {
         return triggerService.getTriggerHistorySummary(associationObjectUuid);
     }
+
+    @Override
+    @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.ASSOCIATE)
+    public void associateTriggers(TriggerEventAssociationRequestDto request) throws NotFoundException {
+        triggerService.createTriggerAssociations(request.getEvent(), request.getResource(), request.getObjectUuid(), request.getTriggerUuids(), true);
+    }
 }

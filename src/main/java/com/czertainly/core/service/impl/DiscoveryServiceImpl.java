@@ -239,7 +239,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
         discoveryRepository.delete(discovery);
-        triggerService.deleteTriggerAssociation(Resource.DISCOVERY, discovery.getUuid());
+        triggerService.deleteTriggerAssociations(Resource.DISCOVERY, discovery.getUuid());
 
         try {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
@@ -300,7 +300,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discovery.getUuid(), request.getCustomAttributes());
             attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid(), request.getAttributes());
             if (request.getTriggers() != null) {
-                triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers());
+                triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.DISCOVERY, discovery.getUuid(), request.getTriggers(), false);
                 discovery = discoveryRepository.findWithTriggersByUuid(discovery.getUuid());
             }
             return discovery.mapToDto();
