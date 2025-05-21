@@ -39,6 +39,7 @@ import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.hibernate.query.sqm.ComparisonOperator;
 import org.hibernate.query.sqm.tree.predicate.*;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -236,10 +237,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.GREATER)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertEquals(ComparisonOperator.GREATER_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
-        DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-        OffsetDateTime parsedDateTime = OffsetDateTime.parse(testDateValue, formatter);
-        String formattedDateTime = parsedDateTime.toLocalDateTime().toString();
-        Assertions.assertEquals(formattedDateTime, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+        Assertions.assertEquals(getFormattedDate(), ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
     }
 
     @Test
@@ -247,9 +245,13 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.LESSER)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertEquals(ComparisonOperator.LESS_THAN, ((SqmComparisonPredicate) predicateTest).getSqmOperator());
+        Assertions.assertEquals(getFormattedDate(), ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+    }
+
+    @NotNull
+    private String getFormattedDate() {
         DateTimeFormatter formatter = DateTimeFormatter.ISO_OFFSET_DATE_TIME;
-        String formattedDate = OffsetDateTime.parse(testDateValue, formatter).toLocalDateTime().toString();
-        Assertions.assertEquals(formattedDate, ((SqmComparisonPredicate) predicateTest).getRightHandExpression().toHqlString());
+        return OffsetDateTime.parse(testDateValue, formatter).toLocalDateTime().toString();
     }
 
     @Test

@@ -296,6 +296,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertThrows(RuleException.class, () -> certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setValue("P1D");
+        condition.setOperator(FilterConditionOperator.IN_PAST);
         certificate.setNotAfter(convertToDateViaInstant(LocalDateTime.now().plusHours(1)));
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.IN_NEXT);
