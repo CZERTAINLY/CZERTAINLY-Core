@@ -49,8 +49,10 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
             discoveryRepository.save(discovery);
         }
 
-        // TODO: load triggers from platform
-        return new EventContext<>(eventMessage, triggerEvaluator, discovery, getEventData(discovery, eventMessage.getData()));
+        EventContext<DiscoveryHistory> context = new EventContext<>(eventMessage, triggerEvaluator, discovery, getEventData(discovery, eventMessage.getData()));
+        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
+
+        return context;
     }
 
     @Override
