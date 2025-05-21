@@ -16,6 +16,7 @@ class SearchHelperTest {
         SearchFieldObject attributeSearchInfo = new SearchFieldObject(AttributeContentType.TIME);
         SearchFieldDataDto searchFieldDataDto = SearchHelper.prepareSearchForJSON(attributeSearchInfo, false);
         Assertions.assertFalse(searchFieldDataDto.getConditions().isEmpty());
-        Assertions.assertFalse(searchFieldDataDto.getConditions().containsAll(List.of(FilterConditionOperator.IN_NEXT, FilterConditionOperator.IN_PAST)));
+        Assertions.assertFalse(searchFieldDataDto.getConditions().contains(FilterConditionOperator.IN_NEXT), "Condition should not contain IN_NEXT operator");
+        Assertions.assertFalse(searchFieldDataDto.getConditions().contains(FilterConditionOperator.IN_PAST), "Condition should not contain IN_PAST operator");
     }
 }
