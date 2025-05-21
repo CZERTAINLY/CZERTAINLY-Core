@@ -106,10 +106,11 @@ public class ActionServiceImpl implements ActionService {
         }
 
         Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-        executionItemRepository.deleteAll(execution.getItems());
+        executionItemRepository.deleteByExecution(execution);
 
         execution.setDescription(request.getDescription());
         execution.setItems(createExecutionItems(request.getItems(), execution));
+
         executionRepository.save(execution);
 
         return execution.mapToDto();
@@ -136,7 +137,6 @@ public class ActionServiceImpl implements ActionService {
                 case SEND_NOTIFICATION -> createSendNotificationExecutionItem(execution, executionItemRequestDto);
             };
 
-//            executionItemRepository.save(executionItem);
             executionItems.add(executionItem);
         }
         return executionItems;
