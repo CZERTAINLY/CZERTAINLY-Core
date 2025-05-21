@@ -47,13 +47,12 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
     @Autowired
     private NotificationInstanceService notificationInstanceService;
 
-    private final String TEST_CONNECTOR_KIND = "testKind";
-    private final String EXISTING_NIR_NAME = "TestNotificationInstance";
-    private final String EXISTING_NIR_UUID = "eb775202-b81e-460d-a24e-144fe4abe8f0";
+    private static final String TEST_CONNECTOR_KIND = "testKind";
+    private static final String EXISTING_NIR_NAME = "TestNotificationInstance";
+    private static final String EXISTING_NIR_UUID = "eb775202-b81e-460d-a24e-144fe4abe8f0";
 
     private WireMockServer mockServer;
     private Connector connector;
-    private NotificationInstanceReference notificationInstance;
 
     @BeforeEach
     void setUp() {
@@ -86,7 +85,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         connector.getFunctionGroups().add(c2fg);
         connectorRepository.save(connector);
 
-        notificationInstance = new NotificationInstanceReference();
+        NotificationInstanceReference notificationInstance = new NotificationInstanceReference();
         notificationInstance.setName(EXISTING_NIR_NAME);
         notificationInstance.setKind(TEST_CONNECTOR_KIND);
         notificationInstance.setConnectorUuid(connector.getUuid());
@@ -120,7 +119,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         NotificationInstanceDto notificationInstanceDto = notificationInstanceService.createNotificationInstance(requestDto);
 
         // Verify the notification instance was created successfully
-        assert notificationInstanceDto != null;
+        Assertions.assertNotNull(notificationInstanceDto);
     }
 
     @Test
@@ -158,8 +157,8 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         NotificationInstanceDto notificationInstanceDto = notificationInstanceService.editNotificationInstance(UUID.fromString(EXISTING_NIR_UUID), requestDto);
 
         // Verify the notification instance was updated successfully
-        assert notificationInstanceDto != null;
-        assert notificationInstanceDto.getDescription().equals(requestDto.getDescription());
+        Assertions.assertNotNull(notificationInstanceDto);
+        Assertions.assertEquals(notificationInstanceDto.getDescription(), requestDto.getDescription());
     }
 
     @Test
@@ -192,8 +191,9 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         List<NotificationInstanceDto> notificationInstances = notificationInstanceService.listNotificationInstances();
 
         // Verify the notification instances were retrieved successfully
-        assert notificationInstances != null;
-        assert notificationInstances.size() == 1;
+        Assertions.assertNotNull(notificationInstances);
+        Assertions.assertFalse(notificationInstances.isEmpty());
+        Assertions.assertEquals(1, notificationInstances.size());
     }
 
     @Test
@@ -213,9 +213,9 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         NotificationInstanceDto notificationInstanceDto = notificationInstanceService.getNotificationInstance(UUID.fromString(EXISTING_NIR_UUID));
 
         // Verify the notification instance was retrieved successfully
-        assert notificationInstanceDto != null;
-        assert notificationInstanceDto.getName().equals(EXISTING_NIR_NAME);
-        assert notificationInstanceDto.getUuid().equals(notificationInstance.getUuid().toString());
+        Assertions.assertNotNull(notificationInstanceDto);
+        Assertions.assertEquals(EXISTING_NIR_NAME, notificationInstanceDto.getName());
+        Assertions.assertEquals(EXISTING_NIR_UUID, notificationInstanceDto.getUuid());
     }
 
     @Test
@@ -228,8 +228,8 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         List<DataAttribute> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
 
         // Verify the mapping attributes were retrieved successfully
-        assert attributes != null;
-        assert attributes.isEmpty();
+        Assertions.assertNotNull(attributes);
+        Assertions.assertTrue(attributes.isEmpty());
     }
 
 }

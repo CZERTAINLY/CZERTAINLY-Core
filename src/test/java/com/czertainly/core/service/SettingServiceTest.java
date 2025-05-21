@@ -150,7 +150,7 @@ class SettingServiceTest extends BaseSpringBootTest {
     @Test
     void testUpdateNonExistingTriggerEventSettings() {
         EventsSettingsDto eventsSettings = new EventsSettingsDto();
-        Map<ResourceEvent, List<UUID>> eventsMapping = new HashMap<>();
+        Map<ResourceEvent, List<UUID>> eventsMapping = new EnumMap<>(ResourceEvent.class);
         eventsMapping.put(ResourceEvent.CERTIFICATE_DISCOVERED, List.of(UUID.fromString("3a1db3f5-f9eb-4fbf-92c9-c4c1499bfca8")));
         eventsSettings.setEventsMapping(eventsMapping);
 
