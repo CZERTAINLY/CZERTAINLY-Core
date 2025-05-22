@@ -298,6 +298,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (dto.getCertificateRequest() != null) {
             dto.getCertificateRequest().setAttributes(attributeEngine.getObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
             dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
+            dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
         }
         if (certificate.getRaProfile() != null) {
             dto.setIssueAttributes(attributeEngine.getObjectDataAttributesContent(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid()));
@@ -1379,6 +1380,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         List<ResponseAttributeDto> requestAttributes;
         List<ResponseAttributeDto> requestSignatureAttributes;
+        List<ResponseAttributeDto> requestAltSignatureAttributes;
         if (certificateRequestOptional.isPresent()) {
             certificateRequestEntity = certificateRequestOptional.get();
             // if no CSR attributes are assigned to CSR, update them with ones provided
@@ -1388,6 +1390,9 @@ public class CertificateServiceImpl implements CertificateService {
             requestSignatureAttributes = attributeEngine.getObjectDataAttributesContent(
                     null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
             );
+            requestAltSignatureAttributes = attributeEngine.getObjectDataAttributesContent(
+                    null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid()
+            );
             if (requestAttributes.isEmpty() && csrAttributes != null && !csrAttributes.isEmpty()) {
                 requestAttributes = attributeEngine.updateObjectDataAttributesContent(
                         null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
@@ -1396,6 +1401,12 @@ public class CertificateServiceImpl implements CertificateService {
             if (requestSignatureAttributes.isEmpty() && signatureAttributes != null && !signatureAttributes.isEmpty()) {
                 requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
                         null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
+                );
+            }
+
+            if (requestAltSignatureAttributes.isEmpty() && altSignatureAttributes != null && !altSignatureAttributes.isEmpty()) {
+                requestAltSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
+                        null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), altSignatureAttributes
                 );
             }
         } else {
@@ -1409,6 +1420,9 @@ public class CertificateServiceImpl implements CertificateService {
             );
             requestSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
                     null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), signatureAttributes
+            );
+            requestAltSignatureAttributes = attributeEngine.updateObjectDataAttributesContent(
+                    null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), altSignatureAttributes
             );
         }
 
@@ -1450,6 +1464,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateDetailDto dto = certificate.mapToDto();
         dto.getCertificateRequest().setAttributes(requestAttributes);
         dto.getCertificateRequest().setSignatureAttributes(requestSignatureAttributes);
+        dto.getCertificateRequest().setAltSignatureAttributes(requestAltSignatureAttributes);
         dto.setIssueAttributes(attributeEngine.updateObjectDataAttributesContent(
                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                 AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid(), issueAttributes)
@@ -1524,6 +1539,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (dto.getCertificateRequest() != null) {
             dto.getCertificateRequest().setAttributes(attributeEngine.getObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
             dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
+            dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
         }
         dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid())));
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid()));

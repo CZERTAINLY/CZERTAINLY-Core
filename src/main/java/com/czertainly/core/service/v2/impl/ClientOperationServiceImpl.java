@@ -181,9 +181,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException("Cannot submit certificate request without specifying key or uploaded request content");
         }
 
-        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(),request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
+        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
         CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
-        protocolInfo);
+                protocolInfo);
 
         // create custom Attributes
         if (createCustomAttributes) {
@@ -520,19 +520,38 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
             X500Principal principal = x509Certificate.getSubjectX500Principal();
             // Gather the signature attributes either provided in the request or get it from the old certificate
-            List<RequestAttributeDto> signatureAttributes = request.getSignatureAttributes() != null
-                    ? request.getSignatureAttributes()
-                    : (oldCertificate.getCertificateRequest() != null ? attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid()) : null);
+            List<RequestAttributeDto> signatureAttributes;
+            if (request.getSignatureAttributes() != null) {
+                signatureAttributes = request.getSignatureAttributes();
+            } else {
+                if (oldCertificate.getCertificateRequest() != null)
+                    signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                else signatureAttributes = null;
+            }
 
-            // TODO: add alt to rekey
+            UUID altKeyUuid = null;
+            UUID altTokenProfileUuid = null;
+            List<RequestAttributeDto> altSignatureAttributes = null;
+            if (request.getAltKeyUuid() != null) {
+                altKeyUuid = existingKeyValidation(request.getAltKeyUuid(), request.getAltSignatureAttributes(), oldCertificate);
+                if (request.getAltSignatureAttributes() != null) {
+                    altSignatureAttributes = request.getAltSignatureAttributes();
+                } else {
+                    if (oldCertificate.getCertificateRequest() != null)
+                        altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                }
+                altTokenProfileUuid = getAltTokenProfileUuid(request.getAltKeyUuid(), oldCertificate);
+
+            }
+
             String requestContent = generateBase64EncodedCsr(
                     keyUuid,
                     getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
                     principal,
                     signatureAttributes,
-                    request.getKeyUuid(),
-                    request.getTokenProfileUuid(),
-                    request.getSignatureAttributes()
+                    altKeyUuid,
+                    altTokenProfileUuid,
+                    altSignatureAttributes
             );
 
             certificateRequestDto.setKeyUuid(keyUuid);
@@ -815,6 +834,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             );
         }
         return tokenProfileUuid != null ? tokenProfileUuid : certificate.getKey().getTokenProfile().getUuid();
+    }
+
+    private UUID getAltTokenProfileUuid(UUID tokenProfileUuid, Certificate certificate) {
+        if (certificate.getAltKeyUuid() == null && tokenProfileUuid == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Alternative Token Profile cannot be empty for creating new CSR with alternative key"
+                    )
+            );
+        }
+        return tokenProfileUuid != null ? tokenProfileUuid : certificate.getAltKey().getTokenProfile().getUuid();
     }
 
     /**
