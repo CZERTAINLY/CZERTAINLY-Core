@@ -7,29 +7,25 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
-import com.czertainly.api.model.connector.notification.NotificationType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.notification.AttributeMappingDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceUpdateRequestDto;
-import com.czertainly.api.model.core.settings.NotificationSettingsDto;
-import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceMappedAttributeRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.NotificationInstanceService;
-import com.czertainly.core.service.SettingService;
-import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -48,10 +44,11 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
     private NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository;
+    private NotificationProfileVersionRepository notificationProfileVersionRepository;
+
     private ConnectorService connectorService;
     private CredentialService credentialService;
     private NotificationInstanceApiClient notificationInstanceApiClient;
-    private SettingService settingService;
     private AttributeEngine attributeEngine;
 
     @Autowired
@@ -70,6 +67,11 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Autowired
+    public void setNotificationProfileVersionRepository(NotificationProfileVersionRepository notificationProfileVersionRepository) {
+        this.notificationProfileVersionRepository = notificationProfileVersionRepository;
+    }
+
+    @Autowired
     public void setConnectorService(ConnectorService connectorService) {
         this.connectorService = connectorService;
     }
@@ -82,11 +84,6 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     @Autowired
     public void setNotificationInstanceApiClient(NotificationInstanceApiClient notificationInstanceApiClient) {
         this.notificationInstanceApiClient = notificationInstanceApiClient;
-    }
-
-    @Autowired
-    public void setSettingService(SettingService settingService) {
-        this.settingService = settingService;
     }
 
     @Override
@@ -199,7 +196,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
     @Override
     @ExternalAuthorization(resource = Resource.NOTIFICATION_INSTANCE, action = ResourceAction.DELETE)
-    public void deleteNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException {
+    public void deleteNotificationInstance(UUID uuid) throws NotFoundException {
         NotificationInstanceReference notificationInstanceRef = getNotificationInstanceReferenceEntity(uuid);
         removeNotificationInstance(notificationInstanceRef);
     }
@@ -263,24 +260,13 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         } else {
             logger.debug("Deleting notification without connector: {}", notificationInstanceRef);
         }
-        notificationInstanceReferenceRepository.delete(notificationInstanceRef);
 
-        // check notifications settings and remove deleted instance if used
-        NotificationSettingsDto notificationsSettings = SettingsCache.getSettings(SettingsSection.NOTIFICATIONS);
-        if (notificationsSettings != null) {
-            boolean updated = false;
-            for (NotificationType notificationType : NotificationType.values()) {
-                String notificationInstanceUuid = notificationsSettings.getNotificationsMapping().get(notificationType);
-                if (notificationInstanceUuid != null && UUID.fromString(notificationInstanceUuid).equals(notificationInstanceRef.getUuid())) {
-                    updated = true;
-                    notificationsSettings.getNotificationsMapping().remove(notificationType);
-                }
-            }
-
-            if (updated) {
-                logger.debug("Updating notifications settings. Removing deleted notification instance");
-                settingService.updateNotificationSettings(notificationsSettings);
-            }
+        // check notification profiles referencing notification instance
+        long referencesCount = notificationProfileVersionRepository.countByNotificationInstanceRefUuid(notificationInstanceRef.getUuid());
+        if (referencesCount > 0) {
+            throw new ValidationException("Cannot delete notification instance. %d notification profile version(s) are referencing this notification instance".formatted(referencesCount));
         }
+
+        notificationInstanceReferenceRepository.delete(notificationInstanceRef);
     }
 }
