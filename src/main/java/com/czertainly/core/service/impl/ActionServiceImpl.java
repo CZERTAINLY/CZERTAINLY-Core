@@ -3,22 +3,20 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
+import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.dao.entity.workflows.*;
+import com.czertainly.core.dao.repository.notifications.NotificationProfileRepository;
 import com.czertainly.core.dao.repository.workflows.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ActionService;
-import com.czertainly.core.service.NotificationProfileService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -29,17 +27,12 @@ import java.util.*;
 @Transactional
 public class ActionServiceImpl implements ActionService {
 
-    private ObjectMapper objectMapper;
-
     private ExecutionRepository executionRepository;
     private ExecutionItemRepository executionItemRepository;
     private ActionRepository actionRepository;
-    private NotificationProfileService notificationProfileService;
 
-    @Autowired
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
+    private NotificationProfileRepository notificationProfileRepository;
+
 
     @Autowired
     public void setExecutionRepository(ExecutionRepository executionRepository) {
@@ -57,8 +50,8 @@ public class ActionServiceImpl implements ActionService {
     }
 
     @Autowired
-    public void setNotificationProfileService(NotificationProfileService notificationProfileService) {
-        this.notificationProfileService = notificationProfileService;
+    public void setNotificationProfileRepository(NotificationProfileRepository notificationProfileRepository) {
+        this.notificationProfileRepository = notificationProfileRepository;
     }
 
 
@@ -67,19 +60,19 @@ public class ActionServiceImpl implements ActionService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ExecutionDto> listExecutions(Resource resource) {
-        if (resource == null) return executionRepository.findAll().stream().map(Execution::mapToDto).toList();
+        if (resource == null) return executionRepository.findAllWithItemsBy().stream().map(Execution::mapToDto).toList();
         return executionRepository.findAllByResource(resource).stream().map(Execution::mapToDto).toList();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.DETAIL)
     public ExecutionDto getExecution(String executionUuid) throws NotFoundException {
-        return executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid)).mapToDto();
+        return executionRepository.findWithItemsByUuid(UUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid)).mapToDto();
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.CREATE)
-    public ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException {
+    public ExecutionDto createExecution(ExecutionRequestDto request) throws AlreadyExistException, NotFoundException {
         if (request.getItems().isEmpty()) {
             throw new ValidationException("Cannot create an execution without any execution items.");
         }
@@ -99,8 +92,8 @@ public class ActionServiceImpl implements ActionService {
         execution.setDescription(request.getDescription());
         execution.setType(request.getType());
         execution.setResource(request.getResource());
-        executionRepository.save(execution);
         execution.setItems(createExecutionItems(request.getItems(), execution));
+        executionRepository.save(execution);
 
         return execution.mapToDto();
     }
@@ -113,10 +106,11 @@ public class ActionServiceImpl implements ActionService {
         }
 
         Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-        executionItemRepository.deleteAll(execution.getItems());
+        executionItemRepository.deleteByExecution(execution);
 
         execution.setDescription(request.getDescription());
         execution.setItems(createExecutionItems(request.getItems(), execution));
+
         executionRepository.save(execution);
 
         return execution.mapToDto();
@@ -135,7 +129,7 @@ public class ActionServiceImpl implements ActionService {
         executionRepository.delete(execution);
     }
 
-    private Set<ExecutionItem> createExecutionItems(List<ExecutionItemRequestDto> executionItemRequestDtos, Execution execution) {
+    private Set<ExecutionItem> createExecutionItems(List<ExecutionItemRequestDto> executionItemRequestDtos, Execution execution) throws NotFoundException {
         Set<ExecutionItem> executionItems = new HashSet<>();
         for (ExecutionItemRequestDto executionItemRequestDto : executionItemRequestDtos) {
             ExecutionItem executionItem = switch (execution.getType()) {
@@ -143,7 +137,6 @@ public class ActionServiceImpl implements ActionService {
                 case SEND_NOTIFICATION -> createSendNotificationExecutionItem(execution, executionItemRequestDto);
             };
 
-            executionItemRepository.save(executionItem);
             executionItems.add(executionItem);
         }
         return executionItems;
@@ -180,28 +173,18 @@ public class ActionServiceImpl implements ActionService {
         return executionItem;
     }
 
-    private ExecutionItem createSendNotificationExecutionItem(Execution execution, ExecutionItemRequestDto executionItemRequestDto) {
-        NameAndUuidDto notificationProfileInfo = null;
-        try {
-            notificationProfileInfo = objectMapper.convertValue(executionItemRequestDto.getData(), NameAndUuidDto.class);
-        } catch (IllegalArgumentException e) {
-            // requested with UUID only
+    private ExecutionItem createSendNotificationExecutionItem(Execution execution, ExecutionItemRequestDto executionItemRequestDto) throws NotFoundException {
+        if (executionItemRequestDto.getNotificationProfileUuid() == null) {
+            throw new ValidationException("Notification profile UUID is required for execution type send notification");
         }
 
-        if (notificationProfileInfo == null) {
-            // try parsing data as UUID now
-            try {
-                UUID notificationProfileUuid = UUID.fromString(executionItemRequestDto.getData().toString());
-                NotificationProfileDetailDto notificationProfile = notificationProfileService.getNotificationProfile(SecuredUUID.fromUUID(notificationProfileUuid), null);
-                notificationProfileInfo = new NameAndUuidDto(notificationProfile.getUuid(), notificationProfile.getName());
-            } catch (IllegalArgumentException | NotFoundException e) {
-                throw new ValidationException("Invalid data of Send notification execution. Data should contain UUID of existing notification profile");
-            }
-        }
+        SecuredUUID notificationProfileUuid = SecuredUUID.fromString(executionItemRequestDto.getNotificationProfileUuid());
+        NotificationProfile notificationProfile = notificationProfileRepository.findByUuid(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
 
         ExecutionItem executionItem = new ExecutionItem();
         executionItem.setExecution(execution);
-        executionItem.setData(notificationProfileInfo);
+        executionItem.setNotificationProfile(notificationProfile);
+        executionItem.setNotificationProfileUuid(notificationProfileUuid.getValue());
 
         return executionItem;
     }

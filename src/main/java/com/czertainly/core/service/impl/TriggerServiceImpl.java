@@ -180,7 +180,28 @@ public class TriggerServiceImpl implements TriggerService {
     //region Trigger Associations
 
     @Override
-    public void createTriggerAssociations(ResourceEvent event, Resource resource, UUID associationObjectUuid, List<UUID> triggerUuids) throws NotFoundException {
+    public Map<ResourceEvent, List<UUID>> getTriggersAssociations(Resource resource, UUID associationObjectUuid) {
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByResourceAndObjectUuidOrderByTriggerOrderAsc(resource, associationObjectUuid);
+
+        Map<ResourceEvent, List<UUID>> triggersAssociationsEventMapping = new EnumMap<>(ResourceEvent.class);
+        for (TriggerAssociation association : triggerAssociations) {
+            triggersAssociationsEventMapping.computeIfAbsent(association.getEvent(), event -> new ArrayList<>()).add(association.getTriggerUuid());
+        }
+
+        return triggersAssociationsEventMapping;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DETAIL)
+    public void createTriggerAssociations(ResourceEvent event, Resource resource, UUID associationObjectUuid, List<UUID> triggerUuids, boolean replace) throws NotFoundException {
+        if (resource != null && resource != event.getResource() && !event.getOverridingResources().contains(resource)) {
+            throw new ValidationException("Resource %s cannot be associated with event %s.".formatted(resource.getLabel(), event.getLabel()));
+        }
+
+        if (replace) {
+            triggerAssociationRepository.deleteByEventAndResourceAndObjectUuid(event, resource, associationObjectUuid);
+        }
+
         // categorize to ignore and normal triggers
         List<TriggerAssociation> triggers = new ArrayList<>();
         List<TriggerAssociation> ignoreTriggers = new ArrayList<>();
@@ -212,7 +233,7 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public void deleteTriggerAssociation(Resource resource, UUID associationObjectUuid) {
+    public void deleteTriggerAssociations(Resource resource, UUID associationObjectUuid) {
         long deletedAssociations = triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, associationObjectUuid);
         logger.debug("Deleted {} trigger associations for {} with UUID {}.", deletedAssociations, resource.getLabel(), associationObjectUuid);
         long deletedHistoryRecords = triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);

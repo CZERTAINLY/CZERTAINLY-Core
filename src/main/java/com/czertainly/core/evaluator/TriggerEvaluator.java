@@ -1,9 +1,6 @@
 package com.czertainly.core.evaluator;
 
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
@@ -35,9 +32,13 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.Duration;
 import java.lang.reflect.InvocationTargetException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Period;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
@@ -301,8 +302,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     protected void performSendNotificationAction(Resource resource, ResourceEvent event, Execution execution, T object, Object data) {
         List<UUID> notificationProfileUuids = new ArrayList<>();
         for (ExecutionItem executionItem : execution.getItems()) {
-            NameAndUuidDto notificationProfileInfo = objectMapper.convertValue(executionItem.getData(), NameAndUuidDto.class);
-            notificationProfileUuids.add(UUID.fromString(notificationProfileInfo.getUuid()));
+            notificationProfileUuids.add(executionItem.getNotificationProfileUuid());
         }
 
         NotificationMessage message = new NotificationMessage(event, resource, object.getUuid(), notificationProfileUuids, null, data);
@@ -383,23 +383,69 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         dateOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         dateOperatorFunctionMap.putAll(commonOperatorFunctionMap);
-        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(LocalDate.parse(c.toString())));
-        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.parse(c.toString()))));
-        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isBefore(LocalDate.parse(c.toString())));
-        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDate().isAfter(LocalDate.parse(c.toString()))));
+        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString())));
+        dateOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString()))));
+        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> getLocalDate((Date) o).isBefore(LocalDate.parse(c.toString())));
+        dateOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDate((Date) o).isAfter(LocalDate.parse(c.toString()))));
+        dateOperatorFunctionMap.put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDate((Date) o)).isBefore(LocalDate.now()) && (getLocalDate((Date) o)).isAfter(getLocalDateNowMinusDuration(c.toString())));
+        dateOperatorFunctionMap.put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDate((Date) o)).isAfter(LocalDate.now()) && (getLocalDate((Date) o)).isBefore(getLocalDateNowPlusDuration(c.toString())));
+
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATE, dateOperatorFunctionMap);
 
         datetimeOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         datetimeOperatorFunctionMap.putAll(commonOperatorFunctionMap);
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> ((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
-        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(((Date) o).toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime().isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> getLocalDateTime((Date) o).isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o).isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> getLocalDateTime((Date) o).isBefore(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> !(getLocalDateTime((Date) o).isAfter(LocalDateTime.parse(c.toString(), DateTimeFormatter.ofPattern(DATETIME_FORMAT)))));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.IN_PAST, (o, c) -> (getLocalDateTime((Date) o)).isBefore(LocalDateTime.now()) && (getLocalDateTime((Date) o)).isAfter(getLocalDateTimeNowMinusDuration(c.toString())));
+        datetimeOperatorFunctionMap.put(FilterConditionOperator.IN_NEXT, (o, c) -> (getLocalDateTime((Date) o)).isAfter(LocalDateTime.now()) && (getLocalDateTime((Date) o)).isBefore(getLocalDateTimeNowPlusDuration(c.toString())));
+
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, commonOperatorFunctionMap);
         fieldTypeToOperatorActionMap.put(FilterFieldType.BOOLEAN, commonOperatorFunctionMap);
 
+    }
+
+    private static LocalDate getLocalDate(Date o) {
+        return o.toInstant().atZone(ZoneId.systemDefault()).toLocalDate();
+    }
+
+    private static LocalDateTime getLocalDateTime(Date o) {
+        return o.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime();
+    }
+
+    private static LocalDateTime getLocalDateTimeNowMinusDuration(String duration) {
+        Duration durationParsed = getDurationParsed(duration);
+        return LocalDateTime.now().minus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()))
+                .minusHours(durationParsed.getHours()).minusMinutes(durationParsed.getMinutes()).minusSeconds(durationParsed.getSeconds());
+    }
+
+    private static LocalDate getLocalDateNowMinusDuration(String duration) {
+        Duration durationParsed = getDurationParsed(duration);
+        return LocalDate.now().minus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()));
+    }
+
+    private static LocalDateTime getLocalDateTimeNowPlusDuration(String duration) {
+        Duration durationParsed = getDurationParsed(duration);
+        return LocalDateTime.now().plus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()))
+                .plusHours(durationParsed.getHours()).plusMinutes(durationParsed.getMinutes()).plusSeconds(durationParsed.getSeconds());
+    }
+
+    private static LocalDate getLocalDateNowPlusDuration(String duration) {
+        Duration durationParsed = getDurationParsed(duration);
+        return LocalDate.now().plus(Period.of(durationParsed.getYears(), durationParsed.getMonths(), durationParsed.getDays()));
+    }
+
+    private static Duration getDurationParsed(String duration) {
+        Duration durationParsed;
+        try {
+            durationParsed = DatatypeFactory.newInstance().newDuration(duration);
+        } catch (Exception e) {
+            throw new ValidationException("Cannot parse " + duration + "to Duration: " + e.getMessage());
+        }
+        return durationParsed;
     }
 
     private static int compareNumbers(Number objectNumber, Number conditionNumber) {

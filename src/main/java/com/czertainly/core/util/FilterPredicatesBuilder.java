@@ -19,12 +19,13 @@ import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import org.hibernate.query.criteria.JpaExpression;
+import org.springframework.security.core.parameters.P;
 
+import javax.xml.datatype.DatatypeConfigurationException;
+import javax.xml.datatype.DatatypeFactory;
+import javax.xml.datatype.Duration;
 import java.io.Serializable;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -101,6 +102,7 @@ public class FilterPredicatesBuilder {
 
         Object filterValue = filterValues.isEmpty() ? null : filterValues.getFirst();
         FilterConditionOperator conditionOperator = (filterDto.getCondition() == FilterConditionOperator.NOT_EQUALS) ? FilterConditionOperator.EQUALS : ((filterDto.getCondition() == FilterConditionOperator.NOT_CONTAINS) ? FilterConditionOperator.CONTAINS : filterDto.getCondition());
+        ZonedDateTime nowDateTime = ZonedDateTime.now();
         return switch (conditionOperator) {
             case EQUALS ->
                     multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValue);
@@ -113,6 +115,17 @@ public class FilterPredicatesBuilder {
             case LESSER -> criteriaBuilder.lessThan(expression, (Expression) criteriaBuilder.literal(filterValue));
             case LESSER_OR_EQUAL ->
                     criteriaBuilder.lessThanOrEqualTo(expression, (Expression) criteriaBuilder.literal(filterValue));
+            case IN_PAST -> {
+                Duration duration = (Duration) filterValues.getFirst();
+                yield criteriaBuilder.between(expression,
+                        nowDateTime.minus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds()),
+                       nowDateTime);
+            }
+            case IN_NEXT -> {
+                Duration duration = (Duration) filterValues.getFirst();
+                yield criteriaBuilder.between(expression, nowDateTime,
+                        nowDateTime.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
+            }
             case null, default -> null;
         };
     }
@@ -128,25 +141,43 @@ public class FilterPredicatesBuilder {
         List<Object> filterValues = filterValue instanceof List<?> ? (List<Object>) filterValue : List.of(filterValue);
         for (Object value : filterValues) {
             String stringValue = value.toString();
-            Object preparedValue = switch (contentType) {
-                case BOOLEAN -> Boolean.parseBoolean(stringValue) ? "true" : "false";
-                case INTEGER -> Integer.parseInt(stringValue);
-                case FLOAT -> Float.parseFloat(stringValue);
-                case DATE -> LocalDate.parse(stringValue);
-                case TIME -> LocalTime.parse(stringValue);
-                case DATETIME -> {
-                    if (!stringValue.contains("+") && !stringValue.endsWith("Z")) {
-                        stringValue += "Z";
+            Object preparedValue;
+            if (filterDto.getCondition() == FilterConditionOperator.IN_NEXT || filterDto.getCondition() == FilterConditionOperator.IN_PAST) {
+                preparedValue = prepareDurationValue(contentType, stringValue);
+            } else {
+                preparedValue = switch (contentType) {
+                    case BOOLEAN -> Boolean.parseBoolean(stringValue) ? "true" : "false";
+                    case INTEGER -> Integer.parseInt(stringValue);
+                    case FLOAT -> Float.parseFloat(stringValue);
+                    case DATE -> LocalDate.parse(stringValue);
+                    case TIME -> LocalTime.parse(stringValue);
+                    case DATETIME -> {
+                        if (!stringValue.contains("+") && !stringValue.endsWith("Z")) {
+                            stringValue += "Z";
+                        }
+                        yield ZonedDateTime.parse(stringValue, DateTimeFormatter.ofPattern("[yyyy-MM-dd'T'HH:mm:ss.SSSXXX][yyyy-MM-dd'T'HH:mm:ssXXX][yyyy-MM-dd'T'HH:mmXXX]"));
                     }
-                    yield ZonedDateTime.parse(stringValue, DateTimeFormatter.ofPattern("[yyyy-MM-dd'T'HH:mm:ss.SSSXXX][yyyy-MM-dd'T'HH:mm:ssXXX][yyyy-MM-dd'T'HH:mmXXX]"));
-                }
-                case null, default -> stringValue;
-            };
+                    case null, default -> stringValue;
+                };
+            }
 
             preparedFilterValues.add(preparedValue);
         }
 
         return preparedFilterValues;
+    }
+
+    private static Object prepareDurationValue(AttributeContentType contentType, String stringValue) {
+        Object preparedValue;
+        if (contentType == AttributeContentType.DATE) {
+            stringValue = extractDateFromDuration(stringValue);
+        }
+        try {
+            preparedValue = DatatypeFactory.newInstance().newDuration(stringValue);
+        } catch (DatatypeConfigurationException e) {
+            throw new ValidationException("Cannot parse value " + stringValue + "to a Duration: " + e.getMessage());
+        }
+        return preparedValue;
     }
 
     private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
@@ -197,6 +228,7 @@ public class FilterPredicatesBuilder {
                 conditionOperator = FilterConditionOperator.EQUALS;
             }
         }
+        final LocalDateTime now = LocalDateTime.now();
         switch (conditionOperator) {
             case EQUALS ->
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
@@ -228,6 +260,17 @@ public class FilterPredicatesBuilder {
                     predicate = criteriaBuilder.lessThan(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
             case LESSER_OR_EQUAL ->
                     predicate = criteriaBuilder.lessThanOrEqualTo(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
+            case IN_PAST -> {
+                Duration duration = (Duration) filterValues.getFirst();
+                predicate = criteriaBuilder.between(expression,
+                        now.minus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds()),
+                        now);
+            }
+            case IN_NEXT -> {
+                Duration duration = (Duration) filterValues.getFirst();
+                predicate = criteriaBuilder.between(expression, now,
+                        now.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
+            }
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
@@ -282,6 +325,15 @@ public class FilterPredicatesBuilder {
                     }
                 } else if (filterField.getType() == SearchFieldTypeEnum.NUMBER) {
                     preparedFilterValue = stringValue.contains(".") ? Float.parseFloat(stringValue) : Integer.parseInt(stringValue);
+                } else if (filterDto.getCondition() == FilterConditionOperator.IN_PAST || filterDto.getCondition() == FilterConditionOperator.IN_NEXT) {
+                    try {
+                        if (filterField.getType() == SearchFieldTypeEnum.DATE) {
+                            stringValue = extractDateFromDuration(stringValue);
+                        }
+                        preparedFilterValue = DatatypeFactory.newInstance().newDuration(stringValue);
+                    } catch (Exception e) {
+                        throw new ValidationException("Filter field value " + stringValue + " cannot be parsed to a Duration.");
+                    }
                 } else if (filterField.getType() == SearchFieldTypeEnum.DATE) {
                     preparedFilterValue = LocalDate.parse(stringValue);
                 } else if (filterField.getType() == SearchFieldTypeEnum.DATETIME) {
@@ -295,6 +347,12 @@ public class FilterPredicatesBuilder {
         }
 
         return preparedFilterValues;
+    }
+
+    private static String extractDateFromDuration(String stringValue) {
+        int index = stringValue.indexOf('T');
+        stringValue = (index != -1) ? stringValue.substring(0, index) : stringValue;
+        return stringValue;
     }
 
     private static Predicate getGroupNotExistPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, Root originalRoot, Attribute fieldAttribute, List<Object> filterValues, Resource resource) {

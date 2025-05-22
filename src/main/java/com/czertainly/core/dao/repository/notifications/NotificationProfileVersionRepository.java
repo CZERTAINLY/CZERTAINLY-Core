@@ -11,6 +11,8 @@ import java.util.UUID;
 @Repository
 public interface NotificationProfileVersionRepository extends SecurityFilterRepository<NotificationProfileVersion, UUID> {
 
+    long countByNotificationInstanceRefUuid(UUID notificationInstanceRefUuid);
+
     @EntityGraph(attributePaths = {"notificationProfile", "notificationInstance"})
     Optional<NotificationProfileVersion> findByNotificationProfileUuidAndVersion(UUID notificationProfileUuid, int version);
 

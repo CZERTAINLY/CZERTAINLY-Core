@@ -103,8 +103,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Override
     protected EventContext<Certificate> prepareContext(EventMessage eventMessage) {
         EventContext<Certificate> context = new EventContext<>(eventMessage, triggerEvaluator, null, null);
-        // TODO: load event triggers from platform settings
         loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
+        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
     }
