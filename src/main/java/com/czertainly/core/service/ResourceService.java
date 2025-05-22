@@ -7,11 +7,13 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 public interface ResourceService {
@@ -64,4 +66,9 @@ public interface ResourceService {
      */
     List<ResourceEventDto> listResourceEvents(Resource resource);
 
+    /**
+     * Method to retrieve all events supported by all resources
+     * @return Map of events
+     */
+    Map<ResourceEvent, List<ResourceEventDto>> listAllResourceEvents();
 }

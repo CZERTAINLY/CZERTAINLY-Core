@@ -28,9 +28,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
+import java.util.stream.Collectors;
+
+import static java.util.Arrays.stream;
 
 @Service
 @Transactional
@@ -315,6 +316,15 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     public List<ResourceEventDto> listResourceEvents(Resource resource) {
         return ResourceEvent.listEventsByResource(resource).stream().map(ResourceEventDto::new).toList();
+    }
+
+    @Override
+    public Map<ResourceEvent, List<ResourceEventDto>> listAllResourceEvents() {
+        return Arrays.stream(ResourceEvent.values())
+                .collect(Collectors.groupingBy(
+                        event -> event,
+                        Collectors.mapping(ResourceEventDto::new, Collectors.toList())
+                ));
     }
 
 }
