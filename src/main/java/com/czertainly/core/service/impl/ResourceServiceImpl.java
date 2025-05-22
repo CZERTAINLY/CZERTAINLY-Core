@@ -31,8 +31,6 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
-import static java.util.Arrays.stream;
-
 @Service
 @Transactional
 public class ResourceServiceImpl implements ResourceService {
