@@ -512,7 +512,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     altPublicKeyItem.getKeyReferenceUuid(),
                     altPublicKeyItem.getKeyData(),
                     altPublicKeyItem.getKeyAlgorithm(),
-                    altSignatureAttributes
+                    altSignatureAttributes,
+                    true
             );
             ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
             extensionsGenerator.addExtension(Extension.altSignatureAlgorithm, false, altSigner.getAlgorithmIdentifier());
@@ -532,7 +533,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 publicKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyData(),
                 publicKeyItem.getKeyAlgorithm(),
-                signatureAttributes
+                signatureAttributes,
+                false
         );
 
         // Build the CSR with the DN generated and the signer

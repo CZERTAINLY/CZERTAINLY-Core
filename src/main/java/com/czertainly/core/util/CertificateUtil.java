@@ -492,6 +492,9 @@ public class CertificateUtil {
             modal.setSignatureAlgorithm(null);
         else
             modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        String altSignatureAlgorithm = null;
+        if (certificateRequest.getAltSignatureAlgorithm() != null) altSignatureAlgorithm = algFinder.getAlgorithmName(certificateRequest.getAltSignatureAlgorithm()).replace("WITH", "with");
+        modal.setAltSignatureAlgorithm(altSignatureAlgorithm);
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }

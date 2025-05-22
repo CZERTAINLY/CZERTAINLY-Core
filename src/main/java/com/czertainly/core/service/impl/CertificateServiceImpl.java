@@ -1418,9 +1418,19 @@ public class CertificateServiceImpl implements CertificateService {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }
 
+        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null)
+            certificateRequestEntity.setAltKeyUuid(altKeyUuid);
+        else if (request.getAltPublicKey() != null) {
+            altKeyUuid = getCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
+        }
+
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate.setKeyUuid(keyUuid);
+        if (altKeyUuid != null) {
+            certificate.setAltKeyUuid(altKeyUuid);
+            certificate.setHybridCertificate(true);
+        }
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {
@@ -1465,6 +1475,19 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificateRequest.setKeyUuid(keyUuid);
         return keyUuid;
+    }
+
+    private UUID getCertificateRequestAltKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {
+        if (certificateRequest.getAltKeyUuid() != null) return certificateRequest.getAltKeyUuid();
+
+        String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(csrPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+        if (altKeyUuid == null) {
+            altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificateRequest.getCommonName(), certificateRequest.getFingerprint()),
+                    csrPublicKey, CertificateUtil.getAlgorithmFromProviderName(csrPublicKey.getAlgorithm()), KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
+        }
+        certificateRequest.setAltKeyUuid(altKeyUuid);
+        return altKeyUuid;
     }
 
     @Override

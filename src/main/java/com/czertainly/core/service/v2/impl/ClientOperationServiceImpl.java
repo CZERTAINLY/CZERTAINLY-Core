@@ -181,7 +181,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException("Cannot submit certificate request without specifying key or uploaded request content");
         }
 
-        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
+        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(),request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
         CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
         protocolInfo);
 
@@ -215,6 +215,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRequestDto.setKeyUuid(request.getKeyUuid());
         certificateRequestDto.setIssueAttributes(request.getAttributes());
         certificateRequestDto.setCustomAttributes(request.getCustomAttributes());
+        certificateRequestDto.setAltKeyUuid(request.getAltKeyUuid());
+        certificateRequestDto.setAltTokenProfileUuid(request.getAltTokenProfileUuid());
+        certificateRequestDto.setAltSignatureAttributes(request.getAltSignatureAttributes());
 
         CertificateDetailDto certificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
