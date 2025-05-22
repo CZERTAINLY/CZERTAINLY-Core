@@ -231,6 +231,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSubjectDn(subjectDn);
         dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
+        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(altSignatureAlgorithm));
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
@@ -289,6 +290,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
         if (key != null) dto.setKey(key.mapToDto());
 
+        if (altKey != null) dto.setAltKey(altKey.mapToDto());
+
         if (protocolAssociation != null) {
             CertificateProtocolDto protocolDto = new CertificateProtocolDto();
             protocolDto.setProtocol(protocolAssociation.getProtocol());
@@ -312,6 +315,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setNotAfter(notAfter);
         dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
         dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
+        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(altSignatureAlgorithm));
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
@@ -365,6 +369,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         newCertificateRequestEntity.setCommonName(this.commonName);
         newCertificateRequestEntity.setPublicKeyAlgorithm(this.publicKeyAlgorithm);
         newCertificateRequestEntity.setSignatureAlgorithm(this.signatureAlgorithm);
+        newCertificateRequestEntity.setAltSignatureAlgorithm(this.altSignatureAlgorithm);
         newCertificateRequestEntity.setSubjectAlternativeNames(this.subjectAlternativeNames);
         newCertificateRequestEntity.setSubjectDn(this.subjectDn);
         newCertificateRequestEntity.setCertificateRequestFormat(certificateRequestFormat);
