@@ -7,26 +7,12 @@ import com.czertainly.core.service.cmp.mock.CertTestUtil;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.Json;
-import org.bouncycastle.asn1.ASN1Encodable;
-import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.ASN1Encoding;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1Object;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.*;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.CRLReason;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.ExtensionsGenerator;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.asn1.x509.X509DefaultEntryConverter;
-import org.bouncycastle.asn1.x509.X509Name;
-import org.bouncycastle.asn1.x509.X509NameEntryConverter;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.CertException;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
@@ -35,6 +21,7 @@ import org.bouncycastle.cert.crmf.*;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessageBuilder;
 import org.bouncycastle.cert.crmf.jcajce.JcePKMACValuesCalculator;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.*;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -367,8 +354,8 @@ public class CmpTestUtil {
                 .build(macCalculator);
     }
 
-    public static CertificateRequestMessageBuilder createCrmf(X500Name issuerDN, X500Name subjectDN)
-            throws NoSuchAlgorithmException, IOException, CRMFException, CMPException, InvalidAlgorithmParameterException, NoSuchProviderException {
+    public static CertificateRequestMessageBuilder createCrmf(X500Name issuerDN, X500Name subjectDN, boolean withAltKey)
+            throws NoSuchAlgorithmException, IOException, InvalidAlgorithmParameterException, NoSuchProviderException, InvalidKeyException, SignatureException {
         CertificateRequestMessageBuilder msgBuilder = new CertificateRequestMessageBuilder(
                 BigInteger.valueOf(1L));
         msgBuilder.setIssuer(issuerDN);//"CN=ManagementCA"
@@ -382,6 +369,28 @@ public class CmpTestUtil {
         SubjectPublicKeyInfo keyInfo = new SubjectPublicKeyInfo((org.bouncycastle.asn1.ASN1Sequence)dIn.readObject());
         dIn.close();
         msgBuilder.setPublicKey(keyInfo);
+        if (withAltKey) {
+            KeyPairGenerator altKeyGen = KeyPairGenerator.getInstance("ML-DSA");
+            altKeyGen.initialize(MLDSAParameterSpec.ml_dsa_44);
+            KeyPair alternativeKeyPair = altKeyGen.generateKeyPair();
+            msgBuilder.addExtension(
+                    Extension.subjectAltPublicKeyInfo,
+                    false,
+                    SubjectAltPublicKeyInfo.getInstance(
+                            ASN1Sequence.getInstance(alternativeKeyPair.getPublic().getEncoded()))
+            );
+
+            AlgorithmIdentifier altSignatureAlgorithm = new AlgorithmIdentifier(NISTObjectIdentifiers.id_ml_dsa_44);
+            AltSignatureAlgorithm altSignatureAlgorithm1 = new AltSignatureAlgorithm(altSignatureAlgorithm);
+            msgBuilder.addExtension(Extension.altSignatureAlgorithm, false, altSignatureAlgorithm1);
+
+            Signature signature = Signature.getInstance("ML-DSA");
+            signature.initSign(alternativeKeyPair.getPrivate());
+            signature.update(alternativeKeyPair.getPublic().getEncoded());
+            byte[] signedData = signature.sign();
+            AltSignatureValue altSignatureValue = new AltSignatureValue(signedData);
+            msgBuilder.addExtension(Extension.altSignatureValue, false, altSignatureValue);
+        }
         return msgBuilder;
     }
 }
