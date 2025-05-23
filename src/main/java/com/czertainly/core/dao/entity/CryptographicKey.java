@@ -64,7 +64,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @JsonBackReference
     @OneToMany(mappedBy = "key", fetch = FetchType.LAZY)
     @ToString.Exclude
-    private Set<Certificate> certificates = new HashSet<>();
+    private Set<Certificate> defaultCertificates = new HashSet<>();
+
+    @JsonBackReference
+    @OneToMany(mappedBy = "altKey", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    private Set<Certificate> altCertificates = new HashSet<>();
 
     public void setTokenProfile(TokenProfile tokenProfile) {
         this.tokenProfile = tokenProfile;
@@ -109,7 +114,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwner(owner.getOwnerUsername());
         }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() - 1) + certificates.size());
+        dto.setAssociations((items.size() - 1) + getCertificates().size());
         return dto;
     }
 
@@ -135,6 +140,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
             dto.setOwner(owner.getOwnerUsername());
         }
+        Set<Certificate> certificates = getCertificates();
         if (certificates != null && !certificates.isEmpty()) {
             dto.setAssociations(certificates.stream().map(e -> {
                 KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
@@ -161,5 +167,12 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+    }
+
+    public Set<Certificate> getCertificates() {
+        Set<Certificate> certificateSet = new HashSet<>();
+        certificateSet.addAll(defaultCertificates);
+        certificateSet.addAll(altCertificates);
+        return certificateSet;
     }
 }

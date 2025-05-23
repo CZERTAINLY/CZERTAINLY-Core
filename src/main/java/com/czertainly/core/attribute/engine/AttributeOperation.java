@@ -8,4 +8,7 @@ public class AttributeOperation {
     public static final String CERTIFICATE_REQUEST_ALT_SIGN = "altSign";
     public static final String CONNECTOR_AUTH = "auth";
 
+    private AttributeOperation() {
+    }
+
 }

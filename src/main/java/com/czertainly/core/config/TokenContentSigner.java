@@ -40,7 +40,7 @@ public class TokenContentSigner implements ContentSigner {
     private final KeyAlgorithm keyAlgorithm;
     private final UUID tokenInstanceUuid;
     private final List<RequestAttributeDto> signatureAttributes;
-    private boolean signPublicKey = false;
+    private final boolean signPublicKey;
 
 
     private final ByteArrayOutputStream outputStream;
