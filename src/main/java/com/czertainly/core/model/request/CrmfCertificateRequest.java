@@ -5,14 +5,19 @@ import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import lombok.Getter;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
+import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessage;
 import org.bouncycastle.openssl.PEMException;
 import org.bouncycastle.openssl.jcajce.JcaPEMKeyConverter;
 
+import java.io.IOException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.List;
 import java.util.Map;
 
@@ -60,6 +65,21 @@ public class CrmfCertificateRequest implements CertificateRequest {
     }
 
     @Override
+    public PublicKey getAltPublicKey() throws NoSuchAlgorithmException, CertificateRequestException {
+        Extensions extensions = certificateRequestMessage.getCertTemplate().getExtensions();
+        if (extensions == null) return null;
+        Extension extension = extensions.getExtension(Extension.subjectAltPublicKeyInfo);
+        if (extension == null) return null;
+        SubjectAltPublicKeyInfo altPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(extension.getParsedValue());
+        KeyFactory keyFactory = KeyFactory.getInstance(altPublicKeyInfo.getAlgorithm().getAlgorithm().getId());
+        try {
+            return keyFactory.generatePublic(new X509EncodedKeySpec(altPublicKeyInfo.getEncoded()));
+        } catch (InvalidKeySpecException | IOException e) {
+            throw new CertificateRequestException("Cannot get alternative public key from certificate request.", e);
+        }
+    }
+
+    @Override
     public Map<String, List<String>> getSubjectAlternativeNames() {
         return CertificateUtil.getSAN(this);
     }
@@ -67,6 +87,16 @@ public class CrmfCertificateRequest implements CertificateRequest {
     @Override
     public AlgorithmIdentifier getSignatureAlgorithm() {
         return certificateRequestMessage.getCertTemplate().getSigningAlg();
+    }
+
+    @Override
+    public AlgorithmIdentifier getAltSignatureAlgorithm() {
+        CertTemplate certTemplate = certificateRequestMessage.getCertTemplate();
+        Extensions extensions = certTemplate.getExtensions();
+        if (extensions == null) return  null;
+        Extension extension = extensions.getExtension(Extension.altSignatureAlgorithm);
+        if (extension == null) return null;
+        return AlgorithmIdentifier.getInstance(extension.getParsedValue());
     }
 
 }

@@ -44,6 +44,13 @@ public interface CertificateRequest {
     PublicKey getPublicKey() throws NoSuchAlgorithmException, CertificateRequestException;
 
     /**
+     * Get the alternative public key of the request
+     *
+     * @return alternative public key
+     */
+    PublicKey getAltPublicKey() throws NoSuchAlgorithmException, CertificateRequestException;
+
+    /**
      * Get the subject alternative names
      *
      * @return subject alternative names
@@ -56,5 +63,12 @@ public interface CertificateRequest {
      * @return signature algorithm
      */
     AlgorithmIdentifier getSignatureAlgorithm();
+
+    /**
+     * Get the alternative signature algorithm
+     *
+     * @return alternative signature algorithm
+     */
+    AlgorithmIdentifier getAltSignatureAlgorithm();
 
 }

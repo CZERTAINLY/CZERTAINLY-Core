@@ -26,17 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.annotation.Nullable;
 import jakarta.xml.bind.DatatypeConverter;
-import org.bouncycastle.asn1.DLSequence;
-import org.bouncycastle.asn1.DLTaggedObject;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -63,6 +59,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -93,6 +91,9 @@ public class CertificateUtil {
     static {
         CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
         CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-44", KeyAlgorithm.MLDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-65", KeyAlgorithm.MLDSA.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-87", KeyAlgorithm.MLDSA.toString());
     }
 
     private CertificateUtil() {
@@ -407,6 +408,18 @@ public class CertificateUtil {
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
+        byte[] alternativePublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        byte[] alternativeSignatureAlgorithm = certificate.getExtensionValue(Extension.altSignatureAlgorithm.getId());
+        byte[] alternativeSignature = certificate.getExtensionValue(Extension.altSignatureValue.getId());
+        if (alternativePublicKey != null && alternativeSignatureAlgorithm != null && alternativeSignature != null) {
+            modal.setHybridCertificate(true);
+            try {
+                modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
+            } catch (IOException e) {
+                throw new ValidationException("Cannot read Alternative Signature Algorithm from extension: " + e.getMessage());
+            }
+        }
+
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(CertificateUtil.getSAN(certificate)));
         try {
             modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
@@ -423,6 +436,38 @@ public class CertificateUtil {
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)
             modal.setTrustedCa(false);
+    }
+
+    public static String getAlternativeSignatureAlgorithm(byte[] alternativeSignatureAlgorithm) throws IOException {
+        ASN1Primitive derObj2 = getAsn1Primitive(alternativeSignatureAlgorithm);
+        AltSignatureAlgorithm algorithm = AltSignatureAlgorithm.getInstance(derObj2);
+        return new DefaultAlgorithmNameFinder().getAlgorithmName(algorithm.getAlgorithm());
+    }
+
+    public static byte[] getAltSignatureValue(byte[] altSignatureValue) throws IOException {
+        ASN1Primitive primitive = getAsn1Primitive(altSignatureValue);
+        AltSignatureValue signatureValue = AltSignatureValue.getInstance(primitive);
+        return signatureValue.getSignature().getEncoded();
+    }
+
+    public static PublicKey getAltPublicKey(byte[] altPublicKeyInfoEncoded) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        ASN1Primitive primitive = getAsn1Primitive(altPublicKeyInfoEncoded);
+        SubjectAltPublicKeyInfo subjectAltPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(primitive);
+        KeyFactory keyFactory = KeyFactory.getInstance(subjectAltPublicKeyInfo.getAlgorithm().getAlgorithm().getId());
+        return keyFactory.generatePublic(new X509EncodedKeySpec(subjectAltPublicKeyInfo.getEncoded()));
+    }
+
+
+    private static ASN1Primitive getAsn1Primitive(byte[] encodedAsn1Primitive) throws IOException {
+        ASN1InputStream asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(encodedAsn1Primitive));
+        ASN1Primitive asn1Primitive = asn1InputStream.readObject();
+        DEROctetString derOctetString = (DEROctetString) asn1Primitive;
+
+        asn1InputStream.close();
+
+        byte[] octets = derOctetString.getOctets();
+        ASN1InputStream asn1InputStreamInner = new ASN1InputStream(new ByteArrayInputStream(octets));
+        return asn1InputStreamInner.readObject();
     }
 
 
@@ -447,6 +492,9 @@ public class CertificateUtil {
             modal.setSignatureAlgorithm(null);
         else
             modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        String altSignatureAlgorithm = null;
+        if (certificateRequest.getAltSignatureAlgorithm() != null) altSignatureAlgorithm = algFinder.getAlgorithmName(certificateRequest.getAltSignatureAlgorithm()).replace("WITH", "with");
+        modal.setAltSignatureAlgorithm(altSignatureAlgorithm);
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }

@@ -58,6 +58,8 @@ import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.function.TriFunction;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
@@ -88,6 +90,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateFactory;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.OffsetDateTime;
@@ -524,6 +528,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
                 SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.TRUSTED_CA),
+                SearchHelper.prepareSearch(FilterField.HYBRID_CERTIFICATE),
                 SearchHelper.prepareSearch(FilterField.CERTIFICATE_PROTOCOL)
         );
 
@@ -774,7 +779,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
-            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(),  oldStatus, newStatus));
+            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), oldStatus, newStatus));
         }
     }
 
@@ -872,7 +877,10 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             CertificateUtil.prepareIssuedCertificate(entity, certificate);
-            uploadCertificateKey(certificate.getPublicKey(), entity);
+            byte[] altPublicKey = null;
+            if (entity.isHybridCertificate())
+                altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
 
@@ -912,7 +920,7 @@ public class CertificateServiceImpl implements CertificateService {
         return modal;
     }
 
-    private void uploadCertificateKey(PublicKey publicKey, Certificate certificate) {
+    private void uploadCertificateKey(PublicKey publicKey, Certificate certificate, byte[] altPublicKeyEncoded) {
         UUID keyUuid;
         if (certificate.getKeyUuid() == null) {
             keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
@@ -920,6 +928,26 @@ public class CertificateServiceImpl implements CertificateService {
                 keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());
             }
             certificate.setKeyUuid(keyUuid);
+        }
+        if (altPublicKeyEncoded != null) {
+            PublicKey altPublicKey;
+            try {
+                altPublicKey = CertificateUtil.getAltPublicKey(altPublicKeyEncoded);
+            } catch (NoSuchAlgorithmException | InvalidKeySpecException | IOException e) {
+                throw new ValidationException("Could not retrieve alternative public key from the certificate: " + e.getMessage());
+            }
+            String fingerprint = null;
+            try {
+                fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(altPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+            } catch (NoSuchAlgorithmException e) {
+                logger.error("Cannot create fingerprint for Alternative Public Key: {}", e.getMessage());
+            }
+            UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+            if (altKeyUuid == null) {
+                altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey,
+                        altPublicKey.getAlgorithm(), KeySizeUtil.getKeyLength(altPublicKey), fingerprint);
+            }
+            certificate.setAltKeyUuid(altKeyUuid);
         }
     }
 
@@ -952,7 +980,10 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         Certificate entity = createCertificateEntity(certificate);
-        uploadCertificateKey(certificate.getPublicKey(), entity);
+        byte[] altPublicKey = null;
+        if (entity.isHybridCertificate())
+            altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
         certificateRepository.save(entity);
 
         CertificateDetailDto dto = entity.mapToDto();
@@ -974,7 +1005,10 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
-        uploadCertificateKey(x509Cert.getPublicKey(), entity);
+        byte[] altPublicKey = null;
+        if (entity.isHybridCertificate())
+            altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        uploadCertificateKey(x509Cert.getPublicKey(), entity, altPublicKey);
         entity = certificateRepository.save(entity);
 
         // set owner of certificate to logged user
@@ -1009,7 +1043,10 @@ public class CertificateServiceImpl implements CertificateService {
 
         // certificate was actually inserted
         if (countInserted == 1) {
-            uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity);
+            byte[] altPublicKey = null;
+            if (certificateEntity.isHybridCertificate())
+                altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity, altPublicKey);
 
             // set owner of certificateEntity to logged user
             if (assignOwner) {
@@ -1034,7 +1071,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.warn("Unable to find the certificate with serialNumber {}", serialNumber);
         }
         if (certificate != null) {
-            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(),  oldStatus, CertificateValidationStatus.REVOKED));
+            eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), oldStatus, CertificateValidationStatus.REVOKED));
         }
     }
 
@@ -1305,9 +1342,11 @@ public class CertificateServiceImpl implements CertificateService {
             String certificateRequest,
             CertificateRequestFormat certificateRequestFormat,
             List<RequestAttributeDto> signatureAttributes,
+            List<RequestAttributeDto> altSignatureAttributes,
             List<RequestAttributeDto> csrAttributes,
             List<RequestAttributeDto> issueAttributes,
             UUID keyUuid,
+            UUID altKeyUuid,
             UUID raProfileUuid,
             UUID sourceCertificateUuid,
             CertificateProtocolInfo protocolInfo
@@ -1379,9 +1418,19 @@ public class CertificateServiceImpl implements CertificateService {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }
 
+        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null)
+            certificateRequestEntity.setAltKeyUuid(altKeyUuid);
+        else if (request.getAltPublicKey() != null) {
+            altKeyUuid = getCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
+        }
+
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate.setKeyUuid(keyUuid);
+        if (altKeyUuid != null) {
+            certificate.setAltKeyUuid(altKeyUuid);
+            certificate.setHybridCertificate(true);
+        }
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {
@@ -1426,6 +1475,19 @@ public class CertificateServiceImpl implements CertificateService {
         }
         certificateRequest.setKeyUuid(keyUuid);
         return keyUuid;
+    }
+
+    private UUID getCertificateRequestAltKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {
+        if (certificateRequest.getAltKeyUuid() != null) return certificateRequest.getAltKeyUuid();
+
+        String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(csrPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+        if (altKeyUuid == null) {
+            altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificateRequest.getCommonName(), certificateRequest.getFingerprint()),
+                    csrPublicKey, CertificateUtil.getAlgorithmFromProviderName(csrPublicKey.getAlgorithm()), KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
+        }
+        certificateRequest.setAltKeyUuid(altKeyUuid);
+        return altKeyUuid;
     }
 
     @Override
