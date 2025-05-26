@@ -1006,9 +1006,7 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate entity = createCertificateEntity(x509Cert);
-        byte[] altPublicKey = null;
-        if (entity.isHybridCertificate())
-            altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        byte[] altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
         uploadCertificateKey(x509Cert.getPublicKey(), entity, altPublicKey);
         entity = certificateRepository.save(entity);
 

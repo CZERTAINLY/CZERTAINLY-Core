@@ -23,11 +23,9 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.CertificateUtilTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import org.bouncycastle.cert.CertIOException;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -221,7 +219,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     void testCreateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, IOException, AlreadyExistException {
         Certificate hybridCertificate = certificateService.checkCreateCertificate(Base64.getEncoder().encodeToString(
-                CertificateUtilTest.createHybridCertificate().getEncoded()));
+                CertificateUtil.createHybridCertificate().getEncoded()));
 
         Assertions.assertTrue(hybridCertificate.isHybridCertificate());
         Assertions.assertNotNull(hybridCertificate.getAltSignatureAlgorithm());
