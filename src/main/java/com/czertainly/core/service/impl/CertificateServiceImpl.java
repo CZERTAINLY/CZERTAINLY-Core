@@ -1524,6 +1524,7 @@ public class CertificateServiceImpl implements CertificateService {
             UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             certificate.setKeyUuid(keyUuid);
         }
+        // TODO: Same for alt key, add fingerprint?
 
         certificate = certificateRepository.save(certificate);
 

@@ -408,10 +408,9 @@ public class CertificateUtil {
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
-        byte[] alternativePublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
         byte[] alternativeSignatureAlgorithm = certificate.getExtensionValue(Extension.altSignatureAlgorithm.getId());
         byte[] alternativeSignature = certificate.getExtensionValue(Extension.altSignatureValue.getId());
-        if (alternativePublicKey != null && alternativeSignatureAlgorithm != null && alternativeSignature != null) {
+        if (alternativeSignatureAlgorithm != null && alternativeSignature != null) {
             modal.setHybridCertificate(true);
             try {
                 modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));

@@ -219,7 +219,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCreateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, CertIOException, AlreadyExistException {
+    void testCreateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, IOException, AlreadyExistException {
         Certificate hybridCertificate = certificateService.checkCreateCertificate(Base64.getEncoder().encodeToString(
                 CertificateUtilTest.createHybridCertificate().getEncoded()));
 
