@@ -306,19 +306,6 @@
             <plugin>
                 <groupId>org.hibernate.orm.tooling</groupId>
                 <artifactId>hibernate-enhance-maven-plugin</artifactId>
-<!--                <executions>-->
-<!--                    <execution>-->
-<!--                        <configuration>-->
-<!--                            <failOnError>true</failOnError>-->
-<!--                            <enableLazyInitialization>true</enableLazyInitialization>-->
-<!--                            <enableDirtyTracking>false</enableDirtyTracking>-->
-<!--                            <enableAssociationManagement>false</enableAssociationManagement>-->
-<!--                        </configuration>-->
-<!--                        <goals>-->
-<!--                            <goal>enhance</goal>-->
-<!--                        </goals>-->
-<!--                    </execution>-->
-<!--                </executions>-->
             </plugin>
             <plugin>
                 <groupId>org.jacoco</groupId>
