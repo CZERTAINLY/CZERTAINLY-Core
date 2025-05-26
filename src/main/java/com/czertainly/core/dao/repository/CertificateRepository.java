@@ -105,6 +105,10 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void setKeyUuid(UUID keyUuid, List<UUID> uuids);
 
     @Modifying
+    @Query("UPDATE Certificate c SET c.altKeyUuid = ?1 WHERE c.uuid IN ?2")
+    void setAltKeyUuid(UUID keyUuid, List<UUID> uuids);
+
+    @Modifying
     @Query(value = """
             INSERT INTO {h-schema}certificate (
             uuid, i_author, i_cre, i_upd, ra_profile_uuid,certificate_content_id,

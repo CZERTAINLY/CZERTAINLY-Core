@@ -20,6 +20,7 @@ import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.KeySizeUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
 import org.slf4j.Logger;
@@ -170,6 +171,17 @@ public class CertificateHandler {
             keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + firstCertificate.getCommonName(), publicKey, firstCertificate.getPublicKeyAlgorithm(), firstCertificate.getKeySize(), firstCertificate.getPublicKeyFingerprint());
         }
         certificateRepository.setKeyUuid(keyUuid, certificateUuids);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    public void uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+        String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+        Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
+        if (keyUuid == null) {
+            keyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + firstCertificate.getCommonName(), publicKey, publicKey.getAlgorithm(), KeySizeUtil.getKeyLength(publicKey), fingerprint);
+        }
+        certificateRepository.setAltKeyUuid(keyUuid, certificateUuids);
     }
 
     public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {
