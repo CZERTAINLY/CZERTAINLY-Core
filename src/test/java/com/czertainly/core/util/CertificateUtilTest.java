@@ -69,7 +69,7 @@ class CertificateUtilTest {
 
     @Test
     void testParseHybridCertificate() throws IOException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
-        X509Certificate certificate = CertificateUtil.createHybridCertificate();
+        X509Certificate certificate = CertificateTestUtil.createHybridCertificate();
 
         Certificate certificateEntity = new Certificate();
         CertificateUtil.prepareIssuedCertificate(certificateEntity, certificate);

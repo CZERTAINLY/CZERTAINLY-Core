@@ -22,7 +22,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -219,7 +219,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @Test
     void testCreateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, IOException, AlreadyExistException {
         Certificate hybridCertificate = certificateService.checkCreateCertificate(Base64.getEncoder().encodeToString(
-                CertificateUtil.createHybridCertificate().getEncoded()));
+                CertificateTestUtil.createHybridCertificate().getEncoded()));
 
         Assertions.assertTrue(hybridCertificate.isHybridCertificate());
         Assertions.assertNotNull(hybridCertificate.getAltSignatureAlgorithm());

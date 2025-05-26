@@ -14,6 +14,7 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -196,7 +197,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
 
     @Test
     void testValidateHybridCertificate() throws InvalidAlgorithmParameterException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, OperatorCreationException, IOException {
-        X509Certificate x509Certificate = CertificateUtil.createHybridCertificate();
+        X509Certificate x509Certificate = CertificateTestUtil.createHybridCertificate();
         certificate.getCertificateContent().setContent(Base64.getEncoder().encodeToString(x509Certificate.getEncoded()));
         certificate.setHybridCertificate(true);
         certificateService.validate(certificate);
