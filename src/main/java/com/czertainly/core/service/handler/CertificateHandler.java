@@ -181,7 +181,7 @@ public class CertificateHandler {
         if (keyUuid == null) {
             keyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + firstCertificate.getCommonName(), publicKey, publicKey.getAlgorithm(), KeySizeUtil.getKeyLength(publicKey), fingerprint);
         }
-        certificateRepository.setAltKeyUuid(keyUuid, certificateUuids);
+        certificateRepository.setAltKeyUuidAndHybridCertificate(keyUuid, certificateUuids);
     }
 
     public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {

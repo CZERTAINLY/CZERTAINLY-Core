@@ -105,8 +105,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void setKeyUuid(UUID keyUuid, List<UUID> uuids);
 
     @Modifying
-    @Query("UPDATE Certificate c SET c.altKeyUuid = ?1 WHERE c.uuid IN ?2")
-    void setAltKeyUuid(UUID keyUuid, List<UUID> uuids);
+    @Query("UPDATE Certificate c SET c.altKeyUuid = ?1, c.hybridCertificate = true WHERE c.uuid IN ?2")
+    void setAltKeyUuidAndHybridCertificate(UUID keyUuid, List<UUID> uuids);
 
     @Modifying
     @Query(value = """
