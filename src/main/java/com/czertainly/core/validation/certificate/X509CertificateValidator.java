@@ -393,8 +393,7 @@ public class X509CertificateValidator implements ICertificateValidator {
                 // According to TU-T X509 (10/2019) clause 7.2.2, when a hybrid certificate is created, the altSignatureValue value will be the result of excluding the signature component and the altSignatureValue extension, while including all other DER-encoded parts in the alternative signature.
                 signature.update(getDERWithoutSignatureAndAltSignature(subjectCertificate));
                 signature.verify(altCertificateSignature);
-            } catch (IOException | NoSuchAlgorithmException | InvalidKeyException | InvalidKeySpecException |
-                     SignatureException | CertificateEncodingException e) {
+            } catch (Exception e) {
                 logger.debug("Unable to verify certificate for alternative signature", e);
                 return false;
             }
