@@ -935,7 +935,8 @@ public class CertificateServiceImpl implements CertificateService {
             try {
                 altPublicKey = CertificateUtil.getAltPublicKey(altPublicKeyEncoded);
             } catch (NoSuchAlgorithmException | InvalidKeySpecException | IOException e) {
-                throw new ValidationException("Could not retrieve alternative public key from the certificate: " + e.getMessage());
+                logger.error("Could not retrieve alternative public key from the certificate: {}", e.getMessage());
+                return;
             }
             String fingerprint = null;
             try {
@@ -949,6 +950,7 @@ public class CertificateServiceImpl implements CertificateService {
                         altPublicKey.getAlgorithm(), KeySizeUtil.getKeyLength(altPublicKey), fingerprint);
             }
             certificate.setAltKeyUuid(altKeyUuid);
+            certificate.setHybridCertificate(true);
         }
     }
 

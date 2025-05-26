@@ -411,7 +411,6 @@ public class CertificateUtil {
         byte[] alternativeSignatureAlgorithm = certificate.getExtensionValue(Extension.altSignatureAlgorithm.getId());
         byte[] alternativeSignature = certificate.getExtensionValue(Extension.altSignatureValue.getId());
         if (alternativeSignatureAlgorithm != null && alternativeSignature != null) {
-            modal.setHybridCertificate(true);
             try {
                 modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
             } catch (IOException e) {
