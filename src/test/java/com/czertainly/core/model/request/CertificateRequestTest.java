@@ -1,8 +1,7 @@
-package com.czertainly.core.intune.model.request;
+package com.czertainly.core.model.request;
 
 import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.service.cmp.CmpTestUtil;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateRequestUtils;
