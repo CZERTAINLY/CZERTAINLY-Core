@@ -66,7 +66,6 @@ public class X509CertificateValidator implements ICertificateValidator {
 
         ArrayList<Certificate> certificateChain = new ArrayList<>();
         Certificate lastCertificate = certificate;
-        boolean isHybrid = certificate.isHybridCertificate();
         do {
             certificateChain.add(lastCertificate);
             lastCertificate = lastCertificate.getIssuerCertificateUuid() == null ? null : certificateRepository.findByUuid(lastCertificate.getIssuerCertificateUuid()).orElse(null);
@@ -82,7 +81,7 @@ public class X509CertificateValidator implements ICertificateValidator {
 
             boolean isEndCertificate = i == 0;
             validationOutput = validatePathCertificate(x509Certificate, x509IssuerCertificate, certificateChain.get(i).getTrustedCa(), previousCertStatus, isCompleteChain, isEndCertificate, certificateChain.get(i).getSubjectType(),
-                    certificate.getRaProfile(), isHybrid);
+                    certificate.getRaProfile());
             CertificateValidationStatus resultStatus = calculateResultStatus(validationOutput);
             finalizeValidation(certificateChain.get(i), resultStatus, validationOutput);
 
@@ -94,8 +93,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         return previousCertStatus;
     }
 
-    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType, RaProfile raProfile,
-                                                                                                   boolean isHybrid) {
+    private Map<CertificateValidationCheck, CertificateValidationCheckDto> validatePathCertificate(X509Certificate certificate, X509Certificate issuerCertificate, Boolean trustedCa, CertificateValidationStatus issuerCertificateStatus, boolean isCompleteChain, boolean isEndCertificate, CertificateSubjectType subjectType, RaProfile raProfile) {
         Map<CertificateValidationCheck, CertificateValidationCheckDto> validationOutput = initializeValidationOutput();
 
         // check certificate signature
