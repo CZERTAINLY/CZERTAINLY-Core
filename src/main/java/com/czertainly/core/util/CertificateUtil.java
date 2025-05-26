@@ -91,9 +91,6 @@ public class CertificateUtil {
     static {
         CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
         CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-44", KeyAlgorithm.MLDSA.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-65", KeyAlgorithm.MLDSA.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("ML-DSA-87", KeyAlgorithm.MLDSA.toString());
     }
 
     private CertificateUtil() {
@@ -414,7 +411,7 @@ public class CertificateUtil {
             try {
                 modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
             } catch (IOException e) {
-                throw new ValidationException("Cannot read Alternative Signature Algorithm from extension: " + e.getMessage());
+                logger.error("Cannot read Alternative Signature Algorithm from extension: {}", e.getMessage());
             }
         }
 
@@ -524,6 +521,8 @@ public class CertificateUtil {
     public static String getAlgorithmFriendlyName(String algorithmName) {
         String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
         if (friendlyName != null) return friendlyName;
+        if (algorithmName.contains("ML-DSA")) return KeyAlgorithm.MLDSA.getCode();
+        if (algorithmName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA.getCode();
         return algorithmName;
     }
 
