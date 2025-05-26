@@ -876,9 +876,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
 
             CertificateUtil.prepareIssuedCertificate(entity, certificate);
-            byte[] altPublicKey = null;
-            if (entity.isHybridCertificate())
-                altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            byte[] altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
             uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
             entity.setFingerprint(fingerprint);
             entity.setCertificateContent(checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate)));
@@ -981,9 +979,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         Certificate entity = createCertificateEntity(certificate);
-        byte[] altPublicKey = null;
-        if (entity.isHybridCertificate())
-            altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        byte[] altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
         uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
         certificateRepository.save(entity);
 
@@ -1042,9 +1038,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         // certificate was actually inserted
         if (countInserted == 1) {
-            byte[] altPublicKey = null;
-            if (certificateEntity.isHybridCertificate())
-                altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            byte[] altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
             uploadCertificateKey(x509Cert.getPublicKey(), certificateEntity, altPublicKey);
 
             // set owner of certificateEntity to logged user
