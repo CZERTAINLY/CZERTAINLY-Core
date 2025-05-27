@@ -5,14 +5,18 @@ import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateRequestUtils;
 import com.czertainly.core.util.CertificateUtil;
 import lombok.Getter;
+import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
+import java.io.IOException;
 import java.security.InvalidKeyException;
+import java.security.KeyFactory;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.Map;
 import java.util.List;
 
@@ -57,8 +61,22 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
 
     @Override
     public PublicKey getAltPublicKey() throws NoSuchAlgorithmException, CertificateRequestException {
-        Extensions requestedExtensions = jcaObject.getRequestedExtensions();
-        return CertificateRequestUtils.getAltPublicKeyFromExtensions(requestedExtensions);
+        Attribute[] attributes = jcaObject.getAttributes();
+        for (Attribute attribute : attributes) {
+            if (Extension.subjectAltPublicKeyInfo.equals(attribute.getAttrType())) {
+                SubjectPublicKeyInfo subjectPublicKeyInfo = SubjectPublicKeyInfo.getInstance(attribute.getAttributeValues()[0]);
+                final AlgorithmIdentifier keyAlgorithm = subjectPublicKeyInfo.getAlgorithm();
+                X509EncodedKeySpec x509EncodedKeySpec;
+                try {
+                    x509EncodedKeySpec = new X509EncodedKeySpec(subjectPublicKeyInfo.getEncoded());
+                    KeyFactory keyFactory = KeyFactory.getInstance(keyAlgorithm.getAlgorithm().getId());
+                    return keyFactory.generatePublic(x509EncodedKeySpec);
+                } catch (IOException | InvalidKeySpecException e) {
+                    throw new CertificateRequestException("Could not extract alternative public key.", e);
+                }
+            }
+        }
+        return null;
     }
 
     @Override
@@ -73,8 +91,13 @@ public class Pkcs10CertificateRequest implements CertificateRequest {
 
     @Override
     public AlgorithmIdentifier getAltSignatureAlgorithm() {
-        Extensions requestedExtensions = jcaObject.getRequestedExtensions();
-        return CertificateRequestUtils.getAltSignatureAlgorithmFromExtensions(requestedExtensions);
+        Attribute[] attributes = jcaObject.getAttributes();
+        for (Attribute attribute : attributes) {
+            if (Extension.altSignatureAlgorithm.equals(attribute.getAttrType())) {
+                return AlgorithmIdentifier.getInstance(attribute.getAttributeValues()[0]);
+            }
+        }
+        return null;
     }
 
 }

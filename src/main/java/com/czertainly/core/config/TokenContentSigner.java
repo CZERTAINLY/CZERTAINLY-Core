@@ -24,7 +24,7 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Cryptographic Provider CSR Signer. This class extends the content signer from bouncy castle
+ * Cryptographic Provider Signer. This class extends the content signer from bouncy castle
  * and communicates with the cryptography provider for the signing operation
  */
 public class TokenContentSigner implements ContentSigner {
@@ -92,11 +92,11 @@ public class TokenContentSigner implements ContentSigner {
 
             logger.debug("Signing using Key: {}, Token Profile: {}", privateKeyUuid, tokenInstanceUuid);
             SignDataResponseDto response = apiClient.signData(connector, tokenInstanceUuid.toString(), privateKeyUuid.toString(), dto);
-            logger.debug("CSR Signed by the connector. Response is: {}", response);
+            logger.debug("Data Signed by the connector. Response is: {}", response);
             if (response == null || response.getSignatures() == null || response.getSignatures().isEmpty()) {
                 throw new ValidationException(
                         ValidationError.create(
-                                "Invalid Signature from the connector. Cannot create CSR"
+                                "Invalid Signature from the connector"
                         )
                 );
             }
@@ -118,7 +118,7 @@ public class TokenContentSigner implements ContentSigner {
             ) {
                 throw new ValidationException(
                         ValidationError.create(
-                                "Validation of the CSR failed. Cannot proceed with the request"
+                                "Validation of the signature from connector failed. Cannot proceed with the request"
                         )
                 );
             }

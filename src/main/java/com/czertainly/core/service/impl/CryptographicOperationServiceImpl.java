@@ -31,11 +31,12 @@ import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateRequestUtils;
-import org.bouncycastle.asn1.ASN1Encoding;
+import org.bouncycastle.asn1.DERBitString;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
 import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
@@ -513,15 +514,14 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     altPublicKeyItem.getKeyAlgorithm(),
                     altSignatureAttributes
             );
-            ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
-            extensionsGenerator.addExtension(Extension.altSignatureAlgorithm, false, altSigner.getAlgorithmIdentifier());
-            extensionsGenerator.addExtension(Extension.altSignatureValue, false, altSigner.getSignature());
-            SubjectAltPublicKeyInfo altPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(Base64.getDecoder().decode(altKey));
-            extensionsGenerator.addExtension(Extension.subjectAltPublicKeyInfo, false, altPublicKeyInfo);
+
             OutputStream sOut = altSigner.getOutputStream();
             sOut.write(altKey.getBytes());
             sOut.close();
-            p10Builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
+            SubjectPublicKeyInfo altPublicKeyInfo = SubjectPublicKeyInfo.getInstance(Base64.getDecoder().decode(altKey));
+            p10Builder.addAttribute(Extension.subjectAltPublicKeyInfo, altPublicKeyInfo);
+            p10Builder.addAttribute(Extension.altSignatureValue, new DERBitString(altSigner.getSignature()));
+            p10Builder.addAttribute(Extension.altSignatureAlgorithm, altSigner.getAlgorithmIdentifier());
         }
 
 
