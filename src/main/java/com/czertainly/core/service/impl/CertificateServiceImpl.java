@@ -922,7 +922,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificate.getKeyUuid() == null) {
             keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             if (keyUuid == null) {
-                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), publicKey, certificate.getPublicKeyAlgorithm(), certificate.getKeySize(), certificate.getPublicKeyFingerprint());
+                keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), publicKey, certificate.getKeySize(), certificate.getPublicKeyFingerprint());
             }
             certificate.setKeyUuid(keyUuid);
         }
@@ -942,8 +942,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
             UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
             if (altKeyUuid == null) {
-                altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey,
-                        altPublicKey.getAlgorithm(), KeySizeUtil.getKeyLength(altPublicKey), fingerprint);
+                altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey, KeySizeUtil.getKeyLength(altPublicKey), fingerprint);
             }
             certificate.setAltKeyUuid(altKeyUuid);
             certificate.setHybridCertificate(true);
@@ -1478,7 +1477,7 @@ public class CertificateServiceImpl implements CertificateService {
         UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
         if (keyUuid == null) {
             keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificateRequest.getCommonName(), certificateRequest.getFingerprint()),
-                    csrPublicKey, CertificateUtil.getAlgorithmFromProviderName(csrPublicKey.getAlgorithm()), KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
+                    csrPublicKey, KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
         }
         certificateRequest.setKeyUuid(keyUuid);
         return keyUuid;
@@ -1491,7 +1490,7 @@ public class CertificateServiceImpl implements CertificateService {
         UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
         if (altKeyUuid == null) {
             altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificateRequest.getCommonName(), certificateRequest.getFingerprint()),
-                    csrPublicKey, CertificateUtil.getAlgorithmFromProviderName(csrPublicKey.getAlgorithm()), KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
+                    csrPublicKey, KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
         }
         certificateRequest.setAltKeyUuid(altKeyUuid);
         return altKeyUuid;

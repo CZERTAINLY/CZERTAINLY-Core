@@ -528,8 +528,11 @@ public class CertificateUtil {
     }
 
     public static String getAlgorithmFromProviderName(String providerName) {
+        if (providerName == null) return null;
         String name = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
         if (name != null) return name;
+        if (providerName.contains("ML-DSA")) return KeyAlgorithm.MLDSA.toString();
+        if (providerName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA.toString();
         return providerName;
     }
 
