@@ -99,7 +99,7 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
         requestDto.setName(originalNotificationProfile.getName());
         requestDto.setRecipientType(RecipientType.GROUP);
-        requestDto.setRecipientUuid(UUID.fromString(groupDto.getUuid()));
+        requestDto.setRecipientUuids(List.of(UUID.fromString(groupDto.getUuid())));
         requestDto.setRepetitions(1);
         requestDto.setInternalNotification(false);
         requestDto.setNotificationInstanceUuid(instance.getUuid());
@@ -109,20 +109,20 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
 
         Assertions.assertEquals(1, notificationProfileDetailDto.getVersion());
-        Assertions.assertEquals(RecipientType.GROUP, notificationProfileDetailDto.getRecipient().getType());
-        Assertions.assertEquals(groupDto.getUuid(), notificationProfileDetailDto.getRecipient().getUuid());
+        Assertions.assertEquals(RecipientType.GROUP, notificationProfileDetailDto.getRecipients().getFirst().getType());
+        Assertions.assertEquals(groupDto.getUuid(), notificationProfileDetailDto.getRecipients().getFirst().getUuid());
 
         // check for same result when retrieving detail by UUID
         notificationProfileDetailDto = notificationProfileService.getNotificationProfile(SecuredUUID.fromString(notificationProfileDetailDto.getUuid()), null);
         Assertions.assertEquals(1, notificationProfileDetailDto.getVersion());
-        Assertions.assertEquals(RecipientType.GROUP, notificationProfileDetailDto.getRecipient().getType());
-        Assertions.assertEquals(groupDto.getUuid(), notificationProfileDetailDto.getRecipient().getUuid());
+        Assertions.assertEquals(RecipientType.GROUP, notificationProfileDetailDto.getRecipients().getFirst().getType());
+        Assertions.assertEquals(groupDto.getUuid(), notificationProfileDetailDto.getRecipients().getFirst().getUuid());
 
         NotificationProfileResponseDto responseDto = notificationProfileService.listNotificationProfiles(new PaginationRequestDto());
         Assertions.assertEquals(2, responseDto.getTotalItems());
 
         NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.SCHEDULED_JOB_FINISHED, Resource.SCHEDULED_JOB,
-                UUID.randomUUID(), List.of(UUID.fromString(notificationProfileDetailDto.getUuid())), List.of(), new ScheduledJobFinishedEventData("Test job", "JobType", "Finished"));
+                UUID.randomUUID(), List.of(UUID.fromString(notificationProfileDetailDto.getUuid())), List.of(), new ScheduledJobFinishedEventData("Test job", "JobType", "Finished", UUID.randomUUID()));
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
 
         instance.setKind("OTHER_KIND");
@@ -159,15 +159,15 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         requestDto.setFrequency(Duration.ofDays(1));
         requestDto.setRepetitions(5);
         requestDto.setRecipientType(RecipientType.ROLE);
-        requestDto.setRecipientUuid(roleUuid);
+        requestDto.setRecipientUuids(List.of(roleUuid));
         updatedNotificationProfileDetailDto = notificationProfileService.editNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), requestDto);
         Assertions.assertEquals(originalNotificationProfile.getVersion() + 1, updatedNotificationProfileDetailDto.getVersion(), "Versions should change, updated profile props");
-        Assertions.assertEquals(requestDto.getRecipientType(), updatedNotificationProfileDetailDto.getRecipient().getType(), "Recipient type should be correct");
-        Assertions.assertEquals(roleUuid.toString(), updatedNotificationProfileDetailDto.getRecipient().getUuid(), "Recipient type should be correct");
+        Assertions.assertEquals(requestDto.getRecipientType(), updatedNotificationProfileDetailDto.getRecipients().getFirst().getType(), "Recipient type should be correct");
+        Assertions.assertEquals(roleUuid.toString(), updatedNotificationProfileDetailDto.getRecipients().getFirst().getUuid(), "Recipient type should be correct");
 
         NotificationProfileDetailDto olderVersion = notificationProfileService.getNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid()), originalNotificationProfile.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getVersion(), olderVersion.getVersion());
-        Assertions.assertEquals(originalNotificationProfile.getRecipient().getType(), olderVersion.getRecipient().getType());
+        Assertions.assertEquals(originalNotificationProfile.getRecipients().getFirst().getType(), olderVersion.getRecipients().getFirst().getType());
 
         mockServer.shutdown();
     }

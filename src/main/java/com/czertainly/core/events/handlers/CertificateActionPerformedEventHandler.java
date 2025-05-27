@@ -33,16 +33,16 @@ public class CertificateActionPerformedEventHandler extends EventHandler<Certifi
 
         CertificateActionPerformedEventData eventData = new CertificateActionPerformedEventData();
         eventData.setAction(action.getCode());
-        eventData.setCertificateUuid(certificate.getUuid().toString());
+        eventData.setCertificateUuid(certificate.getUuid());
         eventData.setFingerprint(certificate.getFingerprint());
         eventData.setSerialNumber(certificate.getSerialNumber());
         eventData.setSubjectDn(certificate.getSubjectDn());
         eventData.setIssuerDn(certificate.getIssuerDn());
         if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid().toString());
+            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
             eventData.setRaProfileName(certificate.getRaProfile().getName());
             if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid().toString());
+                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
             }
         }
 

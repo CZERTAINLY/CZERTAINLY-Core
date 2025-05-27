@@ -39,7 +39,7 @@ public class CertificateStatusChangedEventHandler extends EventHandler<Certifica
         CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
         eventData.setOldStatus(statusArrayData[0].getLabel());
         eventData.setNewStatus(statusArrayData[1].getLabel());
-        eventData.setCertificateUuid(certificate.getUuid().toString());
+        eventData.setCertificateUuid(certificate.getUuid());
         eventData.setFingerprint(certificate.getFingerprint());
         eventData.setSerialNumber(certificate.getSerialNumber());
         eventData.setSubjectDn(certificate.getSubjectDn());
@@ -48,10 +48,10 @@ public class CertificateStatusChangedEventHandler extends EventHandler<Certifica
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
         if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid().toString());
+            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
             eventData.setRaProfileName(certificate.getRaProfile().getName());
             if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid().toString());
+                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
             }
         }
 

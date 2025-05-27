@@ -58,9 +58,9 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     @Override
     protected Object getEventData(DiscoveryHistory discovery, Object eventMessageData) {
         DiscoveryFinishedEventData eventData = new DiscoveryFinishedEventData();
-        eventData.setDiscoveryUuid(discovery.getUuid().toString());
+        eventData.setDiscoveryUuid(discovery.getUuid());
         eventData.setDiscoveryName(discovery.getName());
-        eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid().toString());
+        eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
         eventData.setDiscoveryConnectorName(discovery.getConnectorName());
         eventData.setDiscoveryStatus(discovery.getStatus());
         eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered() == null ? 0 : discovery.getTotalCertificatesDiscovered());

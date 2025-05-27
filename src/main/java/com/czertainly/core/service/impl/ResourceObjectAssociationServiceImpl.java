@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.notification.RecipientDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.RoleDetailDto;
@@ -172,18 +173,23 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     @Override
-    public NameAndUuidDto getAssociationObjectInfo(RecipientType recipientType, UUID objectUuid) throws NotFoundException {
+    public NameAndUuidDto getRecipientObjectInfo(RecipientType recipientType, UUID recipientUuid) throws NotFoundException {
         String name = switch (recipientType) {
-            case USER -> getUserUsername(objectUuid);
+            case USER -> getUserUsername(recipientUuid);
             case GROUP -> {
-                Group group = groupRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Group.class, objectUuid));
+                Group group = groupRepository.findByUuid(recipientUuid).orElseThrow(() -> new NotFoundException(Group.class, recipientUuid));
                 yield group.getName();
             }
-            case ROLE -> getRoleName(objectUuid);
+            case ROLE -> getRoleName(recipientUuid);
             default -> null;
         };
 
-        return name == null ? null : new NameAndUuidDto(objectUuid.toString(), name);
+        return name == null ? null : new NameAndUuidDto(recipientUuid.toString(), name);
+    }
+
+    @Override
+    public List<RecipientDto> getAssociationRecipients(RecipientType recipientType, Resource resource, UUID objectUuid) {
+        return List.of();
     }
 
     private void removeGroups(Resource resource, UUID objectUuid) {

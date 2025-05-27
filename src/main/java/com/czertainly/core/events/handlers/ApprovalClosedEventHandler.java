@@ -44,8 +44,8 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
         ApprovalProfile approvalProfile = approval.getApprovalProfileVersion().getApprovalProfile();
 
         ApprovalEventData eventData = new ApprovalEventData();
-        eventData.setApprovalUuid(approval.getUuid().toString());
-        eventData.setApprovalProfileUuid(approvalProfile.getUuid().toString());
+        eventData.setApprovalUuid(approval.getUuid());
+        eventData.setApprovalProfileUuid(approvalProfile.getUuid());
         eventData.setApprovalProfileName(approvalProfile.getName());
         eventData.setVersion(approval.getApprovalProfileVersion().getVersion());
         eventData.setStatus(approval.getStatus());
@@ -53,9 +53,9 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
         eventData.setClosedAt(approval.getClosedAt());
         eventData.setResource(approval.getResource());
         eventData.setResourceAction(approval.getAction().getCode());
-        eventData.setObjectUuid(approval.getObjectUuid().toString());
-        eventData.setCreatorUuid(approval.getCreatorUuid().toString());
-        eventData.setCreatorUsername(authHelper.getUserUsername(eventData.getCreatorUuid()));
+        eventData.setObjectUuid(approval.getObjectUuid());
+        eventData.setCreatorUuid(approval.getCreatorUuid());
+        eventData.setCreatorUsername(authHelper.getUserUsername(eventData.getCreatorUuid().toString()));
 
         return eventData;
     }

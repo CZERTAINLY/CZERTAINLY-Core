@@ -15,6 +15,7 @@ import org.hibernate.annotations.CreationTimestamp;
 
 import java.time.Duration;
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.UUID;
 
 @Getter
@@ -40,8 +41,8 @@ public class NotificationProfileVersion extends UniquelyIdentified {
     @Enumerated(EnumType.STRING)
     private RecipientType recipientType;
 
-    @Column(name = "recipient_uuid")
-    private UUID recipientUuid;
+    @Column(name = "recipient_uuids")
+    private List<UUID> recipientUuids;
 
     @Column(name = "notification_instance_ref_uuid")
     private UUID notificationInstanceRefUuid;
@@ -71,20 +72,20 @@ public class NotificationProfileVersion extends UniquelyIdentified {
         notificationProfileDto.setDescription(this.getNotificationProfile().getDescription());
         notificationProfileDto.setVersion(this.version);
         notificationProfileDto.setRecipientType(this.recipientType);
-        notificationProfileDto.setRecipientUuid(this.recipientUuid);
+        notificationProfileDto.setRecipientUuids(this.recipientUuids);
         notificationProfileDto.setNotificationInstanceUuid(this.notificationInstanceRefUuid);
         notificationProfileDto.setInternalNotification(this.internalNotification);
 
         return notificationProfileDto;
     }
 
-    public NotificationProfileDetailDto mapToDetailDto(RecipientDto recipientDto) {
+    public NotificationProfileDetailDto mapToDetailDto(List<RecipientDto> recipients) {
         final NotificationProfileDetailDto notificationProfileDetailDto = new NotificationProfileDetailDto();
         notificationProfileDetailDto.setUuid(this.getNotificationProfile().getUuid().toString());
         notificationProfileDetailDto.setName(this.getNotificationProfile().getName());
         notificationProfileDetailDto.setDescription(this.getNotificationProfile().getDescription());
         notificationProfileDetailDto.setVersion(this.version);
-        notificationProfileDetailDto.setRecipient(recipientDto);
+        notificationProfileDetailDto.setRecipients(recipients);
         notificationProfileDetailDto.setNotificationInstance(this.notificationInstance == null ? null : new NameAndUuidDto(notificationInstance.getUuid().toString(), notificationInstance.getName()));
         notificationProfileDetailDto.setInternalNotification(this.internalNotification);
         notificationProfileDetailDto.setFrequency(this.frequency);

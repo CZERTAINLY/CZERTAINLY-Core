@@ -112,7 +112,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Override
     protected Object getEventData(Certificate certificate, Object eventMessageData) {
         CertificateDiscoveredEventData eventData = new CertificateDiscoveredEventData();
-        eventData.setCertificateUuid(certificate.getUuid().toString());
+        eventData.setCertificateUuid(certificate.getUuid());
         eventData.setFingerprint(certificate.getFingerprint());
         eventData.setSerialNumber(certificate.getSerialNumber());
         eventData.setSubjectDn(certificate.getSubjectDn());
@@ -231,9 +231,10 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
                 // Evaluate rest of the triggers in given order
                 CertificateDiscoveredEventData eventData = (CertificateDiscoveredEventData) getEventData(certificate, eventContext.getData());
-                eventData.setDiscoveryUuid(discovery.getUuid().toString());
+                eventData.setDiscoveryUuid(discovery.getUuid());
                 eventData.setDiscoveryName(discovery.getName());
-                eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid().toString());
+                eventData.setDiscoveryUserUuid(eventContext.getUserUuid());
+                eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
                 eventData.setDiscoveryConnectorName(discovery.getConnectorName());
 
                 for (TriggerAssociation triggerAssociation : eventContext.getTriggers()) {
