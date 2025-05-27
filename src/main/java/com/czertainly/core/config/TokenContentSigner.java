@@ -40,7 +40,6 @@ public class TokenContentSigner implements ContentSigner {
     private final KeyAlgorithm keyAlgorithm;
     private final UUID tokenInstanceUuid;
     private final List<RequestAttributeDto> signatureAttributes;
-    private final boolean signPublicKey;
 
 
     private final ByteArrayOutputStream outputStream;
@@ -52,8 +51,7 @@ public class TokenContentSigner implements ContentSigner {
                               UUID publicKeyUuid,
                               String publicKey,
                               KeyAlgorithm keyAlgorithm,
-                              List<RequestAttributeDto> signatureAttributes,
-                              boolean signPublicKey) {
+                              List<RequestAttributeDto> signatureAttributes) {
         this.connector = connector;
         this.privateKeyUuid = privateKeyUuid;
         this.publicKeyUuid = publicKeyUuid;
@@ -62,8 +60,6 @@ public class TokenContentSigner implements ContentSigner {
         this.apiClient = apiClient;
         this.keyAlgorithm = keyAlgorithm;
         this.publicKey = publicKey;
-        this.signPublicKey = signPublicKey;
-
         this.outputStream = new ByteArrayOutputStream();
     }
 
@@ -83,7 +79,7 @@ public class TokenContentSigner implements ContentSigner {
 
     @Override
     public byte[] getSignature() {
-        byte[] dataToSign = (signPublicKey && outputStream.size() == 0) ? publicKey.getBytes() : outputStream.toByteArray();
+        byte[] dataToSign = outputStream.toByteArray();
         logger.debug("Obtained the data to sign using the provider: {}", connector);
         SignatureRequestData data = new SignatureRequestData();
         data.setData(dataToSign);

@@ -4,7 +4,6 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.enums.cryptography.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -14,7 +13,6 @@ import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -24,9 +22,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.jcajce.interfaces.SLHDSAPublicKey;
-import org.bouncycastle.jcajce.provider.asymmetric.mldsa.BCMLDSAPublicKey;
 import org.bouncycastle.jcajce.spec.SLHDSAParameterSpec;
-import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -40,9 +36,7 @@ import java.nio.charset.StandardCharsets;
 import java.security.*;
 import java.security.spec.AlgorithmParameterSpec;
 import java.security.spec.InvalidKeySpecException;
-import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.*;
-import java.util.regex.Pattern;
 
 class CryptographicOperationServiceTest extends BaseSpringBootTest {
 

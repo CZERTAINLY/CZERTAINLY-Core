@@ -31,6 +31,7 @@ import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateRequestUtils;
+import org.bouncycastle.asn1.ASN1Encoding;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.asn1.x509.ExtensionsGenerator;
@@ -47,6 +48,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
@@ -509,14 +511,16 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                     altPublicKeyItem.getKeyReferenceUuid(),
                     altPublicKeyItem.getKeyData(),
                     altPublicKeyItem.getKeyAlgorithm(),
-                    altSignatureAttributes,
-                    true
+                    altSignatureAttributes
             );
             ExtensionsGenerator extensionsGenerator = new ExtensionsGenerator();
             extensionsGenerator.addExtension(Extension.altSignatureAlgorithm, false, altSigner.getAlgorithmIdentifier());
             extensionsGenerator.addExtension(Extension.altSignatureValue, false, altSigner.getSignature());
             SubjectAltPublicKeyInfo altPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(Base64.getDecoder().decode(altKey));
             extensionsGenerator.addExtension(Extension.subjectAltPublicKeyInfo, false, altPublicKeyInfo);
+            OutputStream sOut = altSigner.getOutputStream();
+            sOut.write(altKey.getBytes());
+            sOut.close();
             p10Builder.addAttribute(PKCSObjectIdentifiers.pkcs_9_at_extensionRequest, extensionsGenerator.generate());
         }
 
@@ -530,8 +534,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
                 publicKeyItem.getKeyReferenceUuid(),
                 publicKeyItem.getKeyData(),
                 publicKeyItem.getKeyAlgorithm(),
-                signatureAttributes,
-                false
+                signatureAttributes
         );
 
         // Build the CSR with the DN generated and the signer
