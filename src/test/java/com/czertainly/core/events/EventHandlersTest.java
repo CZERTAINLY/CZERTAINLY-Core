@@ -7,27 +7,38 @@ import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRequestDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
-import com.czertainly.api.model.connector.notification.NotificationType;
-import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData;
+import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
+import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
+import com.czertainly.api.model.common.events.data.CertificateStatusChangedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.settings.EventSettingsDto;
+import com.czertainly.api.model.core.workflows.ExecutionType;
+import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
+import com.czertainly.core.dao.entity.workflows.Action;
+import com.czertainly.core.dao.entity.workflows.Execution;
+import com.czertainly.core.dao.entity.workflows.ExecutionItem;
+import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.workflows.ActionRepository;
+import com.czertainly.core.dao.repository.workflows.ExecutionItemRepository;
+import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
+import com.czertainly.core.dao.repository.workflows.TriggerRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.*;
 import com.czertainly.core.messaging.listeners.NotificationListener;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.service.ApprovalProfileService;
-import com.czertainly.core.service.CertificateEventHistoryService;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.SettingService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -35,10 +46,11 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.Instant;
+import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
 import java.util.List;
-import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 class EventHandlersTest extends BaseSpringBootTest {
@@ -80,7 +92,19 @@ class EventHandlersTest extends BaseSpringBootTest {
     @Autowired
     private NotificationListener notificationListener;
     @Autowired
+    private NotificationProfileService notificationProfileService;
+    @Autowired
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
+
+    @Autowired
+    private TriggerRepository triggerRepository;
+    @Autowired
+    private ActionRepository actionRepository;
+    @Autowired
+    private ExecutionRepository executionRepository;
+    @Autowired
+    private ExecutionItemRepository executionItemRepository;
+
 
     @Test
     void testCertificateStatusChangedAndApprovalEvents() throws EventException, NotFoundException, AlreadyExistException {
@@ -174,5 +198,85 @@ class EventHandlersTest extends BaseSpringBootTest {
         scheduledJobsRepository.save(scheduledJob);
 
         Assertions.assertDoesNotThrow(() -> scheduledJobFinishedEventHandler.handleEvent(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Test"))));
+    }
+
+    @Test
+    void testEventWithNotifications() throws NotFoundException, AlreadyExistException {
+        NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
+        requestDto.setName("TestProfile");
+        requestDto.setRecipientType(RecipientType.DEFAULT);
+        requestDto.setRepetitions(1);
+        requestDto.setInternalNotification(true);
+        NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
+
+        UUID notificationProfileUuid = UUID.fromString(notificationProfileDetailDto.getUuid());
+        UUID triggerUuid = prepareTrigger(notificationProfileUuid);
+
+        EventSettingsDto eventSettingsDto = new EventSettingsDto();
+        eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
+        eventSettingsDto.setTriggerUuids(List.of(triggerUuid));
+        settingService.updateEventSettings(eventSettingsDto);
+
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent("123456");
+        certificateContent = certificateContentRepository.save(certificateContent);
+
+        final Certificate certificate = new Certificate();
+        certificate.setSubjectDn("testCertificate");
+        certificate.setIssuerDn("testCercertificatetificate");
+        certificate.setSerialNumber("123456789");
+        certificate.setNotBefore(Date.from(Instant.now().minus(100, ChronoUnit.DAYS)));
+        certificate.setNotAfter(Date.from(Instant.now().plus(100, ChronoUnit.DAYS)));
+        certificate.setCertificateType(CertificateType.X509);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.INACTIVE);
+        certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
+        certificateRepository.save(certificate);
+
+        CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
+        eventData.setOldStatus(CertificateValidationStatus.INACTIVE.getLabel());
+        eventData.setNewStatus(CertificateValidationStatus.VALID.getLabel());
+        eventData.setCertificateUuid(certificate.getUuid());
+        eventData.setFingerprint(certificate.getFingerprint());
+        eventData.setSerialNumber(certificate.getSerialNumber());
+        eventData.setSubjectDn(certificate.getSubjectDn());
+        eventData.setIssuerDn(certificate.getIssuerDn());
+        eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
+        eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
+
+        NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(), List.of(notificationProfileUuid), null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
+    }
+
+    private UUID prepareTrigger(UUID notificationProfileUuid) {
+        Trigger trigger = new Trigger();
+        trigger.setName("TestTrigger");
+        trigger.setResource(Resource.CERTIFICATE);
+
+        Execution execution = new Execution();
+        execution.setName("TestExecution");
+        execution.setResource(Resource.CERTIFICATE);
+        execution.setType(ExecutionType.SEND_NOTIFICATION);
+        executionRepository.save(execution);
+
+        ExecutionItem executionItem = new ExecutionItem();
+        executionItem.setNotificationProfileUuid(notificationProfileUuid);
+        executionItem.setExecution(execution);
+        execution.setItems(Set.of(executionItem));
+        executionItemRepository.save(executionItem);
+
+        Action action = new Action();
+        action.setName("TestAction");
+        action.setResource(Resource.CERTIFICATE);
+        action.setExecutions(Set.of(execution));
+        actionRepository.save(action);
+        trigger.setActions(Set.of(action));
+        trigger.setType(TriggerType.EVENT);
+        trigger.setResource(Resource.CERTIFICATE);
+        trigger.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
+        trigger = triggerRepository.save(trigger);
+
+        return  trigger.getUuid();
     }
 }
