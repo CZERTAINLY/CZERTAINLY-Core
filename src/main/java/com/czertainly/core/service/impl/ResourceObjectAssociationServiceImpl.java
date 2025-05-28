@@ -1,7 +1,6 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.notification.RecipientDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.RoleDetailDto;
@@ -185,11 +184,6 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
         };
 
         return name == null ? null : new NameAndUuidDto(recipientUuid.toString(), name);
-    }
-
-    @Override
-    public List<RecipientDto> getAssociationRecipients(RecipientType recipientType, Resource resource, UUID objectUuid) {
-        return List.of();
     }
 
     private void removeGroups(Resource resource, UUID objectUuid) {

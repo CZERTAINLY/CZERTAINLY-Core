@@ -1,7 +1,6 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.notification.RecipientDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.notification.RecipientType;
@@ -26,5 +25,4 @@ public interface ResourceObjectAssociationService {
     void removeObjectAssociations(Resource resource, UUID objectUuid);
 
     NameAndUuidDto getRecipientObjectInfo(RecipientType recipientType, UUID recipientUuid) throws NotFoundException;
-    List<RecipientDto> getAssociationRecipients(RecipientType recipientType, Resource resource, UUID objectUuid);
 }

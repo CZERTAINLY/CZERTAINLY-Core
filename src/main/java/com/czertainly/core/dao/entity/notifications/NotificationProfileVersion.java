@@ -2,7 +2,6 @@ package com.czertainly.core.dao.entity.notifications;
 
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDto;
-import com.czertainly.api.model.client.notification.RecipientDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
@@ -79,12 +78,13 @@ public class NotificationProfileVersion extends UniquelyIdentified {
         return notificationProfileDto;
     }
 
-    public NotificationProfileDetailDto mapToDetailDto(List<RecipientDto> recipients) {
+    public NotificationProfileDetailDto mapToDetailDto(List<NameAndUuidDto> recipients) {
         final NotificationProfileDetailDto notificationProfileDetailDto = new NotificationProfileDetailDto();
         notificationProfileDetailDto.setUuid(this.getNotificationProfile().getUuid().toString());
         notificationProfileDetailDto.setName(this.getNotificationProfile().getName());
         notificationProfileDetailDto.setDescription(this.getNotificationProfile().getDescription());
         notificationProfileDetailDto.setVersion(this.version);
+        notificationProfileDetailDto.setRecipientType(this.recipientType);
         notificationProfileDetailDto.setRecipients(recipients);
         notificationProfileDetailDto.setNotificationInstance(this.notificationInstance == null ? null : new NameAndUuidDto(notificationInstance.getUuid().toString(), notificationInstance.getName()));
         notificationProfileDetailDto.setInternalNotification(this.internalNotification);

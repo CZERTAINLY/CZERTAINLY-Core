@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.notification.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.dao.entity.notifications.NotificationProfileVersion;
@@ -129,7 +130,9 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfileVersion.setNotificationProfileUuid(notificationProfile.getUuid());
         notificationProfileVersion.setNotificationProfile(notificationProfile);
         notificationProfileVersion.setRecipientType(requestDto.getRecipientType());
-        notificationProfileVersion.setRecipientUuids(requestDto.getRecipientUuids());
+        if (requestDto.getRecipientType() == RecipientType.USER || requestDto.getRecipientType() == RecipientType.GROUP || requestDto.getRecipientType() == RecipientType.ROLE) {
+            notificationProfileVersion.setRecipientUuids(requestDto.getRecipientUuids());
+        }
         notificationProfileVersion.setNotificationInstanceRefUuid(requestDto.getNotificationInstanceUuid());
         notificationProfileVersion.setInternalNotification(requestDto.isInternalNotification());
         notificationProfileVersion.setFrequency(requestDto.getFrequency());
@@ -161,7 +164,9 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfileVersion.setNotificationProfile(notificationProfile);
         notificationProfileVersion.setVersion(currentVersion.getVersion() + 1);
         notificationProfileVersion.setRecipientType(updateRequestDto.getRecipientType());
-        notificationProfileVersion.setRecipientUuids(updateRequestDto.getRecipientUuids());
+        if (updateRequestDto.getRecipientType() == RecipientType.USER || updateRequestDto.getRecipientType() == RecipientType.GROUP || updateRequestDto.getRecipientType() == RecipientType.ROLE) {
+            notificationProfileVersion.setRecipientUuids(updateRequestDto.getRecipientUuids());
+        }
         notificationProfileVersion.setNotificationInstanceRefUuid(updateRequestDto.getNotificationInstanceUuid());
         notificationProfileVersion.setInternalNotification(updateRequestDto.isInternalNotification());
         notificationProfileVersion.setFrequency(updateRequestDto.getFrequency());
@@ -173,14 +178,14 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
 
     private NotificationProfileDetailDto getNotificationProfileDetailDto(NotificationProfileVersion notificationProfileVersion) throws NotFoundException {
         // retrieve recipients info and check for existence of such object
-        List<RecipientDto> recipients = null;
+        List<NameAndUuidDto> recipients = new ArrayList<>();
         if (notificationProfileVersion.getRecipientUuids() != null) {
             recipients = new ArrayList<>();
             for (UUID recipientUuid : notificationProfileVersion.getRecipientUuids()) {
-                NameAndUuidDto recipientInfo = resourceObjectAssociationService.getRecipientObjectInfo(notificationProfileVersion.getRecipientType(), recipientUuid);
-                recipients.add(new RecipientDto(notificationProfileVersion.getRecipientType(), recipientInfo));
+                recipients.add(resourceObjectAssociationService.getRecipientObjectInfo(notificationProfileVersion.getRecipientType(), recipientUuid));
             }
         }
+
         return notificationProfileVersion.mapToDetailDto(recipients);
     }
 
