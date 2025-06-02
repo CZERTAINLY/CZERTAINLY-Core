@@ -9,7 +9,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
-import com.czertainly.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.czertainly.api.model.common.events.data.EventData;
 import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
@@ -17,7 +17,6 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.settings.EventSettingsDto;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
@@ -36,6 +35,7 @@ import com.czertainly.core.dao.repository.workflows.ExecutionItemRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
 import com.czertainly.core.dao.repository.workflows.TriggerRepository;
 import com.czertainly.core.events.data.DiscoveryResult;
+import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.handlers.*;
 import com.czertainly.core.messaging.listeners.NotificationListener;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -54,7 +54,6 @@ import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
-import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
 import java.util.*;
 
@@ -228,6 +227,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         scheduledJob.setEnabled(true);
         scheduledJob.setSystem(false);
         scheduledJob.setOneTime(false);
+        scheduledJob.setUserUuid(UUID.randomUUID());
         scheduledJob.setJobClassName(DiscoveryCertificateTask.class.getName());
         scheduledJobsRepository.save(scheduledJob);
 
@@ -242,7 +242,7 @@ class EventHandlersTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testEventWithNotifications() throws NotFoundException, AlreadyExistException {
+    void testEventDataNotifications() throws NotFoundException, AlreadyExistException {
         Group group = new Group();
         group.setName("TestGroup");
         group.setEmail("grouptest@example.com");
@@ -253,6 +253,110 @@ class EventHandlersTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         UUID ownerUuid = UUID.randomUUID();
+        UUID roleUuid = UUID.randomUUID();
+        var notificationProfileUuids = prepareDataAndMockServer(mockServer, group, ownerUuid, roleUuid);
+//        Trigger trigger = prepareTrigger(notificationProfileUuids);
+
+        // test certificate events
+
+//        EventSettingsDto eventSettingsDto = new EventSettingsDto();
+//        eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
+//        eventSettingsDto.setTriggerUuids(List.of(trigger.getUuid()));
+//        settingService.updateEventSettings(eventSettingsDto);
+
+//        List<UUID> triggerUuids = List.of(trigger.getUuid());
+//        EventsSettingsDto eventsSettingsDto = new EventsSettingsDto();
+//        eventsSettingsDto.setEventsMapping(Map.of(ResourceEvent.CERTIFICATE_STATUS_CHANGED, triggerUuids, ResourceEvent.CERTIFICATE_ACTION_PERFORMED, triggerUuids, ResourceEvent.CERTIFICATE_DISCOVERED, triggerUuids));
+//        settingService.updateEventsSettings(eventsSettingsDto);
+
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent("123456");
+        certificateContent = certificateContentRepository.save(certificateContent);
+
+        final Certificate certificate = new Certificate();
+        certificate.setSubjectDn("testCertificate");
+        certificate.setIssuerDn("testCertificateIssuer");
+        certificate.setSerialNumber("123456789");
+        certificate.setNotBefore(Date.from(Instant.now().minus(100, ChronoUnit.DAYS)));
+        certificate.setNotAfter(Date.from(Instant.now().plus(100, ChronoUnit.DAYS)));
+        certificate.setCertificateType(CertificateType.X509);
+        certificate.setState(CertificateState.ISSUED);
+        certificate.setValidationStatus(CertificateValidationStatus.INACTIVE);
+        certificate.setCertificateContent(certificateContent);
+        certificate.setCertificateContentId(certificateContent.getId());
+        certificateRepository.save(certificate);
+
+        associationService.setOwner(Resource.CERTIFICATE, certificate.getUuid(), ownerUuid);
+        associationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), Set.of(group.getUuid()));
+
+        // test event data handling
+        EventData eventData = EventDataBuilder.getCertificateStatusChangedEventData(certificate, new CertificateValidationStatus[]{CertificateValidationStatus.INACTIVE, CertificateValidationStatus.VALID});
+        final NotificationMessage messageCertificateStatusChanged = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateStatusChanged));
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateStatusChanged));
+        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuids.getLast(), Resource.CERTIFICATE, certificate.getUuid(), ResourceEvent.CERTIFICATE_STATUS_CHANGED);
+        Assertions.assertNotNull(pendingNotification);
+        Assertions.assertEquals(1, pendingNotification.getRepetitions(), "Second notification should be suppressed");
+
+        eventData = EventDataBuilder.getCertificateActionPerformedEventData(certificate, ResourceAction.REVOKE);
+        final NotificationMessage messageCertificateActionPerformed = new NotificationMessage(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateActionPerformed));
+
+        DiscoveryHistory discovery = new DiscoveryHistory();
+        discovery.setName("TestDiscovery");
+        discovery.setStatus(DiscoveryStatus.COMPLETED);
+        discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
+        discovery.setConnectorUuid(UUID.randomUUID());
+        discovery.setConnectorName("TestDiscoveryConnector");
+        discoveryRepository.save(discovery);
+
+        eventData = EventDataBuilder.getCertificateDiscoveredEventData(certificate, discovery, ownerUuid);
+        final NotificationMessage messageCertificateDiscovered = new NotificationMessage(ResourceEvent.CERTIFICATE_DISCOVERED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateDiscovered));
+
+        // discovery events
+        eventData = EventDataBuilder.getDiscoveryFinishedEventData(discovery);
+        final NotificationMessage messageDiscoveryFinished = new NotificationMessage(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discovery.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageDiscoveryFinished));
+
+        // approvals events
+        ApprovalProfileRequestDto approvalProfileRequestDto = new ApprovalProfileRequestDto();
+        approvalProfileRequestDto.setName("TestApprovalProfile");
+        approvalProfileRequestDto.setExpiry(24);
+        approvalProfileRequestDto.setEnabled(true);
+
+        ApprovalStepRequestDto approvalStepRequestDto = new ApprovalStepRequestDto();
+        approvalStepRequestDto.setGroupUuid(group.getUuid());
+        approvalStepRequestDto.setRequiredApprovals(1);
+        approvalStepRequestDto.setOrder(1);
+        approvalProfileRequestDto.getApprovalSteps().add(approvalStepRequestDto);
+        ApprovalProfile approvalProfile = approvalProfileService.createApprovalProfile(approvalProfileRequestDto);
+
+        Approval approval = new Approval();
+        approval.setApprovalProfileVersion(approvalProfile.getTheLatestApprovalProfileVersion());
+        approval.setApprovalProfileVersionUuid(approvalProfile.getTheLatestApprovalProfileVersion().getUuid());
+        approval.setStatus(ApprovalStatusEnum.PENDING);
+        approval.setAction(ResourceAction.REVOKE);
+        approval.setResource(Resource.CERTIFICATE);
+        approval.setObjectUuid(certificate.getUuid());
+        approval.setCreatorUuid(UUID.randomUUID());
+        approval.setCreatedAt(new Date());
+        approval.setExpiryAt(Date.from(Instant.now().plus(7, ChronoUnit.DAYS)));
+        approval = approvalRepository.save(approval);
+
+        ApprovalStepDto approvalStepDto = approvalProfile.getTheLatestApprovalProfileVersion().getApprovalSteps().getFirst().mapToDto();
+        eventData = EventDataBuilder.getApprovalRequestedEventData(approval, approvalProfile, approvalStepDto, "TestUser1");
+        final NotificationMessage messageApprovalRequested = new NotificationMessage(ResourceEvent.APPROVAL_REQUESTED, Resource.APPROVAL, approval.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageApprovalRequested));
+
+        eventData = EventDataBuilder.getApprovalEventData(approval, approvalProfile, "TestUser1");
+        final NotificationMessage messageApprovalClosed = new NotificationMessage(ResourceEvent.APPROVAL_CLOSED, Resource.APPROVAL, approval.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageApprovalClosed));
+
+        mockServer.shutdown();
+    }
+
+    private List<UUID> prepareDataAndMockServer(WireMockServer mockServer, Group group, UUID ownerUuid, UUID roleUuid) throws NotFoundException, AlreadyExistException {
         String ownerUserResponse = """
                 {
                     "uuid": "%s",
@@ -285,7 +389,6 @@ class EventHandlersTest extends BaseSpringBootTest {
                 ]
                 """.formatted(ownerUserResponse, UUID.randomUUID(), group.getUuid(), group.getName());
 
-        UUID roleUuid = UUID.randomUUID();
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")).willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+")).willReturn(
@@ -353,60 +456,15 @@ class EventHandlersTest extends BaseSpringBootTest {
         requestDto.setRecipientUuids(List.of(group.getUuid()));
         NotificationProfileDetailDto notificationProfileDetailDto5 = notificationProfileService.createNotificationProfile(requestDto);
 
-        List<UUID> notificationProfileUuids = List.of(UUID.fromString(notificationProfileDetailDto.getUuid()),
+        return List.of(UUID.fromString(notificationProfileDetailDto.getUuid()),
                 UUID.fromString(notificationProfileDetailDto2.getUuid()),
                 UUID.fromString(notificationProfileDetailDto3.getUuid()),
                 UUID.fromString(notificationProfileDetailDto4.getUuid()),
                 UUID.fromString(notificationProfileDetailDto5.getUuid()));
-        UUID triggerUuid = prepareTrigger(notificationProfileUuids);
 
-        EventSettingsDto eventSettingsDto = new EventSettingsDto();
-        eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
-        eventSettingsDto.setTriggerUuids(List.of(triggerUuid));
-        settingService.updateEventSettings(eventSettingsDto);
-
-        CertificateContent certificateContent = new CertificateContent();
-        certificateContent.setContent("123456");
-        certificateContent = certificateContentRepository.save(certificateContent);
-
-        final Certificate certificate = new Certificate();
-        certificate.setSubjectDn("testCertificate");
-        certificate.setIssuerDn("testCertificateIssuer");
-        certificate.setSerialNumber("123456789");
-        certificate.setNotBefore(Date.from(Instant.now().minus(100, ChronoUnit.DAYS)));
-        certificate.setNotAfter(Date.from(Instant.now().plus(100, ChronoUnit.DAYS)));
-        certificate.setCertificateType(CertificateType.X509);
-        certificate.setState(CertificateState.ISSUED);
-        certificate.setValidationStatus(CertificateValidationStatus.INACTIVE);
-        certificate.setCertificateContent(certificateContent);
-        certificate.setCertificateContentId(certificateContent.getId());
-        certificateRepository.save(certificate);
-
-        associationService.setOwner(Resource.CERTIFICATE, certificate.getUuid(), ownerUuid);
-        associationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), Set.of(group.getUuid()));
-
-        CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
-        eventData.setOldStatus(CertificateValidationStatus.INACTIVE.getLabel());
-        eventData.setNewStatus(CertificateValidationStatus.VALID.getLabel());
-        eventData.setCertificateUuid(certificate.getUuid());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
-        eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
-        eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
-
-        NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
-        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
-        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuids.getLast(), Resource.CERTIFICATE, certificate.getUuid(), ResourceEvent.CERTIFICATE_STATUS_CHANGED);
-        Assertions.assertNotNull(pendingNotification);
-        Assertions.assertEquals(1, pendingNotification.getRepetitions(), "Second notification should be suppressed");
-
-        mockServer.shutdown();
     }
 
-    private UUID prepareTrigger(List<UUID> notificationProfileUuids) {
+    private Trigger prepareTrigger(List<UUID> notificationProfileUuids) {
         Trigger trigger = new Trigger();
         trigger.setName("TestTrigger");
         trigger.setResource(Resource.CERTIFICATE);
@@ -438,6 +496,6 @@ class EventHandlersTest extends BaseSpringBootTest {
         trigger.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
         trigger = triggerRepository.save(trigger);
 
-        return trigger.getUuid();
+        return trigger;
     }
 }

@@ -1,11 +1,20 @@
 package com.czertainly.core.events.data;
 
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
-import com.czertainly.api.model.common.events.data.ApprovalEventData;
+import com.czertainly.api.model.common.events.data.*;
+import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfile;
+import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.model.auth.ResourceAction;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.time.ZoneId;
+import java.util.UUID;
+
+@Transactional
 public class EventDataBuilder {
 
     private EventDataBuilder() {
@@ -42,6 +51,80 @@ public class EventDataBuilder {
             eventData.setRecipientType(RecipientType.GROUP);
             eventData.setRecipientUuid(approvalStepDto.getGroupUuid());
         }
+
+        return eventData;
+    }
+
+    public static CertificateStatusChangedEventData getCertificateStatusChangedEventData(Certificate certificate, CertificateValidationStatus[] statusArrayData) {
+        CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
+        eventData.setOldStatus(statusArrayData[0].getLabel());
+        eventData.setNewStatus(statusArrayData[1].getLabel());
+        eventData.setCertificateUuid(certificate.getUuid());
+        eventData.setFingerprint(certificate.getFingerprint());
+        eventData.setSerialNumber(certificate.getSerialNumber());
+        eventData.setSubjectDn(certificate.getSubjectDn());
+        eventData.setIssuerDn(certificate.getIssuerDn());
+        eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
+        eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
+
+        if (certificate.getRaProfile() != null) {
+            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
+            eventData.setRaProfileName(certificate.getRaProfile().getName());
+            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
+                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
+            }
+        }
+
+        return eventData;
+    }
+
+    public static CertificateActionPerformedEventData getCertificateActionPerformedEventData(Certificate certificate, ResourceAction action) {
+        CertificateActionPerformedEventData eventData = new CertificateActionPerformedEventData();
+        eventData.setAction(action.getCode());
+        eventData.setCertificateUuid(certificate.getUuid());
+        eventData.setFingerprint(certificate.getFingerprint());
+        eventData.setSerialNumber(certificate.getSerialNumber());
+        eventData.setSubjectDn(certificate.getSubjectDn());
+        eventData.setIssuerDn(certificate.getIssuerDn());
+        if (certificate.getRaProfile() != null) {
+            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
+            eventData.setRaProfileName(certificate.getRaProfile().getName());
+            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
+                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
+            }
+        }
+
+        return eventData;
+    }
+
+    public static CertificateDiscoveredEventData getCertificateDiscoveredEventData(Certificate certificate, DiscoveryHistory discovery, UUID userUuid) {
+        CertificateDiscoveredEventData eventData = new CertificateDiscoveredEventData();
+        eventData.setCertificateUuid(certificate.getUuid());
+        eventData.setFingerprint(certificate.getFingerprint());
+        eventData.setSerialNumber(certificate.getSerialNumber());
+        eventData.setSubjectDn(certificate.getSubjectDn());
+        eventData.setIssuerDn(certificate.getIssuerDn());
+        eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
+        eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
+
+        eventData.setDiscoveryUuid(discovery.getUuid());
+        eventData.setDiscoveryName(discovery.getName());
+        eventData.setDiscoveryUserUuid(userUuid);
+        eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
+        eventData.setDiscoveryConnectorName(discovery.getConnectorName());
+
+        return eventData;
+    }
+
+    public static DiscoveryFinishedEventData getDiscoveryFinishedEventData(DiscoveryHistory discovery) {
+        DiscoveryFinishedEventData eventData = new DiscoveryFinishedEventData();
+        eventData.setDiscoveryUuid(discovery.getUuid());
+        eventData.setDiscoveryName(discovery.getName());
+        eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
+        eventData.setDiscoveryConnectorName(discovery.getConnectorName());
+        eventData.setDiscoveryStatus(discovery.getStatus());
+        eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered() == null ? 0 : discovery.getTotalCertificatesDiscovered());
+        eventData.setDiscoveryMessage(discovery.getMessage());
 
         return eventData;
     }
