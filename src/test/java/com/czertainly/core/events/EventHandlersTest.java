@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.events.data.CertificateStatusChangedEventData;
+import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -36,6 +37,7 @@ import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.*;
 import com.czertainly.core.messaging.listeners.NotificationListener;
 import com.czertainly.core.messaging.model.NotificationMessage;
+import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.*;
@@ -65,6 +67,8 @@ class EventHandlersTest extends BaseSpringBootTest {
     private CertificateService certificateService;
     @Autowired
     private CertificateEventHistoryService certificateEventHistoryService;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
@@ -127,6 +131,10 @@ class EventHandlersTest extends BaseSpringBootTest {
         group.setEmail("grouptest@example.com");
         group = groupRepository.save(group);
 
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("Test RA profile");
+        raProfile = raProfileRepository.save(raProfile);
+
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -135,6 +143,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCercertificatetificate");
         certificate.setSerialNumber("123456789");
+        certificate.setRaProfileUuid(raProfile.getUuid());
         certificate.setNotBefore(Date.from(Instant.now().minus(100, ChronoUnit.DAYS)));
         certificate.setNotAfter(Date.from(Instant.now().plus(100, ChronoUnit.DAYS)));
         certificate.setCertificateType(CertificateType.X509);
@@ -219,6 +228,13 @@ class EventHandlersTest extends BaseSpringBootTest {
         scheduledJobsRepository.save(scheduledJob);
 
         Assertions.assertDoesNotThrow(() -> scheduledJobFinishedEventHandler.handleEvent(ScheduledJobFinishedEventHandler.constructEventMessage(scheduledJob.getUuid(), new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, "Test"))));
+
+        ScheduledJobFinishedEventData eventData = new ScheduledJobFinishedEventData();
+        eventData.setJobName(scheduledJob.getJobName());
+        eventData.setJobType(scheduledJob.getJobType());
+        eventData.setStatus(SchedulerJobExecutionStatus.SUCCESS.getLabel());
+        NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.SCHEDULED_JOB_FINISHED, Resource.SCHEDULED_JOB, scheduledJob.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(UUID.randomUUID()), eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
     }
 
     @Test
@@ -257,6 +273,11 @@ class EventHandlersTest extends BaseSpringBootTest {
                         """.formatted(UUID.randomUUID(), UUID.randomUUID()))
         ));
 
+        Group group = new Group();
+        group.setName("TestGroup");
+        group.setEmail("grouptest@example.com");
+        group = groupRepository.save(group);
+
         Connector connector = new Connector();
         connector.setName("notificationInstanceConnector");
         connector.setUrl("http://localhost:" + mockServer.port());
@@ -279,11 +300,15 @@ class EventHandlersTest extends BaseSpringBootTest {
 
         requestDto.setName("TestProfileRole");
         requestDto.setRecipientType(RecipientType.ROLE);
-        requestDto.setRecipientType(RecipientType.ROLE);
         requestDto.setRecipientUuids(List.of(roleUuid));
         NotificationProfileDetailDto notificationProfileDetailDto2 = notificationProfileService.createNotificationProfile(requestDto);
 
-        List<UUID> notificationProfileUuids = List.of(UUID.fromString(notificationProfileDetailDto.getUuid()), UUID.fromString(notificationProfileDetailDto2.getUuid()));
+        requestDto.setName("TestProfileGroup");
+        requestDto.setRecipientType(RecipientType.GROUP);
+        requestDto.setRecipientUuids(List.of(group.getUuid()));
+        NotificationProfileDetailDto notificationProfileDetailDto3 = notificationProfileService.createNotificationProfile(requestDto);
+
+        List<UUID> notificationProfileUuids = List.of(UUID.fromString(notificationProfileDetailDto.getUuid()), UUID.fromString(notificationProfileDetailDto2.getUuid()), UUID.fromString(notificationProfileDetailDto3.getUuid()));
         UUID triggerUuid = prepareTrigger(notificationProfileUuids);
 
         EventSettingsDto eventSettingsDto = new EventSettingsDto();
@@ -291,18 +316,13 @@ class EventHandlersTest extends BaseSpringBootTest {
         eventSettingsDto.setTriggerUuids(List.of(triggerUuid));
         settingService.updateEventSettings(eventSettingsDto);
 
-        Group group = new Group();
-        group.setName("TestGroup");
-        group.setEmail("grouptest@example.com");
-        group = groupRepository.save(group);
-
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
 
         final Certificate certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
-        certificate.setIssuerDn("testCercertificatetificate");
+        certificate.setIssuerDn("testCertificateIssuer");
         certificate.setSerialNumber("123456789");
         certificate.setNotBefore(Date.from(Instant.now().minus(100, ChronoUnit.DAYS)));
         certificate.setNotAfter(Date.from(Instant.now().plus(100, ChronoUnit.DAYS)));
