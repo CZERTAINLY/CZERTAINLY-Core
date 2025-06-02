@@ -12,6 +12,7 @@ import com.czertainly.api.model.client.notification.NotificationProfileRequestDt
 import com.czertainly.api.model.common.events.data.CertificateStatusChangedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -20,6 +21,7 @@ import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.entity.workflows.Action;
 import com.czertainly.core.dao.entity.workflows.Execution;
 import com.czertainly.core.dao.entity.workflows.ExecutionItem;
@@ -96,6 +98,8 @@ class EventHandlersTest extends BaseSpringBootTest {
     @Autowired
     private ScheduledJobFinishedEventHandler scheduledJobFinishedEventHandler;
 
+    @Autowired
+    private ConnectorRepository connectorRepository;
     @Autowired
     private SettingService settingService;
     @Autowired
@@ -224,6 +228,8 @@ class EventHandlersTest extends BaseSpringBootTest {
         WireMock.configureFor("localhost", mockServer.port());
 
         UUID roleUuid = UUID.randomUUID();
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/notificationProvider/notifications/[^/]+/notify")).willReturn(WireMock.ok()));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+")).willReturn(
                 WireMock.okJson("""
                         {
@@ -251,10 +257,24 @@ class EventHandlersTest extends BaseSpringBootTest {
                         """.formatted(UUID.randomUUID(), UUID.randomUUID()))
         ));
 
+        Connector connector = new Connector();
+        connector.setName("notificationInstanceConnector");
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
+
+        NotificationInstanceReference instance = new NotificationInstanceReference();
+        instance.setName("TestNotificationInstance");
+        instance.setKind("EMAIL");
+        instance.setConnectorUuid(connector.getUuid());
+        instance.setNotificationInstanceUuid(UUID.randomUUID());
+        notificationInstanceReferenceRepository.save(instance);
+
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
         requestDto.setName("TestProfileDefault");
         requestDto.setRecipientType(RecipientType.DEFAULT);
         requestDto.setInternalNotification(true);
+        requestDto.setNotificationInstanceUuid(instance.getUuid());
         NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
 
         requestDto.setName("TestProfileRole");
