@@ -15,7 +15,6 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.settings.EventSettingsDto;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.workflows.TriggerType;
@@ -31,7 +30,6 @@ import com.czertainly.core.dao.repository.workflows.ActionRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionItemRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
 import com.czertainly.core.dao.repository.workflows.TriggerRepository;
-import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.handlers.*;
 import com.czertainly.core.messaging.listeners.NotificationListener;
@@ -41,19 +39,25 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.*;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.github.tomakehurst.wiremock.WireMockServer;
+import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.time.Instant;
 import java.time.ZoneId;
 import java.time.temporal.ChronoUnit;
-import java.util.Date;
-import java.util.List;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 class EventHandlersTest extends BaseSpringBootTest {
+
+    @DynamicPropertySource
+    static void authServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+    }
 
     @Autowired
     private CertificateService certificateService;
@@ -67,6 +71,11 @@ class EventHandlersTest extends BaseSpringBootTest {
     private CertificateStatusChangedEventHandler certificateStatusChangedEventHandler;
     @Autowired
     private CertificateActionPerformedEventHandler certificateActionPerformedEventHandler;
+
+    @Autowired
+    private GroupRepository groupRepository;
+    @Autowired
+    private ResourceObjectAssociationService associationService;
 
     @Autowired
     private ApprovalRepository approvalRepository;
@@ -105,9 +114,15 @@ class EventHandlersTest extends BaseSpringBootTest {
     @Autowired
     private ExecutionItemRepository executionItemRepository;
 
+    private WireMockServer mockServer;
 
     @Test
     void testCertificateStatusChangedAndApprovalEvents() throws EventException, NotFoundException, AlreadyExistException {
+        Group group = new Group();
+        group.setName("TestGroup");
+        group.setEmail("grouptest@example.com");
+        group = groupRepository.save(group);
+
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -124,6 +139,8 @@ class EventHandlersTest extends BaseSpringBootTest {
         certificate.setCertificateContent(certificateContent);
         certificate.setCertificateContentId(certificateContent.getId());
         certificateRepository.save(certificate);
+
+        associationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), Set.of(group.getUuid()));
 
         certificateService.validate(certificate);
         certificateStatusChangedEventHandler.handleEvent(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), CertificateValidationStatus.INACTIVE, certificate.getValidationStatus()));
@@ -202,20 +219,62 @@ class EventHandlersTest extends BaseSpringBootTest {
 
     @Test
     void testEventWithNotifications() throws NotFoundException, AlreadyExistException {
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        UUID roleUuid = UUID.randomUUID();
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+")).willReturn(
+                WireMock.okJson("""
+                        {
+                            "uuid": "%s",
+                            "name": "TestRole",
+                            "email": "testrole@example.com",
+                            "systemRole": false
+                        },
+                        """.formatted(roleUuid.toString()))
+        ));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+/users")).willReturn(
+                WireMock.okJson("""
+                        [
+                            {
+                                "uuid": "%s",
+                                "username": "TestUser1",
+                                "email": "testuser1@example.com"
+                            },
+                            {
+                                "uuid": "%s",
+                                "username": "TestUser2",
+                                "email": "testuser2@example.com"
+                            }
+                        ]
+                        """.formatted(UUID.randomUUID(), UUID.randomUUID()))
+        ));
+
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
-        requestDto.setName("TestProfile");
+        requestDto.setName("TestProfileDefault");
         requestDto.setRecipientType(RecipientType.DEFAULT);
-        requestDto.setRepetitions(1);
         requestDto.setInternalNotification(true);
         NotificationProfileDetailDto notificationProfileDetailDto = notificationProfileService.createNotificationProfile(requestDto);
 
-        UUID notificationProfileUuid = UUID.fromString(notificationProfileDetailDto.getUuid());
-        UUID triggerUuid = prepareTrigger(notificationProfileUuid);
+        requestDto.setName("TestProfileRole");
+        requestDto.setRecipientType(RecipientType.ROLE);
+        requestDto.setRecipientType(RecipientType.ROLE);
+        requestDto.setRecipientUuids(List.of(roleUuid));
+        NotificationProfileDetailDto notificationProfileDetailDto2 = notificationProfileService.createNotificationProfile(requestDto);
+
+        List<UUID> notificationProfileUuids = List.of(UUID.fromString(notificationProfileDetailDto.getUuid()), UUID.fromString(notificationProfileDetailDto2.getUuid()));
+        UUID triggerUuid = prepareTrigger(notificationProfileUuids);
 
         EventSettingsDto eventSettingsDto = new EventSettingsDto();
         eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
         eventSettingsDto.setTriggerUuids(List.of(triggerUuid));
         settingService.updateEventSettings(eventSettingsDto);
+
+        Group group = new Group();
+        group.setName("TestGroup");
+        group.setEmail("grouptest@example.com");
+        group = groupRepository.save(group);
 
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
@@ -234,6 +293,8 @@ class EventHandlersTest extends BaseSpringBootTest {
         certificate.setCertificateContentId(certificateContent.getId());
         certificateRepository.save(certificate);
 
+        associationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), Set.of(group.getUuid()));
+
         CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
         eventData.setOldStatus(CertificateValidationStatus.INACTIVE.getLabel());
         eventData.setNewStatus(CertificateValidationStatus.VALID.getLabel());
@@ -245,11 +306,13 @@ class EventHandlersTest extends BaseSpringBootTest {
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
-        NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(), List.of(notificationProfileUuid), null, eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
+
+        mockServer.shutdown();
     }
 
-    private UUID prepareTrigger(UUID notificationProfileUuid) {
+    private UUID prepareTrigger(List<UUID> notificationProfileUuids) {
         Trigger trigger = new Trigger();
         trigger.setName("TestTrigger");
         trigger.setResource(Resource.CERTIFICATE);
@@ -260,11 +323,15 @@ class EventHandlersTest extends BaseSpringBootTest {
         execution.setType(ExecutionType.SEND_NOTIFICATION);
         executionRepository.save(execution);
 
-        ExecutionItem executionItem = new ExecutionItem();
-        executionItem.setNotificationProfileUuid(notificationProfileUuid);
-        executionItem.setExecution(execution);
-        execution.setItems(Set.of(executionItem));
-        executionItemRepository.save(executionItem);
+        Set<ExecutionItem> executionItems = new HashSet<>();
+        for(UUID notificationProfileUuid : notificationProfileUuids) {
+            ExecutionItem executionItem = new ExecutionItem();
+            executionItem.setNotificationProfileUuid(notificationProfileUuid);
+            executionItem.setExecution(execution);
+            executionItemRepository.save(executionItem);
+            executionItems.add(executionItem);
+        }
+        execution.setItems(executionItems);
 
         Action action = new Action();
         action.setName("TestAction");
