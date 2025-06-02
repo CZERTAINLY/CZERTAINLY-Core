@@ -17,16 +17,10 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
-import com.czertainly.api.model.core.workflows.ExecutionType;
-import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.entity.notifications.PendingNotification;
-import com.czertainly.core.dao.entity.workflows.Action;
-import com.czertainly.core.dao.entity.workflows.Execution;
-import com.czertainly.core.dao.entity.workflows.ExecutionItem;
-import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
@@ -106,8 +100,6 @@ class EventHandlersTest extends BaseSpringBootTest {
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
-    private SettingService settingService;
-    @Autowired
     private NotificationListener notificationListener;
     @Autowired
     private NotificationProfileService notificationProfileService;
@@ -115,15 +107,6 @@ class EventHandlersTest extends BaseSpringBootTest {
     private PendingNotificationRepository pendingNotificationRepository;
     @Autowired
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
-
-    @Autowired
-    private TriggerRepository triggerRepository;
-    @Autowired
-    private ActionRepository actionRepository;
-    @Autowired
-    private ExecutionRepository executionRepository;
-    @Autowired
-    private ExecutionItemRepository executionItemRepository;
 
     private WireMockServer mockServer;
 
@@ -255,20 +238,8 @@ class EventHandlersTest extends BaseSpringBootTest {
         UUID ownerUuid = UUID.randomUUID();
         UUID roleUuid = UUID.randomUUID();
         var notificationProfileUuids = prepareDataAndMockServer(mockServer, group, ownerUuid, roleUuid);
-//        Trigger trigger = prepareTrigger(notificationProfileUuids);
 
         // test certificate events
-
-//        EventSettingsDto eventSettingsDto = new EventSettingsDto();
-//        eventSettingsDto.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
-//        eventSettingsDto.setTriggerUuids(List.of(trigger.getUuid()));
-//        settingService.updateEventSettings(eventSettingsDto);
-
-//        List<UUID> triggerUuids = List.of(trigger.getUuid());
-//        EventsSettingsDto eventsSettingsDto = new EventsSettingsDto();
-//        eventsSettingsDto.setEventsMapping(Map.of(ResourceEvent.CERTIFICATE_STATUS_CHANGED, triggerUuids, ResourceEvent.CERTIFICATE_ACTION_PERFORMED, triggerUuids, ResourceEvent.CERTIFICATE_DISCOVERED, triggerUuids));
-//        settingService.updateEventsSettings(eventsSettingsDto);
-
         CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -462,40 +433,5 @@ class EventHandlersTest extends BaseSpringBootTest {
                 UUID.fromString(notificationProfileDetailDto4.getUuid()),
                 UUID.fromString(notificationProfileDetailDto5.getUuid()));
 
-    }
-
-    private Trigger prepareTrigger(List<UUID> notificationProfileUuids) {
-        Trigger trigger = new Trigger();
-        trigger.setName("TestTrigger");
-        trigger.setResource(Resource.CERTIFICATE);
-
-        Execution execution = new Execution();
-        execution.setName("TestExecution");
-        execution.setResource(Resource.CERTIFICATE);
-        execution.setType(ExecutionType.SEND_NOTIFICATION);
-        executionRepository.save(execution);
-
-        Set<ExecutionItem> executionItems = new HashSet<>();
-        for (UUID notificationProfileUuid : notificationProfileUuids) {
-            ExecutionItem executionItem = new ExecutionItem();
-            executionItem.setNotificationProfileUuid(notificationProfileUuid);
-            executionItem.setExecution(execution);
-            executionItemRepository.save(executionItem);
-            executionItems.add(executionItem);
-        }
-        execution.setItems(executionItems);
-
-        Action action = new Action();
-        action.setName("TestAction");
-        action.setResource(Resource.CERTIFICATE);
-        action.setExecutions(Set.of(execution));
-        actionRepository.save(action);
-        trigger.setActions(Set.of(action));
-        trigger.setType(TriggerType.EVENT);
-        trigger.setResource(Resource.CERTIFICATE);
-        trigger.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
-        trigger = triggerRepository.save(trigger);
-
-        return trigger;
     }
 }
