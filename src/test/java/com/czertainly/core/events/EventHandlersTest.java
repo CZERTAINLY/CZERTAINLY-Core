@@ -46,6 +46,7 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -207,11 +208,11 @@ class EventHandlersTest extends BaseSpringBootTest {
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
         discovery = discoveryRepository.save(discovery);
 
-        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null,null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
+        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.IN_PROGRESS, discovery.getStatus());
 
-        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null,null, new DiscoveryResult(DiscoveryStatus.PROCESSING, "Test finalize")));
+        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(DiscoveryStatus.PROCESSING, "Test finalize")));
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
     }
@@ -239,9 +240,41 @@ class EventHandlersTest extends BaseSpringBootTest {
 
     @Test
     void testEventWithNotifications() throws NotFoundException, AlreadyExistException {
+        Group group = new Group();
+        group.setName("TestGroup");
+        group.setEmail("grouptest@example.com");
+        group = groupRepository.save(group);
+
         mockServer = new WireMockServer(10001);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
+
+        String userListResponse = """
+                [
+                    {
+                        "uuid": "%s",
+                        "username": "TestUser1",
+                        "email": "testuser1@example.com",
+                        "groups": [
+                            {
+                                "uuid": "%s",
+                                "name": "%s"
+                            }
+                        ]
+                    },
+                    {
+                        "uuid": "%s",
+                        "username": "TestUser2",
+                        "email": "testuser2@example.com",
+                        "groups": [
+                            {
+                                "uuid": "%s",
+                                "name": "%s"
+                            }
+                        ]
+                    }
+                ]
+                """.formatted(UUID.randomUUID(), group.getUuid(), group.getName(), UUID.randomUUID(), group.getUuid(), group.getName());
 
         UUID roleUuid = UUID.randomUUID();
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson("[]")));
@@ -256,27 +289,16 @@ class EventHandlersTest extends BaseSpringBootTest {
                         },
                         """.formatted(roleUuid.toString()))
         ));
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+/users")).willReturn(
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(
                 WireMock.okJson("""
-                        [
-                            {
-                                "uuid": "%s",
-                                "username": "TestUser1",
-                                "email": "testuser1@example.com"
-                            },
-                            {
-                                "uuid": "%s",
-                                "username": "TestUser2",
-                                "email": "testuser2@example.com"
-                            }
-                        ]
-                        """.formatted(UUID.randomUUID(), UUID.randomUUID()))
+                        {
+                            "data": %s
+                        }
+                        """.formatted(userListResponse))
         ));
-
-        Group group = new Group();
-        group.setName("TestGroup");
-        group.setEmail("grouptest@example.com");
-        group = groupRepository.save(group);
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+/users")).willReturn(
+                WireMock.okJson(userListResponse)
+        ));
 
         Connector connector = new Connector();
         connector.setName("notificationInstanceConnector");
@@ -364,7 +386,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         executionRepository.save(execution);
 
         Set<ExecutionItem> executionItems = new HashSet<>();
-        for(UUID notificationProfileUuid : notificationProfileUuids) {
+        for (UUID notificationProfileUuid : notificationProfileUuids) {
             ExecutionItem executionItem = new ExecutionItem();
             executionItem.setNotificationProfileUuid(notificationProfileUuid);
             executionItem.setExecution(execution);
@@ -384,6 +406,6 @@ class EventHandlersTest extends BaseSpringBootTest {
         trigger.setEvent(ResourceEvent.CERTIFICATE_STATUS_CHANGED);
         trigger = triggerRepository.save(trigger);
 
-        return  trigger.getUuid();
+        return trigger.getUuid();
     }
 }
