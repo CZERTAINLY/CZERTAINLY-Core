@@ -12,6 +12,7 @@ import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
+import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -43,21 +44,7 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
     protected Object getEventData(Approval approval, Object eventMessageData) {
         ApprovalProfile approvalProfile = approval.getApprovalProfileVersion().getApprovalProfile();
 
-        ApprovalEventData eventData = new ApprovalEventData();
-        eventData.setApprovalUuid(approval.getUuid());
-        eventData.setApprovalProfileUuid(approvalProfile.getUuid());
-        eventData.setApprovalProfileName(approvalProfile.getName());
-        eventData.setVersion(approval.getApprovalProfileVersion().getVersion());
-        eventData.setStatus(approval.getStatus());
-        eventData.setExpiryAt(approval.getExpiryAt());
-        eventData.setClosedAt(approval.getClosedAt());
-        eventData.setResource(approval.getResource());
-        eventData.setResourceAction(approval.getAction().getCode());
-        eventData.setObjectUuid(approval.getObjectUuid());
-        eventData.setCreatorUuid(approval.getCreatorUuid());
-        eventData.setCreatorUsername(authHelper.getUserUsername(eventData.getCreatorUuid().toString()));
-
-        return eventData;
+        return EventDataBuilder.getApprovalEventData(approval, approvalProfile, authHelper.getUserUsername(approval.getCreatorUuid().toString()));
     }
 
     @Override
