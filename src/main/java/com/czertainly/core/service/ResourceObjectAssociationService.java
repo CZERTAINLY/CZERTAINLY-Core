@@ -24,5 +24,13 @@ public interface ResourceObjectAssociationService {
 
     void removeObjectAssociations(Resource resource, UUID objectUuid);
 
+
+    /**
+     * Retrieves information (UUID and name) about object defined by its type and UUID
+     * @param recipientType type of recipient
+     * @param recipientUuid UUID of object defined by recipient
+     * @return Name and UUID of object associated for such recipient type
+     * @throws NotFoundException
+     */
     NameAndUuidDto getRecipientObjectInfo(RecipientType recipientType, UUID recipientUuid) throws NotFoundException;
 }

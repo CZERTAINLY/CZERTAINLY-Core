@@ -130,9 +130,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfileVersion.setNotificationProfileUuid(notificationProfile.getUuid());
         notificationProfileVersion.setNotificationProfile(notificationProfile);
         notificationProfileVersion.setRecipientType(requestDto.getRecipientType());
-        if (requestDto.getRecipientType() == RecipientType.USER || requestDto.getRecipientType() == RecipientType.GROUP || requestDto.getRecipientType() == RecipientType.ROLE) {
-            notificationProfileVersion.setRecipientUuids(requestDto.getRecipientUuids());
-        }
+        notificationProfileVersion.setRecipientUuids(requestDto.getRecipientUuids());
         notificationProfileVersion.setNotificationInstanceRefUuid(requestDto.getNotificationInstanceUuid());
         notificationProfileVersion.setInternalNotification(requestDto.isInternalNotification());
         notificationProfileVersion.setFrequency(requestDto.getFrequency());
@@ -164,9 +162,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfileVersion.setNotificationProfile(notificationProfile);
         notificationProfileVersion.setVersion(currentVersion.getVersion() + 1);
         notificationProfileVersion.setRecipientType(updateRequestDto.getRecipientType());
-        if (updateRequestDto.getRecipientType() == RecipientType.USER || updateRequestDto.getRecipientType() == RecipientType.GROUP || updateRequestDto.getRecipientType() == RecipientType.ROLE) {
-            notificationProfileVersion.setRecipientUuids(updateRequestDto.getRecipientUuids());
-        }
+        notificationProfileVersion.setRecipientUuids(updateRequestDto.getRecipientUuids());
         notificationProfileVersion.setNotificationInstanceRefUuid(updateRequestDto.getNotificationInstanceUuid());
         notificationProfileVersion.setInternalNotification(updateRequestDto.isInternalNotification());
         notificationProfileVersion.setFrequency(updateRequestDto.getFrequency());

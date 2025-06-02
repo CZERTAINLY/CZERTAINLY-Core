@@ -193,7 +193,7 @@ public class NotificationListener {
             }
         }
 
-        // send internal notification when not Default recipient type
+        // send internal notification when not Default recipient type. Default internal notifications for events are sent in corresponding event handlers
         if (notificationProfileVersion.isInternalNotification() && notificationProfileVersion.getRecipientType() != RecipientType.DEFAULT) {
             try {
                 sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
