@@ -23,12 +23,14 @@ import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
+import com.czertainly.core.dao.entity.notifications.PendingNotification;
 import com.czertainly.core.dao.entity.workflows.Action;
 import com.czertainly.core.dao.entity.workflows.Execution;
 import com.czertainly.core.dao.entity.workflows.ExecutionItem;
 import com.czertainly.core.dao.entity.workflows.Trigger;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
 import com.czertainly.core.dao.repository.workflows.ActionRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionItemRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
@@ -46,7 +48,6 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -111,6 +112,8 @@ class EventHandlersTest extends BaseSpringBootTest {
     private NotificationListener notificationListener;
     @Autowired
     private NotificationProfileService notificationProfileService;
+    @Autowired
+    private PendingNotificationRepository pendingNotificationRepository;
     @Autowired
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
 
@@ -249,19 +252,25 @@ class EventHandlersTest extends BaseSpringBootTest {
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
 
+        UUID ownerUuid = UUID.randomUUID();
+        String ownerUserResponse = """
+                {
+                    "uuid": "%s",
+                    "username": "TestUser1",
+                    "email": "testuser1@example.com",
+                    "groups": [
+                        {
+                            "uuid": "%s",
+                            "name": "%s"
+                        }
+                    ],
+                    "roles": []
+                }
+                """.formatted(ownerUuid, group.getUuid(), group.getName());
+
         String userListResponse = """
                 [
-                    {
-                        "uuid": "%s",
-                        "username": "TestUser1",
-                        "email": "testuser1@example.com",
-                        "groups": [
-                            {
-                                "uuid": "%s",
-                                "name": "%s"
-                            }
-                        ]
-                    },
+                    %s,
                     {
                         "uuid": "%s",
                         "username": "TestUser2",
@@ -274,7 +283,7 @@ class EventHandlersTest extends BaseSpringBootTest {
                         ]
                     }
                 ]
-                """.formatted(UUID.randomUUID(), group.getUuid(), group.getName(), UUID.randomUUID(), group.getUuid(), group.getName());
+                """.formatted(ownerUserResponse, UUID.randomUUID(), group.getUuid(), group.getName());
 
         UUID roleUuid = UUID.randomUUID();
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson("[]")));
@@ -295,6 +304,9 @@ class EventHandlersTest extends BaseSpringBootTest {
                             "data": %s
                         }
                         """.formatted(userListResponse))
+        ));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson(ownerUserResponse)
         ));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/roles/[^/]+/users")).willReturn(
                 WireMock.okJson(userListResponse)
@@ -325,12 +337,27 @@ class EventHandlersTest extends BaseSpringBootTest {
         requestDto.setRecipientUuids(List.of(roleUuid));
         NotificationProfileDetailDto notificationProfileDetailDto2 = notificationProfileService.createNotificationProfile(requestDto);
 
-        requestDto.setName("TestProfileGroup");
-        requestDto.setRecipientType(RecipientType.GROUP);
-        requestDto.setRecipientUuids(List.of(group.getUuid()));
+        requestDto.setName("TestProfileUser");
+        requestDto.setRecipientType(RecipientType.USER);
+        requestDto.setRecipientUuids(List.of(ownerUuid));
         NotificationProfileDetailDto notificationProfileDetailDto3 = notificationProfileService.createNotificationProfile(requestDto);
 
-        List<UUID> notificationProfileUuids = List.of(UUID.fromString(notificationProfileDetailDto.getUuid()), UUID.fromString(notificationProfileDetailDto2.getUuid()), UUID.fromString(notificationProfileDetailDto3.getUuid()));
+        requestDto.setName("TestProfileOwner");
+        requestDto.setRecipientType(RecipientType.OWNER);
+        requestDto.setRecipientUuids(null);
+        NotificationProfileDetailDto notificationProfileDetailDto4 = notificationProfileService.createNotificationProfile(requestDto);
+
+        requestDto.setName("TestProfileGroup");
+        requestDto.setRepetitions(1);
+        requestDto.setRecipientType(RecipientType.GROUP);
+        requestDto.setRecipientUuids(List.of(group.getUuid()));
+        NotificationProfileDetailDto notificationProfileDetailDto5 = notificationProfileService.createNotificationProfile(requestDto);
+
+        List<UUID> notificationProfileUuids = List.of(UUID.fromString(notificationProfileDetailDto.getUuid()),
+                UUID.fromString(notificationProfileDetailDto2.getUuid()),
+                UUID.fromString(notificationProfileDetailDto3.getUuid()),
+                UUID.fromString(notificationProfileDetailDto4.getUuid()),
+                UUID.fromString(notificationProfileDetailDto5.getUuid()));
         UUID triggerUuid = prepareTrigger(notificationProfileUuids);
 
         EventSettingsDto eventSettingsDto = new EventSettingsDto();
@@ -355,6 +382,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         certificate.setCertificateContentId(certificateContent.getId());
         certificateRepository.save(certificate);
 
+        associationService.setOwner(Resource.CERTIFICATE, certificate.getUuid(), ownerUuid);
         associationService.setGroups(Resource.CERTIFICATE, certificate.getUuid(), Set.of(group.getUuid()));
 
         CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
@@ -370,6 +398,10 @@ class EventHandlersTest extends BaseSpringBootTest {
 
         NotificationMessage notificationMessage = new NotificationMessage(ResourceEvent.CERTIFICATE_STATUS_CHANGED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
+        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuids.getLast(), Resource.CERTIFICATE, certificate.getUuid(), ResourceEvent.CERTIFICATE_STATUS_CHANGED);
+        Assertions.assertNotNull(pendingNotification);
+        Assertions.assertEquals(1, pendingNotification.getRepetitions(), "Second notification should be suppressed");
 
         mockServer.shutdown();
     }
