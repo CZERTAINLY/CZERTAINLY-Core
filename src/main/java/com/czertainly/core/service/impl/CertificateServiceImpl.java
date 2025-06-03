@@ -1291,6 +1291,12 @@ public class CertificateServiceImpl implements CertificateService {
             certificate.setKeyUuid(null);
             certificateRepository.save(certificate);
         }
+        List<Certificate> altCertificates = certificateRepository.findByAltKeyUuid(keyUuid);
+        for (Certificate certificate : altCertificates) {
+            certificate.setAltKey(null);
+            certificate.setAltKeyUuid(null);
+            certificateRepository.save(certificate);
+        }
     }
 
     @Override
