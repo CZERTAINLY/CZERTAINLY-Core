@@ -1438,7 +1438,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null)
             certificateRequestEntity.setAltKeyUuid(altKeyUuid);
         else if (request.getAltPublicKey() != null) {
-            altKeyUuid = getCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
+            setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
         }
 
         certificate.setCertificateRequest(certificateRequestEntity);
@@ -1491,8 +1491,8 @@ public class CertificateServiceImpl implements CertificateService {
         return keyUuid;
     }
 
-    private UUID getCertificateRequestAltKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {
-        if (certificateRequest.getAltKeyUuid() != null) return certificateRequest.getAltKeyUuid();
+    private void setCertificateRequestAltKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {
+        if (certificateRequest.getAltKeyUuid() != null) return;
 
         String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(csrPublicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
         UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
@@ -1501,7 +1501,6 @@ public class CertificateServiceImpl implements CertificateService {
                     csrPublicKey, KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
         }
         certificateRequest.setAltKeyUuid(altKeyUuid);
-        return altKeyUuid;
     }
 
     @Override

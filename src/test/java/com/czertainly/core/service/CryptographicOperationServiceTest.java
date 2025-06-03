@@ -122,17 +122,17 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
     }
 
     private CryptographicKey createAndSaveKey(String name, KeyAlgorithm keyAlgorithm, String publicKeyData) {
-        CryptographicKey key = new CryptographicKey();
-        key.setName(name);
-        key.setDescription("sampleDescription");
-        key.setTokenProfile(tokenProfile);
-        key.setTokenInstanceReference(tokenInstanceReference);
-        cryptographicKeyRepository.save(key);
+        CryptographicKey cryptographicKey = new CryptographicKey();
+        cryptographicKey.setName(name);
+        cryptographicKey.setDescription("sampleDescription");
+        cryptographicKey.setTokenProfile(tokenProfile);
+        cryptographicKey.setTokenInstanceReference(tokenInstanceReference);
+        cryptographicKeyRepository.save(cryptographicKey);
 
         CryptographicKeyItem content = new CryptographicKeyItem();
         content.setLength(1024);
-        content.setKey(key);
-        content.setKeyUuid(key.getUuid());
+        content.setKey(cryptographicKey);
+        content.setKeyUuid(cryptographicKey.getUuid());
         content.setType(KeyType.PRIVATE_KEY);
         content.setKeyData("some/encrypted/data");
         content.setFormat(KeyFormat.PRKI);
@@ -145,8 +145,8 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
         content1 = new CryptographicKeyItem();
         content1.setLength(1024);
-        content1.setKey(key);
-        content1.setKeyUuid(key.getUuid());
+        content1.setKey(cryptographicKey);
+        content1.setKeyUuid(cryptographicKey.getUuid());
         content1.setType(KeyType.PUBLIC_KEY);
         content1.setKeyData(publicKeyData);
         content1.setFormat(KeyFormat.SPKI);
@@ -165,9 +165,9 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Set<CryptographicKeyItem> items = new HashSet<>();
         items.add(content1);
         items.add(content);
-        key.setItems(items);
-        cryptographicKeyRepository.save(key);
-        return key;
+        cryptographicKey.setItems(items);
+        cryptographicKeyRepository.save(cryptographicKey);
+        return cryptographicKey;
     }
 
     @AfterEach

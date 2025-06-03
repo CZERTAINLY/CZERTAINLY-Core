@@ -27,14 +27,10 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.security.InvalidKeyException;
-import java.security.NoSuchAlgorithmException;
 import java.security.Signature;
-import java.security.SignatureException;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
-import java.security.spec.InvalidKeySpecException;
 import java.time.Instant;
 import java.time.OffsetDateTime;
 import java.util.*;

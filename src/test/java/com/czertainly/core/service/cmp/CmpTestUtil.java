@@ -80,8 +80,8 @@ public class CmpTestUtil {
 
 
         mockServer.stubFor(WireMock
-                ///v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes/validate
-                ///v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes
+                //v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes/validate
+                //v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson(Json.write(Boolean.TRUE))));
         List<BaseAttribute> listOfAttributes = new ArrayList<>();

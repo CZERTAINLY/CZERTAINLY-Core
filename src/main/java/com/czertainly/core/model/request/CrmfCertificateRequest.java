@@ -2,11 +2,9 @@ package com.czertainly.core.model.request;
 
 import com.czertainly.api.exception.CertificateRequestException;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
-import com.czertainly.core.util.CertificateRequestUtils;
 import com.czertainly.core.util.CertificateUtil;
 import lombok.Getter;
 import org.bouncycastle.asn1.crmf.CertReqMessages;
-import org.bouncycastle.asn1.crmf.CertTemplate;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessage;
