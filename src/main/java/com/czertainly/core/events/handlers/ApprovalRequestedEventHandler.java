@@ -1,6 +1,5 @@
 package com.czertainly.core.events.handlers;
 
-import com.czertainly.api.model.client.approval.ApprovalDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.common.events.data.ApprovalEventData;
 import com.czertainly.api.model.core.auth.Resource;
@@ -14,6 +13,7 @@ import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
+import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -23,7 +23,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
@@ -47,46 +46,23 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
     @Override
     protected Object getEventData(Approval approval, Object eventMessageData) {
         ApprovalProfile approvalProfile = approval.getApprovalProfileVersion().getApprovalProfile();
+        ApprovalStepDto approvalStepDto = objectMapper.convertValue(eventMessageData, ApprovalStepDto.class);
 
-        ApprovalEventData eventData = new ApprovalEventData();
-        eventData.setApprovalUuid(approval.getUuid().toString());
-        eventData.setApprovalProfileUuid(approvalProfile.getUuid().toString());
-        eventData.setApprovalProfileName(approvalProfile.getName());
-        eventData.setVersion(approval.getApprovalProfileVersion().getVersion());
-        eventData.setStatus(approval.getStatus());
-        eventData.setExpiryAt(approval.getExpiryAt());
-        eventData.setClosedAt(approval.getClosedAt());
-        eventData.setResource(approval.getResource());
-        eventData.setResourceAction(approval.getAction().getCode());
-        eventData.setObjectUuid(approval.getObjectUuid().toString());
-        eventData.setCreatorUuid(approval.getCreatorUuid().toString());
-        eventData.setCreatorUsername(authHelper.getUserUsername(eventData.getCreatorUuid()));
-
-        return eventData;
+        return EventDataBuilder.getApprovalRequestedEventData(approval, approvalProfile, approvalStepDto, authHelper.getUserUsername(approval.getCreatorUuid().toString()));
     }
 
     @Override
     protected void sendFollowUpEventsNotifications(EventContext<Approval> eventContext) {
         Approval approval = eventContext.getResourceObjects().getFirst();
         ApprovalEventData eventData = (ApprovalEventData) eventContext.getResourceObjectsEventData().getFirst();
-        ApprovalStepDto approvalStepDto = objectMapper.convertValue(eventContext.getData(), ApprovalStepDto.class);
 
-
-        List<NotificationRecipient> recipients;
-        if (approvalStepDto.getUserUuid() != null) {
-            recipients = NotificationRecipient.buildUserNotificationRecipient(approvalStepDto.getUserUuid());
-        } else if (approvalStepDto.getRoleUuid() != null) {
-            recipients = NotificationRecipient.buildRoleNotificationRecipient(approvalStepDto.getRoleUuid());
-        } else if (approvalStepDto.getGroupUuid() != null) {
-            recipients = NotificationRecipient.buildGroupNotificationRecipient(approvalStepDto.getGroupUuid());
-        } else {
-            recipients = new ArrayList<>();
-        }
+        List<NotificationRecipient> recipients = List.of(new NotificationRecipient(eventData.getRecipientType(), eventData.getRecipientUuid()));
         NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.APPROVAL, approval.getUuid(), null, recipients, eventData);
         notificationProducer.produceMessage(notificationMessage);
 
         // produce only for certificates for now until refactoring and uniting of event history for all resources
         if (approval.getResource() == Resource.CERTIFICATE) {
+            ApprovalStepDto approvalStepDto = objectMapper.convertValue(eventContext.getData(), ApprovalStepDto.class);
             ApprovalStep firstApprovalStep = approval.getApprovalProfileVersion().getApprovalSteps().stream().min(Comparator.comparing(ApprovalStep::getOrder)).orElse(null);
             // add history record only for approval request for first step
             if (firstApprovalStep != null && firstApprovalStep.getUuid().equals(approvalStepDto.getUuid())) {

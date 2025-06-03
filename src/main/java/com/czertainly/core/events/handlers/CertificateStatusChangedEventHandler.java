@@ -12,6 +12,7 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.evaluator.CertificateTriggerEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
+import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -20,7 +21,6 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.ZoneId;
 import java.util.List;
 import java.util.UUID;
 
@@ -36,26 +36,7 @@ public class CertificateStatusChangedEventHandler extends EventHandler<Certifica
     protected Object getEventData(Certificate certificate, Object eventMessageData) {
         CertificateValidationStatus[] statusArrayData = objectMapper.convertValue(eventMessageData, new TypeReference<>() {});
 
-        CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
-        eventData.setOldStatus(statusArrayData[0].getLabel());
-        eventData.setNewStatus(statusArrayData[1].getLabel());
-        eventData.setCertificateUuid(certificate.getUuid().toString());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
-        eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
-        eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
-
-        if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid().toString());
-            eventData.setRaProfileName(certificate.getRaProfile().getName());
-            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid().toString());
-            }
-        }
-
-        return eventData;
+        return EventDataBuilder.getCertificateStatusChangedEventData(certificate, statusArrayData);
     }
 
     @Override

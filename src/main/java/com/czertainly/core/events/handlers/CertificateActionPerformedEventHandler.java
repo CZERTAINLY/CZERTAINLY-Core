@@ -9,6 +9,7 @@ import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.evaluator.CertificateTriggerEvaluator;
 import com.czertainly.core.events.EventContext;
 import com.czertainly.core.events.EventHandler;
+import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
@@ -31,22 +32,7 @@ public class CertificateActionPerformedEventHandler extends EventHandler<Certifi
     protected Object getEventData(Certificate certificate, Object eventMessageData) {
         ResourceAction action = objectMapper.convertValue(eventMessageData, ResourceAction.class);
 
-        CertificateActionPerformedEventData eventData = new CertificateActionPerformedEventData();
-        eventData.setAction(action.getCode());
-        eventData.setCertificateUuid(certificate.getUuid().toString());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
-        if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid().toString());
-            eventData.setRaProfileName(certificate.getRaProfile().getName());
-            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid().toString());
-            }
-        }
-
-        return eventData;
+        return EventDataBuilder.getCertificateActionPerformedEventData(certificate, action);
     }
 
     @Override
