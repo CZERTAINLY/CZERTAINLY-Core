@@ -30,7 +30,7 @@ class CertificateRequestTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCrmfCertificateRequestAlt() throws CertificateRequestException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, IOException, SignatureException, NoSuchProviderException, InvalidKeyException, CRMFException {
+    void testCrmfCertificateRequestAlt() throws CertificateRequestException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, IOException, NoSuchProviderException, CRMFException {
         CertificateRequestMessage crmf = CmpTestUtil.createCrmf(new X500Name("CN=issuer"), new X500Name("CN=subject")).build();
         CertReqMessages certReqMessages = new CertReqMessages(crmf.toASN1Structure());
         CertificateRequest request = CertificateRequestUtils.createCertificateRequest(certReqMessages.getEncoded(), CertificateRequestFormat.CRMF);
