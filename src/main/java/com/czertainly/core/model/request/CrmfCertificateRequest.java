@@ -63,8 +63,7 @@ public class CrmfCertificateRequest implements CertificateRequest {
 
     @Override
     public PublicKey getAltPublicKey() throws NoSuchAlgorithmException, CertificateRequestException {
-        Extensions extensions = certificateRequestMessage.getCertTemplate().getExtensions();
-        return CertificateRequestUtils.getAltPublicKeyFromExtensions(extensions);
+        return null;
     }
 
     @Override
@@ -79,9 +78,7 @@ public class CrmfCertificateRequest implements CertificateRequest {
 
     @Override
     public AlgorithmIdentifier getAltSignatureAlgorithm() {
-        CertTemplate certTemplate = certificateRequestMessage.getCertTemplate();
-        Extensions extensions = certTemplate.getExtensions();
-        return CertificateRequestUtils.getAltSignatureAlgorithmFromExtensions(extensions);
+        return null;
     }
 
 }

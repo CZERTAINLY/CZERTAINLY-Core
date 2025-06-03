@@ -8,10 +8,6 @@ import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.model.request.Pkcs10CertificateRequest;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
-import org.bouncycastle.asn1.x509.SubjectAltPublicKeyInfo;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
 import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 import org.bouncycastle.pqc.jcajce.provider.BouncyCastlePQCProvider;
@@ -236,26 +232,6 @@ public class CertificateRequestUtils {
             }
             default -> throw new IllegalArgumentException("Unsupported certificate request format: " + format);
         }
-    }
-
-    public static PublicKey getAltPublicKeyFromExtensions(Extensions extensions) throws NoSuchAlgorithmException, CertificateRequestException {
-        if (extensions == null) return null;
-        Extension extension = extensions.getExtension(Extension.subjectAltPublicKeyInfo);
-        if (extension == null) return null;
-        SubjectAltPublicKeyInfo altPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(extension.getParsedValue());
-        KeyFactory keyFactory = KeyFactory.getInstance(altPublicKeyInfo.getAlgorithm().getAlgorithm().getId());
-        try {
-            return keyFactory.generatePublic(new X509EncodedKeySpec(altPublicKeyInfo.getEncoded()));
-        } catch (InvalidKeySpecException | IOException e) {
-            throw new CertificateRequestException("Cannot get alternative public key from certificate request.", e);
-        }
-    }
-
-    public static AlgorithmIdentifier getAltSignatureAlgorithmFromExtensions(Extensions extensions) {
-        if (extensions == null) return null;
-        Extension extension = extensions.getExtension(Extension.altSignatureAlgorithm);
-        if (extension == null) return null;
-        return AlgorithmIdentifier.getInstance(extension.getParsedValue());
     }
 
 }
