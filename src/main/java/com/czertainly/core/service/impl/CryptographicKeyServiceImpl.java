@@ -758,7 +758,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         cryptographicKeyItem.setKey(cryptographicKey);
         KeyAlgorithm keyAlgorithmEnumValue;
         try {
-            keyAlgorithmEnumValue = KeyAlgorithm.valueOf(CertificateUtil.getAlgorithmFromProviderName(publicKey.getAlgorithm()));
+            keyAlgorithmEnumValue = CertificateUtil.getKeyAlgorithmFromProviderName(publicKey.getAlgorithm());
         } catch (IllegalArgumentException e) {
             keyAlgorithmEnumValue = KeyAlgorithm.UNKNOWN;
         }

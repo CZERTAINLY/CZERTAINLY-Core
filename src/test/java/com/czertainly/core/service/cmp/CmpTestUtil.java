@@ -354,14 +354,14 @@ public class CmpTestUtil {
                 .build(macCalculator);
     }
 
-    public static CertificateRequestMessageBuilder createCrmf(X500Name issuerDN, X500Name subjectDN, boolean withAltKey)
-            throws NoSuchAlgorithmException, IOException, InvalidAlgorithmParameterException, NoSuchProviderException, InvalidKeyException, SignatureException {
+    public static CertificateRequestMessageBuilder createCrmf(X500Name issuerDN, X500Name subjectDN)
+            throws NoSuchAlgorithmException, IOException, InvalidAlgorithmParameterException, NoSuchProviderException {
         CertificateRequestMessageBuilder msgBuilder = new CertificateRequestMessageBuilder(
                 BigInteger.valueOf(1L));
         msgBuilder.setIssuer(issuerDN);//"CN=ManagementCA"
         msgBuilder.setSubject(subjectDN);//"CN=user"
         msgBuilder.setAuthInfoSender(new GeneralName(subjectDN));
-
+        msgBuilder.setProofOfPossessionSubsequentMessage(SubsequentMessage.encrCert);
         KeyPair keyPair = generateKeyPairEC();
         byte[]                  bytes = keyPair.getPublic().getEncoded();
         ByteArrayInputStream    bIn = new ByteArrayInputStream(bytes);
@@ -369,28 +369,6 @@ public class CmpTestUtil {
         SubjectPublicKeyInfo keyInfo = new SubjectPublicKeyInfo((org.bouncycastle.asn1.ASN1Sequence)dIn.readObject());
         dIn.close();
         msgBuilder.setPublicKey(keyInfo);
-        if (withAltKey) {
-            KeyPairGenerator altKeyGen = KeyPairGenerator.getInstance("ML-DSA");
-            altKeyGen.initialize(MLDSAParameterSpec.ml_dsa_44);
-            KeyPair alternativeKeyPair = altKeyGen.generateKeyPair();
-            msgBuilder.addExtension(
-                    Extension.subjectAltPublicKeyInfo,
-                    false,
-                    SubjectAltPublicKeyInfo.getInstance(
-                            ASN1Sequence.getInstance(alternativeKeyPair.getPublic().getEncoded()))
-            );
-
-            AlgorithmIdentifier altSignatureAlgorithm = new AlgorithmIdentifier(NISTObjectIdentifiers.id_ml_dsa_44);
-            AltSignatureAlgorithm altSignatureAlgorithm1 = new AltSignatureAlgorithm(altSignatureAlgorithm);
-            msgBuilder.addExtension(Extension.altSignatureAlgorithm, false, altSignatureAlgorithm1);
-
-            Signature signature = Signature.getInstance("ML-DSA");
-            signature.initSign(alternativeKeyPair.getPrivate());
-            signature.update(alternativeKeyPair.getPublic().getEncoded());
-            byte[] signedData = signature.sign();
-            AltSignatureValue altSignatureValue = new AltSignatureValue(signedData);
-            msgBuilder.addExtension(Extension.altSignatureValue, false, altSignatureValue);
-        }
         return msgBuilder;
     }
 }

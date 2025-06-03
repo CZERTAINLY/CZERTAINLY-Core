@@ -68,8 +68,7 @@ import java.util.stream.Collectors;
 public class CertificateUtil {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
-    private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
-    private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
+    private static final Map<String, KeyAlgorithm> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
 
@@ -89,8 +88,9 @@ public class CertificateUtil {
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("RSA", KeyAlgorithm.RSA);
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA);
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON);
     }
 
     private CertificateUtil() {
@@ -401,7 +401,7 @@ public class CertificateUtil {
             logger.error("Failed to calculate the thumbprint of the certificate");
         }
 
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()).replace("WITH", "with"));
+        modal.setPublicKeyAlgorithm(certificate.getPublicKey().getAlgorithm().replace("WITH", "with"));
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
@@ -409,7 +409,7 @@ public class CertificateUtil {
         byte[] alternativeSignature = certificate.getExtensionValue(Extension.altSignatureValue.getId());
         if (alternativeSignatureAlgorithm != null && alternativeSignature != null) {
             try {
-                modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm));
+                modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm).replace("WITH", "with"));
             } catch (IOException e) {
                 logger.error("Cannot read Alternative Signature Algorithm from extension: {}", e.getMessage());
             }
@@ -480,8 +480,9 @@ public class CertificateUtil {
         } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
-
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()).replace("WITH", "with"));
+        if (getKeyAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
+            modal.setPublicKeyAlgorithm(getKeyAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()).toString());
+        }
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
         if (certificateRequest.getSignatureAlgorithm() == null)
             modal.setSignatureAlgorithm(null);
@@ -518,22 +519,18 @@ public class CertificateUtil {
         }
     }
 
-    public static String getAlgorithmFriendlyName(String algorithmName) {
-        if (algorithmName == null) return null;
-        String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
-        if (friendlyName != null) return friendlyName;
-        if (algorithmName.contains("ML-DSA")) return KeyAlgorithm.MLDSA.getCode();
-        if (algorithmName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA.getCode();
-        return algorithmName;
+    public static KeyAlgorithm getKeyAlgorithmFromProviderName(String providerName) {
+        if (providerName == null) return null;
+        KeyAlgorithm keyAlgorithm = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
+        if (keyAlgorithm != null) return null;
+        if (providerName.contains("ML-DSA")) return KeyAlgorithm.MLDSA;
+        if (providerName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA;
+        return KeyAlgorithm.UNKNOWN;
     }
 
     public static String getAlgorithmFromProviderName(String providerName) {
-        if (providerName == null) return null;
-        String name = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
-        if (name != null) return name;
-        if (providerName.contains("ML-DSA")) return KeyAlgorithm.MLDSA.toString();
-        if (providerName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA.toString();
-        return providerName;
+        // Used only in a past migration
+        return null;
     }
 
     public static List<JcaX509CertificateHolder> convertToX509CertificateHolder(List<X509Certificate> certificateChain) throws CertificateEncodingException {

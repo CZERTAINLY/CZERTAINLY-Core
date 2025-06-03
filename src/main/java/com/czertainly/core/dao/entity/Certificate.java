@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -196,6 +197,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private CryptographicKey altKey;
 
+    @Column(name = "alt_public_key_algorithm")
+    private KeyAlgorithm altPublicKeyAlgorithm;
+
+    @Column(name = "alt_key_size")
+    private Integer altKeySize;
+
     @Column(name = "alt_key_uuid")
     private UUID altKeyUuid;
 
@@ -229,9 +236,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         }
         dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
-        dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
-        dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
-        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(altSignatureAlgorithm));
+        dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setSignatureAlgorithm(signatureAlgorithm);
+        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
@@ -316,9 +323,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSubjectDn(subjectDn);
         dto.setNotBefore(notBefore);
         dto.setNotAfter(notAfter);
-        dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
-        dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
-        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(altSignatureAlgorithm));
+        dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setSignatureAlgorithm(signatureAlgorithm);
+        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
         dto.setKeySize(keySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);

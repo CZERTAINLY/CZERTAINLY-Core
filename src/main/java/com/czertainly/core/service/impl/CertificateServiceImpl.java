@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -941,10 +942,13 @@ public class CertificateServiceImpl implements CertificateService {
                 logger.error("Cannot create fingerprint for Alternative Public Key: {}", e.getMessage());
             }
             UUID altKeyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
+            int keyLength = KeySizeUtil.getKeyLength(altPublicKey);
             if (altKeyUuid == null) {
-                altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey, KeySizeUtil.getKeyLength(altPublicKey), fingerprint);
+                altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey, keyLength, fingerprint);
             }
             certificate.setAltKeyUuid(altKeyUuid);
+            certificate.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmFromProviderName(altPublicKey.getAlgorithm()));
+            certificate.setAltKeySize(keyLength);
             certificate.setHybridCertificate(true);
         }
     }
@@ -1515,7 +1519,6 @@ public class CertificateServiceImpl implements CertificateService {
             UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             certificate.setKeyUuid(keyUuid);
         }
-        // TODO: Same for alt key, add fingerprint?
 
         certificate = certificateRepository.save(certificate);
 
