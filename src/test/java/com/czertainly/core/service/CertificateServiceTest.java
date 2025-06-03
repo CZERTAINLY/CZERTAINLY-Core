@@ -10,6 +10,7 @@ import com.czertainly.api.model.common.attribute.v2.content.StringAttributeConte
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserWithPaginationDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -19,6 +20,7 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -31,7 +33,9 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -67,6 +71,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
     private OwnerAssociationRepository ownerAssociationRepository;
     @Autowired
     private CryptographicKeyRepository cryptographicKeyRepository;
+    @MockitoBean
+    private UserManagementApiClient userManagementApiClient;
 
     private AttributeEngine attributeEngine;
 
@@ -468,6 +474,14 @@ class CertificateServiceTest extends BaseSpringBootTest {
         CertificateDetailDto detailDto = certificateService.getCertificate(certificateNew.getSecuredUuid());
         Assertions.assertEquals(1, detailDto.getGroups().size());
         Assertions.assertEquals(group.getUuid().toString(), detailDto.getGroups().getFirst().getUuid());
+    }
+
+    @Test
+    void testGetSearchableFieldInformation() {
+        UserWithPaginationDto userWithPaginationDto = new UserWithPaginationDto();
+        userWithPaginationDto.setData(new ArrayList<>());
+        Mockito.when(userManagementApiClient.getUsers()).thenReturn(userWithPaginationDto);
+        Assertions.assertDoesNotThrow(() -> certificateService.getSearchableFieldInformationByGroup());
     }
 
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
