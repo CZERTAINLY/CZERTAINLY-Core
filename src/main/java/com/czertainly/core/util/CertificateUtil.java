@@ -401,7 +401,7 @@ public class CertificateUtil {
             logger.error("Failed to calculate the thumbprint of the certificate");
         }
 
-        modal.setPublicKeyAlgorithm(certificate.getPublicKey().getAlgorithm().replace("WITH", "with"));
+        modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificate.getPublicKey().getAlgorithm()));
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
@@ -480,8 +480,8 @@ public class CertificateUtil {
         } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
-        if (getKeyAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
-            modal.setPublicKeyAlgorithm(getKeyAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()).toString());
+        if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
+            modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
         }
         DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
         if (certificateRequest.getSignatureAlgorithm() == null)
@@ -519,15 +519,22 @@ public class CertificateUtil {
         }
     }
 
-    public static KeyAlgorithm getKeyAlgorithmFromProviderName(String providerName) {
+    public static KeyAlgorithm getKeyAlgorithmEnumFromProviderName(String providerName) {
         if (providerName == null) return null;
         KeyAlgorithm keyAlgorithm = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
-        if (keyAlgorithm != null) return null;
+        if (keyAlgorithm != null) return keyAlgorithm;
         if (providerName.contains("ML-DSA")) return KeyAlgorithm.MLDSA;
         if (providerName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA;
         return KeyAlgorithm.UNKNOWN;
     }
 
+    public static String getKeyAlgorithmStringFromProviderName(String providerName) {
+        KeyAlgorithm keyAlgorithm = getKeyAlgorithmEnumFromProviderName(providerName);
+        if (keyAlgorithm == KeyAlgorithm.UNKNOWN || keyAlgorithm == null) return providerName;
+        return keyAlgorithm.name();
+    }
+
+    @Deprecated
     public static String getAlgorithmFromProviderName(String providerName) {
         // Used only in a past migration
         return null;

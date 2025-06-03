@@ -576,7 +576,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(certificateRequest.getAltPublicKey());
         Assertions.assertInstanceOf(SLHDSAPublicKey.class, certificateRequest.getAltPublicKey());
         JcaPKCS10CertificationRequest pkcs10CertificationRequest =  new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
-        Assertions.assertNotNull(pkcs10CertificationRequest.getRequestedExtensions().getExtension(Extension.altSignatureValue));
+        Assertions.assertNotNull(Arrays.stream(pkcs10CertificationRequest.getAttributes()).filter(attribute -> attribute.getAttrType().equals(Extension.altSignatureValue)));
     }
 
     private void mockSignResponse(String keyUuid, String signature) {

@@ -45,14 +45,23 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
 
+    @Query("SELECT DISTINCT altSignatureAlgorithm FROM Certificate")
+    List<String> findDistinctAltSignatureAlgorithm();
+
     @Query("SELECT DISTINCT keySize FROM Certificate")
     List<Integer> findDistinctKeySize();
+
+    @Query("SELECT DISTINCT altKeySize FROM Certificate")
+    List<Integer> findDistinctAltKeySize();
 
     @Query("SELECT DISTINCT keyUsage FROM Certificate")
     List<String> findDistinctKeyUsage();
 
     @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
     List<String> findDistinctPublicKeyAlgorithm();
+
+    @Query("SELECT DISTINCT altPublicKeyAlgorithm FROM Certificate")
+    List<String> findDistinctAltPublicKeyAlgorithm();
 
     Optional<Certificate> findByUserUuid(UUID userUuid);
 

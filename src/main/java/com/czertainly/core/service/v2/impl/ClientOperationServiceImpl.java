@@ -540,7 +540,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     if (oldCertificate.getCertificateRequest() != null)
                         altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
                 }
-                altTokenProfileUuid = getAltTokenProfileUuid(request.getAltKeyUuid(), oldCertificate);
+                altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
 
             }
 

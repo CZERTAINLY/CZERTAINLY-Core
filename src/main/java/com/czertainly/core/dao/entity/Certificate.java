@@ -198,7 +198,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private CryptographicKey altKey;
 
     @Column(name = "alt_public_key_algorithm")
-    private KeyAlgorithm altPublicKeyAlgorithm;
+    private String altPublicKeyAlgorithm;
 
     @Column(name = "alt_key_size")
     private Integer altKeySize;
@@ -237,9 +237,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
         dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
         dto.setSignatureAlgorithm(signatureAlgorithm);
         if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
         dto.setKeySize(keySize);
+        dto.setAltKeySize(altKeySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
         dto.setValidationStatus(validationStatus);
@@ -324,9 +326,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setNotBefore(notBefore);
         dto.setNotAfter(notAfter);
         dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
         dto.setSignatureAlgorithm(signatureAlgorithm);
-        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
+        dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
         dto.setKeySize(keySize);
+        dto.setAltKeySize(altKeySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
         dto.setValidationStatus(validationStatus);

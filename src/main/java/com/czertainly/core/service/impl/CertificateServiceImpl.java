@@ -11,7 +11,6 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -514,6 +513,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.ISSUER_COMMON_NAME),
                 SearchHelper.prepareSearch(FilterField.FINGERPRINT),
                 SearchHelper.prepareSearch(FilterField.SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctSignatureAlgorithm())),
+                SearchHelper.prepareSearch(FilterField.ALT_SIGNATURE_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctAltSignatureAlgorithm())),
                 SearchHelper.prepareSearch(FilterField.NOT_AFTER),
                 SearchHelper.prepareSearch(FilterField.NOT_BEFORE),
                 SearchHelper.prepareSearch(FilterField.SUBJECTDN),
@@ -523,7 +523,9 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.CRL_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SIGNATURE_VALIDATION, Arrays.stream((CertificateValidationStatus.values())).map(CertificateValidationStatus::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctPublicKeyAlgorithm())),
+                SearchHelper.prepareSearch(FilterField.ALT_PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctAltPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(FilterField.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
+                SearchHelper.prepareSearch(FilterField.ALT_KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctAltKeySize())),
                 SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
                 SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
@@ -947,7 +949,7 @@ public class CertificateServiceImpl implements CertificateService {
                 altKeyUuid = cryptographicKeyService.uploadCertificatePublicKey("altCertKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), altPublicKey, keyLength, fingerprint);
             }
             certificate.setAltKeyUuid(altKeyUuid);
-            certificate.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmFromProviderName(altPublicKey.getAlgorithm()));
+            certificate.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(altPublicKey.getAlgorithm()));
             certificate.setAltKeySize(keyLength);
             certificate.setHybridCertificate(true);
         }
@@ -1436,10 +1438,6 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
         certificate.setKeyUuid(keyUuid);
-        if (altKeyUuid != null) {
-            certificate.setAltKeyUuid(altKeyUuid);
-            certificate.setHybridCertificate(true);
-        }
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {
@@ -1518,6 +1516,10 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificate.getKeyUuid() == null && certificate.getPublicKeyFingerprint() != null) {
             UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             certificate.setKeyUuid(keyUuid);
+        }
+
+        if (x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId()) != null) {
+            uploadCertificateKey(null, certificate, x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId()));
         }
 
         certificate = certificateRepository.save(certificate);
