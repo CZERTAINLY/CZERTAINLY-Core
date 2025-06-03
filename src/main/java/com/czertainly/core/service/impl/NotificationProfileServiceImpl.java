@@ -6,14 +6,13 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.notification.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.dao.entity.notifications.NotificationProfileVersion;
-import com.czertainly.core.dao.entity.notifications.PendingNotification;
 import com.czertainly.core.dao.entity.workflows.Execution;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileVersionRepository;
-import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
 import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -30,8 +29,10 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.UUID;
 
 @Service
 @Transactional
@@ -43,8 +44,6 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     private NotificationProfileVersionRepository notificationProfileVersionRepository;
 
     private ExecutionRepository executionRepository;
-    private PendingNotificationRepository pendingNotificationRepository;
-
     private ResourceObjectAssociationService resourceObjectAssociationService;
 
     @Autowired
@@ -60,11 +59,6 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
     @Autowired
     public void setExecutionRepository(ExecutionRepository executionRepository) {
         this.executionRepository = executionRepository;
-    }
-
-    @Autowired
-    public void setPendingNotificationRepository(PendingNotificationRepository pendingNotificationRepository) {
-        this.pendingNotificationRepository = pendingNotificationRepository;
     }
 
     @Autowired
@@ -102,9 +96,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
             notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(uuid.getValue(), version).orElseThrow(() -> new NotFoundException(NotificationProfileVersion.class, uuid));
         }
 
-        // retrieve recipient info and check for existence of such object
-        NameAndUuidDto recipientInfo = resourceObjectAssociationService.getAssociationObjectInfo(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuid());
-        return notificationProfileVersion.mapToDetailDto(new RecipientDto(notificationProfileVersion.getRecipientType(), recipientInfo));
+        return getNotificationProfileDetailDto(notificationProfileVersion);
     }
 
     @Override
@@ -128,9 +120,6 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
             throw new AlreadyExistException("Notification profile with name " + requestDto.getName() + " already exists.");
         }
 
-        // retrieve recipient info and check for existence of such object
-        NameAndUuidDto recipientInfo = resourceObjectAssociationService.getAssociationObjectInfo(requestDto.getRecipientType(), requestDto.getRecipientUuid());
-
         NotificationProfile notificationProfile = new NotificationProfile();
         notificationProfile.setName(requestDto.getName());
         notificationProfile.setDescription(requestDto.getDescription());
@@ -141,7 +130,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfileVersion.setNotificationProfileUuid(notificationProfile.getUuid());
         notificationProfileVersion.setNotificationProfile(notificationProfile);
         notificationProfileVersion.setRecipientType(requestDto.getRecipientType());
-        notificationProfileVersion.setRecipientUuid(requestDto.getRecipientUuid());
+        notificationProfileVersion.setRecipientUuids(requestDto.getRecipientUuids());
         notificationProfileVersion.setNotificationInstanceRefUuid(requestDto.getNotificationInstanceUuid());
         notificationProfileVersion.setInternalNotification(requestDto.isInternalNotification());
         notificationProfileVersion.setFrequency(requestDto.getFrequency());
@@ -149,7 +138,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfile.getVersions().add(notificationProfileVersion);
         notificationProfileVersionRepository.save(notificationProfileVersion);
 
-        return notificationProfileVersion.mapToDetailDto(new RecipientDto(notificationProfileVersion.getRecipientType(), recipientInfo));
+        return getNotificationProfileDetailDto(notificationProfileVersion);
     }
 
     @Override
@@ -158,12 +147,9 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         NotificationProfile notificationProfile = notificationProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, uuid));
         NotificationProfileVersion currentVersion = notificationProfile.getCurrentVersion();
 
-        // retrieve recipient info and check for existence of such object
-        NameAndUuidDto recipientInfo = resourceObjectAssociationService.getAssociationObjectInfo(updateRequestDto.getRecipientType(), updateRequestDto.getRecipientUuid());
-
         if (areVersionsEqual(currentVersion, updateRequestDto)) {
             logger.debug("Current version of notification profile {} is same as in request. New version is not created", notificationProfile.getName());
-            return currentVersion.mapToDetailDto(new RecipientDto(currentVersion.getRecipientType(), recipientInfo));
+            return getNotificationProfileDetailDto(currentVersion);
         }
 
         if (!Objects.equals(notificationProfile.getDescription(), updateRequestDto.getDescription())) {
@@ -176,19 +162,32 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         notificationProfileVersion.setNotificationProfile(notificationProfile);
         notificationProfileVersion.setVersion(currentVersion.getVersion() + 1);
         notificationProfileVersion.setRecipientType(updateRequestDto.getRecipientType());
-        notificationProfileVersion.setRecipientUuid(updateRequestDto.getRecipientUuid());
+        notificationProfileVersion.setRecipientUuids(updateRequestDto.getRecipientUuids());
         notificationProfileVersion.setNotificationInstanceRefUuid(updateRequestDto.getNotificationInstanceUuid());
         notificationProfileVersion.setInternalNotification(updateRequestDto.isInternalNotification());
         notificationProfileVersion.setFrequency(updateRequestDto.getFrequency());
         notificationProfileVersion.setRepetitions(updateRequestDto.getRepetitions());
         notificationProfileVersion = notificationProfileVersionRepository.save(notificationProfileVersion);
 
-        return notificationProfileVersion.mapToDetailDto(new RecipientDto(notificationProfileVersion.getRecipientType(), recipientInfo));
+        return getNotificationProfileDetailDto(notificationProfileVersion);
+    }
+
+    private NotificationProfileDetailDto getNotificationProfileDetailDto(NotificationProfileVersion notificationProfileVersion) throws NotFoundException {
+        // retrieve recipients info and check for existence of such object
+        List<NameAndUuidDto> recipients = new ArrayList<>();
+        if (notificationProfileVersion.getRecipientUuids() != null) {
+            recipients = new ArrayList<>();
+            for (UUID recipientUuid : notificationProfileVersion.getRecipientUuids()) {
+                recipients.add(resourceObjectAssociationService.getRecipientObjectInfo(notificationProfileVersion.getRecipientType(), recipientUuid));
+            }
+        }
+
+        return notificationProfileVersion.mapToDetailDto(recipients);
     }
 
     private boolean areVersionsEqual(NotificationProfileVersion currentVersion, NotificationProfileUpdateRequestDto requestDto) {
         return currentVersion.getRecipientType() == requestDto.getRecipientType()
-                && Objects.equals(currentVersion.getRecipientUuid(), requestDto.getRecipientUuid())
+                && Objects.equals(currentVersion.getRecipientUuids(), requestDto.getRecipientUuids())
                 && Objects.equals(currentVersion.getNotificationInstanceRefUuid(), requestDto.getNotificationInstanceUuid())
                 && currentVersion.isInternalNotification() == requestDto.isInternalNotification()
                 && Objects.equals(currentVersion.getFrequency(), requestDto.getFrequency())
