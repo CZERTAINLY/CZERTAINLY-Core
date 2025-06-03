@@ -173,7 +173,7 @@ public class NotificationListener {
             return;
         }
 
-        List<NotificationRecipient> recipients = getRecipients(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuid(), message.getResource(), message.getObjectUuid());
+        List<NotificationRecipient> recipients = getRecipients(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuids(), message.getEvent(), message.getData(), message.getResource(), message.getObjectUuid());
 
         // send external notification
         boolean notificationSent = false;
@@ -193,8 +193,8 @@ public class NotificationListener {
             }
         }
 
-        // send internal notification
-        if (notificationProfileVersion.isInternalNotification()) {
+        // send internal notification when not Default recipient type. Default internal notifications for events are sent in corresponding event handlers
+        if (notificationProfileVersion.isInternalNotification() && notificationProfileVersion.getRecipientType() != RecipientType.DEFAULT) {
             try {
                 sendInternalNotifications(recipients, getInternalNotificationData(message), message.getResource(), message.getObjectUuid());
                 notificationSent = true;
@@ -219,19 +219,66 @@ public class NotificationListener {
                 && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
     }
 
-    private List<NotificationRecipient> getRecipients(RecipientType recipientType, UUID recipientUuid, Resource resource, UUID objectUuid) {
-        if (recipientType != RecipientType.OWNER) {
-            return List.of(new NotificationRecipient(recipientType, recipientUuid));
+    private List<NotificationRecipient> getRecipients(RecipientType recipientType, List<UUID> recipientUuids, ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
+        if (recipientType != RecipientType.OWNER && recipientType != RecipientType.DEFAULT) {
+            return recipientUuids.stream().map(recipientUuid -> new NotificationRecipient(recipientType, recipientUuid)).toList();
         }
 
-        NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
-        if (ownerInfo == null) return List.of();
+        if (recipientType == RecipientType.OWNER) {
+            NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
+            if (ownerInfo == null) return List.of();
+            return List.of(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
+        }
 
-        return List.of(new NotificationRecipient(RecipientType.OWNER, UUID.fromString(ownerInfo.getUuid())));
+        return getDefaultRecipients(event, data, resource, objectUuid);
     }
 
+    private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
+        List<NotificationRecipient> recipients = new ArrayList<>();
+        switch (event) {
+            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED -> {
+                NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
+                if (ownerInfo != null) {
+                    recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
+                }
 
-    private void sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent event, Resource resource) throws ConnectorException, ValidationException, NotFoundException {
+                for (UUID groupUuid : resourceObjectAssociationService.getGroupUuids(resource, objectUuid)) {
+                    recipients.add(new NotificationRecipient(RecipientType.GROUP, groupUuid));
+                }
+            }
+            case CERTIFICATE_DISCOVERED -> {
+                CertificateDiscoveredEventData eventData = (CertificateDiscoveredEventData) getEventData(event, data);
+                if (eventData.getDiscoveryUserUuid() != null) {
+                    recipients.add(new NotificationRecipient(RecipientType.USER, eventData.getDiscoveryUserUuid()));
+                }
+            }
+            case DISCOVERY_FINISHED -> {
+                DiscoveryFinishedEventData eventData = (DiscoveryFinishedEventData) getEventData(event, data);
+                if (eventData.getDiscoveryUserUuid() != null) {
+                    recipients.add(new NotificationRecipient(RecipientType.USER, eventData.getDiscoveryUserUuid()));
+                }
+            }
+            case APPROVAL_REQUESTED -> {
+                ApprovalEventData eventData = (ApprovalEventData) getEventData(event, data);
+                recipients.add(new NotificationRecipient(eventData.getRecipientType(), eventData.getRecipientUuid()));
+            }
+            case APPROVAL_CLOSED -> {
+                ApprovalEventData eventData = (ApprovalEventData) getEventData(event, data);
+                recipients.add(new NotificationRecipient(RecipientType.USER, eventData.getCreatorUuid()));
+            }
+            case SCHEDULED_JOB_FINISHED -> {
+                ScheduledJobFinishedEventData eventData = (ScheduledJobFinishedEventData) getEventData(event, data);
+                if (eventData.getUserUuid() != null) {
+                    recipients.add(new NotificationRecipient(RecipientType.USER, eventData.getUserUuid()));
+                }
+            }
+        }
+
+        return recipients;
+    }
+
+    private void sendExternalNotifications(UUID notificationInstanceUUID, List<NotificationRecipient> recipients, Object notificationData, ResourceEvent
+            event, Resource resource) throws ConnectorException, ValidationException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = notificationInstanceReferenceRepository.findByUuid(notificationInstanceUUID).orElseThrow(() -> new NotFoundException(NotificationInstanceReference.class, notificationInstanceUUID));
         if (notificationInstanceReference.getConnectorUuid() == null) {
             throw new ValidationException("Notification instance does not have assigned connector");
@@ -282,7 +329,8 @@ public class NotificationListener {
         }
     }
 
-    private NotificationRecipientDto constructNotificationRecipientDto(NotificationRecipient recipient, String notificationProviderKind) {
+    private NotificationRecipientDto constructNotificationRecipientDto(NotificationRecipient recipient, String
+            notificationProviderKind) {
         NotificationRecipientDto recipientDto;
         switch (recipient.getRecipientType()) {
             case USER -> {
@@ -320,12 +368,15 @@ public class NotificationListener {
 
                 recipientDto = null;
             }
-            default -> throw new NotSupportedException("Notification recipient type Owner is not supported");
+            default ->
+                    throw new NotSupportedException("Notification recipient type %s is not supported".formatted(recipient.getRecipientType().getLabel()));
         }
         return recipientDto;
     }
 
-    private List<RequestAttributeDto> getMappedAttributes(NotificationInstanceReference notificationInstanceReference, List<DataAttribute> mappingAttributes, List<ResponseAttributeDto> recipientCustomAttributes) throws ValidationException {
+    private List<RequestAttributeDto> getMappedAttributes(NotificationInstanceReference
+                                                                  notificationInstanceReference, List<DataAttribute> mappingAttributes, List<ResponseAttributeDto> recipientCustomAttributes) throws
+            ValidationException {
         List<RequestAttributeDto> mappedAttributes = new ArrayList<>();
         HashMap<String, ResponseAttributeDto> mappedContent = new HashMap<>();
         for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
@@ -360,7 +411,8 @@ public class NotificationListener {
         return mappedAttributes;
     }
 
-    private void sendInternalNotifications(List<NotificationRecipient> recipients, InternalNotificationEventData notificationData, Resource resource, UUID objectUuid) {
+    private void sendInternalNotifications(List<NotificationRecipient> recipients, InternalNotificationEventData
+            notificationData, Resource resource, UUID objectUuid) {
         logger.debug("Sending internal notification. Message: {}. Detail: {}", notificationData.getText(), notificationData.getDetail());
         for (NotificationRecipient recipient : recipients) {
             switch (recipient.getRecipientType()) {
@@ -382,56 +434,62 @@ public class NotificationListener {
         }
     }
 
-    private InternalNotificationEventData getInternalNotificationData(NotificationMessage message) throws ValidationException {
-        Class<? extends EventData> dataClazz = message.getEvent() == null ? InternalNotificationEventData.class : message.getEvent().getEventData();
-
-        Object notificationData;
-        try {
-            notificationData = mapper.convertValue(message.getData(), dataClazz);
-        } catch (IllegalArgumentException e) {
-            throw new ValidationException("NotificationMessage for internal notification contains invalid data. Expected: " + dataClazz.getName());
-        }
-
+    private InternalNotificationEventData getInternalNotificationData(NotificationMessage message) throws
+            ValidationException {
+        EventData eventData = getEventData(message.getEvent(), message.getData());
         if (message.getEvent() == null) {
-            return (InternalNotificationEventData) notificationData;
+            return (InternalNotificationEventData) eventData;
         }
 
         return switch (message.getEvent()) {
             case CERTIFICATE_STATUS_CHANGED -> {
-                CertificateStatusChangedEventData data = (CertificateStatusChangedEventData) notificationData;
+                CertificateStatusChangedEventData data = (CertificateStatusChangedEventData) eventData;
                 yield new InternalNotificationEventData("Certificate validation status changed from %s to %s for certificate identified as '%s' with serial number '%s' issued by '%s'"
                         .formatted(data.getOldStatus(), data.getNewStatus(), data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn()), null);
             }
             case CERTIFICATE_ACTION_PERFORMED -> {
-                CertificateActionPerformedEventData data = (CertificateActionPerformedEventData) notificationData;
+                CertificateActionPerformedEventData data = (CertificateActionPerformedEventData) eventData;
                 boolean failed = data.getErrorMessage() != null;
                 yield new InternalNotificationEventData("Certificate action %s %s for certificate identified as '%s'".formatted(data.getAction(), failed ? "failed" : "successful", data.getSubjectDn()),
                         failed ? "Error message: " + data.getErrorMessage() : "Certificate serial number '%s' issued by '%s'".formatted(data.getSerialNumber(), data.getIssuerDn()));
             }
             case CERTIFICATE_DISCOVERED -> {
-                CertificateDiscoveredEventData data = (CertificateDiscoveredEventData) notificationData;
+                CertificateDiscoveredEventData data = (CertificateDiscoveredEventData) eventData;
                 yield new InternalNotificationEventData("Certificate identified as '%s' with serial number '%s' issued by '%s' discovered by '%s' discovery".formatted(data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn(), data.getDiscoveryName()),
                         "Discovery Connector: %s".formatted(data.getDiscoveryConnectorName() == null ? data.getDiscoveryConnectorUuid() : data.getDiscoveryConnectorName()));
             }
             case DISCOVERY_FINISHED -> {
-                DiscoveryFinishedEventData data = (DiscoveryFinishedEventData) notificationData;
+                DiscoveryFinishedEventData data = (DiscoveryFinishedEventData) eventData;
                 yield new InternalNotificationEventData("Discovery %s has finished with status %s and discovered %d certificates".formatted(data.getDiscoveryName(), data.getDiscoveryStatus().getLabel(), data.getTotalCertificateDiscovered()), data.getDiscoveryMessage());
             }
             case APPROVAL_REQUESTED -> {
-                ApprovalEventData data = (ApprovalEventData) notificationData;
+                ApprovalEventData data = (ApprovalEventData) eventData;
                 yield new InternalNotificationEventData("Request %s for %s from %s is waiting to be approved until %s".formatted(data.getApprovalUuid(), data.getObjectUuid(), data.getCreatorUsername(), data.getExpiryAt()),
                         getApprovalNotificationDetail(data));
             }
             case APPROVAL_CLOSED -> {
-                ApprovalEventData data = (ApprovalEventData) notificationData;
+                ApprovalEventData data = (ApprovalEventData) eventData;
                 yield new InternalNotificationEventData("Request %s for %s from %s is %s".formatted(data.getApprovalUuid(), data.getObjectUuid(), data.getCreatorUsername(), data.getStatus().getLabel()),
                         getApprovalNotificationDetail(data));
             }
             case SCHEDULED_JOB_FINISHED -> {
-                ScheduledJobFinishedEventData data = (ScheduledJobFinishedEventData) notificationData;
+                ScheduledJobFinishedEventData data = (ScheduledJobFinishedEventData) eventData;
                 yield new InternalNotificationEventData("%s scheduled task has finished for %s with result %s".formatted(data.getJobType(), data.getJobName(), data.getStatus()), null);
             }
         };
+    }
+
+    private EventData getEventData(ResourceEvent event, Object data) {
+        Class<? extends EventData> dataClazz = event == null ? InternalNotificationEventData.class : event.getEventData();
+
+        EventData eventData;
+        try {
+            eventData = mapper.convertValue(data, dataClazz);
+        } catch (IllegalArgumentException e) {
+            throw new ValidationException("NotificationMessage for internal notification contains invalid data. Expected: " + dataClazz.getName());
+        }
+
+        return eventData;
     }
 
     private String getApprovalNotificationDetail(ApprovalEventData approvalData) {

@@ -28,16 +28,19 @@ public class ScheduledJobFinishedEventHandler extends EventHandler<ScheduledJob>
     @Override
     protected Object getEventData(ScheduledJob scheduledJob, Object eventMessageData) {
         final ScheduledTaskResult result = objectMapper.convertValue(eventMessageData, ScheduledTaskResult.class);
-        return new ScheduledJobFinishedEventData(scheduledJob.getJobName(), scheduledJob.getJobType(), result.getStatus().getLabel());
+        return new ScheduledJobFinishedEventData(scheduledJob.getJobName(), scheduledJob.getJobType(), result.getStatus().getLabel(), scheduledJob.getUserUuid());
     }
 
     @Override
     protected void sendFollowUpEventsNotifications(EventContext<ScheduledJob> eventContext) {
         final ScheduledJob scheduledJob = eventContext.getResourceObjects().getFirst();
-        final Object eventData = eventContext.getResourceObjectsEventData().getFirst();
 
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.SCHEDULED_JOB, scheduledJob.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(scheduledJob.getUserUuid()), eventData);
-        notificationProducer.produceMessage(notificationMessage);
+        if (!scheduledJob.isSystem() && scheduledJob.getUserUuid() != null) {
+            final Object eventData = eventContext.getResourceObjectsEventData().getFirst();
+
+            NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.SCHEDULED_JOB, scheduledJob.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(scheduledJob.getUserUuid()), eventData);
+            notificationProducer.produceMessage(notificationMessage);
+        }
     }
 
     public static EventMessage constructEventMessage(UUID scheduledJobUuid, ScheduledTaskResult result) {
