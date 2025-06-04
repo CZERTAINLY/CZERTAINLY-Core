@@ -43,6 +43,7 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +57,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
@@ -529,11 +531,12 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 else signatureAttributes = null;
             }
 
-            UUID altKeyUuid = null;
             UUID altTokenProfileUuid = null;
             List<RequestAttributeDto> altSignatureAttributes = null;
+            if (oldCertificate.isHybridCertificate() && request.getAltKeyUuid() == null)
+                throw new ValidationException("Missing alternative key for re-keying of hybrid certificate");
             if (request.getAltKeyUuid() != null) {
-                altKeyUuid = existingKeyValidation(request.getAltKeyUuid(), request.getAltSignatureAttributes(), oldCertificate);
+                existingAltKeyValidation(request.getAltKeyUuid(), request.getAltSignatureAttributes(), oldCertificate);
                 if (request.getAltSignatureAttributes() != null) {
                     altSignatureAttributes = request.getAltSignatureAttributes();
                 } else {
@@ -549,7 +552,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
                     principal,
                     signatureAttributes,
-                    altKeyUuid,
+                    request.getAltKeyUuid(),
                     altTokenProfileUuid,
                     altSignatureAttributes
             );
@@ -558,6 +561,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateRequestDto.setRequest(requestContent);
             certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
             certificateRequestDto.setSignatureAttributes(signatureAttributes);
+            certificateRequestDto.setAltKeyUuid(request.getAltKeyUuid());
+            certificateRequestDto.setAltTokenProfileUuid(altTokenProfileUuid);
+            certificateRequestDto.setAltSignatureAttributes(altSignatureAttributes);
         }
 
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
@@ -892,6 +898,56 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                             "Invalid key information"
                     )
             );
+        }
+    }
+
+    private void existingAltKeyValidation(UUID altKeyUuid, List<RequestAttributeDto> altSignatureAttributes, Certificate certificate) {
+        // If the signature attributes are not provided in the request and not available in the old certificate, then throw error
+        final CertificateRequestEntity certificateRequestEntity = certificate.getCertificateRequest();
+        if (altSignatureAttributes == null && certificateRequestEntity == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Signature Attributes are not provided in request and old certificate"
+                    )
+            );
+        }
+        // Since altKeyUuid will not be null at this point, we only need to check if for hybrid certificate there is a different key used for rekey
+        if (certificate.isHybridCertificate()) {
+            if (altKeyUuid != null && altKeyUuid.equals(certificate.getAltKeyUuid())) {
+                throw new ValidationException(
+                        ValidationError.create(
+                                "Rekey operation not permitted. Cannot use same alternative key to rekey certificate"
+                        )
+                );
+            } else if (certificate.getAltKeyUuid() == null) {
+                compareAltKeysBasedOnContent(altKeyUuid, certificate);
+            }
+        }
+    }
+
+    private void compareAltKeysBasedOnContent(UUID altKeyUuid, Certificate certificate) {
+        try {
+            X509Certificate x509Certificate = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+            byte[] altKeyEncoded = x509Certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            if (altKeyEncoded != null) {
+                PublicKey publicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
+                String fingerprint = CertificateUtil.getThumbprint(publicKey.getEncoded());
+                UUID keyWithSameFingerprintUuid = keyService.findKeyByFingerprint(fingerprint);
+                if (altKeyUuid.equals(keyWithSameFingerprintUuid)) {
+                    throw new ValidationException(ValidationError.create(
+                            "Rekey operation not permitted. Cannot use same alternative key to rekey certificate"
+                    ));
+                }
+
+            }
+        } catch (CertificateException e) {
+            throw new ValidationException(ValidationError.create(
+                    "Cannot parse certificate to check key for re-key"
+            ));
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            throw new ValidationException(ValidationError.create(
+                    "Cannot parse alternative key extension to check key for re-key"
+            ));
         }
     }
 

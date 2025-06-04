@@ -26,23 +26,20 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.service.cmp.CmpEntityUtil;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
+import com.czertainly.core.util.CertificateUtil;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import jakarta.transaction.Transactional;
+import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.*;
-import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -330,32 +327,62 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void testRekeyCertificate() throws NotFoundException, IOException, NoSuchAlgorithmException, InvalidKeySpecException, AttributeException, InvalidAlgorithmParameterException, CertificateException, SignatureException, InvalidKeyException, OperatorCreationException {
-        CertificateContent content = new CertificateContent();
-        content.setContent(Base64.getEncoder().encodeToString(CertificateTestUtil.createHybridCertificate().getEncoded()));
-        certificateContentRepository.save(content);
-        certificate.setCertificateContent(content);
-        certificateRepository.save(certificate);
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson("true")));
+
+        CryptographicKey key = createCryptographicKey(null);
+        CryptographicKey altKey = createCryptographicKey(null);
+        CertificateContent content = new CertificateContent();
+        X509Certificate x509Certificate = CertificateTestUtil.createHybridCertificate();
+        content.setContent(Base64.getEncoder().encodeToString(x509Certificate.getEncoded()));
+        certificateContentRepository.save(content);
+        certificate.setCertificateContent(content);
+        certificate.setHybridCertificate(true);
+        certificate.setAltKeyUuid(createCryptographicKey(null).getUuid());
+        certificateRepository.save(certificate);
+
         ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
         request.setFormat(CertificateRequestFormat.PKCS10);
-        CryptographicKey key = createCryptographicKey();
-        CryptographicKey altKey = createCryptographicKey();
         request.setKeyUuid(key.getUuid());
         request.setTokenProfileUuid(key.getTokenProfileUuid());
         request.setSignatureAttributes(List.of());
         request.setAltKeyUuid(altKey.getUuid());
         request.setAltTokenProfileUuid(altKey.getTokenProfileUuid());
         request.setAltSignatureAttributes(List.of());
-        Mockito.when(cryptographicOperationService.generateCsr(eq(key.getUuid()), eq(key.getTokenProfileUuid()), any(), anyList(), eq(altKey.getUuid()), eq(altKey.getTokenProfileUuid()), anyList())).thenReturn("MIIBUjCBvAIBADATMREwDwYDVQQDDAhuZXdfY2VydDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA52WsWllsOi/XtK8VcKHN63Mhk6awMboP9iuwgtPXzkFLV/wILHH+YPAJcS8dP037SZQlAng9dF+IoLHn7WFYmQqqgkObWoH1+5LxHjkPRRNPJLKPtxfM/V+IafsddK7a5TiVD+PiKjoWQaGHVEieozV1fK2BfqVbenKbYMupGVkCAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4GBALtgmv31dFCSO+KnXWeaGEVr2H8g6O0D/RS8xoTRF4yHIgU84EXL5ZWUxhLF6mAXP1de0IfeEf95gGrU9FQ7tdUnwfsBZCIhHOQ/PdzVhRRhaVaPK8N+/g1GyXM/mC074u8y+VoyhHTqAlnbGwzyJkLnVwJ0/jLiRaTdvn7zFDWr");
-        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), String.valueOf(certificate.getUuid()), request));
+        Mockito.when(cryptographicOperationService.generateCsr(eq(key.getUuid()), eq(key.getTokenProfileUuid()), any(), anyList(), any(), eq(altKey.getTokenProfileUuid()), anyList())).thenReturn("MIIBUjCBvAIBADATMREwDwYDVQQDDAhuZXdfY2VydDCBnzANBgkqhkiG9w0BAQEFAAOBjQAwgYkCgYEA52WsWllsOi/XtK8VcKHN63Mhk6awMboP9iuwgtPXzkFLV/wILHH+YPAJcS8dP037SZQlAng9dF+IoLHn7WFYmQqqgkObWoH1+5LxHjkPRRNPJLKPtxfM/V+IafsddK7a5TiVD+PiKjoWQaGHVEieozV1fK2BfqVbenKbYMupGVkCAwEAAaAAMA0GCSqGSIb3DQEBBAUAA4GBALtgmv31dFCSO+KnXWeaGEVr2H8g6O0D/RS8xoTRF4yHIgU84EXL5ZWUxhLF6mAXP1de0IfeEf95gGrU9FQ7tdUnwfsBZCIhHOQ/PdzVhRRhaVaPK8N+/g1GyXM/mC074u8y+VoyhHTqAlnbGwzyJkLnVwJ0/jLiRaTdvn7zFDWr");
+        SecuredParentUUID authorityUuid = authorityInstanceReference.getSecuredParentUuid();
+        SecuredUUID raProfileUuid = raProfile.getSecuredUuid();
+        String certificateUuid = String.valueOf(certificate.getUuid());
+        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+
+        certificate.setAltKeyUuid(null);
+        certificateRepository.save(certificate);
+        Assertions.assertDoesNotThrow(() ->  clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+
+        certificate.setAltKeyUuid(altKey.getUuid());
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(ValidationException.class, () ->  clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+
+        certificate.setAltKeyUuid(null);
+        certificateRepository.save(certificate);
+        String fingerprint = CertificateUtil.getThumbprint(CertificateUtil.getAltPublicKey(x509Certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())).getEncoded());
+        request.setAltKeyUuid(createCryptographicKey(fingerprint).getUuid());
+        Assertions.assertThrows(ValidationException.class, () ->  clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+
+        request.setAltKeyUuid(null);
+        Assertions.assertThrows(ValidationException.class, () ->  clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+
+        certificate.setHybridCertificate(false);
+        request.setAltKeyUuid(altKey.getUuid());
+        certificateRepository.save(certificate);
+        Assertions.assertDoesNotThrow(() ->  clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
     }
 
-    private CryptographicKey createCryptographicKey() {
+    private CryptographicKey createCryptographicKey(String fingerprint) {
         CryptographicKey cryptographicKey = new CryptographicKey();
         TokenProfile tokenProfile = new TokenProfile();
         tokenProfileRepository.save(tokenProfile);
@@ -372,6 +399,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         CryptographicKeyItem publicKey = new CryptographicKeyItem();
         publicKey.setKey(cryptographicKey);
         publicKey.setType(KeyType.PUBLIC_KEY);
+        publicKey.setFingerprint(fingerprint);
         publicKey.setEnabled(true);
         publicKey.setState(KeyState.ACTIVE);
         publicKey.setKeyAlgorithm(KeyAlgorithm.RSA);
