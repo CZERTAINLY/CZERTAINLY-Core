@@ -41,11 +41,11 @@ public class EventListener {
             authHelper.authenticateAsUser(eventMessage.getUserUuid());
         }
 
-        IEventHandler eventHandler = eventHandlers.get(eventMessage.getResourceEvent().getCode());
+        IEventHandler eventHandler = eventHandlers.get(eventMessage.getEvent().getCode());
         try {
             eventHandler.handleEvent(eventMessage);
         } catch (EventException e) {
-            logger.error("Error in handling event {}: {}. Message: {}", eventMessage.getResourceEvent().getLabel(), e.getMessage(), eventMessage);
+            logger.error("Error in handling event {}: {}. Message: {}", eventMessage.getEvent().getLabel(), e.getMessage(), eventMessage);
         }
     }
 
