@@ -23,8 +23,6 @@ public class EventContext<T extends UniquelyIdentifiedObject> {
     private final TriggerEvaluator<T> triggerEvaluator;
     private final List<T> resourceObjects = new ArrayList<>();
     private final List<Object> resourceObjectsEventData = new ArrayList<>();
-    //    private final List<TriggerAssociation> triggers = new ArrayList<>();
-//    private final List<TriggerAssociation> ignoreTriggers = new ArrayList<>();
     private final EventContextTriggers platformTriggers;
     private final Map<String, EventContextTriggers> overridingResourceTriggers = new HashMap<>();
 
