@@ -534,7 +534,7 @@ public class CertificateUtil {
         return keyAlgorithm.name();
     }
 
-    @Deprecated()
+    @Deprecated(forRemoval = true)
     public static String getAlgorithmFromProviderName(String providerName) {
         // Used only in a past migration
         return null;
