@@ -1,6 +1,5 @@
 package com.czertainly.core.events.handlers;
 
-import com.czertainly.api.model.client.approval.ApprovalDto;
 import com.czertainly.api.model.common.events.data.ApprovalEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
@@ -11,6 +10,7 @@ import com.czertainly.core.dao.entity.ApprovalProfile;
 import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.events.EventContext;
+import com.czertainly.core.events.EventContextTriggers;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
@@ -22,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.UUID;
 
 @Transactional
@@ -52,7 +53,7 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
         Approval approval = eventContext.getResourceObjects().getFirst();
         ApprovalEventData eventData = (ApprovalEventData) eventContext.getResourceObjectsEventData().getFirst();
 
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.APPROVAL, approval.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()), eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.APPROVAL, approval.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(approval.getCreatorUuid()), eventData);
         notificationProducer.produceMessage(notificationMessage);
 
         // produce only for certificates for now until refactoring and uniting of event history for all resources

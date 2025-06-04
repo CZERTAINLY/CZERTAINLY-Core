@@ -1,6 +1,5 @@
 package com.czertainly.core.events.handlers;
 
-import com.czertainly.api.model.common.events.data.CertificateStatusChangedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
 import com.czertainly.api.model.core.certificate.CertificateEventStatus;
@@ -11,7 +10,6 @@ import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.evaluator.CertificateTriggerEvaluator;
 import com.czertainly.core.events.EventContext;
-import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.EventMessage;
@@ -26,7 +24,7 @@ import java.util.UUID;
 
 @Transactional
 @Component(ResourceEvent.Codes.CERTIFICATE_STATUS_CHANGED)
-public class CertificateStatusChangedEventHandler extends EventHandler<Certificate> {
+public class CertificateStatusChangedEventHandler extends CertificateEventsHandler {
 
     protected CertificateStatusChangedEventHandler(CertificateRepository repository, CertificateTriggerEvaluator ruleEvaluator) {
         super(repository, ruleEvaluator);
@@ -46,7 +44,7 @@ public class CertificateStatusChangedEventHandler extends EventHandler<Certifica
         CertificateValidationStatus[] statusArrayData = objectMapper.convertValue(eventContext.getData(), new TypeReference<>() {});
 
         List<NotificationRecipient> recipients = NotificationRecipient.buildUsersAndGroupsNotificationRecipients(certificate.getOwner() == null ? null : List.of(certificate.getOwner().getUuid()), certificate.getGroups() == null ? null : certificate.getGroups().stream().map(UniquelyIdentifiedAndAudited::getUuid).toList());
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.CERTIFICATE, certificate.getUuid(), null, recipients, eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.CERTIFICATE, certificate.getUuid(), null, recipients, eventData);
         notificationProducer.produceMessage(notificationMessage);
 
         // handle certificate event history record
