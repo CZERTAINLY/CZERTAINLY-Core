@@ -17,6 +17,7 @@ import com.czertainly.core.dao.repository.DiscoveryCertificateRepository;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.CertificateTriggerEvaluator;
 import com.czertainly.core.events.EventContext;
+import com.czertainly.core.events.EventContextTriggers;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.transaction.TransactionHandler;
@@ -101,9 +102,8 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Override
-    protected EventContext<Certificate> prepareContext(EventMessage eventMessage) {
+    protected EventContext<Certificate> prepareContext(EventMessage eventMessage) throws EventException {
         EventContext<Certificate> context = new EventContext<>(eventMessage, triggerEvaluator, null, null);
-        loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
         loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
@@ -124,19 +124,31 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Override
+    protected List<EventContextTriggers> getOverridingTriggers(EventContext<Certificate> eventContext, Certificate object) throws EventException {
+        // not used, handle event is overridden in this event handler
+        return List.of();
+    }
+
+    @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void handleEvent(EventMessage eventMessage) throws EventException {
         if (eventMessage.getOverrideResource() == null || eventMessage.getOverrideObjectUuid() == null) {
-            throw new EventException(eventMessage.getResourceEvent(), "Event currently supported only through discovery as overriding resource");
+            throw new EventException(eventMessage.getEvent(), "Event currently supported only through discovery as overriding resource");
         }
 
+        // merge platform and discovery triggers to process them together, first discovery one and then platform
         EventContext<Certificate> context = prepareContext(eventMessage);
+        EventContextTriggers discoveryTriggers = loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
+        List<TriggerAssociation> mergedTriggers = new ArrayList<>(discoveryTriggers.getTriggers());
+        List<TriggerAssociation> mergedIgnoreTriggers = new ArrayList<>(discoveryTriggers.getIgnoreTriggers());
+        mergedTriggers.addAll(context.getPlatformTriggers().getTriggers());
+        mergedIgnoreTriggers.addAll(context.getPlatformTriggers().getIgnoreTriggers());
 
         // Get newly discovered certificates
-        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
+        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getOverrideObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getOverrideObjectUuid())));
         String originalMessage = discovery.getStatus() != DiscoveryStatus.IN_PROGRESS ? discovery.getMessage() : null;
         List<DiscoveryCertificate> discoveredCertificates = discoveryCertificateRepository.findByDiscoveryUuidAndNewlyDiscovered(eventMessage.getOverrideObjectUuid(), true, Pageable.unpaged());
-        logger.debug("Going to process {} triggers on {} discovered certificates", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size());
+        logger.debug("Going to process {} triggers on {} discovered certificates", mergedIgnoreTriggers.size() + mergedTriggers.size(), context.getResourceObjects().size());
 
         if (discoveredCertificates.isEmpty()) {
             eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getUserUuid(), context.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage)));
@@ -156,7 +168,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                 try {
                                     certIndex = index.incrementAndGet();
                                     processCertSemaphore.acquire();
-                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates));
+                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, mergedIgnoreTriggers, mergedTriggers, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates));
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
                                     logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
@@ -191,7 +203,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
     }
 
-    private void processDiscoveredCertificate(EventContext<Certificate> eventContext, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
+    private void processDiscoveredCertificate(EventContext<Certificate> eventContext, List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
         // Get X509 from discovered certificate and create certificate entity, do not save in database yet
         Certificate certificate;
         X509Certificate x509Cert;
@@ -210,7 +222,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             List<TriggerHistory> triggerHistories = new ArrayList<>();
 
             boolean isIgnored = false;
-            for (TriggerAssociation triggerAssociation : eventContext.getIgnoreTriggers()) {
+            for (TriggerAssociation triggerAssociation : mergedIgnoreTriggers) {
                 Trigger trigger = triggerAssociation.getTrigger();
                 TriggerHistory triggerHistory = eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), certificate, discoveryCertificate.getUuid(), null);
                 triggerHistories.add(triggerHistory);
@@ -237,7 +249,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 eventData.setDiscoveryConnectorUuid(discovery.getConnectorUuid());
                 eventData.setDiscoveryConnectorName(discovery.getConnectorName());
 
-                for (TriggerAssociation triggerAssociation : eventContext.getTriggers()) {
+                for (TriggerAssociation triggerAssociation : mergedTriggers) {
                     // Create trigger history entry
                     Trigger trigger = triggerAssociation.getTrigger();
                     eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), certificate, discoveryCertificate.getUuid(), eventData);
@@ -254,7 +266,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         discoveryCertificateRepository.save(discoveryCertificate);
 
         // report progress
-        if (certIndex % 2 == 0) {
+        if (certIndex % MAXIMUM_PARALLELISM == 0) {
             long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
             discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
             discoveryRepository.save(discovery);

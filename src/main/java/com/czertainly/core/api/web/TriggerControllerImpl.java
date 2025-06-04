@@ -6,6 +6,7 @@ import com.czertainly.api.interfaces.core.web.TriggerController;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
@@ -17,6 +18,8 @@ import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @RestController
 public class TriggerControllerImpl implements TriggerController {
@@ -77,7 +80,12 @@ public class TriggerControllerImpl implements TriggerController {
 
     @Override
     @AuditLogged(module = Module.WORKFLOWS, resource = Resource.TRIGGER, operation = Operation.ASSOCIATE)
-    public void associateTriggers(TriggerEventAssociationRequestDto request) throws NotFoundException {
+    public void associateEventTriggers(TriggerEventAssociationRequestDto request) throws NotFoundException {
         triggerService.createTriggerAssociations(request.getEvent(), request.getResource(), request.getObjectUuid(), request.getTriggerUuids(), true);
+    }
+
+    @Override
+    public Map<ResourceEvent, List<UUID>> getEventTriggersAssociations(Resource resource, UUID associationObjectUuid) {
+        return triggerService.getTriggersAssociations(resource, associationObjectUuid);
     }
 }

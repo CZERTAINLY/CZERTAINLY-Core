@@ -72,7 +72,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     }
 
     protected EventContext<T> prepareContext(EventMessage eventMessage) throws EventException {
-        T resourceObject = repository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "%s with UUID %s not found".formatted(eventMessage.getResource().getLabel(), eventMessage.getObjectUuid())));
+        T resourceObject = repository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getEvent(), "%s with UUID %s not found".formatted(eventMessage.getResource().getLabel(), eventMessage.getObjectUuid())));
 
         EventContext<T> context = new EventContext<>(eventMessage, triggerEvaluator, resourceObject, getEventData(resourceObject, eventMessage.getData()));
         loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
@@ -82,61 +82,90 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
 
     protected abstract Object getEventData(T object, Object eventMessageData);
 
+    protected abstract List<EventContextTriggers> getOverridingTriggers(EventContext<T> eventContext, T object) throws EventException;
+
     public void handleEvent(EventMessage eventMessage) throws EventException {
-        logger.debug("Going to handle event '{}'", eventMessage.getResourceEvent().getLabel());
+        logger.debug("Going to handle event '{}'", eventMessage.getEvent().getLabel());
 
         EventContext<T> eventContext = prepareContext(eventMessage);
         processAllTriggers(eventContext);
         sendFollowUpEventsNotifications(eventContext);
-        logger.debug("Event '{}' successfully handled", eventMessage.getResourceEvent().getLabel());
+
+        logger.debug("Event '{}' successfully handled", eventMessage.getEvent().getLabel());
     }
 
     protected void sendFollowUpEventsNotifications(EventContext<T> eventContext) {
         // No follow-up events or internal notifications are sent by default
     }
 
-    protected void loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) {
-        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(context.getResourceEvent(), resource, objectUuid);
+    protected EventContextTriggers loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) throws EventException {
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(context.getEvent(), resource, objectUuid);
+
+        EventContextTriggers eventContextTriggers;
+        if (resource == null && objectUuid == null) {
+            eventContextTriggers = context.getPlatformTriggers();
+        } else {
+            if (resource == null || objectUuid == null) {
+                throw new EventException(context.getEvent(), "Error in loading triggers. Resource or object UUID is null");
+            }
+            String triggersKey = "%s.%s".formatted(resource.toString(), objectUuid.toString());
+            eventContextTriggers = context.getOverridingResourceTriggers().computeIfAbsent(triggersKey, key -> new EventContextTriggers(resource, objectUuid));
+        }
+
         for (TriggerAssociation triggerAssociation : triggerAssociations) {
             if (triggerAssociation.getTrigger().isIgnoreTrigger()) {
-                context.getIgnoreTriggers().add(triggerAssociation);
+                eventContextTriggers.getIgnoreTriggers().add(triggerAssociation);
             } else {
-                context.getTriggers().add(triggerAssociation);
+                eventContextTriggers.getTriggers().add(triggerAssociation);
             }
         }
+
+        return eventContextTriggers;
     }
 
-    protected void processAllTriggers(EventContext<T> context) {
-        logger.debug("Going to process {} triggers on {} objects registered for event '{}'", context.getIgnoreTriggers().size() + context.getTriggers().size(), context.getResourceObjects().size(), context.getResourceEvent().getLabel());
+    protected void processAllTriggers(EventContext<T> context) throws EventException {
         for (int i = 0; i < context.getResourceObjects().size(); i++) {
             T resourceObject = context.getResourceObjects().get(i);
             Object eventData = context.getResourceObjectsEventData().get(i);
-            try {
-                // First, check the ignore triggers
-                boolean isIgnored = false;
-                for (TriggerAssociation triggerAssociation : context.getIgnoreTriggers()) {
-                    Trigger trigger = triggerAssociation.getTrigger();
-                    TriggerHistory triggerHistory = context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
-                    if (triggerHistory.isActionsPerformed()) {
-                        isIgnored = true;
-                    }
-                }
 
-                // If some trigger ignored this object, processing is stopped
-                if (isIgnored) {
-                    continue;
-                }
-
-                // Evaluate rest of the triggers in given order
-                for (TriggerAssociation triggerAssociation : context.getTriggers()) {
-                    // Create trigger history entry
-                    Trigger trigger = triggerAssociation.getTrigger();
-                    context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
-                }
-            } catch (RuleException e) {
-                logger.error("Unable to process trigger on {} object {}. Message: {}", context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
+            // load overriding triggers
+            List<EventContextTriggers> overridingTriggers = getOverridingTriggers(context, resourceObject);
+            for (EventContextTriggers triggers : overridingTriggers) {
+                processTriggers(context, triggers, resourceObject, eventData);
             }
+
+            // at the end process platform triggers
+            processTriggers(context, context.getPlatformTriggers(), resourceObject, eventData);
         }
-        logger.debug("Triggers of event '{}' successfully handled", context.getResourceEvent().getLabel());
+        logger.debug("Triggers of event '{}' successfully handled", context.getEvent().getLabel());
+    }
+
+    protected void processTriggers(EventContext<T> context, EventContextTriggers eventTriggers, T resourceObject, Object eventData) {
+        logger.debug("Going to process {} triggers from {} {} on {} object(s) registered for event '{}'", eventTriggers.getIgnoreTriggers().size() + eventTriggers.getTriggers().size(), eventTriggers.getResource() == null ? Resource.SETTINGS.getLabel() : eventTriggers.getResource().getLabel(), eventTriggers.getObjectUuid(), context.getResourceObjects().size(), context.getEvent().getLabel());
+        try {
+            // First, check the ignore triggers
+            boolean isIgnored = false;
+            for (TriggerAssociation triggerAssociation : eventTriggers.getIgnoreTriggers()) {
+                Trigger trigger = triggerAssociation.getTrigger();
+                TriggerHistory triggerHistory = context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
+                if (triggerHistory.isActionsPerformed()) {
+                    isIgnored = true;
+                }
+            }
+
+            // If some trigger ignored this object, processing is stopped
+            if (isIgnored) {
+                return;
+            }
+
+            // Evaluate rest of the triggers in given order
+            for (TriggerAssociation triggerAssociation : eventTriggers.getTriggers()) {
+                // Create trigger history entry
+                Trigger trigger = triggerAssociation.getTrigger();
+                context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
+            }
+        } catch (RuleException e) {
+            logger.error("Unable to process trigger on {} object {}. Message: {}", context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
+        }
     }
 }

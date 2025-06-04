@@ -12,6 +12,7 @@ import com.czertainly.core.dao.entity.ApprovalStep;
 import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.events.EventContext;
+import com.czertainly.core.events.EventContextTriggers;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
@@ -52,12 +53,17 @@ public class ApprovalRequestedEventHandler extends EventHandler<Approval> {
     }
 
     @Override
+    protected List<EventContextTriggers> getOverridingTriggers(EventContext<Approval> eventContext, Approval object) {
+        return List.of();
+    }
+
+    @Override
     protected void sendFollowUpEventsNotifications(EventContext<Approval> eventContext) {
         Approval approval = eventContext.getResourceObjects().getFirst();
         ApprovalEventData eventData = (ApprovalEventData) eventContext.getResourceObjectsEventData().getFirst();
 
         List<NotificationRecipient> recipients = List.of(new NotificationRecipient(eventData.getRecipientType(), eventData.getRecipientUuid()));
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.APPROVAL, approval.getUuid(), null, recipients, eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.APPROVAL, approval.getUuid(), null, recipients, eventData);
         notificationProducer.produceMessage(notificationMessage);
 
         // produce only for certificates for now until refactoring and uniting of event history for all resources
