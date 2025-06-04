@@ -35,11 +35,6 @@ public class ScheduledJobFinishedEventHandler extends EventHandler<ScheduledJob>
     }
 
     @Override
-    protected List<EventContextTriggers> getOverridingTriggers(EventContext<ScheduledJob> eventContext, ScheduledJob object) throws EventException {
-        return List.of();
-    }
-
-    @Override
     protected void sendFollowUpEventsNotifications(EventContext<ScheduledJob> eventContext) {
         final ScheduledJob scheduledJob = eventContext.getResourceObjects().getFirst();
 

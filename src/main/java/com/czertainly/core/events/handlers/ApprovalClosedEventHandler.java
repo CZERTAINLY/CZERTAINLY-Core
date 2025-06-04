@@ -49,11 +49,6 @@ public class ApprovalClosedEventHandler extends EventHandler<Approval> {
     }
 
     @Override
-    protected List<EventContextTriggers> getOverridingTriggers(EventContext<Approval> eventContext, Approval object) {
-        return List.of();
-    }
-
-    @Override
     protected void sendFollowUpEventsNotifications(EventContext<Approval> eventContext) {
         Approval approval = eventContext.getResourceObjects().getFirst();
         ApprovalEventData eventData = (ApprovalEventData) eventContext.getResourceObjectsEventData().getFirst();

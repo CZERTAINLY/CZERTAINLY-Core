@@ -75,14 +75,16 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         T resourceObject = repository.findByUuid(SecuredUUID.fromUUID(eventMessage.getObjectUuid())).orElseThrow(() -> new EventException(eventMessage.getEvent(), "%s with UUID %s not found".formatted(eventMessage.getResource().getLabel(), eventMessage.getObjectUuid())));
 
         EventContext<T> context = new EventContext<>(eventMessage, triggerEvaluator, resourceObject, getEventData(resourceObject, eventMessage.getData()));
-        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
+        fetchEventTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
     }
 
     protected abstract Object getEventData(T object, Object eventMessageData);
 
-    protected abstract List<EventContextTriggers> getOverridingTriggers(EventContext<T> eventContext, T object) throws EventException;
+    protected List<EventContextTriggers> getOverridingTriggers(EventContext<T> eventContext, T object) throws EventException {
+        return List.of();
+    }
 
     public void handleEvent(EventMessage eventMessage) throws EventException {
         logger.debug("Going to handle event '{}'", eventMessage.getEvent().getLabel());
@@ -98,7 +100,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         // No follow-up events or internal notifications are sent by default
     }
 
-    protected EventContextTriggers loadTriggers(EventContext<T> context, Resource resource, UUID objectUuid) throws EventException {
+    protected EventContextTriggers fetchEventTriggers(EventContext<T> context, Resource resource, UUID objectUuid) throws EventException {
         List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findAllByEventAndResourceAndObjectUuidOrderByTriggerOrderAsc(context.getEvent(), resource, objectUuid);
 
         EventContextTriggers eventContextTriggers;
@@ -106,7 +108,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
             eventContextTriggers = context.getPlatformTriggers();
         } else {
             if (resource == null || objectUuid == null) {
-                throw new EventException(context.getEvent(), "Error in loading triggers. Resource or object UUID is null");
+                throw new EventException(context.getEvent(), "Error in fetching triggers for event '%s'. %s is null".formatted(context.getEvent().getLabel(), resource == null ? "Resource" : "Object UUID"));
             }
             String triggersKey = "%s.%s".formatted(resource.toString(), objectUuid.toString());
             eventContextTriggers = context.getOverridingResourceTriggers().computeIfAbsent(triggersKey, key -> new EventContextTriggers(resource, objectUuid));

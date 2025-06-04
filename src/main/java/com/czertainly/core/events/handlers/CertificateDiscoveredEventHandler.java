@@ -104,7 +104,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     @Override
     protected EventContext<Certificate> prepareContext(EventMessage eventMessage) throws EventException {
         EventContext<Certificate> context = new EventContext<>(eventMessage, triggerEvaluator, null, null);
-        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
+        fetchEventTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
     }
@@ -124,12 +124,6 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
     }
 
     @Override
-    protected List<EventContextTriggers> getOverridingTriggers(EventContext<Certificate> eventContext, Certificate object) throws EventException {
-        // not used, handle event is overridden in this event handler
-        return List.of();
-    }
-
-    @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void handleEvent(EventMessage eventMessage) throws EventException {
         if (eventMessage.getOverrideResource() == null || eventMessage.getOverrideObjectUuid() == null) {
@@ -138,7 +132,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         // merge platform and discovery triggers to process them together, first discovery one and then platform
         EventContext<Certificate> context = prepareContext(eventMessage);
-        EventContextTriggers discoveryTriggers = loadTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
+        EventContextTriggers discoveryTriggers = fetchEventTriggers(context, eventMessage.getOverrideResource(), eventMessage.getOverrideObjectUuid());
         List<TriggerAssociation> mergedTriggers = new ArrayList<>(discoveryTriggers.getTriggers());
         List<TriggerAssociation> mergedIgnoreTriggers = new ArrayList<>(discoveryTriggers.getIgnoreTriggers());
         mergedTriggers.addAll(context.getPlatformTriggers().getTriggers());

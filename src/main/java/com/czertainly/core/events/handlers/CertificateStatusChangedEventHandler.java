@@ -48,11 +48,11 @@ public class CertificateStatusChangedEventHandler extends EventHandler<Certifica
 
         if (object.getGroups() != null && !object.getGroups().isEmpty()) {
             for (Group group : object.getGroups()) {
-                eventContextTriggers.add(loadTriggers(eventContext, Resource.GROUP, group.getUuid()));
+                eventContextTriggers.add(fetchEventTriggers(eventContext, Resource.GROUP, group.getUuid()));
             }
         }
         if (object.getRaProfileUuid() != null) {
-            eventContextTriggers.add(loadTriggers(eventContext, Resource.RA_PROFILE, object.getRaProfileUuid()));
+            eventContextTriggers.add(fetchEventTriggers(eventContext, Resource.RA_PROFILE, object.getRaProfileUuid()));
         }
 
         return eventContextTriggers;

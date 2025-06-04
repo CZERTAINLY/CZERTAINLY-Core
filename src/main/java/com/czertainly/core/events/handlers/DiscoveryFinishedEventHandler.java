@@ -52,7 +52,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
         }
 
         EventContext<DiscoveryHistory> context = new EventContext<>(eventMessage, triggerEvaluator, discovery, getEventData(discovery, eventMessage.getData()));
-        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
+        fetchEventTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
     }
@@ -60,11 +60,6 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     @Override
     protected Object getEventData(DiscoveryHistory discovery, Object eventMessageData) {
         return EventDataBuilder.getDiscoveryFinishedEventData(discovery);
-    }
-
-    @Override
-    protected List<EventContextTriggers> getOverridingTriggers(EventContext<DiscoveryHistory> eventContext, DiscoveryHistory object) throws EventException {
-        return List.of();
     }
 
     @Override
