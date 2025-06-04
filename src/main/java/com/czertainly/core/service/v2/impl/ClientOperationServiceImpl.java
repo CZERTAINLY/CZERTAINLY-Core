@@ -517,53 +517,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateRequestDto.setRequest(request.getRequest());
             certificateRequestDto.setFormat(request.getFormat());
         } else {
-            // TODO: implement support for CRMF, currently only PKCS10 is supported
-            UUID keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
-            X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
-            X500Principal principal = x509Certificate.getSubjectX500Principal();
-            // Gather the signature attributes either provided in the request or get it from the old certificate
-            List<RequestAttributeDto> signatureAttributes;
-            if (request.getSignatureAttributes() != null) {
-                signatureAttributes = request.getSignatureAttributes();
-            } else {
-                if (oldCertificate.getCertificateRequest() != null)
-                    signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
-                else signatureAttributes = null;
-            }
-
-            UUID altTokenProfileUuid = null;
-            List<RequestAttributeDto> altSignatureAttributes = null;
-            if (oldCertificate.isHybridCertificate() && request.getAltKeyUuid() == null)
-                throw new ValidationException("Missing alternative key for re-keying of hybrid certificate");
-            if (request.getAltKeyUuid() != null) {
-                existingAltKeyValidation(request.getAltKeyUuid(), request.getAltSignatureAttributes(), oldCertificate);
-                if (request.getAltSignatureAttributes() != null) {
-                    altSignatureAttributes = request.getAltSignatureAttributes();
-                } else {
-                    if (oldCertificate.getCertificateRequest() != null)
-                        altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
-                }
-                altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
-
-            }
-
-            String requestContent = generateBase64EncodedCsr(
-                    keyUuid,
-                    getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
-                    principal,
-                    signatureAttributes,
-                    request.getAltKeyUuid(),
-                    altTokenProfileUuid,
-                    altSignatureAttributes
-            );
-
-            certificateRequestDto.setKeyUuid(keyUuid);
-            certificateRequestDto.setRequest(requestContent);
-            certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
-            certificateRequestDto.setSignatureAttributes(signatureAttributes);
-            certificateRequestDto.setAltKeyUuid(request.getAltKeyUuid());
-            certificateRequestDto.setAltTokenProfileUuid(altTokenProfileUuid);
-            certificateRequestDto.setAltSignatureAttributes(altSignatureAttributes);
+            createRequestFromKeys(request, oldCertificate, certificateRequestDto);
         }
 
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
@@ -595,6 +549,56 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         response.setCertificateData("");
         response.setUuid(newCertificate.getUuid());
         return response;
+    }
+
+    private void createRequestFromKeys(ClientCertificateRekeyRequestDto request, Certificate oldCertificate, ClientCertificateRequestDto certificateRequestDto) throws CertificateException, NotFoundException {
+        // TODO: implement support for CRMF, currently only PKCS10 is supported
+        UUID keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
+        X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
+        X500Principal principal = x509Certificate.getSubjectX500Principal();
+        // Gather the signature attributes either provided in the request or get it from the old certificate
+        List<RequestAttributeDto> signatureAttributes;
+        if (request.getSignatureAttributes() != null) {
+            signatureAttributes = request.getSignatureAttributes();
+        } else {
+            if (oldCertificate.getCertificateRequest() != null)
+                signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+            else signatureAttributes = null;
+        }
+
+        UUID altTokenProfileUuid = null;
+        List<RequestAttributeDto> altSignatureAttributes = null;
+        if (oldCertificate.isHybridCertificate() && request.getAltKeyUuid() == null)
+            throw new ValidationException("Missing alternative key for re-keying of hybrid certificate");
+        if (request.getAltKeyUuid() != null) {
+            existingAltKeyValidation(request.getAltKeyUuid(), request.getAltSignatureAttributes(), oldCertificate);
+            if (request.getAltSignatureAttributes() != null) {
+                altSignatureAttributes = request.getAltSignatureAttributes();
+            } else {
+                if (oldCertificate.getCertificateRequest() != null)
+                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+            }
+            altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
+
+        }
+
+        String requestContent = generateBase64EncodedCsr(
+                keyUuid,
+                getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
+                principal,
+                signatureAttributes,
+                request.getAltKeyUuid(),
+                altTokenProfileUuid,
+                altSignatureAttributes
+        );
+
+        certificateRequestDto.setKeyUuid(keyUuid);
+        certificateRequestDto.setRequest(requestContent);
+        certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
+        certificateRequestDto.setSignatureAttributes(signatureAttributes);
+        certificateRequestDto.setAltKeyUuid(request.getAltKeyUuid());
+        certificateRequestDto.setAltTokenProfileUuid(altTokenProfileUuid);
+        certificateRequestDto.setAltSignatureAttributes(altSignatureAttributes);
     }
 
     @Override
