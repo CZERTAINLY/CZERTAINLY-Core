@@ -64,7 +64,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @JsonBackReference
     @OneToMany(mappedBy = "key", fetch = FetchType.LAZY)
     @ToString.Exclude
-    private Set<Certificate> defaultCertificates = new HashSet<>();
+    private Set<Certificate> certificates = new HashSet<>();
 
     @JsonBackReference
     @OneToMany(mappedBy = "altKey", fetch = FetchType.LAZY)
@@ -114,7 +114,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwner(owner.getOwnerUsername());
         }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() - 1) + getCertificates().size());
+        dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
         return dto;
     }
 
@@ -140,9 +140,9 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
             dto.setOwner(owner.getOwnerUsername());
         }
-        Set<Certificate> certificates = getCertificates();
+        List<KeyAssociationDto> keyAssociationDtos = new ArrayList<>();
         if (certificates != null && !certificates.isEmpty()) {
-            dto.setAssociations(certificates.stream().map(e -> {
+            keyAssociationDtos.addAll(certificates.stream().map(e -> {
                 KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
                 keyAssociationDto.setName(e.getCommonName());
                 keyAssociationDto.setUuid(e.getUuid().toString());
@@ -150,6 +150,17 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
                 return keyAssociationDto;
             }).toList());
         }
+
+        if (altCertificates != null && !altCertificates.isEmpty()) {
+            keyAssociationDtos.addAll(altCertificates.stream().map(e -> {
+                KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
+                keyAssociationDto.setName(e.getCommonName());
+                keyAssociationDto.setUuid(e.getUuid().toString());
+                keyAssociationDto.setResource(Resource.CERTIFICATE);
+                return keyAssociationDto;
+            }).toList());
+        }
+        dto.setAssociations(keyAssociationDtos);
         return dto;
     }
 
@@ -167,12 +178,5 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @Override
     public final int hashCode() {
         return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
-    }
-
-    public Set<Certificate> getCertificates() {
-        Set<Certificate> certificateSet = new HashSet<>();
-        certificateSet.addAll(defaultCertificates);
-        certificateSet.addAll(altCertificates);
-        return certificateSet;
     }
 }
