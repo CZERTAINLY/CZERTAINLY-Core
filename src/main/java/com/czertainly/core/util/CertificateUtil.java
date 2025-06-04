@@ -535,8 +535,10 @@ public class CertificateUtil {
     }
 
     @Deprecated(forRemoval = true)
+    /**
+     * @deprecated Used only in a past migration
+     */
     public static String getAlgorithmFromProviderName(String providerName) {
-        // Used only in a past migration
         return null;
     }
 
