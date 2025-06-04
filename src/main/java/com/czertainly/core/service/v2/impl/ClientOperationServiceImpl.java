@@ -1038,7 +1038,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private static void checkNotMatchingAlternativePublicKey(CertificateRequest certificateRequest, X509Certificate certificate) throws NoSuchAlgorithmException, CertificateRequestException, IOException, InvalidKeySpecException {
         byte[] altKeyEncoded = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
         PublicKey altKeyCsr = certificateRequest.getAltPublicKey();
-        if (altKeyEncoded != null && altKeyCsr != null) {
+        if (altKeyCsr == null && altKeyEncoded != null) throw new ValidationException("Certificate contains alternative key, but CSR does not.");
+        if (altKeyEncoded != null) {
             PublicKey altPublicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
             if (Arrays.equals(altPublicKey.getEncoded(), certificateRequest.getAltPublicKey().getEncoded())) {
                 throw new ValidationException("Alternative Public keys of certificate and CSR should not match");
