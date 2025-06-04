@@ -1,7 +1,6 @@
 package com.czertainly.core.events.handlers;
 
 import com.czertainly.api.exception.EventException;
-import com.czertainly.api.model.common.events.data.DiscoveryFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -10,6 +9,7 @@ import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.repository.DiscoveryRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
 import com.czertainly.core.events.EventContext;
+import com.czertainly.core.events.EventContextTriggers;
 import com.czertainly.core.events.EventHandler;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.data.EventDataBuilder;
@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
 @Transactional
@@ -38,7 +39,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
 
     @Override
     protected EventContext<DiscoveryHistory> prepareContext(EventMessage eventMessage) throws EventException {
-        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getResourceEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
+        DiscoveryHistory discovery = discoveryRepository.findByUuid(eventMessage.getObjectUuid()).orElseThrow(() -> new EventException(eventMessage.getEvent(), "Discovery with UUID %s not found".formatted(eventMessage.getObjectUuid())));
         DiscoveryResult discoveryResult = objectMapper.convertValue(eventMessage.getData(), DiscoveryResult.class);
 
         // set discovery status to completed when discovery is in preprocessing state coming from certificate discovered event
@@ -51,7 +52,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
         }
 
         EventContext<DiscoveryHistory> context = new EventContext<>(eventMessage, triggerEvaluator, discovery, getEventData(discovery, eventMessage.getData()));
-        loadTriggers(context, null, null); // triggers without resource and its UUID are platform ones
+        fetchEventTriggers(context, null, null); // triggers without resource and its UUID are platform ones
 
         return context;
     }
@@ -65,7 +66,7 @@ public class DiscoveryFinishedEventHandler extends EventHandler<DiscoveryHistory
     protected void sendFollowUpEventsNotifications(EventContext<DiscoveryHistory> eventContext) {
         DiscoveryHistory discovery = eventContext.getResourceObjects().getFirst();
         Object eventData = eventContext.getResourceObjectsEventData().getFirst();
-        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getResourceEvent(), Resource.DISCOVERY, discovery.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(eventContext.getUserUuid()), eventData);
+        NotificationMessage notificationMessage = new NotificationMessage(eventContext.getEvent(), Resource.DISCOVERY, discovery.getUuid(), null, NotificationRecipient.buildUserNotificationRecipient(eventContext.getUserUuid()), eventData);
         notificationProducer.produceMessage(notificationMessage);
 
         // if discovery was scheduled, raise application event to notify that scheduled discovery has finished

@@ -13,7 +13,7 @@ import java.util.UUID;
 @NoArgsConstructor(access = AccessLevel.PRIVATE)
 public class EventMessage {
 
-    private ResourceEvent resourceEvent;
+    private ResourceEvent event;
     private Resource resource;
     private UUID objectUuid;
     private Resource overrideResource;
@@ -22,8 +22,8 @@ public class EventMessage {
     private UUID userUuid;
     private ScheduledJobInfo scheduledJobInfo;
 
-    public EventMessage(ResourceEvent resourceEvent, Resource resource, UUID objectUuid, Object data) {
-        this.resourceEvent = resourceEvent;
+    public EventMessage(ResourceEvent event, Resource resource, UUID objectUuid, Object data) {
+        this.event = event;
         this.resource = resource;
         this.objectUuid = objectUuid;
         this.data = data;
