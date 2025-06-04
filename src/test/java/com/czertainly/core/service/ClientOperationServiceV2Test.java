@@ -387,7 +387,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testRekeyFromCsr() {
+    void testRekeyAndRenewFromCsr() {
         stubAuthorityProviderAttributesEndpoints();
         String certificateHybridContent =
                 """
@@ -824,20 +824,26 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         certificateContentRepository.save(content);
         certificate.setCertificateContent(content);
         certificateRepository.save(certificate);
-        ClientCertificateRekeyRequestDto request = new ClientCertificateRekeyRequestDto();
-        request.setFormat(CertificateRequestFormat.PKCS10);
-        request.setRequest(matchingKeysCsr);
+        ClientCertificateRekeyRequestDto rekeyRequest = new ClientCertificateRekeyRequestDto();
+        rekeyRequest.setFormat(CertificateRequestFormat.PKCS10);
+        rekeyRequest.setRequest(matchingKeysCsr);
         SecuredParentUUID authorityUuid = authorityInstanceReference.getSecuredParentUuid();
         SecuredUUID raProfileUuid = raProfile.getSecuredUuid();
         String certificateUuid = String.valueOf(certificate.getUuid());
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
 
-        request.setRequest(csrWithoutAltKey);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        rekeyRequest.setRequest(csrWithoutAltKey);
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
 
-        request.setRequest(differentKeysCsr);
-        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, request));
+        rekeyRequest.setRequest(differentKeysCsr);
+        Assertions.assertDoesNotThrow(() -> clientOperationService.rekeyCertificate(authorityUuid, raProfileUuid, certificateUuid, rekeyRequest));
 
+        ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
+        renewRequest.setRequest(matchingKeysCsr);
+        Assertions.assertDoesNotThrow(() -> clientOperationService.renewCertificate(authorityUuid, raProfileUuid, certificateUuid, renewRequest));
+
+        renewRequest.setRequest(differentKeysCsr);
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificate(authorityUuid, raProfileUuid, certificateUuid, renewRequest));
     }
 
     private CryptographicKey createCryptographicKey(String fingerprint) {
