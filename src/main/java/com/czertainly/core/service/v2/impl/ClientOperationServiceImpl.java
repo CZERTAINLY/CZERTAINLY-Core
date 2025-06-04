@@ -998,11 +998,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private void validatePublicKeyForCsrAndCertificate(String certificateContent, CertificateRequest certificateRequest, boolean shouldMatch) {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
-            if (shouldMatch && !Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
-                throw new Exception("Public key of certificate and CSR does not match");
+            if (shouldMatch) {
+                if (!Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
+                    throw new ValidationException("Public key of certificate and CSR does not match");
+                }
+                checkMatchingAlternativePublicKey(certificateRequest, certificate);
             }
-            if (!shouldMatch && Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
-                throw new Exception("Public key of certificate and CSR are same");
+            if (!shouldMatch) {
+                if (Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
+                    throw new ValidationException("Public key of certificate and CSR are same");
+                }
+                checkNotMatchingAlternativePublicKey(certificateRequest, certificate);
             }
         } catch (Exception e) {
             throw new ValidationException(
@@ -1010,6 +1016,33 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                             "Unable to validate the public key of CSR and certificate. Error: " + e.getMessage()
                     )
             );
+        }
+    }
+
+    private static void checkMatchingAlternativePublicKey(CertificateRequest certificateRequest, X509Certificate certificate) throws NoSuchAlgorithmException, CertificateRequestException, IOException, InvalidKeySpecException {
+        byte[] altKeyEncoded = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        PublicKey altKeyCsr = certificateRequest.getAltPublicKey();
+        if (altKeyEncoded == null && altKeyCsr != null) {
+            throw new ValidationException("Certificate request contains alternative key, but the certificate does not.");
+        }
+        if (altKeyEncoded != null && altKeyCsr == null) {
+            throw new ValidationException("Certificate request does not contain alternative key, but the certificate does.");
+        } else if (altKeyCsr != null) {
+            PublicKey altPublicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
+            if (!Arrays.equals(altPublicKey.getEncoded(), certificateRequest.getAltPublicKey().getEncoded())) {
+                throw new ValidationException("Alternative Public keys of certificate and CSR do not match");
+            }
+        }
+    }
+
+    private static void checkNotMatchingAlternativePublicKey(CertificateRequest certificateRequest, X509Certificate certificate) throws NoSuchAlgorithmException, CertificateRequestException, IOException, InvalidKeySpecException {
+        byte[] altKeyEncoded = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        PublicKey altKeyCsr = certificateRequest.getAltPublicKey();
+        if (altKeyEncoded != null && altKeyCsr != null) {
+            PublicKey altPublicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
+            if (Arrays.equals(altPublicKey.getEncoded(), certificateRequest.getAltPublicKey().getEncoded())) {
+                throw new ValidationException("Alternative Public keys of certificate and CSR should not match");
+            }
         }
     }
 
