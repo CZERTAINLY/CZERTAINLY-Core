@@ -14,7 +14,6 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.attribute.*;
-import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -65,7 +64,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyEventHistoryService eventHistoryService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
     private PermissionEvaluator permissionEvaluator;
-    private AttributeEngine attributeEngine;
 
     // --------------------------------------------------------------------------------
     // Repositories
@@ -74,11 +72,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     // Setters
-
-    @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
-        this.attributeEngine = attributeEngine;
-    }
 
     @Autowired
     public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
