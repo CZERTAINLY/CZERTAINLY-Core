@@ -484,6 +484,30 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertDoesNotThrow(() -> certificateService.getSearchableFieldInformationByGroup());
     }
 
+    @Test
+    void testClearKeyAssociations() {
+        CryptographicKey key = new CryptographicKey();
+        cryptographicKeyRepository.save(key);
+        certificate.setKey(key);
+        certificate.setKeyUuid(key.getUuid());
+        Certificate altCertificate = new Certificate();
+        CertificateContent altContent = new CertificateContent();
+        altContent.setContent("content");
+        certificateContentRepository.save(altContent);
+        altCertificate.setCertificateContent(altContent);
+        altCertificate.setAltKey(key);
+        altCertificate.setAltKeyUuid(key.getUuid());
+        certificateRepository.save(certificate);
+        certificateRepository.save(altCertificate);
+        certificateService.clearKeyAssociations(key.getUuid());
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        altCertificate = certificateRepository.findByUuid(altCertificate.getUuid()).get();
+        Assertions.assertNull(certificate.getKey());
+        Assertions.assertNull(certificate.getKeyUuid());
+        Assertions.assertNull(altCertificate.getAltKey());
+        Assertions.assertNull(altCertificate.getAltKeyUuid());
+    }
+
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
         CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid().toString(), format, encoding);
         Assertions.assertDoesNotThrow(() -> (certificateService.createCertificate(certificateDownloadResponseDto.getContent(), CertificateType.X509)));
