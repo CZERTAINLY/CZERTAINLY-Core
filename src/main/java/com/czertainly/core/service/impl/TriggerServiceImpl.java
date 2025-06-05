@@ -206,12 +206,16 @@ public class TriggerServiceImpl implements TriggerService {
         List<TriggerAssociation> triggers = new ArrayList<>();
         List<TriggerAssociation> ignoreTriggers = new ArrayList<>();
         for (UUID triggerUuid : triggerUuids) {
+            Trigger trigger = getTriggerEntity(triggerUuid.toString());
+            if (trigger.getResource() != event.getResource()) {
+                throw new ValidationException("Trigger '%s' is for different resource (%s) than event '%s' (%s)".formatted(trigger.getName(), trigger.getResource().getLabel(), event.getLabel(), event.getResource().getLabel()));
+            }
+
             TriggerAssociation triggerAssociation = new TriggerAssociation();
             triggerAssociation.setTriggerUuid(triggerUuid);
             triggerAssociation.setResource(resource);
             triggerAssociation.setObjectUuid(associationObjectUuid);
             triggerAssociation.setEvent(event);
-            Trigger trigger = getTriggerEntity(triggerUuid.toString());
             // If it is an ignore trigger, the order is always -1, otherwise increment the order
             if (trigger.isIgnoreTrigger()) {
                 ignoreTriggers.add(triggerAssociation);
