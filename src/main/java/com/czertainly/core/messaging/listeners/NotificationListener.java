@@ -458,6 +458,12 @@ public class NotificationListener {
                 yield new InternalNotificationEventData("Certificate identified as '%s' with serial number '%s' issued by '%s' discovered by '%s' discovery".formatted(data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn(), data.getDiscoveryName()),
                         "Discovery Connector: %s".formatted(data.getDiscoveryConnectorName() == null ? data.getDiscoveryConnectorUuid() : data.getDiscoveryConnectorName()));
             }
+
+            case CERTIFICATE_EXPIRING -> {
+                CertificateExpiringEventData data = (CertificateExpiringEventData)  eventData;
+                yield new InternalNotificationEventData("Certificate identified as '%s' with serial number '%s' issued by '%s' is expiring on %s"
+                        .formatted(data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn(), data.getExpiresAt()), null);
+            }
             case DISCOVERY_FINISHED -> {
                 DiscoveryFinishedEventData data = (DiscoveryFinishedEventData) eventData;
                 yield new InternalNotificationEventData("Discovery %s has finished with status %s and discovered %d certificates".formatted(data.getDiscoveryName(), data.getDiscoveryStatus().getLabel(), data.getTotalCertificateDiscovered()), data.getDiscoveryMessage());

@@ -24,6 +24,7 @@ public class SystemScheduledJobs {
     public Void registerJobs() throws SchedulerException {
         schedulerService.registerScheduledJob(UpdateCertificateStatusTask.class);
         schedulerService.registerScheduledJob(UpdateIntuneRevocationRequestsTask.class);
+        schedulerService.registerScheduledJob(HandleExpiringCertificatesTask.class);
         return null;
     }
 }
