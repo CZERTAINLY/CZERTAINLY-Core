@@ -198,7 +198,6 @@ class TriggerServiceTest extends BaseSpringBootTest {
     private ExecutionDto createExecution(Resource resource, ExecutionType type) throws NotFoundException, AlreadyExistException {
         ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
         if (type == ExecutionType.SET_FIELD) {
-            executionItemRequest = new ExecutionItemRequestDto();
             executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
             executionItemRequest.setFieldIdentifier("%s|%s".formatted(domainAttr.getName(), domainAttr.getContentType().name()));
             executionItemRequest.setData("CZ");
