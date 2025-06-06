@@ -109,10 +109,6 @@ public class TriggerServiceImpl implements TriggerService {
             throw new AlreadyExistException("Trigger with same name already exists.");
         }
 
-        if (request.getResource() == Resource.ANY || request.getResource() == Resource.NONE) {
-            throw new ValidationException("Resource %s is not allowed for trigger".formatted(request.getResource().getLabel()));
-        }
-
         Trigger trigger = new Trigger();
 
         trigger.setName(request.getName());
@@ -374,8 +370,13 @@ public class TriggerServiceImpl implements TriggerService {
             throw new ValidationException("Property resource cannot be empty or None/Any");
         }
 
-        if (type == TriggerType.EVENT && event == null) {
-            throw new ValidationException("When trigger type is Event, event has to be specified.");
+        if (type == TriggerType.EVENT) {
+            if (event == null) {
+                throw new ValidationException("When trigger type is Event, event has to be specified.");
+            }
+            if (event.getResource() != resource) {
+                throw new ValidationException("Event resource (%s) and trigger (%s) resource has to match.".formatted(event.getResource().getLabel(), resource.getLabel()));
+            }
         }
 
         if (!ignoreTrigger) {

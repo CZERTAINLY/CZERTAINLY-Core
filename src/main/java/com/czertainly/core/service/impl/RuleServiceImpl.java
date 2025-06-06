@@ -185,8 +185,8 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-            if (condition.getResource() != request.getResource()) {
-                throw new ValidationException("Resource of condition with UUID " + conditionUuid + " does not match rule resource.");
+            if (request.getResource() != Resource.ANY && condition.getResource() != request.getResource()) {
+                throw new ValidationException("Resource of condition '%s' does not match rule resource.".formatted(condition.getName()));
             }
             conditions.add(condition);
         }
@@ -212,7 +212,7 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-            if (condition.getResource() != rule.getResource()) {
+            if (rule.getResource() != Resource.ANY && condition.getResource() != rule.getResource()) {
                 throw new ValidationException("Resource of condition with UUID " + conditionUuid + " does not match rule resource.");
             }
             conditions.add(condition);

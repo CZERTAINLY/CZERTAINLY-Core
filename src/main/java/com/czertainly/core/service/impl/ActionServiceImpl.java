@@ -234,8 +234,8 @@ public class ActionServiceImpl implements ActionService {
 
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-            if (execution.getResource() != request.getResource()) {
-                throw new ValidationException("Resource of execution with UUID " + executionUuid + " does not match rule resource.");
+            if (request.getResource() != Resource.ANY && execution.getResource() != request.getResource()) {
+                throw new ValidationException("Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
             }
             executions.add(execution);
         }
@@ -261,8 +261,8 @@ public class ActionServiceImpl implements ActionService {
 
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-            if (execution.getResource() != action.getResource()) {
-                throw new ValidationException("Resource of execution with UUID " + executionUuid + " does not match rule resource.");
+            if (action.getResource() != Resource.ANY && execution.getResource() != action.getResource()) {
+                throw new ValidationException("Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
             }
             executions.add(execution);
         }
