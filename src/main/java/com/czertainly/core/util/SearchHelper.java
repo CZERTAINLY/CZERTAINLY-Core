@@ -23,14 +23,20 @@ public class SearchHelper {
         return prepareSearch(fieldNameEnum, null);
     }
 
-    public static SearchFieldDataDto prepareSearch(final FilterField fieldNameEnum, final Object values) {
+    public static SearchFieldDataDto prepareSearch(final FilterField fieldNameEnum, Object values) {
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
         fieldDataDto.setFieldIdentifier(fieldNameEnum.name());
         fieldDataDto.setFieldLabel(fieldNameEnum.getLabel());
         fieldDataDto.setMultiValue(fieldNameEnum.getType().isMultiValue());
         fieldDataDto.setConditions(fieldNameEnum.getType().getFieldType() == FilterFieldType.BOOLEAN && fieldNameEnum.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : fieldNameEnum.getType().getConditions());
         fieldDataDto.setType(fieldNameEnum.getType().getFieldType());
+        // Do not add null value to List filter
+        if (fieldNameEnum.getType().getFieldType() == FilterFieldType.LIST && fieldNameEnum.getEnumClass() == null) {
+            values = new ArrayList<>((List<?>) values);
+            ((List<?>) values).remove(null);
+        }
         fieldDataDto.setValue(values);
+
         if (fieldNameEnum.getEnumClass() != null) {
             fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(fieldNameEnum.getEnumClass()));
             if (values == null) {
@@ -48,7 +54,8 @@ public class SearchHelper {
         fieldDataDto.setFieldLabel(hasDupliciteInList ? String.format(SEARCH_LABEL_TEMPLATE, attributeSearchInfo.getLabel(), attributeSearchInfo.getAttributeContentType().getCode()) : attributeSearchInfo.getLabel());
         fieldDataDto.setMultiValue(attributeSearchInfo.isMultiSelect());
         List<FilterConditionOperator> conditionOperators = new ArrayList<>(searchFieldTypeEnum.getConditions());
-        if (attributeSearchInfo.getAttributeContentType() == AttributeContentType.TIME) conditionOperators.removeAll(List.of(FilterConditionOperator.IN_NEXT, FilterConditionOperator.IN_PAST));
+        if (attributeSearchInfo.getAttributeContentType() == AttributeContentType.TIME)
+            conditionOperators.removeAll(List.of(FilterConditionOperator.IN_NEXT, FilterConditionOperator.IN_PAST));
         fieldDataDto.setConditions(conditionOperators);
         fieldDataDto.setType(searchFieldTypeEnum.getFieldType());
         fieldDataDto.setValue(attributeSearchInfo.getContentItems());

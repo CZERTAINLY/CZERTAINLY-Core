@@ -191,6 +191,26 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "trusted_ca")
     private Boolean trustedCa;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alt_key_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private CryptographicKey altKey;
+
+    @Column(name = "alt_public_key_algorithm")
+    private String altPublicKeyAlgorithm;
+
+    @Column(name = "alt_key_size")
+    private Integer altKeySize;
+
+    @Column(name = "alt_key_uuid")
+    private UUID altKeyUuid;
+
+    @Column(name = "alt_signature_algorithm")
+    private String altSignatureAlgorithm;
+
+    @Column(name = "hybrid_certificate")
+    private boolean hybridCertificate = false;
+
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate", cascade = CascadeType.ALL)
     @ToString.Exclude
     private CertificateProtocolAssociation protocolAssociation;
@@ -215,14 +235,18 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         }
         dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
-        dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
-        dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
+        dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
+        dto.setSignatureAlgorithm(signatureAlgorithm);
+        if (altSignatureAlgorithm != null) dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
         dto.setKeySize(keySize);
+        dto.setAltKeySize(altKeySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
         dto.setValidationStatus(validationStatus);
         dto.setCertificateType(certificateType);
         dto.setTrustedCa(trustedCa);
+        dto.setHybridCertificate(hybridCertificate);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
@@ -262,10 +286,12 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             certificateRequestDto.setCommonName(this.certificateRequestEntity.getCommonName() != null ? this.certificateRequestEntity.getCommonName() : EMPTY_COMMON_NAME);
             certificateRequestDto.setSubjectDn(this.certificateRequestEntity.getSubjectDn());
             certificateRequestDto.setSignatureAlgorithm(this.certificateRequestEntity.getSignatureAlgorithm());
+            certificateRequestDto.setAltSignatureAlgorithm(this.certificateRequestEntity.getAltSignatureAlgorithm());
             certificateRequestDto.setPublicKeyAlgorithm(this.certificateRequestEntity.getPublicKeyAlgorithm());
             certificateRequestDto.setCertificateRequestFormat(this.certificateRequestEntity.getCertificateRequestFormat());
             certificateRequestDto.setSubjectAlternativeNames(CertificateUtil.deserializeSans(this.certificateRequestEntity.getSubjectAlternativeNames()));
             certificateRequestDto.setKeyUuid(this.certificateRequestEntity.getKeyUuid() != null ? this.certificateRequestEntity.getKeyUuid().toString() : null);
+            certificateRequestDto.setAltKeyUuid(this.certificateRequestEntity.getAltKeyUuid() != null ? this.certificateRequestEntity.getAltKeyUuid().toString() : null);
             dto.setCertificateRequest(certificateRequestDto);
         }
         if (key != null && !key.getItems().isEmpty()
@@ -274,6 +300,8 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         }
 
         if (key != null) dto.setKey(key.mapToDto());
+
+        if (altKey != null) dto.setAltKey(altKey.mapToDto());
 
         if (protocolAssociation != null) {
             CertificateProtocolDto protocolDto = new CertificateProtocolDto();
@@ -296,14 +324,18 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setSubjectDn(subjectDn);
         dto.setNotBefore(notBefore);
         dto.setNotAfter(notAfter);
-        dto.setPublicKeyAlgorithm(CertificateUtil.getAlgorithmFriendlyName(publicKeyAlgorithm));
-        dto.setSignatureAlgorithm(CertificateUtil.getAlgorithmFriendlyName(signatureAlgorithm));
+        dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        dto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
+        dto.setSignatureAlgorithm(signatureAlgorithm);
+        dto.setAltSignatureAlgorithm(altSignatureAlgorithm);
         dto.setKeySize(keySize);
+        dto.setAltKeySize(altKeySize);
         dto.setUuid(uuid.toString());
         dto.setState(state);
         dto.setValidationStatus(validationStatus);
         dto.setFingerprint(fingerprint);
         dto.setTrustedCa(trustedCa);
+        dto.setHybridCertificate(hybridCertificate);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
@@ -351,6 +383,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         newCertificateRequestEntity.setCommonName(this.commonName);
         newCertificateRequestEntity.setPublicKeyAlgorithm(this.publicKeyAlgorithm);
         newCertificateRequestEntity.setSignatureAlgorithm(this.signatureAlgorithm);
+        newCertificateRequestEntity.setAltSignatureAlgorithm(this.altSignatureAlgorithm);
         newCertificateRequestEntity.setSubjectAlternativeNames(this.subjectAlternativeNames);
         newCertificateRequestEntity.setSubjectDn(this.subjectDn);
         newCertificateRequestEntity.setCertificateRequestFormat(certificateRequestFormat);

@@ -35,11 +35,14 @@ public enum FilterField {
     OWNER(Resource.CERTIFICATE, Resource.USER, List.of(Certificate_.owner), OwnerAssociation_.ownerUsername, "Owner", SearchFieldTypeEnum.LIST, null, null, true, null),
     ISSUER_COMMON_NAME(Resource.CERTIFICATE, null, null, Certificate_.issuerCommonName, "Issuer Common Name", SearchFieldTypeEnum.STRING),
     SIGNATURE_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.signatureAlgorithm, "Signature Algorithm", SearchFieldTypeEnum.LIST),
+    ALT_SIGNATURE_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.altSignatureAlgorithm, "Alternative Signature Algorithm", SearchFieldTypeEnum.LIST),
     FINGERPRINT(Resource.CERTIFICATE, null, null, Certificate_.fingerprint, "Fingerprint", SearchFieldTypeEnum.STRING),
     NOT_AFTER(Resource.CERTIFICATE, null, null, Certificate_.notAfter, "Expires At", SearchFieldTypeEnum.DATETIME),
     NOT_BEFORE(Resource.CERTIFICATE, null, null, Certificate_.notBefore, "Valid From", SearchFieldTypeEnum.DATETIME),
     PUBLIC_KEY_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.publicKeyAlgorithm, "Public Key Algorithm", SearchFieldTypeEnum.LIST),
+    ALT_PUBLIC_KEY_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.altPublicKeyAlgorithm, "Alternative Public Key Algorithm", SearchFieldTypeEnum.LIST),
     KEY_SIZE(Resource.CERTIFICATE, null, null, Certificate_.keySize, "Key Size", SearchFieldTypeEnum.LIST),
+    ALT_KEY_SIZE(Resource.CERTIFICATE, null, null, Certificate_.altKeySize, "Alternative Key Size", SearchFieldTypeEnum.LIST),
     KEY_USAGE(Resource.CERTIFICATE, null, null, Certificate_.keyUsage, "Key Usage", SearchFieldTypeEnum.LIST),
     SUBJECT_TYPE(Resource.CERTIFICATE, null, null, Certificate_.subjectType, "Subject Type", SearchFieldTypeEnum.LIST, CertificateSubjectType.class),
     SUBJECT_ALTERNATIVE_NAMES(Resource.CERTIFICATE, null, null, Certificate_.subjectAlternativeNames, "Subject Alternative Name", SearchFieldTypeEnum.STRING),
@@ -52,6 +55,7 @@ public enum FilterField {
     PRIVATE_KEY(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, List.of(Certificate_.key, CryptographicKey_.items), CryptographicKeyItem_.type, "Has private key", SearchFieldTypeEnum.BOOLEAN, null, KeyType.PRIVATE_KEY, false, null),
     TRUSTED_CA(Resource.CERTIFICATE, null, null, Certificate_.trustedCa, "Trusted CA", SearchFieldTypeEnum.BOOLEAN),
     CERTIFICATE_PROTOCOL(Resource.CERTIFICATE, null, List.of(Certificate_.protocolAssociation), CertificateProtocolAssociation_.protocol, "Certificate Protocol", SearchFieldTypeEnum.LIST, CertificateProtocol.class),
+    HYBRID_CERTIFICATE(Resource.CERTIFICATE, null, null, Certificate_.hybridCertificate, "Hybrid Certificate", SearchFieldTypeEnum.BOOLEAN),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),

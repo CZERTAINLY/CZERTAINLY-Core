@@ -162,7 +162,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         dto.setEnabled(enabled);
         dto.setUsage(getUsage());
         dto.setKeyWrapperUuid(key.getUuid().toString());
-        dto.setAssociations((key.getItems().size() - 1) + key.getCertificates().size());
+        dto.setAssociations((key.getItems().size() - 1) + key.getCertificates().size() + key.getAltCertificates().size());
         dto.setDescription(key.getDescription());
         if (key.getGroups() != null) {
             dto.setGroups(key.getGroups().stream().map(Group::mapToDto).toList());

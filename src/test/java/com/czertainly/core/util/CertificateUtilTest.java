@@ -1,8 +1,14 @@
 package com.czertainly.core.util;
 
+import com.czertainly.core.dao.entity.Certificate;
+import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
+import java.security.*;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -59,6 +65,16 @@ class CertificateUtilTest {
         invalidMap.put("invalidKey", null);
 
         Assertions.assertThrows(IllegalStateException.class, () -> CertificateUtil.serializeSans(invalidMap));
+    }
+
+    @Test
+    void testParseHybridCertificate() throws IOException, NoSuchAlgorithmException, InvalidAlgorithmParameterException, InvalidKeyException, SignatureException, OperatorCreationException, CertificateException {
+        X509Certificate certificate = CertificateTestUtil.createHybridCertificate();
+
+        Certificate certificateEntity = new Certificate();
+        CertificateUtil.prepareIssuedCertificate(certificateEntity, certificate);
+        Assertions.assertEquals("ML-DSA-44", certificateEntity.getAltSignatureAlgorithm());
+
     }
 
 }

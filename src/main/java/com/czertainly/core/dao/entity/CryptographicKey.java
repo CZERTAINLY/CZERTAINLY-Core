@@ -66,6 +66,11 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @ToString.Exclude
     private Set<Certificate> certificates = new HashSet<>();
 
+    @JsonBackReference
+    @OneToMany(mappedBy = "altKey", fetch = FetchType.LAZY)
+    @ToString.Exclude
+    private Set<Certificate> altCertificates = new HashSet<>();
+
     public void setTokenProfile(TokenProfile tokenProfile) {
         this.tokenProfile = tokenProfile;
         if (tokenProfile != null) this.tokenProfileUuid = tokenProfile.getUuid();
@@ -109,7 +114,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwner(owner.getOwnerUsername());
         }
         dto.setItems(getKeyItemsSummary());
-        dto.setAssociations((items.size() - 1) + certificates.size());
+        dto.setAssociations((items.size() - 1) + certificates.size() + altCertificates.size());
         return dto;
     }
 
@@ -135,8 +140,9 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
             dto.setOwner(owner.getOwnerUsername());
         }
+        List<KeyAssociationDto> keyAssociationDtos = new ArrayList<>();
         if (certificates != null && !certificates.isEmpty()) {
-            dto.setAssociations(certificates.stream().map(e -> {
+            keyAssociationDtos.addAll(certificates.stream().map(e -> {
                 KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
                 keyAssociationDto.setName(e.getCommonName());
                 keyAssociationDto.setUuid(e.getUuid().toString());
@@ -144,6 +150,17 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
                 return keyAssociationDto;
             }).toList());
         }
+
+        if (altCertificates != null && !altCertificates.isEmpty()) {
+            keyAssociationDtos.addAll(altCertificates.stream().map(e -> {
+                KeyAssociationDto keyAssociationDto = new KeyAssociationDto();
+                keyAssociationDto.setName(e.getCommonName());
+                keyAssociationDto.setUuid(e.getUuid().toString());
+                keyAssociationDto.setResource(Resource.CERTIFICATE);
+                return keyAssociationDto;
+            }).toList());
+        }
+        dto.setAssociations(keyAssociationDtos);
         return dto;
     }
 

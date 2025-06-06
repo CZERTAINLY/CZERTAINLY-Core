@@ -299,12 +299,11 @@ public interface CryptographicKeyService extends ResourceExtensionService {
      *
      * @param name         Name of the cryptographic key
      * @param publicKey    Public Key to be uploaded
-     * @param keyAlgorithm Key Algorithm used in the Public Key
      * @param keyLength    Length of the Public Key
      * @param fingerprint  Unique fingerprint of the Public Key
      * @return UUID of the uploaded Cryptographic Key
      */
-    UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength, String fingerprint);
+    UUID uploadCertificatePublicKey(String name, PublicKey publicKey, int keyLength, String fingerprint);
 
     /**
      * Edit Key Item
