@@ -133,23 +133,31 @@ class TriggerServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> createCondition(Resource.ANY, ConditionType.CHECK_FIELD), "Cannot create condition of check field for Any resource");
         ConditionDto conditionCert = createCondition(Resource.CERTIFICATE, ConditionType.CHECK_FIELD);
         ConditionDto conditionDisc = createCondition(Resource.DISCOVERY, ConditionType.CHECK_FIELD);
+        Assertions.assertEquals(1, ruleService.listConditions(Resource.CERTIFICATE).size());
+        Assertions.assertEquals(2, ruleService.listConditions(Resource.ANY).size());
 
         Assertions.assertThrows(ValidationException.class, () -> createRule(Resource.CERTIFICATE, List.of(conditionCert.getUuid(), conditionDisc.getUuid())), "Cannot create rule with mixed resources");
         RuleDto ruleCert = createRule(Resource.CERTIFICATE, List.of(conditionCert.getUuid()));
         RuleDto ruleDisc = createRule(Resource.DISCOVERY, List.of(conditionDisc.getUuid()));
         RuleDto ruleMixed = createRule(Resource.ANY, List.of(conditionCert.getUuid(), conditionDisc.getUuid()));
+        Assertions.assertEquals(2, ruleService.listRules(Resource.CERTIFICATE).size());
+        Assertions.assertEquals(3, ruleService.listRules(Resource.ANY).size());
 
         // check validation of actions & executions
         Assertions.assertThrows(ValidationException.class, () -> createExecution(Resource.ANY, ExecutionType.SET_FIELD), "Cannot create condition of set field for Any resource");
         ExecutionDto executionCert = createExecution(Resource.CERTIFICATE, ExecutionType.SET_FIELD);
         ExecutionDto executionDisc = createExecution(Resource.DISCOVERY, ExecutionType.SET_FIELD);
         ExecutionDto executionAny = createExecution(Resource.ANY, ExecutionType.SEND_NOTIFICATION);
+        Assertions.assertEquals(2, actionService.listExecutions(Resource.CERTIFICATE).size());
+        Assertions.assertEquals(3, actionService.listExecutions(Resource.ANY).size());
 
         Assertions.assertThrows(ValidationException.class, () -> createAction(Resource.CERTIFICATE, List.of(executionCert.getUuid(), executionDisc.getUuid(), executionAny.getUuid())), "Cannot create action with mixed resources");
         ActionDto actionCert = createAction(Resource.CERTIFICATE, List.of(executionCert.getUuid()));
         ActionDto actionDisc = createAction(Resource.DISCOVERY, List.of(executionDisc.getUuid()));
         ActionDto actionMixed = createAction(Resource.ANY, List.of(executionCert.getUuid(), executionDisc.getUuid(), executionAny.getUuid()));
         ActionDto actionAny = createAction(Resource.ANY, List.of(executionAny.getUuid()));
+        Assertions.assertEquals(3, actionService.listActions(Resource.CERTIFICATE).size());
+        Assertions.assertEquals(4, actionService.listActions(Resource.ANY).size());
 
         // check validation of triggers
         Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.ANY, null, null, null), "Creating trigger with resource Any should fail");
