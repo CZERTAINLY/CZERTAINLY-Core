@@ -23,6 +23,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import java.util.UUID;
 
+@SuppressWarnings("java:S5778")
 class TriggerServiceTest extends BaseSpringBootTest {
 
     @Autowired
