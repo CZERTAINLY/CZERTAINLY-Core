@@ -155,18 +155,28 @@ public class TriggerServiceImpl implements TriggerService {
     private void setTriggerRulesAndActions(Trigger trigger, List<String> rulesUuids, List<String> actionsUuids) throws NotFoundException {
         Set<Rule> rules = new HashSet<>();
         for (String ruleUuid : rulesUuids) {
-            Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
-            if (rule.getResource() != trigger.getResource()) {
-                throw new ValidationException("Resource of rule with UUID " + ruleUuid + " does not match trigger resource.");
+            Rule rule = ruleRepository.findWithConditionsByUuid(UUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
+            if (rule.getResource() != Resource.ANY && rule.getResource() != trigger.getResource()) {
+                throw new ValidationException("Resource of rule '%s' does not match trigger resource.".formatted(rule.getName()));
+            }
+            for (Condition condition : rule.getConditions()) {
+                if (condition.getResource() != Resource.ANY && condition.getResource() != trigger.getResource()) {
+                    throw new ValidationException("Resource of condition '%s' of rule '%s' does not match trigger resource.".formatted(condition.getName(), rule.getName()));
+                }
             }
             rules.add(rule);
         }
 
         Set<Action> actions = new HashSet<>();
         for (String actionUuid : actionsUuids) {
-            Action action = actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
-            if (action.getResource() != trigger.getResource()) {
-                throw new ValidationException("Resource of action with UUID " + actionUuid + " does not match trigger resource.");
+            Action action = actionRepository.findWithExecutionsByUuid(UUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+            if (action.getResource() != Resource.ANY && action.getResource() != trigger.getResource()) {
+                throw new ValidationException("Resource of action '%s' does not match trigger resource.".formatted(action.getName()));
+            }
+            for (Execution execution : action.getExecutions()) {
+                if (execution.getResource() != Resource.ANY && execution.getResource() != trigger.getResource()) {
+                    throw new ValidationException("Resource of execution '%s' of action '%s' does not match trigger resource.".formatted(execution.getName(), action.getName()));
+                }
             }
             actions.add(action);
         }
@@ -356,12 +366,17 @@ public class TriggerServiceImpl implements TriggerService {
     //endregion
 
     private void validateTriggerRequest(TriggerType type, ResourceEvent event, boolean ignoreTrigger, Resource resource, List<String> actionsUuids) {
-        if (resource == null) {
-            throw new ValidationException("Property resource cannot be empty.");
+        if (resource == null || resource == Resource.ANY || resource == Resource.NONE) {
+            throw new ValidationException("Property resource cannot be empty or None/Any");
         }
 
-        if (type == TriggerType.EVENT && event == null) {
-            throw new ValidationException("When trigger type is Event, event has to be specified.");
+        if (type == TriggerType.EVENT) {
+            if (event == null) {
+                throw new ValidationException("When trigger type is Event, event has to be specified.");
+            }
+            if (event.getResource() != resource) {
+                throw new ValidationException("Event resource (%s) and trigger (%s) resource has to match.".formatted(event.getResource().getLabel(), resource.getLabel()));
+            }
         }
 
         if (!ignoreTrigger) {
