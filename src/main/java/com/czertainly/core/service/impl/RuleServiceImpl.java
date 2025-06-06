@@ -50,7 +50,8 @@ public class RuleServiceImpl implements RuleService {
     @Override
     @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.LIST)
     public List<ConditionDto> listConditions(Resource resource) {
-        if (resource == null) return conditionRepository.findAll().stream().map(Condition::mapToDto).toList();
+        if (resource == null || resource == Resource.ANY)
+            return conditionRepository.findAll().stream().map(Condition::mapToDto).toList();
         return conditionRepository.findAllByResource(resource).stream().map(Condition::mapToDto).toList();
     }
 
@@ -71,6 +72,9 @@ public class RuleServiceImpl implements RuleService {
         }
         if (request.getResource() == null) {
             throw new ValidationException("Property resource cannot be empty.");
+        }
+        if (request.getResource() == Resource.ANY || request.getResource() == Resource.NONE) {
+            throw new ValidationException("Resource %s is not allowed for condition type %s".formatted(request.getResource().getLabel(), request.getType().getLabel()));
         }
 
         if (conditionRepository.existsByName(request.getName())) {
@@ -147,7 +151,8 @@ public class RuleServiceImpl implements RuleService {
     @Override
     @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.LIST)
     public List<RuleDto> listRules(Resource resource) {
-        if (resource == null) return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
+        if (resource == null || resource == Resource.ANY)
+            return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
         return ruleRepository.findAllByResource(resource).stream().map(Rule::mapToDto).toList();
     }
 
@@ -180,8 +185,8 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-            if (condition.getResource() != request.getResource()) {
-                throw new ValidationException("Resource of condition with UUID " + conditionUuid + " does not match rule resource.");
+            if (request.getResource() != Resource.ANY && condition.getResource() != request.getResource()) {
+                throw new ValidationException("Resource of condition '%s' does not match rule resource.".formatted(condition.getName()));
             }
             conditions.add(condition);
         }
@@ -207,8 +212,8 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-            if (condition.getResource() != rule.getResource()) {
-                throw new ValidationException("Resource of condition with UUID " + conditionUuid + " does not match rule resource.");
+            if (rule.getResource() != Resource.ANY && condition.getResource() != rule.getResource()) {
+                throw new ValidationException("Resource of condition '%s' does not match rule resource.".formatted(condition.getName()));
             }
             conditions.add(condition);
         }
