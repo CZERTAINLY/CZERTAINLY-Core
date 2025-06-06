@@ -50,7 +50,8 @@ public class RuleServiceImpl implements RuleService {
     @Override
     @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.LIST)
     public List<ConditionDto> listConditions(Resource resource) {
-        if (resource == null) return conditionRepository.findAll().stream().map(Condition::mapToDto).toList();
+        if (resource == null || resource == Resource.ANY)
+            return conditionRepository.findAll().stream().map(Condition::mapToDto).toList();
         return conditionRepository.findAllByResource(resource).stream().map(Condition::mapToDto).toList();
     }
 
@@ -71,6 +72,9 @@ public class RuleServiceImpl implements RuleService {
         }
         if (request.getResource() == null) {
             throw new ValidationException("Property resource cannot be empty.");
+        }
+        if (request.getResource() == Resource.ANY || request.getResource() == Resource.NONE) {
+            throw new ValidationException("Resource %s is not allowed for condition type %s".formatted(request.getResource().getLabel(), request.getType().getLabel()));
         }
 
         if (conditionRepository.existsByName(request.getName())) {
@@ -147,7 +151,8 @@ public class RuleServiceImpl implements RuleService {
     @Override
     @ExternalAuthorization(resource = Resource.RULE, action = ResourceAction.LIST)
     public List<RuleDto> listRules(Resource resource) {
-        if (resource == null) return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
+        if (resource == null || resource == Resource.ANY)
+            return ruleRepository.findAll().stream().map(Rule::mapToDto).toList();
         return ruleRepository.findAllByResource(resource).stream().map(Rule::mapToDto).toList();
     }
 

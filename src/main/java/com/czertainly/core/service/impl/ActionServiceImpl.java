@@ -60,7 +60,8 @@ public class ActionServiceImpl implements ActionService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ExecutionDto> listExecutions(Resource resource) {
-        if (resource == null) return executionRepository.findAllWithItemsBy().stream().map(Execution::mapToDto).toList();
+        if (resource == null || resource == Resource.ANY)
+            return executionRepository.findAllWithItemsBy().stream().map(Execution::mapToDto).toList();
         return executionRepository.findAllByResource(resource).stream().map(Execution::mapToDto).toList();
     }
 
@@ -149,6 +150,9 @@ public class ActionServiceImpl implements ActionService {
         if (executionItemRequestDto.getFieldSource() != FilterFieldSource.PROPERTY && executionItemRequestDto.getFieldSource() != FilterFieldSource.CUSTOM) {
             throw new ValidationException("Missing field source or field identifier in an execution.");
         }
+        if (execution.getResource() == Resource.ANY || execution.getResource() == Resource.NONE) {
+            throw new ValidationException("Resource %s is not allowed for execution type %s".formatted(execution.getResource().getLabel(), execution.getType().getLabel()));
+        }
 
         ExecutionItem executionItem = new ExecutionItem();
         executionItem.setExecution(execution);
@@ -196,7 +200,8 @@ public class ActionServiceImpl implements ActionService {
     @Override
     @ExternalAuthorization(resource = Resource.ACTION, action = ResourceAction.LIST)
     public List<ActionDto> listActions(Resource resource) {
-        if (resource == null) return actionRepository.findAll().stream().map(Action::mapToDto).toList();
+        if (resource == null || resource == Resource.ANY)
+            return actionRepository.findAll().stream().map(Action::mapToDto).toList();
         return actionRepository.findAllByResource(resource).stream().map(Action::mapToDto).toList();
     }
 
