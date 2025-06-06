@@ -288,4 +288,9 @@ public interface CertificateService extends ResourceExtensionService  {
      */
     List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter);
 
+    /**
+     * Find certificates which are expiring and not renewed and trigger event handling these certificates
+     */
+    int handleExpiringCertificates();
+
 }

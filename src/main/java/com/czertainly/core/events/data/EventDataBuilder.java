@@ -8,6 +8,7 @@ import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfile;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
+import com.czertainly.core.events.handlers.CertificateExpiringEventHandler;
 import com.czertainly.core.model.auth.ResourceAction;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -125,6 +126,26 @@ public class EventDataBuilder {
         eventData.setDiscoveryStatus(discovery.getStatus());
         eventData.setTotalCertificateDiscovered(discovery.getTotalCertificatesDiscovered() == null ? 0 : discovery.getTotalCertificatesDiscovered());
         eventData.setDiscoveryMessage(discovery.getMessage());
+
+        return eventData;
+    }
+
+    public static CertificateExpiringEventData getCertificateExpiringEventData(Certificate certificate) {
+        CertificateExpiringEventData eventData = new CertificateExpiringEventData();
+        eventData.setCertificateUuid(certificate.getUuid());
+        eventData.setFingerprint(certificate.getFingerprint());
+        eventData.setSerialNumber(certificate.getSerialNumber());
+        eventData.setSubjectDn(certificate.getSubjectDn());
+        eventData.setIssuerDn(certificate.getIssuerDn());
+        if (certificate.getRaProfile() != null) {
+            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
+            eventData.setRaProfileName(certificate.getRaProfile().getName());
+            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
+                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
+            }
+        }
+        eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
+        eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
         return eventData;
     }
