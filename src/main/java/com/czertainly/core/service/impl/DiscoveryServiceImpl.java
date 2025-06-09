@@ -67,7 +67,7 @@ import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
 
-@Service
+@Service(Resource.Codes.DISCOVERY)
 @Transactional
 public class DiscoveryServiceImpl implements DiscoveryService {
 

@@ -36,129 +36,21 @@ import java.util.stream.Collectors;
 public class ResourceServiceImpl implements ResourceService {
     private static final Logger logger = LoggerFactory.getLogger(ResourceServiceImpl.class);
 
-    private LocationService locationService;
-    private AcmeProfileService acmeProfileService;
-    private AttributeService attributeService;
-    private AuthorityInstanceService authorityInstanceService;
-    private ComplianceProfileService complianceProfileService;
-    private ConnectorService connectorService;
-    private CredentialService credentialService;
-    private DiscoveryService discoveryService;
-    private EntityInstanceService entityInstanceService;
-    private GroupService groupService;
-    private RaProfileService raProfileService;
-    private ScepProfileService scepProfileService;
-    private CmpProfileService cmpProfileService;
-    private CryptographicKeyService keyService;
-    private TokenProfileService tokenProfileService;
-    private TokenInstanceService tokenInstanceService;
-    private UserManagementService userManagementService;
-    private RoleManagementService roleManagementService;
-    private CertificateService certificateService;
     private AttributeEngine attributeEngine;
+
+    private Map<String, ResourceExtensionService> resourceExtensionServices;
+
+    @Autowired
+    public void setResourceExtensionServices(Map<String, ResourceExtensionService> resourceExtensionServices) {
+        this.resourceExtensionServices = resourceExtensionServices;
+    }
 
     @PersistenceContext
     private EntityManager entityManager;
 
-
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
-    }
-
-    @Autowired
-    public void setAcmeProfileService(AcmeProfileService acmeProfileService) {
-        this.acmeProfileService = acmeProfileService;
-    }
-
-    @Autowired
-    public void setAuthorityInstanceService(AuthorityInstanceService authorityInstanceService) {
-        this.authorityInstanceService = authorityInstanceService;
-    }
-
-    @Autowired
-    public void setAttributeService(AttributeService attributeService) {
-        this.attributeService = attributeService;
-    }
-
-    @Autowired
-    public void setComplianceProfileService(ComplianceProfileService complianceProfileService) {
-        this.complianceProfileService = complianceProfileService;
-    }
-
-    @Autowired
-    public void setConnectorService(ConnectorService connectorService) {
-        this.connectorService = connectorService;
-    }
-
-    @Autowired
-    public void setCredentialService(CredentialService credentialService) {
-        this.credentialService = credentialService;
-    }
-
-    @Autowired
-    public void setDiscoveryService(DiscoveryService discoveryService) {
-        this.discoveryService = discoveryService;
-    }
-
-    @Autowired
-    public void setEntityInstanceService(EntityInstanceService entityInstanceService) {
-        this.entityInstanceService = entityInstanceService;
-    }
-
-    @Autowired
-    public void setGroupService(GroupService groupService) {
-        this.groupService = groupService;
-    }
-
-    @Autowired
-    public void setLocationService(LocationService locationService) {
-        this.locationService = locationService;
-    }
-
-    @Autowired
-    public void setRaProfileService(RaProfileService raProfileService) {
-        this.raProfileService = raProfileService;
-    }
-
-    @Autowired
-    public void setScepProfileService(ScepProfileService scepProfileService) {
-        this.scepProfileService = scepProfileService;
-    }
-
-    @Autowired
-    public void setCmpProfileService(CmpProfileService cmpProfileService) {
-        this.cmpProfileService = cmpProfileService;
-    }
-
-    @Autowired
-    public void setKeyService(CryptographicKeyService keyService) {
-        this.keyService = keyService;
-    }
-
-    @Autowired
-    public void setTokenProfileService(TokenProfileService tokenProfileService) {
-        this.tokenProfileService = tokenProfileService;
-    }
-
-    @Autowired
-    public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
-        this.tokenInstanceService = tokenInstanceService;
-    }
-
-    @Autowired
-    public void setUserManagementService(UserManagementService userManagementService) {
-        this.userManagementService = userManagementService;
-    }
-
-    @Autowired
-    public void setRoleManagementService(RoleManagementService roleManagementService) {
-        this.roleManagementService = roleManagementService;
-    }
-
-    @Autowired
-    public void setCertificateService(CertificateService certificateService) {
-        this.certificateService = certificateService;
     }
 
     @Override
@@ -186,88 +78,19 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
-        return switch (resourceName) {
-            case ACME_PROFILE -> acmeProfileService.listResourceObjects(SecurityFilter.create());
-            case AUTHORITY -> authorityInstanceService.listResourceObjects(SecurityFilter.create());
-            case ATTRIBUTE -> attributeService.listResourceObjects(SecurityFilter.create());
-            case COMPLIANCE_PROFILE -> complianceProfileService.listResourceObjects(SecurityFilter.create());
-            case CONNECTOR -> connectorService.listResourceObjects(SecurityFilter.create());
-            case CREDENTIAL -> credentialService.listResourceObjects(SecurityFilter.create());
-            case ENTITY -> entityInstanceService.listResourceObjects(SecurityFilter.create());
-            case GROUP -> groupService.listResourceObjects(SecurityFilter.create());
-            case LOCATION -> locationService.listResourceObjects(SecurityFilter.create());
-            case RA_PROFILE -> raProfileService.listResourceObjects(SecurityFilter.create());
-            case SCEP_PROFILE -> scepProfileService.listResourceObjects(SecurityFilter.create());
-            case TOKEN_PROFILE -> tokenProfileService.listResourceObjects(SecurityFilter.create());
-            case TOKEN -> tokenInstanceService.listResourceObjects(SecurityFilter.create());
-            case USER -> userManagementService.listResourceObjects(SecurityFilter.create());
-            case CMP_PROFILE -> cmpProfileService.listResourceObjects(SecurityFilter.create());
-            default ->
-                    throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
-        };
+        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resourceName.getCode());
+        if (List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.ROLE).contains(resourceName)
+                || resourceExtensionService == null)
+            throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
+        return resourceExtensionService.listResourceObjects(SecurityFilter.create());
     }
 
     @Override
     public List<ResponseAttributeDto> updateAttributeContentForObject(Resource objectType, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
-        logger.info("Updating the attribute {} for resource {} ith value {}", attributeUuid, objectType, attributeUuid);
-        switch (objectType) {
-            case ACME_PROFILE:
-                acmeProfileService.evaluatePermissionChain(objectUuid);
-                break;
-            case SCEP_PROFILE:
-                scepProfileService.evaluatePermissionChain(objectUuid);
-                break;
-            case CMP_PROFILE:
-                cmpProfileService.evaluatePermissionChain(objectUuid);
-                break;
-            case AUTHORITY:
-                authorityInstanceService.evaluatePermissionChain(objectUuid);
-                break;
-            case COMPLIANCE_PROFILE:
-                complianceProfileService.evaluatePermissionChain(objectUuid);
-                break;
-            case CONNECTOR:
-                connectorService.evaluatePermissionChain(objectUuid);
-                break;
-            case CREDENTIAL:
-                credentialService.evaluatePermissionChain(objectUuid);
-                break;
-            case DISCOVERY:
-                discoveryService.evaluatePermissionChain(objectUuid);
-                break;
-            case ENTITY:
-                entityInstanceService.evaluatePermissionChain(objectUuid);
-                break;
-            case GROUP:
-                groupService.evaluatePermissionChain(objectUuid);
-                break;
-            case LOCATION:
-                locationService.evaluatePermissionChain(objectUuid);
-                break;
-            case RA_PROFILE:
-                raProfileService.evaluatePermissionChain(objectUuid);
-                break;
-            case TOKEN_PROFILE:
-                tokenProfileService.evaluatePermissionChain(objectUuid);
-                break;
-            case TOKEN:
-                tokenInstanceService.evaluatePermissionChain(objectUuid);
-                break;
-            case USER:
-                userManagementService.evaluatePermissionChain(objectUuid);
-                break;
-            case ROLE:
-                roleManagementService.evaluatePermissionChain(objectUuid);
-                break;
-            case CRYPTOGRAPHIC_KEY:
-                keyService.evaluatePermissionChain(objectUuid);
-                break;
-            case CERTIFICATE:
-                certificateService.evaluatePermissionChain(objectUuid);
-                break;
-            default:
-                throw new NotFoundException("Cannot update custom attribute for requested resource: " + objectType.getCode());
-        }
+        logger.info("Updating the attribute {} for resource {} with value {}", attributeUuid, objectType, attributeUuid);
+        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(objectType.getCode());
+        if (objectType == Resource.ATTRIBUTE || resourceExtensionService == null) throw new NotFoundException("Cannot update custom attribute for requested resource: " + objectType.getCode());
+        resourceExtensionService.evaluatePermissionChain(objectUuid);
 
         attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
         return attributeEngine.getObjectCustomAttributesContent(objectType, objectUuid.getValue());

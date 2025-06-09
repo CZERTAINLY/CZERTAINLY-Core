@@ -20,7 +20,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.UUID;
 
-@Service
+@Service(Resource.Codes.ROLE)
 @Transactional
 public class RoleManagementServiceImpl implements RoleManagementService {
 

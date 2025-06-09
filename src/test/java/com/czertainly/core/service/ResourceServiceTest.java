@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ResourceServiceTest extends BaseSpringBootTest {
+class ResourceServiceTest extends BaseSpringBootTest {
 
     private static final int AUTH_SERVICE_MOCK_PORT = 10001;
     private static final String CERTIFICATE_UUID = "c1cfe60f-2556-461f-9a64-9dd8e92158cf";
@@ -185,6 +185,7 @@ public class ResourceServiceTest extends BaseSpringBootTest {
         // Throw NotFoundException for unsupported resource
         Resource unsupportedResource = Resource.CERTIFICATE;
         Assertions.assertThrows(NotFoundException.class, () -> resourceService.getObjectsForResource(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotFoundException.class, () -> resourceService.getObjectsForResource(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
     }
 
     @Test
@@ -200,6 +201,13 @@ public class ResourceServiceTest extends BaseSpringBootTest {
         // Should throw NotFoundException
         Assertions.assertThrows(NotFoundException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.ATTRIBUTE,
+                SecuredUUID.fromString(CERTIFICATE_UUID),
+                UUID.fromString(ATTRIBUTE_UUID),
+                List.of()
+        ));
+
+        Assertions.assertThrows(NotFoundException.class, () -> resourceService.updateAttributeContentForObject(
+                Resource.RULE,
                 SecuredUUID.fromString(CERTIFICATE_UUID),
                 UUID.fromString(ATTRIBUTE_UUID),
                 List.of()

@@ -98,7 +98,7 @@ import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.CERTIFICATE)
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";

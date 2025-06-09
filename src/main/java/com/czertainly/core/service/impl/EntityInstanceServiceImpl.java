@@ -49,7 +49,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.ArrayList;
 import java.util.List;
 
-@Service
+@Service(Resource.Codes.ENTITY)
 @Transactional
 public class EntityInstanceServiceImpl implements EntityInstanceService {
 

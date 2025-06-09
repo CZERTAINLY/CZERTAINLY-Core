@@ -60,7 +60,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-@Service
+@Service(Resource.Codes.RA_PROFILE)
 @Transactional
 public class RaProfileServiceImpl implements RaProfileService {
 

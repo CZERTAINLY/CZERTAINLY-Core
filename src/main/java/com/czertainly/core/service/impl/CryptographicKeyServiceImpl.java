@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 
 import static java.util.function.Predicate.not;
 
-@Service
+@Service(Resource.Codes.CRYPTOGRAPHIC_KEY)
 @Transactional(noRollbackFor = ValidationException.class)
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
