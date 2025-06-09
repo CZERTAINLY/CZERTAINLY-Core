@@ -236,7 +236,7 @@ public class NotificationListener {
     private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
         List<NotificationRecipient> recipients = new ArrayList<>();
         switch (event) {
-            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED -> {
+            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING -> {
                 NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
