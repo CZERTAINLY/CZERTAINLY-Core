@@ -79,8 +79,7 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resourceName.getCode());
-        if (List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.ROLE).contains(resourceName)
-                || resourceExtensionService == null)
+        if (List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.ROLE).contains(resourceName) || resourceExtensionService == null)
             throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
         return resourceExtensionService.listResourceObjects(SecurityFilter.create());
     }
