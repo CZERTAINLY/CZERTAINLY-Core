@@ -14,7 +14,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.UUID;
 
-public class HandleExpiringCertificatesTaskTest extends BaseSpringBootTest {
+class HandleExpiringCertificatesTaskTest extends BaseSpringBootTest {
     @Autowired
     private CertificateRepository certificateRepository;
     @Autowired
