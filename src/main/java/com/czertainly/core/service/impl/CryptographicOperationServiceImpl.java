@@ -14,8 +14,6 @@ import com.czertainly.api.model.core.cryptography.key.KeyEventStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.core.attribute.*;
-import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.config.TokenContentSigner;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -32,6 +30,9 @@ import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateRequestUtils;
+import org.bouncycastle.asn1.DERBitString;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.pkcs.PKCS10CertificationRequest;
 import org.bouncycastle.pkcs.PKCS10CertificationRequestBuilder;
@@ -44,13 +45,11 @@ import org.springframework.transaction.annotation.Transactional;
 
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
+import java.io.OutputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.spec.InvalidKeySpecException;
-import java.util.Base64;
-import java.util.Collections;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -65,7 +64,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyEventHistoryService eventHistoryService;
     private CryptographicOperationsApiClient cryptographicOperationsApiClient;
     private PermissionEvaluator permissionEvaluator;
-    private AttributeEngine attributeEngine;
 
     // --------------------------------------------------------------------------------
     // Repositories
@@ -74,11 +72,6 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
     // Setters
-
-    @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
-        this.attributeEngine = attributeEngine;
-    }
 
     @Autowired
     public void setTokenInstanceService(TokenInstanceService tokenInstanceService) {
@@ -390,7 +383,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     @Override
-    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException {
+    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes, UUID altKeyUUid,
+                              UUID altTokenProfileUuid,
+                              List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException {
         // Check if the UUID of the Key is empty
         if (keyUuid == null) {
             throw new ValidationException(
@@ -409,6 +404,25 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
             );
         }
 
+        Map<KeyType, CryptographicKeyItem> defaultKeyPair = getPublicAndPrivateKey(tokenProfileUuid, keyUuid);
+        Map<KeyType, CryptographicKeyItem> altKeyPair = new EnumMap<>(KeyType.class);
+        if (altKeyUUid != null && altTokenProfileUuid != null) altKeyPair = getPublicAndPrivateKey(altTokenProfileUuid, altKeyUUid);
+
+        // Generate the CSR
+        return generateCsr(
+                principal,
+                defaultKeyPair.get(KeyType.PUBLIC_KEY).getKeyData(),
+                defaultKeyPair.get(KeyType.PRIVATE_KEY),
+                defaultKeyPair.get(KeyType.PUBLIC_KEY),
+                signatureAttributes,
+                altKeyPair.getOrDefault(KeyType.PUBLIC_KEY, null) == null ? null : altKeyPair.get(KeyType.PUBLIC_KEY).getKeyData(),
+                altKeyPair.getOrDefault(KeyType.PRIVATE_KEY, null),
+                altKeyPair.getOrDefault(KeyType.PUBLIC_KEY, null),
+                altSignatureAttributes
+        );
+    }
+
+    private Map<KeyType, CryptographicKeyItem> getPublicAndPrivateKey(UUID tokenProfileUuid, UUID keyUuid) throws NotFoundException {
         // Check the Permission of the token profile to the user
         permissionEvaluator.tokenProfile(SecuredUUID.fromUUID(tokenProfileUuid));
         CryptographicKey key = cryptographicKeyRepository.findByUuid(
@@ -449,18 +463,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         verifyKeyActive(privateKeyItem);
         verifyKeyActive(publicKeyItem);
 
-        // validate and update definitions of signature attributes with attribute engine
-        List<BaseAttribute> definitions = listSignatureAttributes(privateKeyItem.getKeyAlgorithm());
-        attributeEngine.validateUpdateDataAttributes(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, definitions, signatureAttributes);
-
-        // Generate the CSR
-        return generateCsr(
-                principal,
-                publicKeyItem.getKeyData(),
-                privateKeyItem,
-                publicKeyItem,
-                signatureAttributes
-        );
+        return Map.of(KeyType.PUBLIC_KEY, publicKeyItem, KeyType.PRIVATE_KEY, privateKeyItem);
     }
 
     private void verifyKeyActive(CryptographicKeyItem keyItem) {
@@ -482,12 +485,35 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return key;
     }
 
-    private String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    private String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes,
+                               String altKey, CryptographicKeyItem altPrivateKeyItem, CryptographicKeyItem altPublicKeyItem, List<RequestAttributeDto> altSignatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 principal,
                 CertificateRequestUtils.publicKeyObjectFromString(key, publicKeyItem.getKeyAlgorithm().getCode())
         );
+
+        if (altKey != null && altPrivateKeyItem != null && altPublicKeyItem != null) {
+            ContentSigner altSigner = new TokenContentSigner(
+                    cryptographicOperationsApiClient,
+                    altPrivateKeyItem.getKey().getTokenInstanceReference().getConnector().mapToDto(),
+                    altPrivateKeyItem.getKey().getTokenInstanceReferenceUuid(),
+                    altPrivateKeyItem.getKeyReferenceUuid(),
+                    altPublicKeyItem.getKeyReferenceUuid(),
+                    altPublicKeyItem.getKeyData(),
+                    altPublicKeyItem.getKeyAlgorithm(),
+                    altSignatureAttributes
+            );
+
+            OutputStream sOut = altSigner.getOutputStream();
+            sOut.write(altKey.getBytes());
+            sOut.close();
+            SubjectPublicKeyInfo altPublicKeyInfo = SubjectPublicKeyInfo.getInstance(Base64.getDecoder().decode(altKey));
+            p10Builder.addAttribute(Extension.subjectAltPublicKeyInfo, altPublicKeyInfo);
+            p10Builder.addAttribute(Extension.altSignatureValue, new DERBitString(altSigner.getSignature()));
+            p10Builder.addAttribute(Extension.altSignatureAlgorithm, altSigner.getAlgorithmIdentifier());
+        }
+
 
         // Assign the custom signer to sign the CSR with the private key from the cryptography provider
         ContentSigner signer = new TokenContentSigner(

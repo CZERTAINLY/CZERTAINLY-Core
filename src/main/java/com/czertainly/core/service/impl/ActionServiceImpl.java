@@ -22,6 +22,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -234,7 +235,7 @@ public class ActionServiceImpl implements ActionService {
 
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-            if (request.getResource() != Resource.ANY && execution.getResource() != request.getResource()) {
+            if (request.getResource() != Resource.ANY && execution.getResource() != Resource.ANY && execution.getResource() != request.getResource()) {
                 throw new ValidationException("Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
             }
             executions.add(execution);
@@ -257,12 +258,16 @@ public class ActionServiceImpl implements ActionService {
         }
 
         Set<Execution> executions = new HashSet<>();
-        Action action = actionRepository.findByUuid(SecuredUUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+        Action action = actionRepository.findWithTriggersByUuid(UUID.fromString(actionUuid)).orElseThrow(() -> new NotFoundException(Action.class, actionUuid));
+        Set<Resource> associatedTriggersResources = action.getTriggers().stream().map(Trigger::getResource).collect(Collectors.toSet());
 
         for (String executionUuid : request.getExecutionsUuids()) {
             Execution execution = executionRepository.findByUuid(SecuredUUID.fromString(executionUuid)).orElseThrow(() -> new NotFoundException(Execution.class, executionUuid));
-            if (action.getResource() != Resource.ANY && execution.getResource() != action.getResource()) {
+            if (action.getResource() != Resource.ANY && execution.getResource() != Resource.ANY && execution.getResource() != action.getResource()) {
                 throw new ValidationException("Resource of execution '%s' does not match action resource.".formatted(execution.getName()));
+            }
+            if (execution.getResource() != Resource.ANY && (associatedTriggersResources.size() > 1 || (associatedTriggersResources.size() == 1 && !associatedTriggersResources.contains(execution.getResource())))) {
+                throw new ValidationException("Resource of execution '%s' does not match resource of triggers associated with action.".formatted(execution.getName()));
             }
             executions.add(execution);
         }

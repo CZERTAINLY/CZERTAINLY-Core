@@ -20,6 +20,7 @@ import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.KeySizeUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.czertainly.core.util.X509ObjectToString;
 import org.slf4j.Logger;
@@ -164,12 +165,24 @@ public class CertificateHandler {
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
     public void uploadDiscoveredCertificateKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
-        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8)));
+        UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "certKey_");
+        certificateRepository.setKeyUuid(keyUuid, certificateUuids);
+    }
+
+    @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
+    public void uploadDiscoveredCertificateAltKey(PublicKey publicKey, List<UUID> certificateUuids) throws NoSuchAlgorithmException {
+        UUID keyUuid = uploadKeyInternal(publicKey, certificateUuids, "altCertKey_");
+        certificateRepository.setAltKeyUuidAndHybridCertificate(keyUuid, certificateUuids);
+    }
+
+    private UUID uploadKeyInternal(PublicKey publicKey, List<UUID> certificateUuids, String namePrefix) throws NoSuchAlgorithmException {
+        String fingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(publicKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+        UUID keyUuid = cryptographicKeyService.findKeyByFingerprint(fingerprint);
         Certificate firstCertificate = certificateRepository.findFirstByUuidIn(certificateUuids);
         if (keyUuid == null) {
-            keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + firstCertificate.getCommonName(), publicKey, firstCertificate.getPublicKeyAlgorithm(), firstCertificate.getKeySize(), firstCertificate.getPublicKeyFingerprint());
+            keyUuid = cryptographicKeyService.uploadCertificatePublicKey(namePrefix + firstCertificate.getCommonName(), publicKey, KeySizeUtil.getKeyLength(publicKey), fingerprint);
         }
-        certificateRepository.setKeyUuid(keyUuid, certificateUuids);
+        return keyUuid;
     }
 
     public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {

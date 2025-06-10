@@ -60,6 +60,11 @@ public class CrmfCertificateRequest implements CertificateRequest {
     }
 
     @Override
+    public PublicKey getAltPublicKey() throws NoSuchAlgorithmException, CertificateRequestException {
+        return null;
+    }
+
+    @Override
     public Map<String, List<String>> getSubjectAlternativeNames() {
         return CertificateUtil.getSAN(this);
     }
@@ -67,6 +72,11 @@ public class CrmfCertificateRequest implements CertificateRequest {
     @Override
     public AlgorithmIdentifier getSignatureAlgorithm() {
         return certificateRequestMessage.getCertTemplate().getSigningAlg();
+    }
+
+    @Override
+    public AlgorithmIdentifier getAltSignatureAlgorithm() {
+        return null;
     }
 
 }

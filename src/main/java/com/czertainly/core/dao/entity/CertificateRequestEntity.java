@@ -35,6 +35,9 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
     @Column(name = "signature_algorithm")
     private String signatureAlgorithm;
 
+    @Column(name = "alt_signature_algorithm")
+    private String altSignatureAlgorithm;
+
     @Column(name = "fingerprint")
     private String fingerprint;
 
@@ -60,6 +63,14 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
 
     @Column(name = "key_uuid")
     private UUID keyUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "alt_key_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private CryptographicKey altKey;
+
+    @Column(name = "alt_key_uuid")
+    private UUID altKeyUuid;
 
     public void setContent(String content) throws NoSuchAlgorithmException {
         this.content = content;
