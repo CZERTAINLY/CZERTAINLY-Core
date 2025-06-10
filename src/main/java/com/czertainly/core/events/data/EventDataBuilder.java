@@ -63,13 +63,7 @@ public class EventDataBuilder {
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
-        if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
-            eventData.setRaProfileName(certificate.getRaProfile().getName());
-            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
-            }
-        }
+        setCertificateAuthorityData(eventData, certificate);
 
         return eventData;
     }
@@ -78,14 +72,7 @@ public class EventDataBuilder {
         CertificateActionPerformedEventData eventData = new CertificateActionPerformedEventData();
         eventData.setAction(action.getCode());
         setCertificateEventData(eventData, certificate);
-        if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
-            eventData.setRaProfileName(certificate.getRaProfile().getName());
-            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
-            }
-        }
-
+        setCertificateAuthorityData(eventData, certificate);
         return eventData;
     }
 
@@ -120,13 +107,7 @@ public class EventDataBuilder {
     public static CertificateExpiringEventData getCertificateExpiringEventData(Certificate certificate) {
         CertificateExpiringEventData eventData = new CertificateExpiringEventData();
         setCertificateEventData(eventData, certificate);
-        if (certificate.getRaProfile() != null) {
-            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
-            eventData.setRaProfileName(certificate.getRaProfile().getName());
-            if(certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
-                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
-            }
-        }
+        setCertificateAuthorityData(eventData, certificate);
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
@@ -139,5 +120,15 @@ public class EventDataBuilder {
         eventData.setSerialNumber(certificate.getSerialNumber());
         eventData.setSubjectDn(certificate.getSubjectDn());
         eventData.setIssuerDn(certificate.getIssuerDn());
+    }
+
+    private static void setCertificateAuthorityData(CertificateEventAuthorityData eventData, Certificate certificate) {
+        if (certificate.getRaProfile() != null) {
+            eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
+            eventData.setRaProfileName(certificate.getRaProfile().getName());
+            if (certificate.getRaProfile().getAuthorityInstanceReferenceUuid() != null) {
+                eventData.setAuthorityInstanceUuid(certificate.getRaProfile().getAuthorityInstanceReferenceUuid());
+            }
+        }
     }
 }
