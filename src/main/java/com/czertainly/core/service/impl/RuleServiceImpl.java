@@ -21,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -185,7 +186,7 @@ public class RuleServiceImpl implements RuleService {
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-            if (request.getResource() != Resource.ANY && condition.getResource() != request.getResource()) {
+            if (request.getResource() != Resource.ANY && condition.getResource() != Resource.ANY && condition.getResource() != request.getResource()) {
                 throw new ValidationException("Resource of condition '%s' does not match rule resource.".formatted(condition.getName()));
             }
             conditions.add(condition);
@@ -208,12 +209,16 @@ public class RuleServiceImpl implements RuleService {
         }
 
         Set<Condition> conditions = new HashSet<>();
-        Rule rule = ruleRepository.findByUuid(SecuredUUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
+        Rule rule = ruleRepository.findWithTriggersByUuid(UUID.fromString(ruleUuid)).orElseThrow(() -> new NotFoundException(Rule.class, ruleUuid));
+        Set<Resource> associatedTriggersResources = rule.getTriggers().stream().map(Trigger::getResource).collect(Collectors.toSet());
 
         for (String conditionUuid : request.getConditionsUuids()) {
             Condition condition = conditionRepository.findByUuid(SecuredUUID.fromString(conditionUuid)).orElseThrow(() -> new NotFoundException(Condition.class, conditionUuid));
-            if (rule.getResource() != Resource.ANY && condition.getResource() != rule.getResource()) {
+            if (rule.getResource() != Resource.ANY && condition.getResource() != Resource.ANY && condition.getResource() != rule.getResource()) {
                 throw new ValidationException("Resource of condition '%s' does not match rule resource.".formatted(condition.getName()));
+            }
+            if (condition.getResource() != Resource.ANY && (associatedTriggersResources.size() > 1 || (associatedTriggersResources.size() == 1 && !associatedTriggersResources.contains(condition.getResource())))) {
+                throw new ValidationException("Resource of condition '%s' does not match resource of triggers associated with rule.".formatted(condition.getName()));
             }
             conditions.add(condition);
         }
