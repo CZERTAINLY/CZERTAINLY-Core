@@ -24,10 +24,6 @@ import com.czertainly.core.dao.entity.notifications.PendingNotification;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
-import com.czertainly.core.dao.repository.workflows.ActionRepository;
-import com.czertainly.core.dao.repository.workflows.ExecutionItemRepository;
-import com.czertainly.core.dao.repository.workflows.ExecutionRepository;
-import com.czertainly.core.dao.repository.workflows.TriggerRepository;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.handlers.*;
@@ -323,6 +319,10 @@ class EventHandlersTest extends BaseSpringBootTest {
         eventData = EventDataBuilder.getApprovalEventData(approval, approvalProfile, "TestUser1");
         final NotificationMessage messageApprovalClosed = new NotificationMessage(ResourceEvent.APPROVAL_CLOSED, Resource.APPROVAL, approval.getUuid(), notificationProfileUuids, null, eventData);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageApprovalClosed));
+
+        eventData = EventDataBuilder.getCertificateExpiringEventData(certificate);
+        final NotificationMessage messageCertificateExpiring = new NotificationMessage(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateExpiring));
 
         mockServer.shutdown();
     }

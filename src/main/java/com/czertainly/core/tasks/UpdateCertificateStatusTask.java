@@ -43,10 +43,14 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
     public ScheduledTaskResult performJob(final ScheduledJobInfo scheduledJobInfo, final Object taskData) {
         int certificatesUpdated = certificateService.updateCertificatesStatusScheduled();
         int expiredApprovals = approvalService.checkApprovalsExpiration();
+        int expiringCertificates = certificateService.handleExpiringCertificates();
 
         String message = "Updated status of %d certificate(s).".formatted(certificatesUpdated);
-        if(expiredApprovals > 0) {
+        if (expiredApprovals > 0) {
             message += " Expired %d approval(s).".formatted(expiredApprovals);
+        }
+        if (expiringCertificates > 0) {
+            message += " Handled %d expiring certificates.".formatted(expiringCertificates);
         }
 
         return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, message);
