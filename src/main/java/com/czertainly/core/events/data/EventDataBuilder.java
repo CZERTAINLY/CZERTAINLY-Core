@@ -59,11 +59,7 @@ public class EventDataBuilder {
         CertificateStatusChangedEventData eventData = new CertificateStatusChangedEventData();
         eventData.setOldStatus(statusArrayData[0].getLabel());
         eventData.setNewStatus(statusArrayData[1].getLabel());
-        eventData.setCertificateUuid(certificate.getUuid());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
+        setCertificateEventData(eventData, certificate);
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
@@ -81,11 +77,7 @@ public class EventDataBuilder {
     public static CertificateActionPerformedEventData getCertificateActionPerformedEventData(Certificate certificate, ResourceAction action) {
         CertificateActionPerformedEventData eventData = new CertificateActionPerformedEventData();
         eventData.setAction(action.getCode());
-        eventData.setCertificateUuid(certificate.getUuid());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
+        setCertificateEventData(eventData, certificate);
         if (certificate.getRaProfile() != null) {
             eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
             eventData.setRaProfileName(certificate.getRaProfile().getName());
@@ -99,11 +91,7 @@ public class EventDataBuilder {
 
     public static CertificateDiscoveredEventData getCertificateDiscoveredEventData(Certificate certificate, DiscoveryHistory discovery, UUID userUuid) {
         CertificateDiscoveredEventData eventData = new CertificateDiscoveredEventData();
-        eventData.setCertificateUuid(certificate.getUuid());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
+        setCertificateEventData(eventData, certificate);
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
@@ -131,11 +119,7 @@ public class EventDataBuilder {
 
     public static CertificateExpiringEventData getCertificateExpiringEventData(Certificate certificate) {
         CertificateExpiringEventData eventData = new CertificateExpiringEventData();
-        eventData.setCertificateUuid(certificate.getUuid());
-        eventData.setFingerprint(certificate.getFingerprint());
-        eventData.setSerialNumber(certificate.getSerialNumber());
-        eventData.setSubjectDn(certificate.getSubjectDn());
-        eventData.setIssuerDn(certificate.getIssuerDn());
+        setCertificateEventData(eventData, certificate);
         if (certificate.getRaProfile() != null) {
             eventData.setRaProfileUuid(certificate.getRaProfile().getUuid());
             eventData.setRaProfileName(certificate.getRaProfile().getName());
@@ -147,5 +131,13 @@ public class EventDataBuilder {
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
         return eventData;
+    }
+
+    private static void setCertificateEventData(CertificateEventData eventData, Certificate certificate) {
+        eventData.setCertificateUuid(certificate.getUuid());
+        eventData.setFingerprint(certificate.getFingerprint());
+        eventData.setSerialNumber(certificate.getSerialNumber());
+        eventData.setSubjectDn(certificate.getSubjectDn());
+        eventData.setIssuerDn(certificate.getIssuerDn());
     }
 }
