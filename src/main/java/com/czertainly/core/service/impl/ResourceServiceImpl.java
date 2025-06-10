@@ -17,6 +17,7 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
@@ -69,7 +70,7 @@ public class ResourceServiceImpl implements ResourceService {
             resourceDto.setHasGroups(resource.hasGroups());
             resourceDto.setHasOwner(resource.hasOwner());
             resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
-            resourceDto.setHasRuleEvaluator(resource == Resource.CERTIFICATE);
+            resourceDto.setHasRuleEvaluator(hasRuleEvaluator(resource));
             resources.add(resourceDto);
         }
 
@@ -97,15 +98,12 @@ public class ResourceServiceImpl implements ResourceService {
 
     @Override
     public List<SearchFieldDataByGroupDto> listResourceRuleFilterFields(Resource resource, boolean settable) throws NotFoundException {
-        if (resource != Resource.CERTIFICATE) {
-            return List.of();
-        }
 
         List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = attributeEngine.getResourceSearchableFields(resource, settable);
-
-        List<FilterField> enums = FilterField.getEnumsForResource(resource);
+        List<FilterField> filterFields = FilterField.getEnumsForResource(resource);
+        if (filterFields.isEmpty() && searchFieldDataByGroupDtos.isEmpty()) return List.of();
         List<SearchFieldDataDto> fieldDataDtos = new ArrayList<>();
-        for (FilterField filterField : enums) {
+        for (FilterField filterField : filterFields) {
             // skip filter fields with JSON paths since it is not supported by rule evaluator
             // If getting only settable fields, skip not settable fields
             if (filterField.getJsonPath() != null || (settable && !filterField.isSettable())) {
@@ -128,7 +126,7 @@ public class ResourceServiceImpl implements ResourceService {
             }
         }
 
-        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
+        if (!fieldDataDtos.isEmpty()) searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
 
         return searchFieldDataByGroupDtos;
     }
@@ -145,6 +143,13 @@ public class ResourceServiceImpl implements ResourceService {
                         event -> event,
                         Collectors.mapping(ResourceEventDto::new, Collectors.toList())
                 ));
+    }
+
+    private boolean hasRuleEvaluator(Resource resource) {
+        boolean hasFilterFields = !FilterField.getEnumsForResource(resource).isEmpty();
+        boolean isEventResource = ResourceEvent.isResourceOfEvent(resource);
+        boolean hasCustomAttributes = !attributeEngine.getCustomAttributesByResource(resource, SecurityResourceFilter.create()).isEmpty();
+        return hasFilterFields || isEventResource || hasCustomAttributes;
     }
 
 }
