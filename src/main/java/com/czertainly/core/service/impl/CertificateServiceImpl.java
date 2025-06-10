@@ -35,6 +35,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.events.handlers.CertificateExpiringEventHandler;
 import com.czertainly.core.events.handlers.CertificateStatusChangedEventHandler;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
@@ -1585,6 +1586,15 @@ public class CertificateServiceImpl implements CertificateService {
         return certificates.stream()
                 .filter(CertificateUtil::isCertificateCmpAcceptable)
                 .map(Certificate::mapToListDto).toList();
+    }
+
+    @Override
+    public int handleExpiringCertificates() {
+        List<UUID> expiringCertificates = certificateRepository.findExpiringCertificatesWithoutRenewal();
+        for (UUID uuid : expiringCertificates) {
+            eventProducer.produceMessage(CertificateExpiringEventHandler.constructEventMessages(uuid));
+        }
+        return expiringCertificates.size();
     }
 
 
