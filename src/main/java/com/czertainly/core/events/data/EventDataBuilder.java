@@ -8,7 +8,6 @@ import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfile;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
-import com.czertainly.core.events.handlers.CertificateExpiringEventHandler;
 import com.czertainly.core.model.auth.ResourceAction;
 import org.springframework.transaction.annotation.Transactional;
 
