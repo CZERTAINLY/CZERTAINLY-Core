@@ -255,14 +255,17 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param csrFormat - format of the certificate request
      * @param signatureAttributes signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
      *                            this parameter should be left empty
+     * @param altSignatureAttributes signatureAttributes used to sign the alternative private key, in case the CSR is for hybrid certificate
      * @param csrAttributes Attributes used to create CSR
      * @param issueAttributes Attributes used to issue certificate
      * @param keyUuid UUID of the key used to sign the CSR
+     * @param altKeyUuid UUID of the alternative key used to sign the hybrid CSR
      * @param raProfileUuid UUID of the RA profile to be used to issue certificate
      * @param sourceCertificateUuid UUID of the source certificate specified in case of renew/rekey operation
      * return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> altSignatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid,
+                                                  UUID altKeyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate
@@ -287,5 +290,10 @@ public interface CertificateService extends ResourceExtensionService  {
      * @return List of available signing certificates
      */
     List<CertificateDto> listCmpSigningCertificates(SecurityFilter filter);
+
+    /**
+     * Find certificates which are expiring and not renewed and trigger event handling these certificates
+     */
+    int handleExpiringCertificates();
 
 }

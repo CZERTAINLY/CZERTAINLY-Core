@@ -748,7 +748,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
 
     @Override
-    public UUID uploadCertificatePublicKey(String name, PublicKey publicKey, String keyAlgorithm, int keyLength, String fingerprint) {
+    public UUID uploadCertificatePublicKey(String name, PublicKey publicKey, int keyLength, String fingerprint) {
         CryptographicKey cryptographicKey = new CryptographicKey();
         cryptographicKey.setName(name);
         cryptographicKeyRepository.save(cryptographicKey);
@@ -758,7 +758,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         cryptographicKeyItem.setKey(cryptographicKey);
         KeyAlgorithm keyAlgorithmEnumValue;
         try {
-            keyAlgorithmEnumValue = KeyAlgorithm.valueOf(CertificateUtil.getAlgorithmFromProviderName(publicKey.getAlgorithm()));
+            keyAlgorithmEnumValue = CertificateUtil.getKeyAlgorithmEnumFromProviderName(publicKey.getAlgorithm());
         } catch (IllegalArgumentException e) {
             keyAlgorithmEnumValue = KeyAlgorithm.UNKNOWN;
         }

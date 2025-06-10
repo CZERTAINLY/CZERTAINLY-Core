@@ -7,26 +7,12 @@ import com.czertainly.core.service.cmp.mock.CertTestUtil;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.github.tomakehurst.wiremock.common.Json;
-import org.bouncycastle.asn1.ASN1Encodable;
-import org.bouncycastle.asn1.ASN1EncodableVector;
-import org.bouncycastle.asn1.ASN1Encoding;
-import org.bouncycastle.asn1.ASN1InputStream;
-import org.bouncycastle.asn1.ASN1Integer;
-import org.bouncycastle.asn1.ASN1Object;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.DERSequence;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.*;
+import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.AlgorithmIdentifier;
-import org.bouncycastle.asn1.x509.CRLReason;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.ExtensionsGenerator;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.SubjectPublicKeyInfo;
-import org.bouncycastle.asn1.x509.X509DefaultEntryConverter;
-import org.bouncycastle.asn1.x509.X509Name;
-import org.bouncycastle.asn1.x509.X509NameEntryConverter;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.CertException;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
@@ -35,6 +21,7 @@ import org.bouncycastle.cert.crmf.*;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessageBuilder;
 import org.bouncycastle.cert.crmf.jcajce.JcePKMACValuesCalculator;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
+import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.*;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -93,8 +80,8 @@ public class CmpTestUtil {
 
 
         mockServer.stubFor(WireMock
-                ///v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes/validate
-                ///v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes
+                //v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes/validate
+                //v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson(Json.write(Boolean.TRUE))));
         List<BaseAttribute> listOfAttributes = new ArrayList<>();
@@ -368,13 +355,13 @@ public class CmpTestUtil {
     }
 
     public static CertificateRequestMessageBuilder createCrmf(X500Name issuerDN, X500Name subjectDN)
-            throws NoSuchAlgorithmException, IOException, CRMFException, CMPException, InvalidAlgorithmParameterException, NoSuchProviderException {
+            throws NoSuchAlgorithmException, IOException, InvalidAlgorithmParameterException, NoSuchProviderException {
         CertificateRequestMessageBuilder msgBuilder = new CertificateRequestMessageBuilder(
                 BigInteger.valueOf(1L));
         msgBuilder.setIssuer(issuerDN);//"CN=ManagementCA"
         msgBuilder.setSubject(subjectDN);//"CN=user"
         msgBuilder.setAuthInfoSender(new GeneralName(subjectDN));
-
+        msgBuilder.setProofOfPossessionSubsequentMessage(SubsequentMessage.encrCert);
         KeyPair keyPair = generateKeyPairEC();
         byte[]                  bytes = keyPair.getPublic().getEncoded();
         ByteArrayInputStream    bIn = new ByteArrayInputStream(bytes);

@@ -1,37 +1,42 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.ConnectorEntityNotFoundException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
-import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
-import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.common.enums.cryptography.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
+import com.czertainly.core.attribute.RsaSignatureAttributes;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateRequestUtils;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.jcajce.interfaces.SLHDSAPublicKey;
+import org.bouncycastle.jcajce.spec.SLHDSAParameterSpec;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequest;
 
+import javax.security.auth.x500.X500Principal;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.util.Base64;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.security.*;
+import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.InvalidKeySpecException;
+import java.util.*;
 
 class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
@@ -113,36 +118,42 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         tokenProfile.setTokenInstanceName("testInstance");
         tokenProfileRepository.save(tokenProfile);
 
-        key = new CryptographicKey();
-        key.setName("testKey1");
-        key.setDescription("sampleDescription");
-        key.setTokenProfile(tokenProfile);
-        key.setTokenInstanceReference(tokenInstanceReference);
-        cryptographicKeyRepository.save(key);
+        key = createAndSaveKey("testKey1", KeyAlgorithm.RSA, "some/encrypted/data");
+    }
+
+    private CryptographicKey createAndSaveKey(String name, KeyAlgorithm keyAlgorithm, String publicKeyData) {
+        CryptographicKey cryptographicKey = new CryptographicKey();
+        cryptographicKey.setName(name);
+        cryptographicKey.setDescription("sampleDescription");
+        cryptographicKey.setTokenProfile(tokenProfile);
+        cryptographicKey.setTokenInstanceReference(tokenInstanceReference);
+        cryptographicKeyRepository.save(cryptographicKey);
 
         CryptographicKeyItem content = new CryptographicKeyItem();
         content.setLength(1024);
-        content.setKey(key);
-        content.setKeyUuid(key.getUuid());
+        content.setKey(cryptographicKey);
+        content.setKeyUuid(cryptographicKey.getUuid());
         content.setType(KeyType.PRIVATE_KEY);
         content.setKeyData("some/encrypted/data");
         content.setFormat(KeyFormat.PRKI);
         content.setState(KeyState.ACTIVE);
         content.setEnabled(true);
-        content.setKeyAlgorithm(KeyAlgorithm.RSA);
+        content.setKeyAlgorithm(keyAlgorithm);
+        content.setKeyReferenceUuid(UUID.randomUUID());
         content.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content);
 
         content1 = new CryptographicKeyItem();
         content1.setLength(1024);
-        content1.setKey(key);
-        content1.setKeyUuid(key.getUuid());
+        content1.setKey(cryptographicKey);
+        content1.setKeyUuid(cryptographicKey.getUuid());
         content1.setType(KeyType.PUBLIC_KEY);
-        content1.setKeyData("some/encrypted/data");
+        content1.setKeyData(publicKeyData);
         content1.setFormat(KeyFormat.SPKI);
         content1.setState(KeyState.ACTIVE);
         content1.setEnabled(true);
-        content1.setKeyAlgorithm(KeyAlgorithm.RSA);
+        content1.setKeyAlgorithm(keyAlgorithm);
+        content1.setKeyReferenceUuid(UUID.randomUUID());
         content1.setUsage(List.of(KeyUsage.SIGN, KeyUsage.ENCRYPT, KeyUsage.VERIFY, KeyUsage.DECRYPT));
         cryptographicKeyItemRepository.save(content1);
 
@@ -154,8 +165,9 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         Set<CryptographicKeyItem> items = new HashSet<>();
         items.add(content1);
         items.add(content);
-        key.setItems(items);
-        cryptographicKeyRepository.save(key);
+        cryptographicKey.setItems(items);
+        cryptographicKeyRepository.save(cryptographicKey);
+        return cryptographicKey;
     }
 
     @AfterEach
@@ -527,4 +539,76 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
 
         Assertions.assertDoesNotThrow(() -> cryptographicOperationService.randomData(tokenInstanceReference.getSecuredParentUuid(), requestDto));
     }
+
+    @Test
+    void testGenerateCsrWithAltExtensions() throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException, InvalidAlgorithmParameterException, SignatureException, InvalidKeyException, CertificateRequestException {
+        KeyPair altKeyPair = generateKeyPair("SLH-DSA", SLHDSAParameterSpec.slh_dsa_sha2_128f, 0);
+        KeyPair defaultKeyPair = generateKeyPair("RSA", null, 1024);
+        CryptographicKey altKey = createAndSaveKey("altKey", KeyAlgorithm.SLHDSA, Base64.getEncoder().encodeToString(altKeyPair.getPublic().getEncoded()));
+        CryptographicKey defaultKey = createAndSaveKey("defKey", KeyAlgorithm.RSA, Base64.getEncoder().encodeToString(defaultKeyPair.getPublic().getEncoded()));
+
+        List<RequestAttributeDto> rsaSignatureAttributes = new ArrayList<>();
+        rsaSignatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5));
+        rsaSignatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA3_256));
+
+        String altPrivateKeyReferenceUuid = altKey.getKeyItems().stream().filter(c -> c.getType() == KeyType.PRIVATE_KEY).findFirst().get().getKeyReferenceUuid();
+        String defaultPrivateKeyReferenceUuid = defaultKey.getKeyItems().stream().filter(c -> c.getType() == KeyType.PRIVATE_KEY).findFirst().get().getKeyReferenceUuid();
+
+        mockSignResponse(altPrivateKeyReferenceUuid, generateSignature(altKeyPair, altKeyPair.getPublic().getAlgorithm()));
+        mockSignResponse(defaultPrivateKeyReferenceUuid, generateSignature(defaultKeyPair, "SHA256withRSA"));
+
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/v1/cryptographyProvider/tokens/[^/]+/keys/[^/]+/verify"))
+                .willReturn(WireMock.okJson("""
+                        {
+                            "verifications" : [
+                                {
+                                    "result": true
+                                }
+                            ]
+                        }
+                        """)));
+
+        String csr = cryptographicOperationService.generateCsr(defaultKey.getUuid(), tokenProfile.getUuid(), new X500Principal("CN=alt"),
+                rsaSignatureAttributes, altKey.getUuid(), tokenProfile.getUuid(), new ArrayList<>());
+        CertificateRequest certificateRequest = CertificateRequestUtils.createCertificateRequest(csr, CertificateRequestFormat.PKCS10);
+        Assertions.assertNotNull(certificateRequest.getAltSignatureAlgorithm());
+        Assertions.assertNotNull(certificateRequest.getAltPublicKey());
+        Assertions.assertInstanceOf(SLHDSAPublicKey.class, certificateRequest.getAltPublicKey());
+        JcaPKCS10CertificationRequest pkcs10CertificationRequest =  new JcaPKCS10CertificationRequest(Base64.getDecoder().decode(csr));
+        Assertions.assertNotNull(Arrays.stream(pkcs10CertificationRequest.getAttributes()).filter(attribute -> attribute.getAttrType().equals(Extension.altSignatureValue)));
+    }
+
+    private void mockSignResponse(String keyUuid, String signature) {
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathEqualTo("/v1/cryptographyProvider/tokens/%s/keys/%s/sign".formatted(tokenInstanceReference.getUuid().toString(), keyUuid)))
+                .willReturn(WireMock.okJson("""
+                        {
+                            "signatures" : [
+                                {
+                                    "data": "%s"
+                                }
+                            ]
+                        }
+                        """.formatted(signature))));
+    }
+
+    private static KeyPair generateKeyPair(String algorithm, AlgorithmParameterSpec parameterSpec, int keySize) throws NoSuchAlgorithmException, InvalidAlgorithmParameterException {
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance(algorithm);
+        if (parameterSpec != null) {
+            keyPairGenerator.initialize(parameterSpec);
+        } else {
+            keyPairGenerator.initialize(keySize);
+        }
+        return keyPairGenerator.generateKeyPair();
+    }
+
+    private String generateSignature(KeyPair keyPair, String algorithm) throws NoSuchAlgorithmException, InvalidKeyException, SignatureException {
+        Signature signature = Signature.getInstance(algorithm);
+        signature.initSign(keyPair.getPrivate());
+        signature.update(keyPair.getPublic().getEncoded());
+        byte[] signedData = signature.sign();
+        return Base64.getEncoder().encodeToString(signedData);
+    }
+
 }

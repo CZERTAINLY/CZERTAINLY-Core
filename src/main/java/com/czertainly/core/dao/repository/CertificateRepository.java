@@ -27,7 +27,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Certificate findFirstByUuidIn(List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner"})
+    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);
@@ -39,20 +39,30 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
     List<Certificate> findByKeyUuid(UUID keyUuid);
+    List<Certificate> findByAltKeyUuid(UUID altKeyUuid);
 
     List<Certificate> findBySourceCertificateUuid(UUID sourceCertificateUuid);
 
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
 
+    @Query("SELECT DISTINCT altSignatureAlgorithm FROM Certificate")
+    List<String> findDistinctAltSignatureAlgorithm();
+
     @Query("SELECT DISTINCT keySize FROM Certificate")
     List<Integer> findDistinctKeySize();
+
+    @Query("SELECT DISTINCT altKeySize FROM Certificate")
+    List<Integer> findDistinctAltKeySize();
 
     @Query("SELECT DISTINCT keyUsage FROM Certificate")
     List<String> findDistinctKeyUsage();
 
     @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
     List<String> findDistinctPublicKeyAlgorithm();
+
+    @Query("SELECT DISTINCT altPublicKeyAlgorithm FROM Certificate")
+    List<String> findDistinctAltPublicKeyAlgorithm();
 
     Optional<Certificate> findByUserUuid(UUID userUuid);
 
@@ -105,6 +115,10 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void setKeyUuid(UUID keyUuid, List<UUID> uuids);
 
     @Modifying
+    @Query("UPDATE Certificate c SET c.altKeyUuid = ?1, c.hybridCertificate = true WHERE c.uuid IN ?2")
+    void setAltKeyUuidAndHybridCertificate(UUID keyUuid, List<UUID> uuids);
+
+    @Modifying
     @Query(value = """
             INSERT INTO {h-schema}certificate (
             uuid, i_author, i_cre, i_upd, ra_profile_uuid,certificate_content_id,
@@ -114,7 +128,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             extended_key_usage,fingerprint,issuer_common_name,issuer_dn,issuer_dn_normalized,
             issuer_serial_number,key_size,key_usage,key_uuid,public_key_algorithm,
             public_key_fingerprint,serial_number,signature_algorithm,subject_alternative_names,
-            subject_dn,subject_dn_normalized,subject_type,trusted_ca,user_uuid)
+            subject_dn,subject_dn_normalized,subject_type,trusted_ca,user_uuid,hybrid_certificate,alt_signature_algorithm)
             VALUES (
             :#{#cert.uuid}, :#{#cert.author}, :#{#cert.created}, :#{#cert.updated}, :#{#cert.raProfileUuid}, :#{#cert.certificateContentId},
             :#{#cert.certificateRequestUuid}, :#{#cert.sourceCertificateUuid}, :#{#cert.issuerCertificateUuid}, :#{#cert.certificateType.name()},
@@ -123,10 +137,14 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             :#{#cert.extendedKeyUsage}, :#{#cert.fingerprint}, :#{#cert.issuerCommonName}, :#{#cert.issuerDn}, :#{#cert.issuerDnNormalized},
             :#{#cert.issuerSerialNumber}, :#{#cert.keySize}, :#{#cert.keyUsage}, :#{#cert.keyUuid}, :#{#cert.publicKeyAlgorithm},
             :#{#cert.publicKeyFingerprint}, :#{#cert.serialNumber}, :#{#cert.signatureAlgorithm}, :#{#cert.subjectAlternativeNames},
-            :#{#cert.subjectDn}, :#{#cert.subjectDnNormalized}, :#{#cert.subjectType.name()}, :#{#cert.trustedCa}, :#{#cert.userUuid}
+            :#{#cert.subjectDn}, :#{#cert.subjectDnNormalized}, :#{#cert.subjectType.name()}, :#{#cert.trustedCa}, :#{#cert.userUuid},
+            :#{#cert.hybridCertificate}, :#{#cert.altSignatureAlgorithm}
             )
             ON CONFLICT (fingerprint)
             DO NOTHING
             """, nativeQuery = true)
     int insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
+
+    @Query("SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)")
+    List<UUID> findExpiringCertificatesWithoutRenewal();
 }
