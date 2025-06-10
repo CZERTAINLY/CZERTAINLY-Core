@@ -157,6 +157,9 @@ public interface CryptographicOperationService {
             UUID keyUuid,
             UUID tokenProfileUuid,
             X500Principal principal,
-            List<RequestAttributeDto> signatureAttributes
+            List<RequestAttributeDto> signatureAttributes,
+            UUID altKeyUUid,
+            UUID altTokenProfileUuid,
+            List<RequestAttributeDto> altSignatureAttributes
     ) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException;
 }

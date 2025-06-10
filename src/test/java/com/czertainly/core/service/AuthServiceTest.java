@@ -62,7 +62,7 @@ class AuthServiceTest extends BaseSpringBootTest {
 
     @AfterEach
     void cleanup() {
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     @Test
