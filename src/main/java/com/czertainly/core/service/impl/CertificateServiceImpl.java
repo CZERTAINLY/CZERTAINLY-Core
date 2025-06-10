@@ -1416,6 +1416,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity = certificate.prepareCertificateRequest(certificateRequestFormat);
             certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
             certificateRequestEntity.setContent(certificateRequest);
+            certificateRequestEntity.setSignatureAlgorithm(request.getSignatureAlgorithm().getAlgorithm().toString());
             certificateRequestEntity = certificateRequestRepository.save(certificateRequestEntity);
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
@@ -1439,6 +1440,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity.setAltKeyUuid(altKeyUuid);
         else if (request.getAltPublicKey() != null) {
             setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
+            certificateRequestEntity.setAltSignatureAlgorithm(request.getAltSignatureAlgorithm().getAlgorithm().toString());
         }
 
         certificate.setCertificateRequest(certificateRequestEntity);
