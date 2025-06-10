@@ -1,5 +1,6 @@
 package com.czertainly.core.enums;
 
+import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
@@ -16,6 +17,7 @@ import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.metamodel.Attribute;
 
 import java.util.Arrays;
@@ -100,7 +102,23 @@ public enum FilterField {
     AUDIT_LOG_OPERATION_RESULT(Resource.AUDIT_LOG, null, null, AuditLog_.operationResult, "Operation result", SearchFieldTypeEnum.LIST, OperationResult.class),
     AUDIT_LOG_SOURCE_IP_ADDRESS(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "IP Address", SearchFieldTypeEnum.STRING, new String[]{"source", "ipAddress"}),
     AUDIT_LOG_SOURCE_PATH(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "API path", SearchFieldTypeEnum.STRING, new String[]{"source", "path"}),
-    AUDIT_LOG_MESSAGE(Resource.AUDIT_LOG, null, null, AuditLog_.message, "Message", SearchFieldTypeEnum.STRING);
+    AUDIT_LOG_MESSAGE(Resource.AUDIT_LOG, null, null, AuditLog_.message, "Message", SearchFieldTypeEnum.STRING),
+
+    // Scheduled Job
+    SCHEDULED_JOB_NAME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.jobName, "Job Name", SearchFieldTypeEnum.STRING),
+    SCHEDULED_JOB_ONE_TIME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.oneTime, "One Time", SearchFieldTypeEnum.BOOLEAN),
+    SCHEDULED_JOB_SYSTEM(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.system, "System", SearchFieldTypeEnum.BOOLEAN),
+    SCHEDULED_JOB_CLASS_NAME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.jobClassName, "Class Name", SearchFieldTypeEnum.LIST),
+
+    // Approval
+    APPROVAL_RESOURCE(Resource.APPROVAL, null, null, Approval_.resource, "Resource", SearchFieldTypeEnum.LIST, Resource.class),
+    APPROVAL_ACTION(Resource.APPROVAL, null, null, Approval_.action, "Action", SearchFieldTypeEnum.LIST, ResourceAction.class),
+    APPROVAL_STATUS(Resource.APPROVAL, null, null, Approval_.status, "Status", SearchFieldTypeEnum.LIST, ApprovalStatusEnum.class),
+    APPROVAL_CREATED_AT(Resource.APPROVAL, null, null, Approval_.createdAt, "Created At", SearchFieldTypeEnum.DATETIME),
+    APPROVAL_EXPIRY_AT(Resource.APPROVAL, null, null, Approval_.expiryAt, "Expiry At", SearchFieldTypeEnum.DATETIME),
+    APPROVAL_CLOSED_AT(Resource.APPROVAL, null, null, Approval_.closedAt, "Closed At", SearchFieldTypeEnum.DATETIME)
+
+    ;
 
     private static final FilterField[] VALUES;
 
