@@ -216,10 +216,10 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListResourceRuleFilterFields() throws NotFoundException {
-        // Resource != CERTIFICATE should return empty list
-        List<SearchFieldDataByGroupDto> filterFields = resourceService.listResourceRuleFilterFields(Resource.CRYPTOGRAPHIC_KEY, false);
+        // Resource without filter fields and attributes should return empty list
+        List<SearchFieldDataByGroupDto> filterFields = resourceService.listResourceRuleFilterFields(Resource.USER, false);
         Assertions.assertNotNull(filterFields);
-        Assertions.assertTrue(filterFields.isEmpty(), "Filter fields list should be empty for resource: " + Resource.CRYPTOGRAPHIC_KEY);
+        Assertions.assertTrue(filterFields.isEmpty(), "Filter fields list should be empty for resource: " + Resource.USER);
 
         // Resource == CERTIFICATE should return non-empty list
         filterFields = resourceService.listResourceRuleFilterFields(Resource.CERTIFICATE, false);
