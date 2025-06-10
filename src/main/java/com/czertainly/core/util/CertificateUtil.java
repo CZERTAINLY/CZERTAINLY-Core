@@ -26,17 +26,13 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import jakarta.annotation.Nullable;
 import jakarta.xml.bind.DatatypeConverter;
-import org.bouncycastle.asn1.DLSequence;
-import org.bouncycastle.asn1.DLTaggedObject;
+import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cmp.CMPCertificate;
 import org.bouncycastle.asn1.pkcs.Attribute;
 import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
 import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.bouncycastle.asn1.x509.Extension;
-import org.bouncycastle.asn1.x509.Extensions;
-import org.bouncycastle.asn1.x509.GeneralName;
-import org.bouncycastle.asn1.x509.GeneralNames;
+import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter;
@@ -63,6 +59,8 @@ import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.CertificateParsingException;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
+import java.security.spec.X509EncodedKeySpec;
 import java.util.*;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.stream.Collectors;
@@ -70,8 +68,7 @@ import java.util.stream.Collectors;
 public class CertificateUtil {
     private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().enable(SerializationFeature.ORDER_MAP_ENTRIES_BY_KEYS);
 
-    private static final Map<String, String> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
-    private static final Map<String, String> CERTIFICATE_ALGORITHM_FRIENDLY_NAME = new HashMap<>();
+    private static final Map<String, KeyAlgorithm> CERTIFICATE_ALGORITHM_FROM_PROVIDER = new HashMap<>();
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
 
@@ -91,8 +88,9 @@ public class CertificateUtil {
     }
 
     static {
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA.toString());
-        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON.toString());
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("RSA", KeyAlgorithm.RSA);
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("EC", KeyAlgorithm.ECDSA);
+        CERTIFICATE_ALGORITHM_FROM_PROVIDER.put("Falcon", KeyAlgorithm.FALCON);
     }
 
     private CertificateUtil() {
@@ -403,10 +401,20 @@ public class CertificateUtil {
             logger.error("Failed to calculate the thumbprint of the certificate");
         }
 
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificate.getPublicKey().getAlgorithm()).replace("WITH", "with"));
+        modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificate.getPublicKey().getAlgorithm()));
         modal.setSignatureAlgorithm(certificate.getSigAlgName().replace("WITH", "with"));
         modal.setKeySize(KeySizeUtil.getKeyLength(certificate.getPublicKey()));
         modal.setCertificateType(CertificateType.fromCode(certificate.getType()));
+        byte[] alternativeSignatureAlgorithm = certificate.getExtensionValue(Extension.altSignatureAlgorithm.getId());
+        byte[] alternativeSignature = certificate.getExtensionValue(Extension.altSignatureValue.getId());
+        if (alternativeSignatureAlgorithm != null && alternativeSignature != null) {
+            try {
+                modal.setAltSignatureAlgorithm(getAlternativeSignatureAlgorithm(alternativeSignatureAlgorithm).replace("WITH", "with"));
+            } catch (IOException e) {
+                logger.error("Cannot read Alternative Signature Algorithm from extension: {}", e.getMessage());
+            }
+        }
+
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(CertificateUtil.getSAN(certificate)));
         try {
             modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
@@ -425,6 +433,38 @@ public class CertificateUtil {
             modal.setTrustedCa(false);
     }
 
+    public static String getAlternativeSignatureAlgorithm(byte[] alternativeSignatureAlgorithm) throws IOException {
+        ASN1Primitive derObj2 = getAsn1Primitive(alternativeSignatureAlgorithm);
+        AltSignatureAlgorithm algorithm = AltSignatureAlgorithm.getInstance(derObj2);
+        return new DefaultAlgorithmNameFinder().getAlgorithmName(algorithm.getAlgorithm());
+    }
+
+    public static byte[] getAltSignatureValue(byte[] altSignatureValue) throws IOException {
+        ASN1Primitive primitive = getAsn1Primitive(altSignatureValue);
+        AltSignatureValue signatureValue = AltSignatureValue.getInstance(primitive);
+        return signatureValue.getSignature().getEncoded();
+    }
+
+    public static PublicKey getAltPublicKey(byte[] altPublicKeyInfoEncoded) throws IOException, NoSuchAlgorithmException, InvalidKeySpecException {
+        ASN1Primitive primitive = getAsn1Primitive(altPublicKeyInfoEncoded);
+        SubjectAltPublicKeyInfo subjectAltPublicKeyInfo = SubjectAltPublicKeyInfo.getInstance(primitive);
+        KeyFactory keyFactory = KeyFactory.getInstance(subjectAltPublicKeyInfo.getAlgorithm().getAlgorithm().getId());
+        return keyFactory.generatePublic(new X509EncodedKeySpec(subjectAltPublicKeyInfo.getEncoded()));
+    }
+
+
+    private static ASN1Primitive getAsn1Primitive(byte[] encodedAsn1Primitive) throws IOException {
+        ASN1InputStream asn1InputStream = new ASN1InputStream(new ByteArrayInputStream(encodedAsn1Primitive));
+        ASN1Primitive asn1Primitive = asn1InputStream.readObject();
+        DEROctetString derOctetString = (DEROctetString) asn1Primitive;
+
+        asn1InputStream.close();
+
+        byte[] octets = derOctetString.getOctets();
+        ASN1InputStream asn1InputStreamInner = new ASN1InputStream(new ByteArrayInputStream(octets));
+        return asn1InputStreamInner.readObject();
+    }
+
 
     public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
         setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateRequest.getSubject()));
@@ -440,13 +480,9 @@ public class CertificateUtil {
         } catch (NoSuchAlgorithmException e) {
             logger.error("Failed to get the thumbprint of the certificate request: {}", e.getMessage());
         }
-
-        modal.setPublicKeyAlgorithm(getAlgorithmFromProviderName(certificateRequest.getPublicKey().getAlgorithm()).replace("WITH", "with"));
-        DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
-        if (certificateRequest.getSignatureAlgorithm() == null)
-            modal.setSignatureAlgorithm(null);
-        else
-            modal.setSignatureAlgorithm(algFinder.getAlgorithmName(certificateRequest.getSignatureAlgorithm()).replace("WITH", "with"));
+        if (getKeyAlgorithmEnumFromProviderName(certificateRequest.getPublicKey().getAlgorithm()) != null) {
+            modal.setPublicKeyAlgorithm(getKeyAlgorithmStringFromProviderName(certificateRequest.getPublicKey().getAlgorithm()));
+        }
         modal.setKeySize(KeySizeUtil.getKeyLength(certificateRequest.getPublicKey()));
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
@@ -475,16 +511,27 @@ public class CertificateUtil {
         }
     }
 
-    public static String getAlgorithmFriendlyName(String algorithmName) {
-        String friendlyName = CERTIFICATE_ALGORITHM_FRIENDLY_NAME.get(algorithmName);
-        if (friendlyName != null) return friendlyName;
-        return algorithmName;
+    public static KeyAlgorithm getKeyAlgorithmEnumFromProviderName(String providerName) {
+        if (providerName == null) return null;
+        KeyAlgorithm keyAlgorithm = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
+        if (keyAlgorithm != null) return keyAlgorithm;
+        if (providerName.contains("ML-DSA")) return KeyAlgorithm.MLDSA;
+        if (providerName.contains("SLH-DSA")) return KeyAlgorithm.SLHDSA;
+        return KeyAlgorithm.UNKNOWN;
     }
 
+    public static String getKeyAlgorithmStringFromProviderName(String providerName) {
+        KeyAlgorithm keyAlgorithm = getKeyAlgorithmEnumFromProviderName(providerName);
+        if (keyAlgorithm == KeyAlgorithm.UNKNOWN || keyAlgorithm == null) return providerName;
+        return keyAlgorithm.name();
+    }
+
+    @Deprecated(forRemoval = true)
+    /**
+     * @deprecated Used only in a past migration
+     */
     public static String getAlgorithmFromProviderName(String providerName) {
-        String name = CERTIFICATE_ALGORITHM_FROM_PROVIDER.get(providerName);
-        if (name != null) return name;
-        return providerName;
+        return null;
     }
 
     public static List<JcaX509CertificateHolder> convertToX509CertificateHolder(List<X509Certificate> certificateChain) throws CertificateEncodingException {
@@ -734,4 +781,5 @@ public class CertificateUtil {
             } else return certificate.getCertificateContent() != null;
         } else return certificate.getCertificateContent() != null;
     }
+
 }

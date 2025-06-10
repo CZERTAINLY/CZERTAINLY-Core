@@ -43,6 +43,7 @@ import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
 import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.x500.X500Name;
+import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +57,7 @@ import org.springframework.transaction.support.DefaultTransactionDefinition;
 import javax.security.auth.x500.X500Principal;
 import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
@@ -181,9 +183,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new ValidationException("Cannot submit certificate request without specifying key or uploaded request content");
         }
 
-        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes());
-        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
-        protocolInfo);
+        String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
+        CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
+                protocolInfo);
 
         // create custom Attributes
         if (createCustomAttributes) {
@@ -215,6 +217,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRequestDto.setKeyUuid(request.getKeyUuid());
         certificateRequestDto.setIssueAttributes(request.getAttributes());
         certificateRequestDto.setCustomAttributes(request.getCustomAttributes());
+        certificateRequestDto.setAltKeyUuid(request.getAltKeyUuid());
+        certificateRequestDto.setAltTokenProfileUuid(request.getAltTokenProfileUuid());
+        certificateRequestDto.setAltSignatureAttributes(request.getAltSignatureAttributes());
 
         CertificateDetailDto certificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
@@ -512,26 +517,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateRequestDto.setRequest(request.getRequest());
             certificateRequestDto.setFormat(request.getFormat());
         } else {
-            // TODO: implement support for CRMF, currently only PKCS10 is supported
-            UUID keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
-            X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
-            X500Principal principal = x509Certificate.getSubjectX500Principal();
-            // Gather the signature attributes either provided in the request or get it from the old certificate
-            List<RequestAttributeDto> signatureAttributes = request.getSignatureAttributes() != null
-                    ? request.getSignatureAttributes()
-                    : (oldCertificate.getCertificateRequest() != null ? attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid()) : null);
-
-            String requestContent = generateBase64EncodedCsr(
-                    keyUuid,
-                    getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
-                    principal,
-                    signatureAttributes
-            );
-
-            certificateRequestDto.setKeyUuid(keyUuid);
-            certificateRequestDto.setRequest(requestContent);
-            certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
-            certificateRequestDto.setSignatureAttributes(signatureAttributes);
+            createRequestFromKeys(request, oldCertificate, certificateRequestDto);
         }
 
         certificateRequestDto.setRaProfileUuid(raProfileUuid.getValue());
@@ -563,6 +549,56 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         response.setCertificateData("");
         response.setUuid(newCertificate.getUuid());
         return response;
+    }
+
+    private void createRequestFromKeys(ClientCertificateRekeyRequestDto request, Certificate oldCertificate, ClientCertificateRequestDto certificateRequestDto) throws CertificateException, NotFoundException {
+        // TODO: implement support for CRMF, currently only PKCS10 is supported
+        UUID keyUuid = existingKeyValidation(request.getKeyUuid(), request.getSignatureAttributes(), oldCertificate);
+        X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
+        X500Principal principal = x509Certificate.getSubjectX500Principal();
+        // Gather the signature attributes either provided in the request or get it from the old certificate
+        List<RequestAttributeDto> signatureAttributes;
+        if (request.getSignatureAttributes() != null) {
+            signatureAttributes = request.getSignatureAttributes();
+        } else {
+            if (oldCertificate.getCertificateRequest() != null)
+                signatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+            else signatureAttributes = null;
+        }
+
+        UUID altTokenProfileUuid = null;
+        List<RequestAttributeDto> altSignatureAttributes = null;
+        if (oldCertificate.isHybridCertificate() && request.getAltKeyUuid() == null)
+            throw new ValidationException("Missing alternative key for re-keying of hybrid certificate");
+        if (request.getAltKeyUuid() != null) {
+            existingAltKeyValidation(request.getAltKeyUuid(), request.getAltSignatureAttributes(), oldCertificate);
+            if (request.getAltSignatureAttributes() != null) {
+                altSignatureAttributes = request.getAltSignatureAttributes();
+            } else {
+                if (oldCertificate.getCertificateRequest() != null)
+                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+            }
+            altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
+
+        }
+
+        String requestContent = generateBase64EncodedCsr(
+                keyUuid,
+                getTokenProfileUuid(request.getTokenProfileUuid(), oldCertificate),
+                principal,
+                signatureAttributes,
+                request.getAltKeyUuid(),
+                altTokenProfileUuid,
+                altSignatureAttributes
+        );
+
+        certificateRequestDto.setKeyUuid(keyUuid);
+        certificateRequestDto.setRequest(requestContent);
+        certificateRequestDto.setFormat(CertificateRequestFormat.PKCS10);
+        certificateRequestDto.setSignatureAttributes(signatureAttributes);
+        certificateRequestDto.setAltKeyUuid(request.getAltKeyUuid());
+        certificateRequestDto.setAltTokenProfileUuid(altTokenProfileUuid);
+        certificateRequestDto.setAltSignatureAttributes(altSignatureAttributes);
     }
 
     @Override
@@ -810,6 +846,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         return tokenProfileUuid != null ? tokenProfileUuid : certificate.getKey().getTokenProfile().getUuid();
     }
 
+    private UUID getAltTokenProfileUuid(UUID tokenProfileUuid, Certificate certificate) {
+        if (certificate.getAltKeyUuid() == null && tokenProfileUuid == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Alternative Token Profile cannot be empty for creating new CSR with alternative key"
+                    )
+            );
+        }
+        return tokenProfileUuid != null ? tokenProfileUuid : certificate.getAltKey().getTokenProfile().getUuid();
+    }
+
     /**
      * Validate existing key from the old certificate
      *
@@ -858,6 +905,56 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
+    private void existingAltKeyValidation(UUID altKeyUuid, List<RequestAttributeDto> altSignatureAttributes, Certificate certificate) {
+        // If the signature attributes are not provided in the request and not available in the old certificate, then throw error
+        final CertificateRequestEntity certificateRequestEntity = certificate.getCertificateRequest();
+        if (altSignatureAttributes == null && certificateRequestEntity == null) {
+            throw new ValidationException(
+                    ValidationError.create(
+                            "Signature Attributes are not provided in request and old certificate"
+                    )
+            );
+        }
+        // Since altKeyUuid will not be null at this point, we only need to check if for hybrid certificate there is a different key used for rekey
+        if (certificate.isHybridCertificate()) {
+            if (altKeyUuid != null && altKeyUuid.equals(certificate.getAltKeyUuid())) {
+                throw new ValidationException(
+                        ValidationError.create(
+                                "Rekey operation not permitted. Cannot use same alternative key to rekey certificate"
+                        )
+                );
+            } else if (certificate.getAltKeyUuid() == null) {
+                compareAltKeysBasedOnContent(altKeyUuid, certificate);
+            }
+        }
+    }
+
+    private void compareAltKeysBasedOnContent(UUID altKeyUuid, Certificate certificate) {
+        try {
+            X509Certificate x509Certificate = CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent());
+            byte[] altKeyEncoded = x509Certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+            if (altKeyEncoded != null) {
+                PublicKey publicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
+                String fingerprint = CertificateUtil.getThumbprint(publicKey.getEncoded());
+                UUID keyWithSameFingerprintUuid = keyService.findKeyByFingerprint(fingerprint);
+                if (altKeyUuid.equals(keyWithSameFingerprintUuid)) {
+                    throw new ValidationException(ValidationError.create(
+                            "Rekey operation not permitted. Cannot use same alternative key to rekey certificate"
+                    ));
+                }
+
+            }
+        } catch (CertificateException e) {
+            throw new ValidationException(ValidationError.create(
+                    "Cannot parse certificate to check key for re-key"
+            ));
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            throw new ValidationException(ValidationError.create(
+                    "Cannot parse alternative key extension to check key for re-key"
+            ));
+        }
+    }
+
     /**
      * Generate the CSR for new certificate for issuance and renew
      *
@@ -868,14 +965,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      * @return Base64 encoded CSR string
      * @throws NotFoundException When the key or tokenProfile UUID is not found
      */
-    private String generateBase64EncodedCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes) throws NotFoundException {
+    private String generateBase64EncodedCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes, UUID altKeyUUid,
+                                            UUID altTokenProfileUuid,
+                                            List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException {
         try {
             // Generate the CSR with the above-mentioned information
             return cryptographicOperationService.generateCsr(
                     keyUuid,
                     tokenProfileUuid,
                     principal,
-                    signatureAttributes
+                    signatureAttributes,
+                    altKeyUUid,
+                    altTokenProfileUuid,
+                    altSignatureAttributes
             );
         } catch (InvalidKeySpecException | IOException | NoSuchAlgorithmException | AttributeException e) {
             throw new ValidationException(
@@ -896,11 +998,17 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private void validatePublicKeyForCsrAndCertificate(String certificateContent, CertificateRequest certificateRequest, boolean shouldMatch) {
         try {
             X509Certificate certificate = CertificateUtil.parseCertificate(certificateContent);
-            if (shouldMatch && !Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
-                throw new Exception("Public key of certificate and CSR does not match");
+            if (shouldMatch) {
+                if (!Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
+                    throw new ValidationException("Public key of certificate and CSR does not match");
+                }
+                checkMatchingAlternativePublicKey(certificateRequest, certificate);
             }
-            if (!shouldMatch && Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
-                throw new Exception("Public key of certificate and CSR are same");
+            if (!shouldMatch) {
+                if (Arrays.equals(certificate.getPublicKey().getEncoded(), certificateRequest.getPublicKey().getEncoded())) {
+                    throw new ValidationException("Public key of certificate and CSR are same");
+                }
+                checkNotMatchingAlternativePublicKey(certificateRequest, certificate);
             }
         } catch (Exception e) {
             throw new ValidationException(
@@ -908,6 +1016,34 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                             "Unable to validate the public key of CSR and certificate. Error: " + e.getMessage()
                     )
             );
+        }
+    }
+
+    private static void checkMatchingAlternativePublicKey(CertificateRequest certificateRequest, X509Certificate certificate) throws NoSuchAlgorithmException, CertificateRequestException, IOException, InvalidKeySpecException {
+        byte[] altKeyEncoded = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        PublicKey altKeyCsr = certificateRequest.getAltPublicKey();
+        if (altKeyEncoded == null && altKeyCsr != null) {
+            throw new ValidationException("Certificate request contains alternative key, but the certificate does not.");
+        }
+        if (altKeyEncoded != null && altKeyCsr == null) {
+            throw new ValidationException("Certificate request does not contain alternative key, but the certificate does.");
+        } else if (altKeyCsr != null) {
+            PublicKey altPublicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
+            if (!Arrays.equals(altPublicKey.getEncoded(), certificateRequest.getAltPublicKey().getEncoded())) {
+                throw new ValidationException("Alternative Public keys of certificate and CSR do not match");
+            }
+        }
+    }
+
+    private static void checkNotMatchingAlternativePublicKey(CertificateRequest certificateRequest, X509Certificate certificate) throws NoSuchAlgorithmException, CertificateRequestException, IOException, InvalidKeySpecException {
+        byte[] altKeyEncoded = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+        PublicKey altKeyCsr = certificateRequest.getAltPublicKey();
+        if (altKeyCsr == null && altKeyEncoded != null) throw new ValidationException("Certificate contains alternative key, but CSR does not.");
+        if (altKeyEncoded != null) {
+            PublicKey altPublicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
+            if (Arrays.equals(altPublicKey.getEncoded(), certificateRequest.getAltPublicKey().getEncoded())) {
+                throw new ValidationException("Alternative Public keys of certificate and CSR should not match");
+            }
         }
     }
 
@@ -932,7 +1068,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
-    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
+    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes,
+                                            UUID altKeyUUid, UUID altTokenProfileUuid, List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
         String requestB64;
         String csr;
         if (uploadedRequest != null && !uploadedRequest.isEmpty()) {
@@ -952,7 +1089,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                     keyUUid,
                     tokenProfileUuid,
                     CertificateRequestUtils.buildSubject(csrAttributes),
-                    signatureAttributes
+                    signatureAttributes,
+                    altKeyUUid,
+                    altTokenProfileUuid,
+                    altSignatureAttributes
             );
         }
         try {

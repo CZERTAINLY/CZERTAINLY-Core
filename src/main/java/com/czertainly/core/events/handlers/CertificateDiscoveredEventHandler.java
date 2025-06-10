@@ -29,6 +29,7 @@ import com.czertainly.core.service.handler.CertificateHandler;
 import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.CertificateUtil;
 import com.pivovarit.collectors.ParallelCollectors;
+import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,9 +41,11 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.IOException;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
 import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.time.ZoneId;
 import java.util.*;
 import java.util.concurrent.*;
@@ -152,6 +155,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
         // For each discovered certificate and for each found trigger, check if it satisfies rules defined by the trigger and perform actions accordingly
         AtomicInteger index = new AtomicInteger(0);
         ConcurrentMap<PublicKey, List<UUID>> keyToCertificates = new ConcurrentHashMap<>();
+        ConcurrentMap<PublicKey, List<UUID>> altKeyToCertificates = new ConcurrentHashMap<>();
         try (ExecutorService virtualThreadExecutor = Executors.newVirtualThreadPerTaskExecutor()) {
             SecurityContext securityContext = SecurityContextHolder.getContext();
             DelegatingSecurityContextExecutor executor = new DelegatingSecurityContextExecutor(virtualThreadExecutor, securityContext);
@@ -162,7 +166,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                                 try {
                                     certIndex = index.incrementAndGet();
                                     processCertSemaphore.acquire();
-                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, mergedIgnoreTriggers, mergedTriggers, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates));
+                                    transactionHandler.runInNewTransaction(() -> processDiscoveredCertificate(context, mergedIgnoreTriggers, mergedTriggers, certIndex, discoveredCertificates.size(), discovery, discoveryCertificate, keyToCertificates, altKeyToCertificates));
                                 } catch (InterruptedException e) {
                                     Thread.currentThread().interrupt();
                                     logger.error("Thread {} processing cert {} of discovered certificates interrupted.", Thread.currentThread().getName(), index.get());
@@ -192,12 +196,21 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             }
         }
 
+        for (Map.Entry<PublicKey, List<UUID>> entry : altKeyToCertificates.entrySet()) {
+            try {
+                certificateHandler.uploadDiscoveredCertificateAltKey(entry.getKey(), entry.getValue());
+            } catch (NoSuchAlgorithmException e) {
+                logger.error("Could not create alternative public key for certificates with UUIDs {}: {}", e.getMessage(), entry.getValue());
+            }
+        }
+
         // trigger other events
         eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), context.getUserUuid(), context.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, originalMessage)));
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, null, discovery.getUuid(), discovery.getName(), null, null));
     }
 
-    private void processDiscoveredCertificate(EventContext<Certificate> eventContext, List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap) {
+    private void processDiscoveredCertificate(EventContext<Certificate> eventContext, List<TriggerAssociation> mergedIgnoreTriggers, List<TriggerAssociation> mergedTriggers, int certIndex, int totalCount, DiscoveryHistory discovery, DiscoveryCertificate discoveryCertificate, ConcurrentMap<PublicKey, List<UUID>> keysToCertificatesMap,
+                                              ConcurrentMap<PublicKey, List<UUID>> altKeysToCertificatesMap) {
         // Get X509 from discovered certificate and create certificate entity, do not save in database yet
         Certificate certificate;
         X509Certificate x509Cert;
@@ -251,6 +264,10 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
                 certificateHandler.updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());
                 keysToCertificatesMap.computeIfAbsent(x509Cert.getPublicKey(), k -> new ArrayList<>()).add(certificate.getUuid());
+                byte[] altPublicKey = x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
+                if (altPublicKey != null) {
+                    addEntryToAltPublicKeyMap(altKeysToCertificatesMap, altPublicKey, certificate);
+                }
             }
         } catch (RuleException e) {
             logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", certificate.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
@@ -268,6 +285,14 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         if (logger.isDebugEnabled()) {
             logger.debug("Finalize processing discovered certificate: {}", certificate.toStringShort());
+        }
+    }
+
+    private static void addEntryToAltPublicKeyMap(ConcurrentMap<PublicKey, List<UUID>> altKeysToCertificatesMap, byte[] altPublicKey, Certificate certificate) {
+        try {
+            altKeysToCertificatesMap.computeIfAbsent(CertificateUtil.getAltPublicKey(altPublicKey), k -> new ArrayList<>()).add(certificate.getUuid());
+        } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException e) {
+            logger.error("Could not parse alternative public key of certificate with UUID {}: {}", certificate.getUuid(), e.getMessage());
         }
     }
 

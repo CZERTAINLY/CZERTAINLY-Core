@@ -14,13 +14,21 @@ import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.OcspUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x509.Extension;
+import org.bouncycastle.asn1.x509.Extensions;
+import org.bouncycastle.asn1.x509.ExtensionsGenerator;
+import org.bouncycastle.asn1.x509.TBSCertificate;
+import org.bouncycastle.cert.X509CertificateHolder;
+import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
+import java.security.Signature;
+import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.time.Instant;
@@ -373,6 +381,20 @@ public class X509CertificateValidator implements ICertificateValidator {
     }
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
+        if (subjectCertificate.getExtensionValue(Extension.altSignatureValue.getId()) != null) {
+            try {
+                byte[] altCertificateSignature = CertificateUtil.getAltSignatureValue(subjectCertificate.getExtensionValue(Extension.altSignatureValue.getId()));
+                Signature signature = Signature.getInstance(CertificateUtil.getAlternativeSignatureAlgorithm(subjectCertificate.getExtensionValue(Extension.altSignatureAlgorithm.getId())));
+                signature.initVerify(CertificateUtil.getAltPublicKey(issuerCertificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())));
+                // According to TU-T X509 (10/2019) clause 7.2.2, when a hybrid certificate is created, the altSignatureValue value will be the result of excluding the signature component and the altSignatureValue extension, while including all other DER-encoded parts in the alternative signature.
+                signature.update(getDERWithoutSignatureAndAltSignature(subjectCertificate));
+                signature.verify(altCertificateSignature);
+            } catch (Exception e) {
+                logger.debug("Unable to verify certificate for alternative signature", e);
+                return false;
+            }
+
+        }
         try {
             subjectCertificate.verify(issuerCertificate.getPublicKey());
             return true;
@@ -380,6 +402,37 @@ public class X509CertificateValidator implements ICertificateValidator {
             logger.debug("Unable to verify certificate for signature", e);
             return false;
         }
+    }
+
+    private static byte[] getDERWithoutSignatureAndAltSignature(X509Certificate subjectCertificate) throws IOException, CertificateEncodingException {
+        X509CertificateHolder holder = new JcaX509CertificateHolder(subjectCertificate);
+        TBSCertificate tbsCert = holder.toASN1Structure().getTBSCertificate();
+
+        Extensions extensions = tbsCert.getExtensions();
+        ExtensionsGenerator newExtensionsGen = new ExtensionsGenerator();
+        if (extensions != null) {
+            Enumeration<?> oids = extensions.oids();
+            while (oids.hasMoreElements()) {
+                ASN1ObjectIdentifier oid = (ASN1ObjectIdentifier) oids.nextElement();
+                if (!oid.equals(Extension.altSignatureValue)) {
+                    Extension ext = extensions.getExtension(oid);
+                    newExtensionsGen.addExtension(oid, ext.isCritical(), ext.getParsedValue());
+                }
+            }
+        }
+
+        return new TBSCertificate(
+                tbsCert.getVersion(),
+                tbsCert.getSerialNumber(),
+                tbsCert.getSignature(),
+                tbsCert.getIssuer(),
+                tbsCert.getValidity(),
+                tbsCert.getSubject(),
+                tbsCert.getSubjectPublicKeyInfo(),
+                tbsCert.getIssuerUniqueId(),
+                tbsCert.getSubjectUniqueId(),
+                newExtensionsGen.generate()
+        ).getEncoded();
     }
 
     private String convertMillisecondsToTimeString(long milliseconds) {
