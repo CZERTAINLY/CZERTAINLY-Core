@@ -1806,6 +1806,8 @@ public class CertificateServiceImpl implements CertificateService {
         String currentOwnerName = certificate.getOwner() == null ? UNDEFINED_CERTIFICATE_OBJECT_NAME : certificate.getOwner().getOwnerUsername();
 
         String newOwnerName = UNDEFINED_CERTIFICATE_OBJECT_NAME;
+        if (newOwnerUuid == null) certificate.setOwner(null);
+        certificateRepository.save(certificate);
         NameAndUuidDto newOwner = objectAssociationService.setOwner(Resource.CERTIFICATE, uuid.getValue(), newOwnerUuid);
         if (newOwner != null) {
             newOwnerName = newOwner.getName();
