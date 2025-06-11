@@ -6,7 +6,6 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.notification.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.dao.entity.notifications.NotificationProfileVersion;
@@ -33,6 +32,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -107,7 +107,7 @@ public class NotificationProfileServiceImpl implements NotificationProfileServic
         // check execution items referencing notification profile
         List<Execution> executions = executionRepository.findByItemsNotificationProfileUuid(uuid.getValue());
         if (!executions.isEmpty()) {
-            throw new ValidationException("Cannot delete notification profile. %d execution(s) are referencing this notification profile".formatted(executions.size()));
+            throw new ValidationException("Cannot delete notification profile. %d execution(s) are referencing this notification profile: %s".formatted(executions.size(), executions.stream().map(Execution::getName).collect(Collectors.joining(", "))));
         }
 
         notificationProfileRepository.delete(notificationProfile);
