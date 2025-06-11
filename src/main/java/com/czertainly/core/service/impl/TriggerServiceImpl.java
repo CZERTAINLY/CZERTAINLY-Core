@@ -151,7 +151,7 @@ public class TriggerServiceImpl implements TriggerService {
 
         List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findByTriggerUuid(trigger.getUuid());
         if (!triggerAssociations.isEmpty()) {
-            throw new ValidationException("Cannot delete trigger. It has %d event association(s): %s".formatted(triggerAssociations.size(), triggerAssociations.stream().map(a -> "%s (%s %s)".formatted(a.getEvent().getLabel(), a.getResource() == null ? Resource.SETTINGS.getLabel() : a.getResource().getLabel(), a.getObjectUuid() == null ? "" : a.getObjectUuid())).collect(Collectors.joining(", "))));
+            throw new ValidationException("Cannot delete trigger. It has %d event association(s): %s".formatted(triggerAssociations.size(), triggerAssociations.stream().map(a -> "%s (%s%s)".formatted(a.getEvent().getLabel(), a.getResource() == null ? Resource.SETTINGS.getLabel() : a.getResource().getLabel(), a.getObjectUuid() == null ? "" : " " + a.getObjectUuid())).collect(Collectors.joining(", "))));
         }
 
         triggerAssociationRepository.deleteByTriggerUuid(trigger.getUuid());
