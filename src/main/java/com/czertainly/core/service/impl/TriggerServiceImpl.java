@@ -21,6 +21,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
 import java.util.*;
+import java.util.stream.Collectors;
 
 @Service
 @Transactional
@@ -147,6 +148,11 @@ public class TriggerServiceImpl implements TriggerService {
     @ExternalAuthorization(resource = Resource.TRIGGER, action = ResourceAction.DELETE)
     public void deleteTrigger(String triggerUuid) throws NotFoundException {
         Trigger trigger = triggerRepository.findByUuid(SecuredUUID.fromString(triggerUuid)).orElseThrow(() -> new NotFoundException(Trigger.class, triggerUuid));
+
+        List<TriggerAssociation> triggerAssociations = triggerAssociationRepository.findByTriggerUuid(trigger.getUuid());
+        if (!triggerAssociations.isEmpty()) {
+            throw new ValidationException("Cannot delete trigger. It has %d event association(s): %s".formatted(triggerAssociations.size(), triggerAssociations.stream().map(a -> "%s (%s%s)".formatted(a.getEvent().getLabel(), a.getResource() == null ? Resource.SETTINGS.getLabel() : a.getResource().getLabel(), a.getObjectUuid() == null ? "" : " " + a.getObjectUuid())).collect(Collectors.joining(", "))));
+        }
 
         triggerAssociationRepository.deleteByTriggerUuid(trigger.getUuid());
         triggerRepository.delete(trigger);
