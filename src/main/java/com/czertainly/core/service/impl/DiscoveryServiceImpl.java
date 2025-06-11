@@ -625,7 +625,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return Collections.emptyList();
+        throw new NotSupportedException("Listing of resource objects is not supported for resource discoveries.");
     }
 
     @Override

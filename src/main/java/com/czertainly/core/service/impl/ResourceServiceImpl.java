@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
@@ -78,22 +79,22 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
-        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resourceName.getCode());
-        if (List.of(Resource.CERTIFICATE, Resource.CRYPTOGRAPHIC_KEY, Resource.DISCOVERY, Resource.ROLE).contains(resourceName) || resourceExtensionService == null)
-            throw new NotFoundException("Cannot list objects for requested resource: " + resourceName.getCode());
+    public List<NameAndUuidDto> getObjectsForResource(Resource resource) throws NotSupportedException {
+        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
+        if (resourceExtensionService == null)
+            throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getCode());
         return resourceExtensionService.listResourceObjects(SecurityFilter.create());
     }
 
     @Override
-    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource objectType, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
-        logger.info("Updating the attribute {} for resource {} with value {}", attributeUuid, objectType, attributeUuid);
-        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(objectType.getCode());
-        if (objectType == Resource.ATTRIBUTE || resourceExtensionService == null) throw new NotFoundException("Cannot update custom attribute for requested resource: " + objectType.getCode());
+    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resource, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
+        logger.info("Updating the attribute {} for resource {} with value {}", attributeUuid, resource, attributeUuid);
+        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
+        if (!resource.hasCustomAttributes() || resourceExtensionService == null) throw new NotSupportedException("Cannot update custom attribute for requested resource: " + resource.getCode());
         resourceExtensionService.evaluatePermissionChain(objectUuid);
 
-        attributeEngine.updateObjectCustomAttributeContent(objectType, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
-        return attributeEngine.getObjectCustomAttributesContent(objectType, objectUuid.getValue());
+        attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
+        return attributeEngine.getObjectCustomAttributesContent(resource, objectUuid.getValue());
     }
 
     @Override

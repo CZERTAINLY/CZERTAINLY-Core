@@ -1302,7 +1302,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        throw new NotSupportedException("Listing of resource objects is not supported for resource certificates.");
     }
 
     @Override

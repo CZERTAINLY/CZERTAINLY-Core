@@ -775,7 +775,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return List.of();
+        throw new NotSupportedException("Listing of resource objects is not supported for resource cryptographic keys.");
     }
 
     @Override

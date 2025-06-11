@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -158,7 +159,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetObjectsForResource() throws NotFoundException {
+    void testGetObjectsForResource() {
         List<Resource> resources = List.of(
                 Resource.ACME_PROFILE,
                 Resource.AUTHORITY,
@@ -184,8 +185,8 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
         // Throw NotFoundException for unsupported resource
         Resource unsupportedResource = Resource.CERTIFICATE;
-        Assertions.assertThrows(NotFoundException.class, () -> resourceService.getObjectsForResource(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
-        Assertions.assertThrows(NotFoundException.class, () -> resourceService.getObjectsForResource(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getObjectsForResource(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getObjectsForResource(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
     }
 
     @Test

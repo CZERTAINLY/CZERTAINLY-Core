@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -151,7 +152,7 @@ public class RoleManagementServiceImpl implements RoleManagementService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        throw new NotSupportedException("Listing of resource objects is not supported for resource roles.");
     }
 
     @Override
