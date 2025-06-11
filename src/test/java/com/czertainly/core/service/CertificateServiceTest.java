@@ -468,7 +468,6 @@ class CertificateServiceTest extends BaseSpringBootTest {
     void testGetSearchableFieldInformation() {
         mockServer = new WireMockServer(10001);
         mockServer.start();
-        mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(
                 WireMock.okJson("{ \"data\": [] }")
