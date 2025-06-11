@@ -7,6 +7,7 @@ import com.czertainly.api.model.core.settings.CertificateSettingsDto;
 import com.czertainly.api.model.core.settings.CertificateValidationSettingsDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.ScheduledTaskResult;
@@ -21,9 +22,9 @@ import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 
@@ -209,6 +210,35 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         // Should not validate any, since exceptions are thrown
         Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("0"));
         assertCorrectCertificatesHaveBeenValidated(List.of(), timeNow);
+    }
+
+    @Test
+    void testHandleExpiringCertificatesEvent() {
+        // Certificate is expiring and is renewed by some certificate
+        Certificate expiringRenewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, null);
+        // Certificate is expiring, but is not renewed by any certificate -> this is the only certificate that should be returned
+        createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, expiringRenewedCert.getUuid());
+        // Not expiring and is renewed by some certificate
+        Certificate renewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, null);
+        // Not expiring and is not renewed by some certificate
+        createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedCert.getUuid());
+
+        ScheduledTaskResult result = updateCertificateStatusTask.performJob(null, null);
+
+        Assertions.assertEquals(SchedulerJobExecutionStatus.SUCCESS, result.getStatus());
+        Assertions.assertTrue(result.getResultMessage().contains("Handled 1 expiring "));
+    }
+
+    private Certificate createCertificateForExpiringEventTest(CertificateValidationStatus status, UUID sourceUuid) {
+        Certificate certificateEntity = new Certificate();
+        CertificateContent content = new CertificateContent();
+        content.setContent(String.valueOf(Math.random()));
+        certificateContentRepository.save(content);
+        certificateEntity.setCertificateContent(content);
+        certificateEntity.setValidationStatus(status);
+        certificateEntity.setSourceCertificateUuid(sourceUuid);
+        certificateRepository.save(certificateEntity);
+        return certificateEntity;
     }
 
 

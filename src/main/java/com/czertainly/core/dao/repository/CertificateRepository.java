@@ -144,4 +144,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             DO NOTHING
             """, nativeQuery = true)
     int insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
+
+    @Query("SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)")
+    List<UUID> findExpiringCertificatesWithoutRenewal();
 }
