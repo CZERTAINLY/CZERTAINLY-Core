@@ -199,15 +199,15 @@ class ResourceServiceTest extends BaseSpringBootTest {
                 List.of()
         ));
 
-        // Should throw NotFoundException
-        Assertions.assertThrows(NotFoundException.class, () -> resourceService.updateAttributeContentForObject(
+        // Should throw NotSupported
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.ATTRIBUTE,
                 SecuredUUID.fromString(CERTIFICATE_UUID),
                 UUID.fromString(ATTRIBUTE_UUID),
                 List.of()
         ));
 
-        Assertions.assertThrows(NotFoundException.class, () -> resourceService.updateAttributeContentForObject(
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.RULE,
                 SecuredUUID.fromString(CERTIFICATE_UUID),
                 UUID.fromString(ATTRIBUTE_UUID),
