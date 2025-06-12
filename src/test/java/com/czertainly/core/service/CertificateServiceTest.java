@@ -10,17 +10,14 @@ import com.czertainly.api.model.common.attribute.v2.content.StringAttributeConte
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.auth.UserWithPaginationDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
-import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -31,11 +28,10 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -46,6 +42,11 @@ import java.security.cert.X509Certificate;
 import java.util.*;
 
 class CertificateServiceTest extends BaseSpringBootTest {
+
+    @DynamicPropertySource
+    static void authServiceProperties(DynamicPropertyRegistry registry) {
+        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+    }
 
     @Autowired
     private CertificateService certificateService;
@@ -71,20 +72,15 @@ class CertificateServiceTest extends BaseSpringBootTest {
     private OwnerAssociationRepository ownerAssociationRepository;
     @Autowired
     private CryptographicKeyRepository cryptographicKeyRepository;
-    @MockitoBean
-    private UserManagementApiClient userManagementApiClient;
 
     private AttributeEngine attributeEngine;
 
     private Certificate certificate;
-    private CertificateContent certificateContent;
     private RaProfile raProfile;
-    private RaProfile raProfileOld;
     private Group group;
 
     private X509Certificate x509Cert;
 
-    private AuthorityInstanceReference authorityInstance;
     private Connector connector;
     private WireMockServer mockServer;
 
@@ -122,7 +118,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         connector.getFunctionGroups().add(c2fg);
         connectorRepository.save(connector);
 
-        authorityInstance = new AuthorityInstanceReference();
+        AuthorityInstanceReference authorityInstance = new AuthorityInstanceReference();
         authorityInstance.setName("testAuthorityInstance1");
         authorityInstance.setConnector(connector);
         authorityInstance.setConnectorUuid(connector.getUuid());
@@ -130,11 +126,11 @@ class CertificateServiceTest extends BaseSpringBootTest {
         authorityInstance.setAuthorityInstanceUuid("1l");
         authorityInstance = authorityInstanceReferenceRepository.save(authorityInstance);
 
-        certificateContent = new CertificateContent();
+        CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
 
-        raProfileOld = new RaProfile();
+        RaProfile raProfileOld = new RaProfile();
         raProfileOld.setName("Test RA profile Old");
         raProfileOld.setAuthorityInstanceReference(authorityInstance);
         raProfileOld = raProfileRepository.save(raProfileOld);
@@ -367,7 +363,6 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
 
     @Test
-    @Disabled("get user from API")
     void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
         mockServer = new WireMockServer(10001);
         mockServer.start();
@@ -398,26 +393,18 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getOwnerUuid(), owner.getUuid());
         Assertions.assertEquals("newOwner2", owner.getName());
 
-        request.setOwnerUuid(null);
+        request.setOwnerUuid("");
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
         owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNull(owner);
+        mockServer.stop();
     }
 
     @Test
-    @Disabled("get user from API")
     void testUpdateCertificateOwner_certificateNotFound() {
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setOwnerUuid("testOwner");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), dto));
-    }
-
-    @Test
-    @Disabled("Missing mock of auth service")
-    void testSearchableFields() {
-        final List<SearchFieldDataByGroupDto> response = certificateService.getSearchableFieldInformationByGroup();
-        Assertions.assertNotNull(response);
-        Assertions.assertFalse(response.isEmpty());
     }
 
     @Test
@@ -459,7 +446,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Certificate certificateNew = certificateService.createCertificate(Base64.getEncoder().encodeToString(x509Cert.getEncoded()), CertificateType.X509);
         certificateNew.setUserUuid(UUID.randomUUID());
         certificateRepository.save(certificateNew);
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.deleteCertificate(certificateNew.getSecuredUuid()));
+        SecuredUUID uuid = certificateNew.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.deleteCertificate(uuid));
     }
 
     @Test
@@ -478,10 +466,14 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetSearchableFieldInformation() {
-        UserWithPaginationDto userWithPaginationDto = new UserWithPaginationDto();
-        userWithPaginationDto.setData(new ArrayList<>());
-        Mockito.when(userManagementApiClient.getUsers()).thenReturn(userWithPaginationDto);
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(
+                WireMock.okJson("{ \"data\": [] }")
+        ));
         Assertions.assertDoesNotThrow(() -> certificateService.getSearchableFieldInformationByGroup());
+        mockServer.stop();
     }
 
     @Test
