@@ -64,6 +64,7 @@ import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -1417,7 +1418,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity = certificate.prepareCertificateRequest(certificateRequestFormat);
             certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
             certificateRequestEntity.setContent(certificateRequest);
-            certificateRequestEntity = certificateRequestRepository.save(certificateRequestEntity);
+            setCertificateRequestEntitySignatureAlgorithms(request, certificateRequestEntity);
+            certificateRequestRepository.save(certificateRequestEntity);
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
@@ -1477,6 +1479,14 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info("Certificate request submitted and certificate created {}", certificate);
 
         return dto;
+    }
+
+    private static void setCertificateRequestEntitySignatureAlgorithms(CertificateRequest request, CertificateRequestEntity certificateRequestEntity) {
+        DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
+        if (request.getSignatureAlgorithm() != null)
+            certificateRequestEntity.setSignatureAlgorithm(algFinder.getAlgorithmName(request.getSignatureAlgorithm()).replace("WITH", "with"));
+        if (request.getAltSignatureAlgorithm() != null)
+            certificateRequestEntity.setAltSignatureAlgorithm(algFinder.getAlgorithmName(request.getAltSignatureAlgorithm()).replace("WITH", "with"));
     }
 
     private UUID getCertificateRequestKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {

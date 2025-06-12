@@ -162,18 +162,29 @@ public class X509CertificateValidator implements ICertificateValidator {
             if (!isCompleteChain) {
                 return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.NOT_CHECKED, "Issuer certificate is not available.");
             }
-
-            if (verifySignature(certificate, certificate)) {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.VALID, "Self-signed signature verification successful.");
-            } else {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.FAILED, "Self-signed signature verification failed.");
-            }
+            return getCertificateSignatureVerification(certificate, certificate, true);
         } else {
-            if (verifySignature(certificate, issuerCertificate)) {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.VALID, "Signature verification successful.");
-            } else {
-                return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.FAILED, "Signature verification failed.");
-            }
+            return getCertificateSignatureVerification(certificate, issuerCertificate, false);
+        }
+    }
+
+    private CertificateValidationCheckDto getCertificateSignatureVerification(X509Certificate certificate, X509Certificate issuerCertificate, boolean selfSigned) {
+        String altSignatureValidationMessage = "";
+        boolean altSignatureVerified = true;
+        String altMessageStart = selfSigned ? "Self-signed alternative" : "Alternative";
+        if (certificate.getExtensionValue(Extension.altSignatureValue.getId()) != null) {
+            altSignatureVerified = verifyAltSignature(certificate, issuerCertificate);
+            altSignatureValidationMessage = altSignatureVerified ? altMessageStart + " signature verification successful." : altMessageStart + " signature verification failed.";
+        }
+
+        boolean signatureVerified  = verifySignature(certificate, issuerCertificate);
+        String messageStart = selfSigned ? "Self-signed signature" : "Signature";
+        String signatureValidationMessage = signatureVerified ? messageStart + " verification successful. " : messageStart + " verification failed. ";
+
+        if (altSignatureVerified && signatureVerified) {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.VALID, signatureValidationMessage + altSignatureValidationMessage);
+        } else {
+            return new CertificateValidationCheckDto(CertificateValidationCheck.SIGNATURE_VERIFICATION, CertificateValidationStatus.FAILED, signatureValidationMessage + altSignatureValidationMessage);
         }
     }
 
@@ -381,20 +392,6 @@ public class X509CertificateValidator implements ICertificateValidator {
     }
 
     private boolean verifySignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
-        if (subjectCertificate.getExtensionValue(Extension.altSignatureValue.getId()) != null) {
-            try {
-                byte[] altCertificateSignature = CertificateUtil.getAltSignatureValue(subjectCertificate.getExtensionValue(Extension.altSignatureValue.getId()));
-                Signature signature = Signature.getInstance(CertificateUtil.getAlternativeSignatureAlgorithm(subjectCertificate.getExtensionValue(Extension.altSignatureAlgorithm.getId())));
-                signature.initVerify(CertificateUtil.getAltPublicKey(issuerCertificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())));
-                // According to TU-T X509 (10/2019) clause 7.2.2, when a hybrid certificate is created, the altSignatureValue value will be the result of excluding the signature component and the altSignatureValue extension, while including all other DER-encoded parts in the alternative signature.
-                signature.update(getDERWithoutSignatureAndAltSignature(subjectCertificate));
-                signature.verify(altCertificateSignature);
-            } catch (Exception e) {
-                logger.debug("Unable to verify certificate for alternative signature", e);
-                return false;
-            }
-
-        }
         try {
             subjectCertificate.verify(issuerCertificate.getPublicKey());
             return true;
@@ -403,6 +400,22 @@ public class X509CertificateValidator implements ICertificateValidator {
             return false;
         }
     }
+
+    private boolean verifyAltSignature(X509Certificate subjectCertificate, X509Certificate issuerCertificate) {
+        try {
+            byte[] altCertificateSignature = CertificateUtil.getAltSignatureValue(subjectCertificate.getExtensionValue(Extension.altSignatureValue.getId()));
+            Signature signature = Signature.getInstance(CertificateUtil.getAlternativeSignatureAlgorithm(subjectCertificate.getExtensionValue(Extension.altSignatureAlgorithm.getId())));
+            signature.initVerify(CertificateUtil.getAltPublicKey(issuerCertificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId())));
+            // According to TU-T X509 (10/2019) clause 7.2.2, when a hybrid certificate is created, the altSignatureValue value will be the result of excluding the signature component and the altSignatureValue extension, while including all other DER-encoded parts in the alternative signature.
+            signature.update(getDERWithoutSignatureAndAltSignature(subjectCertificate));
+            signature.verify(altCertificateSignature);
+        } catch (Exception e) {
+            logger.debug("Unable to verify certificate for alternative signature", e);
+            return false;
+        }
+        return true;
+    }
+
 
     private static byte[] getDERWithoutSignatureAndAltSignature(X509Certificate subjectCertificate) throws IOException, CertificateEncodingException {
         X509CertificateHolder holder = new JcaX509CertificateHolder(subjectCertificate);
