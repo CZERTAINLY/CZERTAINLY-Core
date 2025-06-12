@@ -1419,6 +1419,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
             certificateRequestEntity.setContent(certificateRequest);
             setCertificateRequestEntitySignatureAlgorithms(request, certificateRequestEntity);
+            certificateRequestRepository.save(certificateRequestEntity);
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
