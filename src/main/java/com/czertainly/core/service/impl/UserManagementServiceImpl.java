@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-@Service
+@Service(Resource.Codes.USER)
 @Transactional
 public class UserManagementServiceImpl implements UserManagementService {
     private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);

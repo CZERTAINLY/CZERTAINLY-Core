@@ -41,7 +41,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.ATTRIBUTE)
 @Transactional
 public class AttributeServiceImpl implements AttributeService {
     private static final Logger logger = LoggerFactory.getLogger(AttributeServiceImpl.class);

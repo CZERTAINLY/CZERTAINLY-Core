@@ -35,7 +35,7 @@ import org.springframework.stereotype.Service;
 import java.util.*;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.COMPLIANCE_PROFILE)
 @Transactional
 public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 

@@ -35,7 +35,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.TOKEN_PROFILE)
 @Transactional
 public class TokenProfileServiceImpl implements TokenProfileService {
 

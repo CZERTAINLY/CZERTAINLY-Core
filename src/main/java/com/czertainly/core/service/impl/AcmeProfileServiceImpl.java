@@ -37,7 +37,7 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.ACME_PROFILE)
 @Transactional
 public class AcmeProfileServiceImpl implements AcmeProfileService {
 

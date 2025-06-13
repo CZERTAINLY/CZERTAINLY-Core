@@ -38,7 +38,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.SCEP_PROFILE)
 @Transactional
 public class ScepProfileServiceImpl implements ScepProfileService {
 

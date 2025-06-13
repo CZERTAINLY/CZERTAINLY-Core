@@ -75,7 +75,7 @@ import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.util.*;
 
-@Service
+@Service(Resource.Codes.LOCATION)
 @Transactional
 public class LocationServiceImpl implements LocationService {
 
