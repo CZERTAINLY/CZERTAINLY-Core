@@ -6,6 +6,7 @@ import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -192,26 +193,29 @@ class ResourceServiceTest extends BaseSpringBootTest {
     @Test
     void testUpdateAttributeContentForObject() {
         // Should throw AttributeException
+        SecuredUUID certificateUuid = SecuredUUID.fromString(CERTIFICATE_UUID);
+        UUID attributeUuid = UUID.fromString(ATTRIBUTE_UUID);
+        List<BaseAttributeContent> request = List.of();
         Assertions.assertThrows(AttributeException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.CERTIFICATE,
-                SecuredUUID.fromString(CERTIFICATE_UUID),
-                UUID.fromString(ATTRIBUTE_UUID),
-                List.of()
+                certificateUuid,
+                attributeUuid,
+                request
         ));
 
         // Should throw NotSupported
         Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.ATTRIBUTE,
-                SecuredUUID.fromString(CERTIFICATE_UUID),
-                UUID.fromString(ATTRIBUTE_UUID),
-                List.of()
+                certificateUuid,
+                attributeUuid,
+                request
         ));
 
         Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.RULE,
-                SecuredUUID.fromString(CERTIFICATE_UUID),
-                UUID.fromString(ATTRIBUTE_UUID),
-                List.of()
+                certificateUuid,
+                attributeUuid,
+                request
         ));
     }
 
