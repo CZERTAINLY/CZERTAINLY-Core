@@ -42,7 +42,7 @@ import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.CMP_PROFILE)
 @Transactional
 public class CmpProfileServiceImpl implements CmpProfileService {
 

@@ -42,7 +42,7 @@ import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.CREDENTIAL)
 @Transactional
 public class CredentialServiceImpl implements CredentialService {
 
