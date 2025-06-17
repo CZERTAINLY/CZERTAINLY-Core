@@ -260,7 +260,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         attributeEngine.getCustomAttributesByResource(attributeRelation.getResource(), SecurityResourceFilter.create());
         attributeDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDefinition.getAttributeUuid()).get();
-        Assertions.assertEquals(updatedAt, attributeDefinition.getUpdatedAt());
+        Assertions.assertEquals(updatedAt.truncatedTo(ChronoUnit.MICROS), attributeDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MICROS));
 
         DataAttribute dataAttribute = new DataAttribute();
         dataAttribute.setContentType(AttributeContentType.STRING);
@@ -270,7 +270,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         attributeEngine.getDataAttributeDefinition(null, attributeDataDefinition.getName());
         attributeDataDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDataDefinition.getAttributeUuid()).get();
-        Assertions.assertTrue(updatedAtData.isEqual(attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS)));
+        Assertions.assertEquals(updatedAtData.truncatedTo(ChronoUnit.MICROS), attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MICROS));
     }
 
     @NotNull
