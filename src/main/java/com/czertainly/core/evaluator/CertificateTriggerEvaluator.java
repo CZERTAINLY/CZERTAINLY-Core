@@ -16,7 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
-@Component(Resource.Codes.CERTIFICATE)
+@Component
 @Transactional
 public class CertificateTriggerEvaluator extends TriggerEvaluator<Certificate> {
 

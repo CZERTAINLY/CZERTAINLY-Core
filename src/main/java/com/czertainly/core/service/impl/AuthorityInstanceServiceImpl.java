@@ -40,7 +40,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.AUTHORITY)
 @Transactional
 public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private static final Logger logger = LoggerFactory.getLogger(AuthorityInstanceServiceImpl.class);

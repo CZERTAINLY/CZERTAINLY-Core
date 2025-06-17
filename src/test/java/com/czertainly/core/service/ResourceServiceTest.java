@@ -2,9 +2,11 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -35,7 +37,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-public class ResourceServiceTest extends BaseSpringBootTest {
+class ResourceServiceTest extends BaseSpringBootTest {
 
     private static final int AUTH_SERVICE_MOCK_PORT = 10001;
     private static final String CERTIFICATE_UUID = "c1cfe60f-2556-461f-9a64-9dd8e92158cf";
@@ -158,7 +160,7 @@ public class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetObjectsForResource() throws NotFoundException {
+    void testGetObjectsForResource() {
         List<Resource> resources = List.of(
                 Resource.ACME_PROFILE,
                 Resource.AUTHORITY,
@@ -184,34 +186,45 @@ public class ResourceServiceTest extends BaseSpringBootTest {
 
         // Throw NotFoundException for unsupported resource
         Resource unsupportedResource = Resource.CERTIFICATE;
-        Assertions.assertThrows(NotFoundException.class, () -> resourceService.getObjectsForResource(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getObjectsForResource(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getObjectsForResource(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
     }
 
     @Test
     void testUpdateAttributeContentForObject() {
         // Should throw AttributeException
+        SecuredUUID certificateUuid = SecuredUUID.fromString(CERTIFICATE_UUID);
+        UUID attributeUuid = UUID.fromString(ATTRIBUTE_UUID);
+        List<BaseAttributeContent> request = List.of();
         Assertions.assertThrows(AttributeException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.CERTIFICATE,
-                SecuredUUID.fromString(CERTIFICATE_UUID),
-                UUID.fromString(ATTRIBUTE_UUID),
-                List.of()
+                certificateUuid,
+                attributeUuid,
+                request
         ));
 
-        // Should throw NotFoundException
-        Assertions.assertThrows(NotFoundException.class, () -> resourceService.updateAttributeContentForObject(
+        // Should throw NotSupported
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.ATTRIBUTE,
-                SecuredUUID.fromString(CERTIFICATE_UUID),
-                UUID.fromString(ATTRIBUTE_UUID),
-                List.of()
+                certificateUuid,
+                attributeUuid,
+                request
+        ));
+
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(
+                Resource.RULE,
+                certificateUuid,
+                attributeUuid,
+                request
         ));
     }
 
     @Test
     void testListResourceRuleFilterFields() throws NotFoundException {
-        // Resource != CERTIFICATE should return empty list
-        List<SearchFieldDataByGroupDto> filterFields = resourceService.listResourceRuleFilterFields(Resource.CRYPTOGRAPHIC_KEY, false);
+        // Resource without filter fields and attributes should return empty list
+        List<SearchFieldDataByGroupDto> filterFields = resourceService.listResourceRuleFilterFields(Resource.USER, false);
         Assertions.assertNotNull(filterFields);
-        Assertions.assertTrue(filterFields.isEmpty(), "Filter fields list should be empty for resource: " + Resource.CRYPTOGRAPHIC_KEY);
+        Assertions.assertTrue(filterFields.isEmpty(), "Filter fields list should be empty for resource: " + Resource.USER);
 
         // Resource == CERTIFICATE should return non-empty list
         filterFields = resourceService.listResourceRuleFilterFields(Resource.CERTIFICATE, false);
