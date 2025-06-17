@@ -1440,7 +1440,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null) {
             certificateRequestEntity.setAltKeyUuid(altKeyUuid);
-            certificateRequestEntity.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(request.getAltPublicKey().getAlgorithm()));
+            if (request.getAltPublicKey() != null) certificateRequestEntity.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(request.getAltPublicKey().getAlgorithm()));
         }
         else if (request.getAltPublicKey() != null) {
             setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
