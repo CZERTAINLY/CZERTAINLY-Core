@@ -1438,13 +1438,7 @@ public class CertificateServiceImpl implements CertificateService {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }
 
-        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null) {
-            certificateRequestEntity.setAltKeyUuid(altKeyUuid);
-            if (request.getAltPublicKey() != null) certificateRequestEntity.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(request.getAltPublicKey().getAlgorithm()));
-        }
-        else if (request.getAltPublicKey() != null) {
-            setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
-        }
+        setCertificateRequestAltKey(altKeyUuid, certificateRequestEntity, request);
 
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
@@ -1481,6 +1475,16 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info("Certificate request submitted and certificate created {}", certificate);
 
         return dto;
+    }
+
+    private void setCertificateRequestAltKey(UUID altKeyUuid, CertificateRequestEntity certificateRequestEntity, CertificateRequest request) throws NoSuchAlgorithmException, CertificateRequestException {
+        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null) {
+            certificateRequestEntity.setAltKeyUuid(altKeyUuid);
+            if (request.getAltPublicKey() != null) certificateRequestEntity.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(request.getAltPublicKey().getAlgorithm()));
+        }
+        else if (request.getAltPublicKey() != null) {
+            setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
+        }
     }
 
     private static void setCertificateRequestEntitySignatureAlgorithms(CertificateRequest request, CertificateRequestEntity certificateRequestEntity) {
