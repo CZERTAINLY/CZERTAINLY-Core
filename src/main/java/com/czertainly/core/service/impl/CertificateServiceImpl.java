@@ -1438,8 +1438,10 @@ public class CertificateServiceImpl implements CertificateService {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }
 
-        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null)
+        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null) {
             certificateRequestEntity.setAltKeyUuid(altKeyUuid);
+            certificateRequestEntity.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(request.getAltPublicKey().getAlgorithm()));
+        }
         else if (request.getAltPublicKey() != null) {
             setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
         }
@@ -1512,6 +1514,7 @@ public class CertificateServiceImpl implements CertificateService {
                     csrPublicKey, KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
         }
         certificateRequest.setAltKeyUuid(altKeyUuid);
+        certificateRequest.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(csrPublicKey.getAlgorithm()));
     }
 
     @Override

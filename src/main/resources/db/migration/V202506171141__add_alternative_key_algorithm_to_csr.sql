@@ -1,0 +1,2 @@
+ALTER TABLE certificate_request ADD COLUMN alt_public_key_algorithm TEXT;
+ALTER TABLE certificate_request DROP CONSTRAINT certificate_request_alt_key_uuid_fkey;
