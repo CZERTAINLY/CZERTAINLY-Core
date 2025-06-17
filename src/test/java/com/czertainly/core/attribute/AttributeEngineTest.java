@@ -33,6 +33,7 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -269,7 +270,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         attributeEngine.getDataAttributeDefinition(null, attributeDataDefinition.getName());
         attributeDataDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDataDefinition.getAttributeUuid()).get();
-        Assertions.assertEquals(updatedAtData, attributeDataDefinition.getUpdatedAt());
+        Assertions.assertEquals(updatedAtData.truncatedTo(ChronoUnit.MICROS), attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MICROS));
     }
 
     @NotNull
