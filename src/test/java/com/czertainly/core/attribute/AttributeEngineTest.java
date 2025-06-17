@@ -270,7 +270,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         attributeEngine.getDataAttributeDefinition(null, attributeDataDefinition.getName());
         attributeDataDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDataDefinition.getAttributeUuid()).get();
-        Assertions.assertEquals(updatedAtData.truncatedTo(ChronoUnit.MILLIS), attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS));
+        Assertions.assertTrue(updatedAtData.isEqual(attributeDataDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS)));
     }
 
     @NotNull
