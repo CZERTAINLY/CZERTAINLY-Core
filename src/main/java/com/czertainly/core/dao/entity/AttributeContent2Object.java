@@ -52,6 +52,9 @@ public class AttributeContent2Object extends UniquelyIdentified {
     @Column(name = "item_order")
     private int order;
 
+    @Column(name = "purpose")
+    private String purpose;
+
     public void setConnector(Connector connector) {
         this.connector = connector;
         if (connector != null) this.connectorUuid = connector.getUuid();
