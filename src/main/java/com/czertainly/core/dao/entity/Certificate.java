@@ -382,8 +382,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         newCertificateRequestEntity.setKeyUsage(this.keyUsage);
         newCertificateRequestEntity.setCommonName(this.commonName);
         newCertificateRequestEntity.setPublicKeyAlgorithm(this.publicKeyAlgorithm);
-        newCertificateRequestEntity.setSignatureAlgorithm(this.signatureAlgorithm);
-        newCertificateRequestEntity.setAltSignatureAlgorithm(this.altSignatureAlgorithm);
         newCertificateRequestEntity.setSubjectAlternativeNames(this.subjectAlternativeNames);
         newCertificateRequestEntity.setSubjectDn(this.subjectDn);
         newCertificateRequestEntity.setCertificateRequestFormat(certificateRequestFormat);

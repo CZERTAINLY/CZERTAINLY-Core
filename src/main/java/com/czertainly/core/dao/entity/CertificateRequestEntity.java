@@ -32,6 +32,9 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
     @Column(name = "public_key_algorithm")
     private String publicKeyAlgorithm;
 
+    @Column(name = "alt_public_key_algorithm")
+    private String altPublicKeyAlgorithm;
+
     @Column(name = "signature_algorithm")
     private String signatureAlgorithm;
 
