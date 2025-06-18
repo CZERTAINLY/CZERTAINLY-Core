@@ -122,12 +122,14 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
                         INSERT INTO trigger (
                             uuid,
                             name,
-                            resource
+                            resource,
+                            ignore_trigger
                         
                         ) VALUES (
                             ?,
                             ?,
-                            ?
+                            ?,
+                            FALSE
                         )
                         """;
 
@@ -146,12 +148,14 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
                         uuid,
                         trigger_uuid,
                         trigger_order,
-                        event
+                        event,
+                        override
                         ) VALUES (
                         ?,
                         ?,
                         0,
-                        ?
+                        ?,
+                        FALSE
                         )
                         """;
                 try (PreparedStatement createNotificationProfilePs = context.getConnection().prepareStatement(createNotificationProfile);
