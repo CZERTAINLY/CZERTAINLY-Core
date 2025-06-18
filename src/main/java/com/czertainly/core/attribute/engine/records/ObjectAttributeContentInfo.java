@@ -11,7 +11,8 @@ public record ObjectAttributeContentInfo(
         UUID objectUuid,
         Resource sourceObjectType,
         UUID sourceObjectUuid,
-        String sourceObjectName
+        String sourceObjectName,
+        String purpose
 ) {
     public ObjectAttributeContentInfo {
         Objects.requireNonNull(objectType);
@@ -19,18 +20,26 @@ public record ObjectAttributeContentInfo(
     }
 
     public ObjectAttributeContentInfo(Resource objectType, UUID objectUuid) {
-        this(null, objectType, objectUuid, null, null, null);
+        this(null, objectType, objectUuid, null, null, null, null);
     }
 
     public ObjectAttributeContentInfo(Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid) {
-        this(null, objectType, objectUuid, sourceObjectType, sourceObjectUuid, null);
+        this(null, objectType, objectUuid, sourceObjectType, sourceObjectUuid, null, null);
     }
 
     public ObjectAttributeContentInfo(UUID connectorUuid, Resource objectType, UUID objectUuid) {
-        this(connectorUuid, objectType, objectUuid, null, null, null);
+        this(connectorUuid, objectType, objectUuid, null, null, null, null);
+    }
+
+    public ObjectAttributeContentInfo(UUID connectorUuid, Resource objectType, UUID objectUuid, String purpose) {
+        this(connectorUuid, objectType, objectUuid, null, null, null, purpose);
     }
 
     public ObjectAttributeContentInfo(UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid) {
-        this(connectorUuid, objectType, objectUuid, sourceObjectType, sourceObjectUuid, null);
+        this(connectorUuid, objectType, objectUuid, sourceObjectType, sourceObjectUuid, null, null);
+    }
+
+    public ObjectAttributeContentInfo(UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid, String sourceObjectName) {
+        this(connectorUuid, objectType, objectUuid, sourceObjectType, sourceObjectUuid, sourceObjectName, null);
     }
 }
