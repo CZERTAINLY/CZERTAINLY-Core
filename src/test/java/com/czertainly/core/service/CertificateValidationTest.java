@@ -203,6 +203,23 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         certificateService.validate(certificate);
         Map<CertificateValidationCheck, CertificateValidationCheckDto> resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
         Assertions.assertEquals(CertificateValidationStatus.VALID, resultMap.get(CertificateValidationCheck.CERTIFICATE_VALIDITY).getStatus());
+
+        // Set issuer with different classic key and alt key to test signature not verified
+        X509Certificate x509CertificateIssuer = CertificateTestUtil.createHybridCertificate();
+        Certificate issuerCertificate = new Certificate();
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent(Base64.getEncoder().encodeToString(x509CertificateIssuer.getEncoded()));
+        certificateContentRepository.save(certificateContent);
+        issuerCertificate.setCertificateContent(certificateContent);
+        certificateRepository.save(issuerCertificate);
+        certificate.setIssuerCertificateUuid(issuerCertificate.getUuid());
+        certificateRepository.save(certificate);
+        certificateService.validate(certificate);
+        resultMap = MetaDefinitions.deserializeValidation(certificate.getCertificateValidationResult());
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, resultMap.get(CertificateValidationCheck.SIGNATURE_VERIFICATION).getStatus());
+        Assertions.assertEquals("Signature verification failed. Alternative signature verification failed.", resultMap.get(CertificateValidationCheck.SIGNATURE_VERIFICATION).getMessage());
+
+
     }
 
     @Test

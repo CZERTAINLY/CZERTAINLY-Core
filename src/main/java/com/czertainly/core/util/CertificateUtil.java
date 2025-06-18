@@ -523,7 +523,7 @@ public class CertificateUtil {
     public static String getKeyAlgorithmStringFromProviderName(String providerName) {
         KeyAlgorithm keyAlgorithm = getKeyAlgorithmEnumFromProviderName(providerName);
         if (keyAlgorithm == KeyAlgorithm.UNKNOWN || keyAlgorithm == null) return providerName;
-        return keyAlgorithm.name();
+        return keyAlgorithm.getCode();
     }
 
     @Deprecated(forRemoval = true)

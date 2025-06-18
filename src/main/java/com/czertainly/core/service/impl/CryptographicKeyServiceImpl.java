@@ -58,7 +58,7 @@ import java.util.stream.Collectors;
 
 import static java.util.function.Predicate.not;
 
-@Service
+@Service(Resource.Codes.CRYPTOGRAPHIC_KEY)
 @Transactional(noRollbackFor = ValidationException.class)
 public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
@@ -775,7 +775,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return List.of();
+        throw new NotSupportedException("Listing of resource objects is not supported for resource cryptographic keys.");
     }
 
     @Override

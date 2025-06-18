@@ -64,6 +64,7 @@ import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
 import org.bouncycastle.cms.CMSSignedDataGenerator;
 import org.bouncycastle.openssl.jcajce.JcaPEMWriter;
+import org.bouncycastle.operator.DefaultAlgorithmNameFinder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MarkerFactory;
@@ -101,7 +102,7 @@ import java.util.concurrent.Executors;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.CERTIFICATE)
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
@@ -1302,7 +1303,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return null;
+        throw new NotSupportedException("Listing of resource objects is not supported for resource certificates.");
     }
 
     @Override
@@ -1417,7 +1418,8 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRequestEntity = certificate.prepareCertificateRequest(certificateRequestFormat);
             certificateRequestEntity.setFingerprint(certificateRequestFingerprint);
             certificateRequestEntity.setContent(certificateRequest);
-            certificateRequestEntity = certificateRequestRepository.save(certificateRequestEntity);
+            setCertificateRequestEntitySignatureAlgorithms(request, certificateRequestEntity);
+            certificateRequestRepository.save(certificateRequestEntity);
 
             requestAttributes = attributeEngine.updateObjectDataAttributesContent(
                     null, null, Resource.CERTIFICATE_REQUEST, certificateRequestEntity.getUuid(), csrAttributes
@@ -1436,11 +1438,7 @@ public class CertificateServiceImpl implements CertificateService {
             keyUuid = getCertificateRequestKey(certificateRequestEntity, request.getPublicKey());
         }
 
-        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null)
-            certificateRequestEntity.setAltKeyUuid(altKeyUuid);
-        else if (request.getAltPublicKey() != null) {
-            setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
-        }
+        setCertificateRequestAltKey(altKeyUuid, certificateRequestEntity, request);
 
         certificate.setCertificateRequest(certificateRequestEntity);
         certificate.setCertificateRequestUuid(certificateRequestEntity.getUuid());
@@ -1479,6 +1477,24 @@ public class CertificateServiceImpl implements CertificateService {
         return dto;
     }
 
+    private void setCertificateRequestAltKey(UUID altKeyUuid, CertificateRequestEntity certificateRequestEntity, CertificateRequest request) throws NoSuchAlgorithmException, CertificateRequestException {
+        if (altKeyUuid != null && certificateRequestEntity.getAltKeyUuid() == null) {
+            certificateRequestEntity.setAltKeyUuid(altKeyUuid);
+            if (request.getAltPublicKey() != null) certificateRequestEntity.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(request.getAltPublicKey().getAlgorithm()));
+        }
+        else if (request.getAltPublicKey() != null) {
+            setCertificateRequestAltKey(certificateRequestEntity, request.getAltPublicKey());
+        }
+    }
+
+    private static void setCertificateRequestEntitySignatureAlgorithms(CertificateRequest request, CertificateRequestEntity certificateRequestEntity) {
+        DefaultAlgorithmNameFinder algFinder = new DefaultAlgorithmNameFinder();
+        if (request.getSignatureAlgorithm() != null)
+            certificateRequestEntity.setSignatureAlgorithm(algFinder.getAlgorithmName(request.getSignatureAlgorithm()).replace("WITH", "with"));
+        if (request.getAltSignatureAlgorithm() != null)
+            certificateRequestEntity.setAltSignatureAlgorithm(algFinder.getAlgorithmName(request.getAltSignatureAlgorithm()).replace("WITH", "with"));
+    }
+
     private UUID getCertificateRequestKey(CertificateRequestEntity certificateRequest, PublicKey csrPublicKey) throws NoSuchAlgorithmException {
         if (certificateRequest.getKeyUuid() != null) return certificateRequest.getKeyUuid();
 
@@ -1502,6 +1518,7 @@ public class CertificateServiceImpl implements CertificateService {
                     csrPublicKey, KeySizeUtil.getKeyLength(csrPublicKey), fingerprint);
         }
         certificateRequest.setAltKeyUuid(altKeyUuid);
+        certificateRequest.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(csrPublicKey.getAlgorithm()));
     }
 
     @Override
