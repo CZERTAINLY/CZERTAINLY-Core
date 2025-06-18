@@ -516,14 +516,22 @@ public class AttributeEngine {
     }
 
     public List<ResponseAttributeDto> getObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
-        logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {}.", objectType.getLabel(), objectUuid, connectorUuid, operation);
-        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, objectType, objectUuid);
+        return getObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
+    }
+
+    public List<ResponseAttributeDto> getObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
+        logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {} for purpose {}.", objectType.getLabel(), objectUuid, connectorUuid, operation, purpose);
+        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
         return getResponseAttributes(objectContents);
     }
 
     public List<RequestAttributeDto> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
+        return getRequestObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
+    }
+
+    public List<RequestAttributeDto> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the request data attributes for {} with UUID {} from connector {} and operation {}.", objectType.getLabel(), objectUuid, connectorUuid, operation);
-        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, objectType, objectUuid);
+        List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
         return getRequestAttributes(objectContents);
     }
 
@@ -544,12 +552,12 @@ public class AttributeEngine {
         return dataAttributes;
     }
 
-    private List<ObjectAttributeContent> loadDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
+    private List<ObjectAttributeContent> loadDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
         List<ObjectAttributeContent> objectContents;
         if (operation != null && connectorUuid != null) {
-            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorUuid, operation, objectType, objectUuid);
+            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContent(AttributeType.DATA, connectorUuid, operation, purpose, objectType, objectUuid);
         } else if (operation != null) {
-            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoConnector(AttributeType.DATA, operation, objectType, objectUuid);
+            objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoConnector(AttributeType.DATA, operation, purpose, objectType, objectUuid);
         } else if (connectorUuid != null) {
             objectContents = attributeContent2ObjectRepository.getObjectDataAttributesContentNoOperation(AttributeType.DATA, connectorUuid, objectType, objectUuid);
         } else {
@@ -600,20 +608,24 @@ public class AttributeEngine {
     }
 
     public List<ResponseAttributeDto> updateObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid, List<RequestAttributeDto> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
+        return updateObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid, requestAttributes);
+    }
+
+    public List<ResponseAttributeDto> updateObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid, List<RequestAttributeDto> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
         logger.debug("Updating the content of data attributes for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
         if (requestAttributes == null) {
             requestAttributes = new ArrayList<>();
         }
 
         // delete all content for operation
-        ObjectAttributeContentInfo objectAttributeContentInfo = new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid);
-        deleteOperationObjectAttributesContent(AttributeType.DATA, operation, objectAttributeContentInfo);
+        ObjectAttributeContentInfo objectAttributeContentInfo = new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid, purpose);
+        deleteOperationObjectAttributesContent(AttributeType.DATA, operation, purpose, objectAttributeContentInfo);
         for (RequestAttributeDto requestAttribute : requestAttributes) {
             AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
             createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, requestAttribute.getContent());
         }
 
-        return getObjectDataAttributesContent(connectorUuid, operation, objectType, objectUuid);
+        return getObjectDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
     }
 
     public List<ResponseAttributeDto> updateObjectCustomAttributesContent(Resource objectType, UUID objectUuid, List<RequestAttributeDto> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
@@ -658,7 +670,7 @@ public class AttributeEngine {
         if (definitionUuid != null) {
             attributeDefinition = attributeDefinitionRepository.findByUuid(definitionUuid).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, definitionUuid.toString()));
         } else {
-            attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, attributeName).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, attributeName.toString()));
+            attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, attributeName).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, attributeName));
         }
         if (attributeDefinition.getType() != AttributeType.CUSTOM) {
             throw new AttributeException("Cannot update content of attribute. Only custom attributes are allowed to be updated directly.", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null);
@@ -848,6 +860,12 @@ public class AttributeEngine {
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid());
     }
 
+    public void deleteOperationObjectAttributesContent(AttributeType attributeType, String operation, String purpose, ObjectAttributeContentInfo contentInfo) {
+        logger.debug("Deleting the {} attribute content of operation {} for resource {} with UUID {}. Info: {}", attributeType.getLabel(), operation, contentInfo.objectType().getLabel(), contentInfo.objectUuid(), contentInfo);
+        long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(attributeType, operation, purpose, contentInfo.connectorUuid(), contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
+        logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, contentInfo.objectType().getLabel(), contentInfo.objectUuid());
+    }
+
     private void createObjectAttributeContent(AttributeDefinition attributeDefinition, ObjectAttributeContentInfo objectAttributeContentInfo, List<BaseAttributeContent> attributeContentItems) throws AttributeException {
         logger.debug("Creating the attribute content for attribute {} of type {}. Info: {}", attributeDefinition.getName(), attributeDefinition.getType().getLabel(), objectAttributeContentInfo);
 
@@ -878,6 +896,7 @@ public class AttributeEngine {
             objectContentItem.setSourceObjectUuid(objectAttributeContentInfo.sourceObjectUuid());
             objectContentItem.setSourceObjectType(objectAttributeContentInfo.sourceObjectType());
             objectContentItem.setSourceObjectName(objectAttributeContentInfo.sourceObjectName());
+            objectContentItem.setPurpose(objectAttributeContentInfo.purpose());
             objectContentItem.setOrder(i);
             objectContentItem.setAttributeContentItem(contentItemEntity);
             attributeContent2ObjectRepository.save(objectContentItem);

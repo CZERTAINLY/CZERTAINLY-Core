@@ -39,11 +39,11 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation = ?3
-                    AND aco.connectorUuid = ?2 AND aco.objectType = ?4 AND aco.objectUuid = ?5
+                WHERE ad.type = ?1 AND ad.operation = ?3 AND aco.purpose = ?4
+                    AND aco.connectorUuid = ?2 AND aco.objectType = ?5 AND aco.objectUuid = ?6
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectDataAttributesContent(AttributeType attributeType, UUID connectorUuid, String operation, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectDataAttributesContent(AttributeType attributeType, UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -63,11 +63,11 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
-                WHERE ad.type = ?1 AND ad.operation = ?2
-                    AND aco.connectorUuid IS NULL AND aco.objectType = ?3 AND aco.objectUuid = ?4
+                WHERE ad.type = ?1 AND ad.operation = ?2 AND aco.purpose = ?3
+                    AND aco.connectorUuid IS NULL AND aco.objectType = ?4 AND aco.objectUuid = ?5
                 ORDER BY aci.attributeDefinitionUuid, aco.order
             """)
-    List<ObjectAttributeContent> getObjectDataAttributesContentNoConnector(AttributeType attributeType, String operation, Resource objectType, UUID objectUuid);
+    List<ObjectAttributeContent> getObjectDataAttributesContentNoConnector(AttributeType attributeType, String operation, String purpose, Resource objectType, UUID objectUuid);
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
@@ -119,5 +119,6 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     long deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(Resource objectType, UUID objectUuid, UUID definitionUuid);
     long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
     long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, String purpose, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
 
 }

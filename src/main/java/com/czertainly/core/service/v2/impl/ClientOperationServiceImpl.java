@@ -18,6 +18,7 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.attribute.CsrAttributes;
+import com.czertainly.core.attribute.engine.AttributeContentPurpose;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -576,7 +577,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 altSignatureAttributes = request.getAltSignatureAttributes();
             } else {
                 if (oldCertificate.getCertificateRequest() != null)
-                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_ALT_SIGN, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
+                    altSignatureAttributes = attributeEngine.getRequestObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, oldCertificate.getCertificateRequest().getUuid());
             }
             altTokenProfileUuid = getAltTokenProfileUuid(request.getAltTokenProfileUuid(), oldCertificate);
 
