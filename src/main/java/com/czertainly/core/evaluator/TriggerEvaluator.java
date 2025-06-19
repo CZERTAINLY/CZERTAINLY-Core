@@ -352,6 +352,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorActionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> stringOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> numberOperatorFunctionMap;
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> listOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> dateOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> datetimeOperatorFunctionMap;
 
@@ -403,7 +404,13 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
-        fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, commonOperatorFunctionMap);
+        listOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
+        listOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> ((Collection<?>) c).contains(o));
+        listOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> !((Collection<?>) c).contains(o));
+        listOperatorFunctionMap.put(FilterConditionOperator.EMPTY, (o, c) -> (o instanceof Collection<?> oList) && oList.isEmpty() || o == null);
+        listOperatorFunctionMap.put(FilterConditionOperator.NOT_EMPTY, (o, c) -> (o instanceof Collection<?> oList) && !oList.isEmpty() || o != null);
+        fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, listOperatorFunctionMap);
+
         fieldTypeToOperatorActionMap.put(FilterFieldType.BOOLEAN, commonOperatorFunctionMap);
 
     }

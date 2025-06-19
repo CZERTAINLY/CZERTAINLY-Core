@@ -194,17 +194,49 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
+        certificate.setPublicKeyAlgorithm("RSA");
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setFieldIdentifier(FilterField.PUBLIC_KEY_ALGORITHM.name());
+        condition.setValue(List.of("RSA", "ML-DSA"));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EQUALS);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EMPTY);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.EMPTY);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        certificate.setPublicKeyAlgorithm(null);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EMPTY);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
         Group group = new Group();
         group.setName("group");
         group = groupRepository.save(group);
 
-        certificate.setGroups(new HashSet<>(List.of(group)));
+        Group group2 = new Group();
+        group2.setName("group2");
+        group2 = groupRepository.save(group2);
+
+        certificate.setGroups(new HashSet<>(List.of(group, group2)));
         certificate = certificateRepository.save(certificate);
 
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setFieldIdentifier(FilterField.GROUP_NAME.toString());
-        condition.setValue(group.getName());
+        condition.setValue(List.of(group.getName(), group2.getName()));
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EQUALS);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(List.of("group3"));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setOperator(FilterConditionOperator.NOT_EMPTY);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.EMPTY);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        certificate.setGroups(Set.of());
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
 
         certificate.setTrustedCa(true);
         condition.setFieldIdentifier(FilterField.TRUSTED_CA.toString());
@@ -222,7 +254,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         certificate.setLocations(new HashSet<>(List.of(certificateLocation)));
         condition.setFieldIdentifier(FilterField.CERT_LOCATION_NAME.name());
         condition.setOperator(FilterConditionOperator.EQUALS);
-        condition.setValue("loc");
+        condition.setValue(List.of("loc"));
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
 
