@@ -117,6 +117,11 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateLocationRepository certificateLocationRepository;
+    @Autowired
+    private ApprovalRepository approvalRepository;
+    @Autowired
+    private TriggerEvaluator<Approval> approvalTriggerEvaluator;
+
 
     private Certificate certificate;
 
@@ -203,8 +208,10 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        // Not null String
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        // Null String empty
         certificate.setPublicKeyAlgorithm(null);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
@@ -236,6 +243,8 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         certificate.setGroups(Set.of());
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EMPTY);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
 
         certificate.setTrustedCa(true);
@@ -393,6 +402,14 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         newCondition.setOperator(FilterConditionOperator.EQUALS);
         newCondition.setValue("data");
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
+    }
+
+    @Test
+    void testNullableListProperty() {
+        Approval approval = new Approval();
+        approvalRepository.save(approval);
+
+        condition.s
     }
 
     @Test
