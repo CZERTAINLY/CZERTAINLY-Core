@@ -246,7 +246,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
-
         certificate.setTrustedCa(true);
         condition.setFieldIdentifier(FilterField.TRUSTED_CA.toString());
         condition.setOperator(FilterConditionOperator.EQUALS);
@@ -402,14 +401,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         newCondition.setOperator(FilterConditionOperator.EQUALS);
         newCondition.setValue("data");
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(newCondition, newCertificate, Resource.CERTIFICATE));
-    }
-
-    @Test
-    void testNullableListProperty() {
-        Approval approval = new Approval();
-        approvalRepository.save(approval);
-
-        condition.s
     }
 
     @Test

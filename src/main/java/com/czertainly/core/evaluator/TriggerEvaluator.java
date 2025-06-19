@@ -4,7 +4,6 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
@@ -32,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
 import java.lang.reflect.InvocationTargetException;
@@ -163,6 +161,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                 if (!(objectValue instanceof Collection<?> objectValues)) {
                     return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
                 }
+                if (operator == FilterConditionOperator.EMPTY) return objectValues.isEmpty();
+                if (operator == FilterConditionOperator.NOT_EMPTY) return !objectValues.isEmpty();
                 for (Object item : objectValues) {
                     Object o = getPropertyValue(item, field, true);
                     if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
@@ -405,10 +405,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
         listOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
+        listOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         listOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> ((Collection<?>) c).contains(o));
         listOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> !((Collection<?>) c).contains(o));
-        listOperatorFunctionMap.put(FilterConditionOperator.EMPTY, (o, c) -> (o instanceof Collection<?> oList) && oList.isEmpty() || o == null);
-        listOperatorFunctionMap.put(FilterConditionOperator.NOT_EMPTY, (o, c) -> (o instanceof Collection<?> oList) && !oList.isEmpty() || o != null);
         fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, listOperatorFunctionMap);
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.BOOLEAN, commonOperatorFunctionMap);
