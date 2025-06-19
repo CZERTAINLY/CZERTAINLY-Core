@@ -1244,7 +1244,8 @@ public class CertificateServiceImpl implements CertificateService {
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(60))))), "60")
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "90")
                                 .when(cb.greaterThan(root.get(Certificate_.notAfter), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(90))))), "More")
-                                .when(cb.isNotNull(root.get(Certificate_.notAfter)), "Expired");
+                                .when(cb.isNotNull(root.get(Certificate_.notAfter)), "Expired")
+                                .otherwise("Not Issued");;
 
                         dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression));
                         return null;
