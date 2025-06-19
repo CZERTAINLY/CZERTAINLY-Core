@@ -13,10 +13,12 @@ import java.util.stream.Collectors;
 @SuppressWarnings("java:S101")
 public class V202506131400__NotificationSettingsToEventSettings extends BaseJavaMigration {
 
-    private static final Map<String, List<String>> RESOURCE_TO_NOTIFICATION_TYPES = Map.of(
-            "CERTIFICATE", List.of("certificate_status_changed", "certificate_action_performed"),
-            "APPROVAL", List.of("approval_requested", "approval_closed"),
-            "SCHEDULED_JOB", List.of("scheduled_job_completed")
+    private static final Map<String, String> NOTIFICATION_TYPE_TO_RESOURCE = Map.ofEntries(
+            Map.entry("certificate_status_changed", "CERTIFICATE"),
+            Map.entry("certificate_action_performed", "CERTIFICATE"),
+            Map.entry("approval_requested", "APPROVAL"),
+            Map.entry("approval_closed", "APPROVAL"),
+            Map.entry("scheduled_job_completed", "SCHEDULED_JOB")
     );
 
     @Override
@@ -206,9 +208,7 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
 
                                 createTrigger2ActionPs.setObject(2, actionUuid, Types.OTHER);
 
-                                for (Map.Entry<String, List<String>> resourceToNotificationTypeEntry : RESOURCE_TO_NOTIFICATION_TYPES.entrySet()) {
-                                    createTriggerAndAssociations(instanceToTypesEntry, resourceToNotificationTypeEntry, createTriggerPs, notificationInstanceName, createTrigger2ActionPs, createTriggerAssociationPs);
-                                }
+                                createTriggerAndAssociations(instanceToTypesEntry.getValue(), createTriggerPs, createTrigger2ActionPs, createTriggerAssociationPs);
                             }
 
                         }
@@ -223,21 +223,18 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
                     createTrigger2ActionPs.executeBatch();
                     createTriggerAssociationPs.executeBatch();
                 }
+                select.execute("DELETE FROM setting WHERE section = 'NOTIFICATIONS'");
             }
-            select.execute("DELETE FROM setting WHERE section = 'NOTIFICATIONS'");
         }
     }
 
-    private static void createTriggerAndAssociations(Map.Entry<String, List<String>> instanceToTypesEntry, Map.Entry<String, List<String>> resourceToNotificationTypeEntry, PreparedStatement createTriggerPs, String notificationInstanceName, PreparedStatement createTrigger2ActionPs, PreparedStatement createTriggerAssociationPs) throws SQLException {
-        String resource = resourceToNotificationTypeEntry.getKey();
-        List<String> typesInInstanceForResource = instanceToTypesEntry.getValue().stream()
-                .filter(new HashSet<>(resourceToNotificationTypeEntry.getValue())::contains)
-                .toList();
-
-        if (!typesInInstanceForResource.isEmpty()) {
+    private static void createTriggerAndAssociations(List<String> notificationTypes, PreparedStatement createTriggerPs, PreparedStatement createTrigger2ActionPs, PreparedStatement createTriggerAssociationPs) throws SQLException {
+        for (String notificationType : notificationTypes) {
+            String resource = NOTIFICATION_TYPE_TO_RESOURCE.get(notificationType);
+            if (resource == null) continue;
             UUID triggerUuid = UUID.randomUUID();
             createTriggerPs.setObject(1, triggerUuid, Types.OTHER);
-            createTriggerPs.setString(2, notificationInstanceName + "Trigger" + resource);
+            createTriggerPs.setString(2, notificationType + "_trigger");
             createTriggerPs.setString(3, resource);
             createTriggerPs.addBatch();
 
@@ -246,11 +243,9 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
 
             createTriggerAssociationPs.setObject(2, triggerUuid, Types.OTHER);
 
-            for (String notificationType : typesInInstanceForResource) {
-                createTriggerAssociationPs.setObject(1, UUID.randomUUID(), Types.OTHER);
-                createTriggerAssociationPs.setString(3, notificationType.equals("scheduled_job_completed") ? "SCHEDULED_JOB_FINISHED" : notificationType.toUpperCase());
-                createTriggerAssociationPs.addBatch();
-            }
+            createTriggerAssociationPs.setObject(1, UUID.randomUUID(), Types.OTHER);
+            createTriggerAssociationPs.setString(3, notificationType.equals("scheduled_job_completed") ? "SCHEDULED_JOB_FINISHED" : notificationType.toUpperCase());
+            createTriggerAssociationPs.addBatch();
         }
     }
 }

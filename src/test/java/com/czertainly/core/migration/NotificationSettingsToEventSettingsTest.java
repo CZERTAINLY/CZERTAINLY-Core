@@ -4,6 +4,7 @@ import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.dao.entity.workflows.*;
+import com.czertainly.core.dao.repository.SettingRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileVersionRepository;
@@ -46,6 +47,8 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
     TriggerRepository triggerRepository;
     @Autowired
     TriggerAssociationRepository triggerAssociationRepository;
+    @Autowired
+    SettingRepository settingRepository;
 
     List<ExecutionItem> executionItems;
     List<Execution> executions;
@@ -83,6 +86,7 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
         triggers = triggerRepository.findAll();
         assertNotificationInstanceMigrated(instanceReference1);
         assertNotificationInstanceMigrated(instanceReference2);
+        Assertions.assertTrue(settingRepository.findByUuid(UUID.fromString("099f1ba9-2b6c-430f-8867-c5fa4ecd53db")).isEmpty());
     }
 
     private void assertNotificationInstanceMigrated(NotificationInstanceReference notificationInstanceReference) {
@@ -105,28 +109,28 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
         Assertions.assertTrue(action.getExecutions().contains(execution));
 
         action = actionRepository.findWithTriggersByUuid(action.getUuid()).get();
-        Trigger triggerCert = triggers.stream().filter(trigger1 -> trigger1.getName().equals(name + "TriggerCERTIFICATE")).findFirst().orElse(null);
-        Assertions.assertNotNull(triggerCert);
-        List<TriggerAssociation> triggerAssociationsCert = triggerAssociationRepository.findByTriggerUuid(triggerCert.getUuid());
 
         if (name.contains("1")) {
-            Assertions.assertTrue(triggerAssociationsCert.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(ResourceEvent.CERTIFICATE_ACTION_PERFORMED)));
+            Trigger triggerCertActionPerformed = assertTriggerAndAssociationCreated("certificate_action_performed", ResourceEvent.CERTIFICATE_ACTION_PERFORMED);
+            Trigger triggerJob = assertTriggerAndAssociationCreated("scheduled_job_completed", ResourceEvent.SCHEDULED_JOB_FINISHED);
+            Trigger triggerApprovalClosed = assertTriggerAndAssociationCreated("approval_closed", ResourceEvent.APPROVAL_CLOSED);
+            Trigger triggerApprovalRequested = assertTriggerAndAssociationCreated("approval_requested", ResourceEvent.APPROVAL_REQUESTED);
+            Assertions.assertTrue(action.getTriggers().containsAll(List.of(triggerJob, triggerCertActionPerformed, triggerApprovalClosed, triggerApprovalRequested)));
+            Assertions.assertEquals(4, action.getTriggers().size());
 
-            Trigger trigger1Job = triggers.stream().filter(trigger1 -> trigger1.getName().equals(name + "TriggerSCHEDULED_JOB")).findFirst().orElse(null);
-            Assertions.assertNotNull(trigger1Job);
-            Trigger trigger1Approval = triggers.stream().filter(trigger1 -> trigger1.getName().equals(name + "TriggerAPPROVAL")).findFirst().orElse(null);
-            Assertions.assertNotNull(trigger1Approval);
-            Assertions.assertTrue(action.getTriggers().containsAll(List.of(trigger1Job, triggerCert, trigger1Approval)));
-
-            List<TriggerAssociation> triggerAssociationsApproval = triggerAssociationRepository.findByTriggerUuid(trigger1Approval.getUuid());
-            Assertions.assertTrue(triggerAssociationsApproval.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(ResourceEvent.APPROVAL_CLOSED)));
-            Assertions.assertTrue(triggerAssociationsApproval.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(ResourceEvent.APPROVAL_REQUESTED)));
-            List<TriggerAssociation> triggerAssociationsJob = triggerAssociationRepository.findByTriggerUuid(trigger1Job.getUuid());
-            Assertions.assertTrue(triggerAssociationsJob.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(ResourceEvent.SCHEDULED_JOB_FINISHED)));
         } else {
-            Assertions.assertTrue(triggerAssociationsCert.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(ResourceEvent.CERTIFICATE_STATUS_CHANGED)));
-            Assertions.assertTrue(action.getTriggers().contains(triggerCert));
+            Trigger triggerCertStatusChanged = assertTriggerAndAssociationCreated("certificate_status_changed", ResourceEvent.CERTIFICATE_STATUS_CHANGED);
+            Assertions.assertTrue(action.getTriggers().contains(triggerCertStatusChanged));
+            Assertions.assertEquals(1, action.getTriggers().size());
         }
+    }
+
+    private Trigger assertTriggerAndAssociationCreated(String type, ResourceEvent resourceEvent) {
+        Trigger trigger = triggers.stream().filter(trigger1 -> trigger1.getName().equals(type + "_trigger")).findFirst().orElse(null);
+        Assertions.assertNotNull(trigger);
+        List<TriggerAssociation> triggerAssociationsCert = triggerAssociationRepository.findByTriggerUuid(trigger.getUuid());
+        Assertions.assertTrue(triggerAssociationsCert.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(resourceEvent)));
+        return trigger;
     }
 
 

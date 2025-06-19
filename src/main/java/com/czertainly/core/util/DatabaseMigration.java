@@ -65,7 +65,7 @@ public class DatabaseMigration {
         V202501281511__LinkKeysToCertificates(-1169157739),
         V202501281641__DuplicateCertificateContents(492594371),
         V202505211440__ChangeConditionValueForNotAfterAndNotBefore(-529789813),
-        V202506131400__NotificationSettingsToEventSettings(312920754)
+        V202506131400__NotificationSettingsToEventSettings(-2051732656)
         ;
 
         private final int checksum;
