@@ -58,7 +58,6 @@ jobs:
           file: ./Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          load: true
 
       - name: Select tag for scanning
         id: tag
@@ -84,7 +83,7 @@ jobs:
         uses: aquasecurity/trivy-action@0.31.0
         with:
           image-ref: ${{ steps.tag.outputs.value }}
-          trivy-config: trivy.yaml
+          trivy-config: config/trivy.yaml
           skip-setup-trivy: true
 
       - name: Build and push Docker image
