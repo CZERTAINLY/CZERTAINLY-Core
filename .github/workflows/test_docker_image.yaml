@@ -70,5 +70,5 @@ jobs:
         uses: aquasecurity/trivy-action@0.31.0
         with:
           image-ref: ${{ steps.tag.outputs.value }}
-          trivy-config: trivy.yaml
+          trivy-config: config/trivy.yaml
           skip-setup-trivy: true
