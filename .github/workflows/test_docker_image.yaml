@@ -45,7 +45,6 @@ jobs:
           file: ./Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          load: true
 
       - name: Select tag for scanning
         id: tag
