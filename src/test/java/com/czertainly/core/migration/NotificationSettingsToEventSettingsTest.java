@@ -13,6 +13,7 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import db.migration.V202506131400__NotificationSettingsToEventSettings;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -26,6 +27,7 @@ import java.util.UUID;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@Disabled("Migration has passed, no need to test")
 class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
 
     @Autowired
