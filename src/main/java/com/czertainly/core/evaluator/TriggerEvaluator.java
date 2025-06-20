@@ -457,7 +457,12 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     }
 
     private static int compareNumbers(Number objectNumber, Object conditionNumber) {
-        if (conditionNumber instanceof String) conditionNumber = Float.parseFloat(conditionNumber.toString());
+        if (conditionNumber instanceof String) {
+            conditionNumber = Float.parseFloat(conditionNumber.toString());
+        } else if (!(conditionNumber instanceof Number)) {
+            throw new ValidationException("Invalid type for conditionNumber. Expected String or Number, but got: " 
+                    + (conditionNumber == null ? "null" : conditionNumber.getClass().getSimpleName()));
+        }
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
