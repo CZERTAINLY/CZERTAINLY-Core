@@ -456,10 +456,6 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return durationParsed;
     }
 
-//    private static int compareNumbers(Number objectNumber, Number conditionNumber) {
-//        return Float.compare(objectNumber.floatValue(), conditionNumber.floatValue());
-//    }
-
     private static int compareNumbers(Number objectNumber, Object conditionNumber) {
         if (conditionNumber instanceof String) conditionNumber = Float.parseFloat(conditionNumber.toString());
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
