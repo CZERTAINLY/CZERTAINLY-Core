@@ -27,7 +27,6 @@ import java.util.UUID;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-@Disabled("Migration has passed, no need to test")
 class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
 
     @Autowired
