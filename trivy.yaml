@@ -1,0 +1,8 @@
+format: table
+exit-code: 1
+severity:
+  - CRITICAL
+vulnerability:
+  type: [os, library]
+ignore-unfixed: false
+scanners: "vuln,secret"

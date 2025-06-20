@@ -37,21 +37,39 @@ jobs:
             type=sha,prefix=develop-,format=long
 
       - name: Test build Docker image
+        id: build-and-load
         uses: docker/build-push-action@v6
-        id: build-and-push
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           file: ./Dockerfile
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
+          load: true
+
+      - name: Select tag for scanning
+        id: tag
+        run: |
+          FIRST_TAG="$(echo "${{ steps.meta.outputs.tags }}" | head -n 1)"
+          echo "value=$FIRST_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Run Trivy vulnerability scanner
-        uses: aquasecurity/trivy-action@0.31.0
+        uses: aquasecurity/trivy-action@v0.31.0
         with:
-          image-ref: czertainly/czertainly-core
-          format: table
-          exit-code: 1
-          ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL
+          image-ref: ${{ steps.tag.outputs.value }}
+          format: json
+          output: trivy-report.json
+          exit-code: 0
+
+      - name: Upload vulnerability report
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report
+          path: trivy-report.json
+
+      - name: Fail build on vulnerabilities
+        uses: aquasecurity/trivy-action@v0.31.0
+        with:
+          image-ref: ${{ steps.tag.outputs.value }}
+          trivy-config: trivy.yaml
+          skip-setup-trivy: true
