@@ -153,25 +153,30 @@ public class NotificationListener {
 
     private void sendByNotificationProfile(UUID notificationProfileUuid, NotificationMessage message) throws NotFoundException {
         NotificationProfileVersion notificationProfileVersion;
-        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuid, message.getResource(), message.getObjectUuid(), message.getEvent());
-        if (pendingNotification == null) {
-            notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
-            if (notificationProfileVersion.getFrequency() != null || notificationProfileVersion.getRepetitions() != null) {
-                pendingNotification = new PendingNotification();
-                pendingNotification.setNotificationProfileUuid(notificationProfileVersion.getNotificationProfileUuid());
-                pendingNotification.setVersion(notificationProfileVersion.getVersion());
-                pendingNotification.setEvent(message.getEvent());
-                pendingNotification.setResource(message.getResource());
-                pendingNotification.setObjectUuid(message.getObjectUuid());
+        PendingNotification pendingNotification = null;
+        if (message.getEvent().isMonitoring()) {
+            pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuid, message.getResource(), message.getObjectUuid(), message.getEvent());
+            if (pendingNotification == null) {
+                notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
+                if (message.getEvent().isMonitoring() && (notificationProfileVersion.getFrequency() != null || notificationProfileVersion.getRepetitions() != null)) {
+                    pendingNotification = new PendingNotification();
+                    pendingNotification.setNotificationProfileUuid(notificationProfileVersion.getNotificationProfileUuid());
+                    pendingNotification.setVersion(notificationProfileVersion.getVersion());
+                    pendingNotification.setEvent(message.getEvent());
+                    pendingNotification.setResource(message.getResource());
+                    pendingNotification.setObjectUuid(message.getObjectUuid());
+                }
+            } else {
+                notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(notificationProfileUuid, pendingNotification.getVersion()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
             }
-        } else {
-            notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(notificationProfileUuid, pendingNotification.getVersion()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
+
+            if (!proceedWithNotifying(notificationProfileVersion, pendingNotification)) {
+                logger.debug("Notification suppressed by configuration of notification profile {} for event {}. Notification sent last time at {} and was repeated {} times.", notificationProfileVersion.getNotificationProfile().getName(), message.getEvent(), pendingNotification.getLastSentAt(), pendingNotification.getRepetitions());
+                return;
+            }
         }
 
-        if (!proceedWithNotifying(notificationProfileVersion, pendingNotification)) {
-            logger.debug("Notification suppressed by configuration of notification profile {} for event {}. Notification sent last time at {} and was repeated {} times.", notificationProfileVersion.getNotificationProfile().getName(), message.getEvent(), pendingNotification.getLastSentAt(), pendingNotification.getRepetitions());
-            return;
-        }
+        notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
 
         List<NotificationRecipient> recipients = getRecipients(notificationProfileVersion.getRecipientType(), notificationProfileVersion.getRecipientUuids(), message.getEvent(), message.getData(), message.getResource(), message.getObjectUuid());
 
