@@ -13,6 +13,7 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import db.migration.V202506131400__NotificationSettingsToEventSettings;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -70,6 +71,10 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
         Context context = Mockito.mock(Context.class);
         when(context.getConnection()).thenReturn(dataSource.getConnection());
 
+        context.getConnection().createStatement().execute("""
+                ALTER TABLE setting
+                DROP CONSTRAINT "setting_section_check"
+                """);
         context.getConnection().createStatement().execute("""
                 INSERT INTO setting("uuid","i_author","i_cre","i_upd","section","category","name","value")
                 VALUES
