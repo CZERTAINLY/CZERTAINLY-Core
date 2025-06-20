@@ -377,8 +377,55 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         newCondition.setValue(255.4);
         Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
-
-
+        newCondition.setValue("255");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("255.4");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setOperator(FilterConditionOperator.EQUALS);
+        newCondition.setValue(256);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue(256.4);
+        Assertions.assertFalse(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("256");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("256.4");
+        Assertions.assertFalse(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setOperator(FilterConditionOperator.NOT_EQUALS);
+        newCondition.setValue(255);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue(255.4);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("255");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("255.4");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setOperator(FilterConditionOperator.GREATER_OR_EQUAL);
+        newCondition.setValue(256);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue(255.4);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("256");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("255.4");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setOperator(FilterConditionOperator.LESSER_OR_EQUAL);
+        newCondition.setValue(256);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue(257.4);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("256");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("257.4");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setOperator(FilterConditionOperator.LESSER);
+        newCondition.setValue(256);
+        Assertions.assertFalse(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue(257.4);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("257");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+        newCondition.setValue("257.4");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
     }
 
     @Test

@@ -376,10 +376,12 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         numberOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         numberOperatorFunctionMap.putAll(commonOperatorFunctionMap);
-        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, (Number) c) > 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) > 0 || compareNumbers((Number) o, (Number) c) == 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> compareNumbers((Number) o, (Number) c) < 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) < 0 || compareNumbers((Number) o, (Number) c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> compareNumbers((Number) o, c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> compareNumbers((Number) o, c) != 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, c) > 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, c) > 0 || compareNumbers((Number) o, c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> compareNumbers((Number) o, c) < 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, c) < 0 || compareNumbers((Number) o, c) == 0);
         fieldTypeToOperatorActionMap.put(FilterFieldType.NUMBER, numberOperatorFunctionMap);
 
         dateOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
@@ -454,8 +456,13 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return durationParsed;
     }
 
-    private static int compareNumbers(Number objectNumber, Number conditionNumber) {
-        return Float.compare(objectNumber.floatValue(), conditionNumber.floatValue());
+//    private static int compareNumbers(Number objectNumber, Number conditionNumber) {
+//        return Float.compare(objectNumber.floatValue(), conditionNumber.floatValue());
+//    }
+
+    private static int compareNumbers(Number objectNumber, Object conditionNumber) {
+        if (conditionNumber instanceof String) conditionNumber = Float.parseFloat(conditionNumber.toString());
+        return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
     private boolean evaluateConditionOnAttribute(ResponseAttributeDto attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
