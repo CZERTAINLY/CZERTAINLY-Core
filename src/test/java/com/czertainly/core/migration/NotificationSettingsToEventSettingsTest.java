@@ -72,6 +72,10 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
         when(context.getConnection()).thenReturn(dataSource.getConnection());
 
         context.getConnection().createStatement().execute("""
+                ALTER TABLE setting
+                DROP CONSTRAINT "setting_section_check"
+                """);
+        context.getConnection().createStatement().execute("""
                 INSERT INTO setting("uuid","i_author","i_cre","i_upd","section","category","name","value")
                 VALUES
                 (E'099f1ba9-2b6c-430f-8867-c5fa4ecd53db',E'czertainly-admin',E'2024-08-15 06:47:15.709929',E'2025-04-28 15:13:57.634206',E'NOTIFICATIONS',NULL,E'notificationsMapping',
