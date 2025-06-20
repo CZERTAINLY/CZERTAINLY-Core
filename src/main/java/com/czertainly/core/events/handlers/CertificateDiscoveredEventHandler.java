@@ -231,7 +231,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
             boolean isIgnored = false;
             for (TriggerAssociation triggerAssociation : mergedIgnoreTriggers) {
                 Trigger trigger = triggerAssociation.getTrigger();
-                TriggerHistory triggerHistory = eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), certificate, discoveryCertificate.getUuid(), null);
+                TriggerHistory triggerHistory = eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, certificate, discoveryCertificate.getUuid(), null);
                 triggerHistories.add(triggerHistory);
                 if (triggerHistory.isActionsPerformed()) {
                     isIgnored = true;
@@ -259,7 +259,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                 for (TriggerAssociation triggerAssociation : mergedTriggers) {
                     // Create trigger history entry
                     Trigger trigger = triggerAssociation.getTrigger();
-                    eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), certificate, discoveryCertificate.getUuid(), eventData);
+                    eventContext.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, certificate, discoveryCertificate.getUuid(), eventData);
                 }
 
                 certificateHandler.updateDiscoveredCertificate(discovery, certificate, discoveryCertificate.getMeta());

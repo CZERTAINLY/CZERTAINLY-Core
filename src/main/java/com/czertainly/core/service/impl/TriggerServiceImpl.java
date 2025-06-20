@@ -218,6 +218,13 @@ public class TriggerServiceImpl implements TriggerService {
             triggerAssociationRepository.deleteByEventAndResourceAndObjectUuid(event, resource, associationObjectUuid);
         }
 
+        UUID userUuid = null;
+        try {
+            userUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+        } catch (ValidationException e) {
+            // anonymous user
+        }
+
         // categorize to ignore and normal triggers
         List<TriggerAssociation> triggers = new ArrayList<>();
         List<TriggerAssociation> ignoreTriggers = new ArrayList<>();
@@ -232,6 +239,7 @@ public class TriggerServiceImpl implements TriggerService {
             triggerAssociation.setResource(resource);
             triggerAssociation.setObjectUuid(associationObjectUuid);
             triggerAssociation.setEvent(event);
+            triggerAssociation.setTriggeredBy(userUuid);
             // If it is an ignore trigger, the order is always -1, otherwise increment the order
             if (trigger.isIgnoreTrigger()) {
                 ignoreTriggers.add(triggerAssociation);
@@ -339,11 +347,12 @@ public class TriggerServiceImpl implements TriggerService {
     }
 
     @Override
-    public TriggerHistory createTriggerHistory(UUID triggerUuid, UUID triggerAssociationUuid, UUID objectUuid, UUID referenceObjectUuid) {
+    public TriggerHistory createTriggerHistory(UUID triggerUuid, TriggerAssociation triggerAssociation, UUID objectUuid, UUID referenceObjectUuid) {
         TriggerHistory triggerHistory = new TriggerHistory();
         triggerHistory.setTriggerUuid(triggerUuid);
-        triggerHistory.setTriggerAssociationUuid(triggerAssociationUuid);
-        triggerHistory.setTriggerAssociation(triggerAssociationRepository.findByUuid(SecuredUUID.fromUUID(triggerAssociationUuid)).orElse(null));
+        triggerHistory.setTriggerAssociationUuid(triggerAssociation.getUuid());
+        triggerHistory.setTriggerAssociation(triggerAssociation);
+        triggerHistory.setEvent(triggerAssociation.getEvent());
         triggerHistory.setObjectUuid(objectUuid);
         triggerHistory.setReferenceObjectUuid(referenceObjectUuid);
         triggerHistory.setTriggeredAt(OffsetDateTime.now());

@@ -2,17 +2,14 @@ package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.core.dao.entity.workflows.Rule;
-import com.czertainly.core.dao.entity.workflows.ConditionItem;
-import com.czertainly.core.dao.entity.workflows.Trigger;
-import com.czertainly.core.dao.entity.workflows.TriggerHistory;
+import com.czertainly.core.dao.entity.workflows.*;
 
 import java.util.Set;
 import java.util.UUID;
 
 public interface ITriggerEvaluator<T> {
 
-    TriggerHistory evaluateTrigger(Trigger trigger, UUID triggerAssociationUuid, T object, UUID referenceObjectUuid, Object data) throws RuleException;
+    TriggerHistory evaluateTrigger(Trigger trigger, TriggerAssociation triggerAssociation, T object, UUID referenceObjectUuid, Object data) throws RuleException;
 
     /**
      * Method to evaluate a list of Rules on an Object

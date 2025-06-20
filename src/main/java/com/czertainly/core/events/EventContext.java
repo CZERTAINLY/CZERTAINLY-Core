@@ -26,10 +26,17 @@ public class EventContext<T extends UniquelyIdentifiedObject> {
     private final EventContextTriggers platformTriggers;
     private final Map<String, EventContextTriggers> overridingResourceTriggers = new HashMap<>();
 
+    private UUID currentUserUuid;
+
+    public void setCurrentUserUuid(UUID currentUserUuid) {
+        this.currentUserUuid = currentUserUuid;
+    }
+
     public EventContext(EventMessage eventMessage, TriggerEvaluator<T> triggerEvaluator, T resourceObject, Object resourceObjectEventData) {
         this.resource = eventMessage.getResource();
         this.event = eventMessage.getEvent();
         this.userUuid = eventMessage.getUserUuid();
+        this.currentUserUuid = eventMessage.getUserUuid();
         this.associationObjectUuid = eventMessage.getOverrideObjectUuid();
         this.data = eventMessage.getData();
         this.scheduledJobInfo = eventMessage.getScheduledJobInfo();
