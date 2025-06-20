@@ -189,7 +189,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
         }
     }
 
-    private void handleUser(EventContext<T> context, UUID triggeredBy) {
+    protected void handleUser(EventContext<T> context, UUID triggeredBy) {
         if (!Objects.equals(context.getCurrentUserUuid(), triggeredBy)) {
             try {
                 logger.debug("Changing user from {} to {}", context.getCurrentUserUuid(), triggeredBy);

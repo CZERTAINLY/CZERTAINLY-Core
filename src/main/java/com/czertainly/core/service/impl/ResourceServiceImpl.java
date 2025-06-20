@@ -71,7 +71,7 @@ public class ResourceServiceImpl implements ResourceService {
             resourceDto.setHasGroups(resource.hasGroups());
             resourceDto.setHasOwner(resource.hasOwner());
             resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
-            resourceDto.setHasRuleEvaluator(hasRuleEvaluator(resource));
+            resourceDto.setHasRuleEvaluator(ResourceEvent.isResourceOfEvent(resource));
             resources.add(resourceDto);
         }
 
