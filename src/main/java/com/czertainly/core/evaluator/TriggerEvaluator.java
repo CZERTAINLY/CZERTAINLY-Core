@@ -4,7 +4,6 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
@@ -32,7 +31,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
 import java.lang.reflect.InvocationTargetException;
@@ -163,6 +161,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                 if (!(objectValue instanceof Collection<?> objectValues)) {
                     return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
                 }
+                if (operator == FilterConditionOperator.EMPTY) return objectValues.isEmpty();
+                if (operator == FilterConditionOperator.NOT_EMPTY) return !objectValues.isEmpty();
                 for (Object item : objectValues) {
                     Object o = getPropertyValue(item, field, true);
                     if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
@@ -352,6 +352,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     private static final Map<FilterFieldType, Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>>> fieldTypeToOperatorActionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> stringOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> numberOperatorFunctionMap;
+    private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> listOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> dateOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> datetimeOperatorFunctionMap;
 
@@ -375,10 +376,12 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         numberOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
         numberOperatorFunctionMap.putAll(commonOperatorFunctionMap);
-        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, (Number) c) > 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) > 0 || compareNumbers((Number) o, (Number) c) == 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> compareNumbers((Number) o, (Number) c) < 0);
-        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, (Number) c) < 0 || compareNumbers((Number) o, (Number) c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> compareNumbers((Number) o, c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> compareNumbers((Number) o, c) != 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER, (o, c) -> compareNumbers((Number) o, c) > 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.GREATER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, c) > 0 || compareNumbers((Number) o, c) == 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER, (o, c) -> compareNumbers((Number) o, c) < 0);
+        numberOperatorFunctionMap.put(FilterConditionOperator.LESSER_OR_EQUAL, (o, c) -> compareNumbers((Number) o, c) < 0 || compareNumbers((Number) o, c) == 0);
         fieldTypeToOperatorActionMap.put(FilterFieldType.NUMBER, numberOperatorFunctionMap);
 
         dateOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
@@ -403,7 +406,12 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
-        fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, commonOperatorFunctionMap);
+        listOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
+        listOperatorFunctionMap.putAll(commonOperatorFunctionMap);
+        listOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> ((Collection<?>) c).contains(o));
+        listOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> !((Collection<?>) c).contains(o));
+        fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, listOperatorFunctionMap);
+
         fieldTypeToOperatorActionMap.put(FilterFieldType.BOOLEAN, commonOperatorFunctionMap);
 
     }
@@ -448,8 +456,14 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return durationParsed;
     }
 
-    private static int compareNumbers(Number objectNumber, Number conditionNumber) {
-        return Float.compare(objectNumber.floatValue(), conditionNumber.floatValue());
+    private static int compareNumbers(Number objectNumber, Object conditionNumber) {
+        if (conditionNumber instanceof String) {
+            conditionNumber = Float.parseFloat(conditionNumber.toString());
+        } else if (!(conditionNumber instanceof Number)) {
+            throw new ValidationException("Invalid type for conditionNumber. Expected String or Number, but got: " 
+                    + (conditionNumber == null ? "null" : conditionNumber.getClass().getSimpleName()));
+        }
+        return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
     private boolean evaluateConditionOnAttribute(ResponseAttributeDto attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
