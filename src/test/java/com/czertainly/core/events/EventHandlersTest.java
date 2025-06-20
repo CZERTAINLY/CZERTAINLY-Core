@@ -262,8 +262,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateStatusChanged));
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateStatusChanged));
         PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuids.getLast(), Resource.CERTIFICATE, certificate.getUuid(), ResourceEvent.CERTIFICATE_STATUS_CHANGED);
-        Assertions.assertNotNull(pendingNotification);
-        Assertions.assertEquals(1, pendingNotification.getRepetitions(), "Second notification should be suppressed");
+        Assertions.assertNull(pendingNotification);
 
         eventData = EventDataBuilder.getCertificateActionPerformedEventData(certificate, ResourceAction.REVOKE);
         final NotificationMessage messageCertificateActionPerformed = new NotificationMessage(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
@@ -323,6 +322,10 @@ class EventHandlersTest extends BaseSpringBootTest {
         eventData = EventDataBuilder.getCertificateExpiringEventData(certificate);
         final NotificationMessage messageCertificateExpiring = new NotificationMessage(ResourceEvent.CERTIFICATE_EXPIRING, Resource.CERTIFICATE, certificate.getUuid(), notificationProfileUuids, null, eventData);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateExpiring));
+        Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(messageCertificateExpiring));
+        pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuids.getLast(), Resource.CERTIFICATE, certificate.getUuid(), ResourceEvent.CERTIFICATE_EXPIRING);
+        Assertions.assertNotNull(pendingNotification);
+        Assertions.assertEquals(1, pendingNotification.getRepetitions(), "Second notification should be suppressed");
 
         mockServer.shutdown();
     }

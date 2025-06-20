@@ -152,20 +152,15 @@ public class NotificationListener {
     }
 
     private void sendByNotificationProfile(UUID notificationProfileUuid, NotificationMessage message) throws NotFoundException {
-        NotificationProfileVersion notificationProfileVersion;
-        PendingNotification pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuid, message.getResource(), message.getObjectUuid(), message.getEvent());
-        if (pendingNotification == null) {
-            notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
-            if (notificationProfileVersion.getFrequency() != null || notificationProfileVersion.getRepetitions() != null) {
-                pendingNotification = new PendingNotification();
-                pendingNotification.setNotificationProfileUuid(notificationProfileVersion.getNotificationProfileUuid());
-                pendingNotification.setVersion(notificationProfileVersion.getVersion());
-                pendingNotification.setEvent(message.getEvent());
-                pendingNotification.setResource(message.getResource());
-                pendingNotification.setObjectUuid(message.getObjectUuid());
+        NotificationProfileVersion notificationProfileVersion = notificationProfileVersionRepository.findTopByNotificationProfileUuidOrderByVersionDesc(notificationProfileUuid).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
+        PendingNotification pendingNotification = null;
+        if (message.getEvent().isMonitoring()) {
+            pendingNotification = pendingNotificationRepository.findByNotificationProfileUuidAndResourceAndObjectUuidAndEvent(notificationProfileUuid, message.getResource(), message.getObjectUuid(), message.getEvent());
+            if (pendingNotification == null) {
+                pendingNotification = getNewPendingNotification(message, notificationProfileVersion, pendingNotification);
+            } else {
+                notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(notificationProfileUuid, pendingNotification.getVersion()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
             }
-        } else {
-            notificationProfileVersion = notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(notificationProfileUuid, pendingNotification.getVersion()).orElseThrow(() -> new NotFoundException(NotificationProfile.class, notificationProfileUuid));
         }
 
         if (!proceedWithNotifying(notificationProfileVersion, pendingNotification)) {
@@ -207,6 +202,18 @@ public class NotificationListener {
             pendingNotification.setRepetitions(pendingNotification.getRepetitions() + 1);
             pendingNotificationRepository.save(pendingNotification);
         }
+    }
+
+    private static PendingNotification getNewPendingNotification(NotificationMessage message, NotificationProfileVersion notificationProfileVersion, PendingNotification pendingNotification) {
+        if (message.getEvent().isMonitoring() && (notificationProfileVersion.getFrequency() != null || notificationProfileVersion.getRepetitions() != null)) {
+            pendingNotification = new PendingNotification();
+            pendingNotification.setNotificationProfileUuid(notificationProfileVersion.getNotificationProfileUuid());
+            pendingNotification.setVersion(notificationProfileVersion.getVersion());
+            pendingNotification.setEvent(message.getEvent());
+            pendingNotification.setResource(message.getResource());
+            pendingNotification.setObjectUuid(message.getObjectUuid());
+        }
+        return pendingNotification;
     }
 
     private boolean proceedWithNotifying(NotificationProfileVersion notificationProfileVersion, PendingNotification pendingNotification) {
