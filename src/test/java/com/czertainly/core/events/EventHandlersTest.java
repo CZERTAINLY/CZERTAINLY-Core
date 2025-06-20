@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -45,6 +46,7 @@ import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.*;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -292,15 +294,60 @@ class EventHandlersTest extends BaseSpringBootTest {
         triggerRequest.setActionsUuids(List.of());
         TriggerDetailDto triggerIgnore = triggerService.createTrigger(triggerRequest);
 
-        triggerService.createTriggerAssociations(ResourceEvent.DISCOVERY_FINISHED, Resource.DISCOVERY, discovery.getUuid(), List.of(UUID.fromString(triggerIgnore.getUuid()), UUID.fromString(trigger.getUuid())), true);
+        NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
+        UUID userUuid = UUID.fromString(userInfo.getUuid());
 
-        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
+
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("""
+                {
+                    "uuid": "%s",
+                    "username": "%s",
+                    "email": "testuser1@example.com",
+                    "groups": [],
+                    "roles": []
+                }
+                """.formatted(userInfo.getUuid(), userInfo.getName()))
+        ));
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
+                WireMock.okJson("""
+                {
+                                  "authenticated": true,
+                                  "data": {
+                                    "user": {
+                                      "uuid": "%s",
+                                      "username": "%s"
+                                    },
+                                    "roles": [
+                                      {
+                                        "name": "superadmin"
+                                      }
+                                    ],
+                                    "permissions": {
+                                      "allowAllResources": true,
+                                      "resources": []
+                                    }
+                                  }
+                                }
+                """.formatted(userInfo.getUuid(), userInfo.getName()))
+        ));
+
+        triggerService.createTriggerAssociations(ResourceEvent.DISCOVERY_FINISHED, null, null, List.of(UUID.fromString(triggerIgnore.getUuid()), UUID.fromString(trigger.getUuid())), true);
+
+        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), userUuid, null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.IN_PROGRESS, discovery.getStatus());
 
         discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(DiscoveryStatus.PROCESSING, "Test finalize")));
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
+
+        mockServer.shutdown();
     }
 
     @Test
