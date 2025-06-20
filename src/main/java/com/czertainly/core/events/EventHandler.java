@@ -2,6 +2,7 @@ package com.czertainly.core.events;
 
 import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedObject;
 import com.czertainly.core.dao.entity.workflows.Trigger;
@@ -14,15 +15,18 @@ import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.ApplicationEventPublisher;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Component
@@ -31,6 +35,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
 
     private static final Logger logger = LoggerFactory.getLogger(EventHandler.class);
 
+    protected AuthHelper authHelper;
     protected ObjectMapper objectMapper;
     protected EventProducer eventProducer;
     protected NotificationProducer notificationProducer;
@@ -40,6 +45,11 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
     protected final SecurityFilterRepository<T, UUID> repository;
 
     private TriggerAssociationRepository triggerAssociationRepository;
+
+    @Autowired
+    public void setAuthHelper(AuthHelper authHelper) {
+        this.authHelper = authHelper;
+    }
 
     @Autowired
     public void setObjectMapper(ObjectMapper objectMapper) {
@@ -144,30 +154,57 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
 
     protected void processTriggers(EventContext<T> context, EventContextTriggers eventTriggers, T resourceObject, Object eventData) {
         logger.debug("Going to process {} triggers from {} {} on {} object(s) registered for event '{}'", eventTriggers.getIgnoreTriggers().size() + eventTriggers.getTriggers().size(), eventTriggers.getResource() == null ? Resource.SETTINGS.getLabel() : eventTriggers.getResource().getLabel(), eventTriggers.getObjectUuid(), context.getResourceObjects().size(), context.getEvent().getLabel());
-        try {
-            // First, check the ignore triggers
-            boolean isIgnored = false;
-            for (TriggerAssociation triggerAssociation : eventTriggers.getIgnoreTriggers()) {
-                Trigger trigger = triggerAssociation.getTrigger();
-                TriggerHistory triggerHistory = context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
+
+        // First, check the ignore triggers
+        boolean isIgnored = false;
+        for (TriggerAssociation triggerAssociation : eventTriggers.getIgnoreTriggers()) {
+            handleUser(context, triggerAssociation.getTriggeredBy());
+            Trigger trigger = triggerAssociation.getTrigger();
+            try {
+                TriggerHistory triggerHistory = context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, resourceObject, null, eventData);
                 if (triggerHistory.isActionsPerformed()) {
                     isIgnored = true;
                 }
+                logger.debug("Ignore trigger '{}' on {} object {} processed successfully", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid());
+            } catch (RuleException e) {
+                logger.error("Unable to process ignore trigger '{}' on {} object {}. Message: {}", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
             }
+        }
 
-            // If some trigger ignored this object, processing is stopped
-            if (isIgnored) {
-                return;
-            }
+        // If some trigger ignored this object, processing is stopped
+        if (isIgnored) {
+            return;
+        }
 
-            // Evaluate rest of the triggers in given order
-            for (TriggerAssociation triggerAssociation : eventTriggers.getTriggers()) {
-                // Create trigger history entry
-                Trigger trigger = triggerAssociation.getTrigger();
-                context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation.getUuid(), resourceObject, null, eventData);
+        // Evaluate rest of the triggers in given order
+        for (TriggerAssociation triggerAssociation : eventTriggers.getTriggers()) {
+            handleUser(context, triggerAssociation.getTriggeredBy());
+            Trigger trigger = triggerAssociation.getTrigger();
+            try {
+                context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, resourceObject, null, eventData);
+                logger.debug("Trigger '{}' on {} object {} processed successfully", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid());
+            } catch (RuleException e) {
+                logger.error("Unable to process trigger '{}' on {} object {}. Message: {}", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
             }
-        } catch (RuleException e) {
-            logger.error("Unable to process trigger on {} object {}. Message: {}", context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
+        }
+    }
+
+    protected void handleUser(EventContext<T> context, UUID triggeredBy) {
+        if (!Objects.equals(context.getCurrentUserUuid(), triggeredBy)) {
+            try {
+                logger.debug("Changing user from {} to {}", context.getCurrentUserUuid(), triggeredBy);
+                if (triggeredBy == null) {
+                    SecurityContextHolder.clearContext();
+                } else {
+                    authHelper.authenticateAsUser(triggeredBy);
+                }
+
+                context.setCurrentUserUuid(triggeredBy);
+            } catch (ValidationException e) {
+                // anonymous user
+                SecurityContextHolder.clearContext();
+                context.setCurrentUserUuid(null);
+            }
         }
     }
 }

@@ -34,6 +34,9 @@ public class TriggerAssociation extends UniquelyIdentified {
     @Column(name = "trigger_order")
     private int triggerOrder;
 
+    @Column(name = "triggered_by")
+    private UUID triggeredBy;
+
     @Column(name = "event")
     @Enumerated(EnumType.STRING)
     private ResourceEvent event;

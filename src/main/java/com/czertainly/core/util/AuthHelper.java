@@ -113,7 +113,6 @@ public class AuthHelper {
             String username = userDetails.getUsername();
             return protocolUsers.contains(username);
         } catch (Exception e) {
-            logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve information of logged protocol user for Unknown/Anonymous user"));
         }
     }
@@ -142,7 +141,6 @@ public class AuthHelper {
             CzertainlyUserDetails userDetails = (CzertainlyUserDetails) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
             return new NameAndUuidDto(userDetails.getUserUuid(), userDetails.getUsername());
         } catch (Exception e) {
-            logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve user identification for Unknown/Anonymous user"));
         }
     }
@@ -155,7 +153,6 @@ public class AuthHelper {
             objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
             userProfileDto = objectMapper.readValue(userDetails.getRawData(), UserProfileDto.class);
         } catch (Exception e) {
-            logger.error(e.getMessage());
             throw new ValidationException(ValidationError.create("Cannot retrieve profile information for Unknown/Anonymous user"));
         }
         return userProfileDto;

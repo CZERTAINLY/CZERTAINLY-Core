@@ -1,6 +1,7 @@
 package com.czertainly.core.events;
 
 import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.EventException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
@@ -9,6 +10,11 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepRequestDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.events.data.EventData;
 import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
@@ -17,13 +23,19 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.entity.notifications.PendingNotification;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
+import com.czertainly.core.dao.repository.workflows.TriggerAssociationRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.data.DiscoveryResult;
 import com.czertainly.core.events.data.EventDataBuilder;
 import com.czertainly.core.events.handlers.*;
@@ -34,6 +46,7 @@ import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.*;
 import com.czertainly.core.tasks.DiscoveryCertificateTask;
+import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -87,6 +100,17 @@ class EventHandlersTest extends BaseSpringBootTest {
     private DiscoveryRepository discoveryRepository;
     @Autowired
     private DiscoveryFinishedEventHandler discoveryFinishedEventHandler;
+
+    @Autowired
+    private AttributeEngine attributeEngine;
+    @Autowired
+    private RuleService ruleService;
+    @Autowired
+    private ActionService actionService;
+    @Autowired
+    private TriggerService triggerService;
+    @Autowired
+    private TriggerAssociationRepository triggerAssociationRepository;
 
     @Autowired
     private ScheduledJobsRepository scheduledJobsRepository;
@@ -181,21 +205,149 @@ class EventHandlersTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testDiscoveryFinishedEvent() throws EventException {
+    void testDiscoveryFinishedEvent() throws EventException, AttributeException, AlreadyExistException, NotFoundException {
         DiscoveryHistory discovery = new DiscoveryHistory();
         discovery.setName("TestDiscovery");
+        discovery.setKind("IP");
         discovery.setStatus(DiscoveryStatus.IN_PROGRESS);
         discovery.setConnectorUuid(UUID.randomUUID());
         discovery.setConnectorStatus(DiscoveryStatus.COMPLETED);
         discovery = discoveryRepository.save(discovery);
 
-        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
+        // register custom attribute
+        CustomAttribute certificateDomainAttr = new CustomAttribute();
+        certificateDomainAttr.setUuid(UUID.randomUUID().toString());
+        certificateDomainAttr.setName("domain");
+        certificateDomainAttr.setType(AttributeType.CUSTOM);
+        certificateDomainAttr.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties customProps = new CustomAttributeProperties();
+        customProps.setLabel("Domain of discovery");
+        certificateDomainAttr.setProperties(customProps);
+        attributeEngine.updateCustomAttributeDefinition(certificateDomainAttr, List.of(Resource.DISCOVERY));
+
+        // create conditions
+        ConditionItemRequestDto conditionItemRequest = new ConditionItemRequestDto();
+        conditionItemRequest.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequest.setFieldIdentifier(FilterField.DISCOVERY_KIND.name());
+        conditionItemRequest.setOperator(FilterConditionOperator.EQUALS);
+        conditionItemRequest.setValue("IP");
+
+        ConditionRequestDto conditionRequest = new ConditionRequestDto();
+        conditionRequest.setName("IPKindDiscoveryCondition");
+        conditionRequest.setResource(Resource.DISCOVERY);
+        conditionRequest.setType(ConditionType.CHECK_FIELD);
+        conditionRequest.setItems(List.of(conditionItemRequest));
+        ConditionDto condition = ruleService.createCondition(conditionRequest);
+
+        // create ignore condition
+        conditionItemRequest.setValue("RandomName");
+        conditionItemRequest.setFieldIdentifier(FilterField.DISCOVERY_NAME.name());
+        conditionRequest.setName("DiscoveryNameEqualsCondition");
+        ConditionDto conditionIgnore = ruleService.createCondition(conditionRequest);
+
+        // create rule
+        RuleRequestDto ruleRequest = new RuleRequestDto();
+        ruleRequest.setName("IPKindDiscoveryRule");
+        ruleRequest.setResource(Resource.DISCOVERY);
+        ruleRequest.setConditionsUuids(List.of(condition.getUuid()));
+        RuleDetailDto rule = ruleService.createRule(ruleRequest);
+
+        // create ignore rule
+        ruleRequest.setName("DiscoveryNameEqualsRule");
+        ruleRequest.setConditionsUuids(List.of(conditionIgnore.getUuid()));
+        RuleDetailDto ruleIgnore = ruleService.createRule(ruleRequest);
+
+        // create execution
+        ExecutionItemRequestDto executionItemRequest = new ExecutionItemRequestDto();
+        executionItemRequest.setFieldSource(FilterFieldSource.CUSTOM);
+        executionItemRequest.setFieldIdentifier("%s|%s".formatted(certificateDomainAttr.getName(), certificateDomainAttr.getContentType().name()));
+        executionItemRequest.setData("CZ");
+
+        ExecutionRequestDto executionRequest = new ExecutionRequestDto();
+        executionRequest.setName("CategorizeCertificatesExecution");
+        executionRequest.setResource(Resource.DISCOVERY);
+        executionRequest.setType(ExecutionType.SET_FIELD);
+        executionRequest.setItems(List.of(executionItemRequest));
+        ExecutionDto execution = actionService.createExecution(executionRequest);
+
+        // create action
+        ActionRequestDto actionRequest = new ActionRequestDto();
+        actionRequest.setName("CategorizeCertificatesAction");
+        actionRequest.setResource(Resource.DISCOVERY);
+        actionRequest.setExecutionsUuids(List.of(execution.getUuid()));
+        ActionDetailDto action = actionService.createAction(actionRequest);
+
+        // create trigger
+        TriggerRequestDto triggerRequest = new TriggerRequestDto();
+        triggerRequest.setName("DiscoveryCertificatesCategorization");
+        triggerRequest.setType(TriggerType.EVENT);
+        triggerRequest.setEvent(ResourceEvent.DISCOVERY_FINISHED);
+        triggerRequest.setResource(Resource.DISCOVERY);
+        triggerRequest.setRulesUuids(List.of(rule.getUuid()));
+        triggerRequest.setActionsUuids(List.of(action.getUuid()));
+        TriggerDetailDto trigger = triggerService.createTrigger(triggerRequest);
+
+        // create ignore trigger
+        triggerRequest.setName("DiscoveryFinishedCategorizationIgnore");
+        triggerRequest.setRulesUuids(List.of(ruleIgnore.getUuid()));
+        triggerRequest.setIgnoreTrigger(true);
+        triggerRequest.setActionsUuids(List.of());
+        TriggerDetailDto triggerIgnore = triggerService.createTrigger(triggerRequest);
+
+        NameAndUuidDto userInfo = AuthHelper.getUserIdentification();
+        UUID userUuid = UUID.fromString(userInfo.getUuid());
+
+
+        mockServer = new WireMockServer(10001);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("""
+                {
+                    "uuid": "%s",
+                    "username": "%s",
+                    "email": "testuser1@example.com",
+                    "groups": [],
+                    "roles": []
+                }
+                """.formatted(userInfo.getUuid(), userInfo.getName()))
+        ));
+
+        mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/auth")).willReturn(
+                WireMock.okJson("""
+                {
+                                  "authenticated": true,
+                                  "data": {
+                                    "user": {
+                                      "uuid": "%s",
+                                      "username": "%s"
+                                    },
+                                    "roles": [
+                                      {
+                                        "name": "superadmin"
+                                      }
+                                    ],
+                                    "permissions": {
+                                      "allowAllResources": true,
+                                      "resources": []
+                                    }
+                                  }
+                                }
+                """.formatted(userInfo.getUuid(), userInfo.getName()))
+        ));
+
+        triggerService.createTriggerAssociations(ResourceEvent.DISCOVERY_FINISHED, null, null, List.of(UUID.fromString(triggerIgnore.getUuid()), UUID.fromString(trigger.getUuid())), true);
+
+        discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), userUuid, null, new DiscoveryResult(DiscoveryStatus.COMPLETED, "Test")));
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.IN_PROGRESS, discovery.getStatus());
 
         discoveryFinishedEventHandler.handleEvent(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), null, null, new DiscoveryResult(DiscoveryStatus.PROCESSING, "Test finalize")));
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
+
+        mockServer.shutdown();
     }
 
     @Test
