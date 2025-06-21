@@ -178,7 +178,7 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
                                 String notificationInstanceName = notificationInstance.getString("name");
                                 UUID notificationProfileUuid = UUID.randomUUID();
                                 createNotificationProfilePs.setObject(1, notificationProfileUuid, Types.OTHER);
-                                createNotificationProfilePs.setString(2, notificationInstanceName + "Profile");
+                                createNotificationProfilePs.setString(2, notificationInstanceName + "-profile-migrated");
                                 createNotificationProfilePs.addBatch();
 
                                 createNotificationProfileVersionPs.setObject(1, UUID.randomUUID(), Types.OTHER);
@@ -188,7 +188,7 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
 
                                 UUID executionUuid = UUID.randomUUID();
                                 createExecutionPs.setObject(1, executionUuid, Types.OTHER);
-                                createExecutionPs.setString(2, notificationInstanceName + "Execution");
+                                createExecutionPs.setString(2, notificationInstanceName + "-notify-execution-migrated");
                                 createExecutionPs.addBatch();
 
                                 createExecutionItemPs.setObject(1, UUID.randomUUID(), Types.OTHER);
@@ -198,7 +198,7 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
 
                                 UUID actionUuid = UUID.randomUUID();
                                 createActionPs.setObject(1, actionUuid, Types.OTHER);
-                                createActionPs.setString(2, notificationInstanceName + "Action");
+                                createActionPs.setString(2, notificationInstanceName + "-notify-action-migrated");
                                 createActionPs.addBatch();
 
                                 createAction2ExecutionPs.setObject(1, actionUuid, Types.OTHER);
@@ -234,7 +234,7 @@ public class V202506131400__NotificationSettingsToEventSettings extends BaseJava
             if (resource == null) continue;
             UUID triggerUuid = UUID.randomUUID();
             createTriggerPs.setObject(1, triggerUuid, Types.OTHER);
-            createTriggerPs.setString(2, notificationType + "_trigger");
+            createTriggerPs.setString(2, notificationType + "-trigger-migrated");
             createTriggerPs.setString(3, resource);
             createTriggerPs.addBatch();
 
