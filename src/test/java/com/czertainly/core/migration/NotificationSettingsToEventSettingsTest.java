@@ -13,7 +13,6 @@ import com.czertainly.core.util.BaseSpringBootTest;
 import db.migration.V202506131400__NotificationSettingsToEventSettings;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -21,6 +20,7 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.sql.DataSource;
+import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
 
@@ -71,17 +71,19 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
         Context context = Mockito.mock(Context.class);
         when(context.getConnection()).thenReturn(dataSource.getConnection());
 
-        context.getConnection().createStatement().execute("""
-                ALTER TABLE setting
-                DROP CONSTRAINT "setting_section_check"
-                """);
-        context.getConnection().createStatement().execute("""
-                INSERT INTO setting("uuid","i_author","i_cre","i_upd","section","category","name","value")
-                VALUES
-                (E'099f1ba9-2b6c-430f-8867-c5fa4ecd53db',E'czertainly-admin',E'2024-08-15 06:47:15.709929',E'2025-04-28 15:13:57.634206',E'NOTIFICATIONS',NULL,E'notificationsMapping',
-                E'{"approval_closed":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","approval_requested":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","scheduled_job_completed":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","other":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","certificate_status_changed":"40ad94ba-c0be-4aca-9a85-f97d561168ce","certificate_action_performed":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e"}');
-                """);
-
+        try (Statement alterStatement = context.getConnection().createStatement();
+             Statement insertStatement = context.getConnection().createStatement()) {
+            alterStatement.execute("""
+                    ALTER TABLE setting
+                    DROP CONSTRAINT "setting_section_check"
+                    """);
+            insertStatement.execute("""
+                    INSERT INTO setting("uuid","i_author","i_cre","i_upd","section","category","name","value")
+                    VALUES
+                    (E'099f1ba9-2b6c-430f-8867-c5fa4ecd53db',E'czertainly-admin',E'2024-08-15 06:47:15.709929',E'2025-04-28 15:13:57.634206',E'NOTIFICATIONS',NULL,E'notificationsMapping',
+                    E'{"approval_closed":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","approval_requested":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","scheduled_job_completed":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","other":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e","certificate_status_changed":"40ad94ba-c0be-4aca-9a85-f97d561168ce","certificate_action_performed":"5a439cf9-9e02-4e26-aae8-cf35d5935b5e"}');
+                    """);
+        }
 
         V202506131400__NotificationSettingsToEventSettings migration = new V202506131400__NotificationSettingsToEventSettings();
         Assertions.assertDoesNotThrow(() -> migration.migrate(context));
@@ -96,7 +98,7 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
 
     private void assertNotificationInstanceMigrated(NotificationInstanceReference notificationInstanceReference) {
         String name = notificationInstanceReference.getName();
-        NotificationProfile notificationProfile = notificationProfileRepository.findByName(name +"Profile").orElse(null);
+        NotificationProfile notificationProfile = notificationProfileRepository.findByName(name + "-profile-migrated").orElse(null);
         Assertions.assertNotNull(notificationProfile);
 
         Assertions.assertTrue(notificationProfileVersionRepository.findByNotificationProfileUuidAndVersion(notificationProfile.getUuid(), 1).isPresent());
@@ -104,11 +106,11 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
         ExecutionItem executionItem = executionItems.stream().filter(item -> item.getNotificationProfileUuid().equals(notificationProfile.getUuid())).findFirst().orElse(null);
         Assertions.assertNotNull(executionItem);
 
-        Execution execution = executions.stream().filter(execution1 -> execution1.getName().equals(name + "Execution")).findFirst().orElse(null);
+        Execution execution = executions.stream().filter(execution1 -> execution1.getName().equals(name + "-notify-execution-migrated")).findFirst().orElse(null);
         Assertions.assertNotNull(execution);
         Assertions.assertTrue(execution.getItems().contains(executionItem));
 
-        Action action = actions.stream().filter(action1 -> action1.getName().equals(name + "Action")).findFirst().orElse(null);
+        Action action = actions.stream().filter(action1 -> action1.getName().equals(name + "-notify-action-migrated")).findFirst().orElse(null);
         Assertions.assertNotNull(action);
         action = actionRepository.findWithExecutionsByUuid(action.getUuid()).get();
         Assertions.assertTrue(action.getExecutions().contains(execution));
@@ -131,7 +133,7 @@ class NotificationSettingsToEventSettingsTest extends BaseSpringBootTest {
     }
 
     private Trigger assertTriggerAndAssociationCreated(String type, ResourceEvent resourceEvent) {
-        Trigger trigger = triggers.stream().filter(trigger1 -> trigger1.getName().equals(type + "_trigger")).findFirst().orElse(null);
+        Trigger trigger = triggers.stream().filter(trigger1 -> trigger1.getName().equals(type + "-trigger-migrated")).findFirst().orElse(null);
         Assertions.assertNotNull(trigger);
         List<TriggerAssociation> triggerAssociationsCert = triggerAssociationRepository.findByTriggerUuid(trigger.getUuid());
         Assertions.assertTrue(triggerAssociationsCert.stream().anyMatch(triggerAssociation -> triggerAssociation.getEvent().equals(resourceEvent)));
