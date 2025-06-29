@@ -1,0 +1,69 @@
+app:
+  version: '@project.version@'
+
+auth-service:
+  base-url: http://authservice.dev
+opa:
+  base-url: http://opa.dev
+
+cmp:
+  protocol:
+    poll:
+      feature:
+        timeout: 10
+  verbose: true
+
+hibernate:
+  types:
+    print:
+      banner: false
+
+logging:
+  level:
+    org:
+      hibernate: warn
+  pattern:
+    console: '[%d{yyyy-MM-dd HH:mm:ss.SSS}] %-5level [%t] [%logger - %line]: %m%n'
+  schema-version: '@log-schema.version@'
+
+scheduled-tasks:
+  enabled: false
+
+scheduler:
+  base-url: http://localhost:8080
+
+secrets:
+  encryption:
+    key: test123
+
+server:
+  port: 8082
+  servlet:
+    context-path: /api
+  ssl:
+    certificate-header-name: ${HEADER_NAME:X-APP-CERTIFICATE}
+    enabled: false
+
+spring:
+  datasource:
+    driver-class-name: org.testcontainers.jdbc.ContainerDatabaseDriver
+    hikari:
+      minimum-idle: 5
+    password: test
+    url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test
+    username: test
+  flyway:
+    enabled: false
+  jpa:
+    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        type:
+          preferred_duration_jdbc_type: INTERVAL_SECOND
+  profiles:
+    active: test
+  threads:
+    virtual:
+      enabled: true

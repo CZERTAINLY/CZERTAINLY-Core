@@ -1,0 +1,141 @@
+app:
+  version: '@project.version@'
+
+# Authentication and authorization
+auth-service:
+  base-url: ${AUTH_SERVICE_BASE_URL}
+opa:
+  base-url: ${OPA_BASE_URL}
+
+# CMP settings
+cmp:
+  protocol:
+    poll:
+      feature:
+        timeout: 20
+  verbose: false
+
+hibernate:
+  types:
+    print:
+      banner: false
+
+info:
+  app:
+    name: CZERTAINLY Core Version
+    version: '@version@'
+
+logging:
+  level:
+    com:
+      czertainly: ${CZERTAINLY_LOG_LEVEL:INFO}
+  pattern:
+    console: '[%d{yyyy-MM-dd HH:mm:ss.SSS}] %-5level [%t] [%logger - %line]: %m%n'
+    file: '[%d{yyyy-MM-dd HH:mm:ss.SSS}] %-5level [%t] [%logger - %line]: %m%n'
+  schema-version: '@log-schema.version@'
+
+# Configuration of actuator
+management:
+  endpoint:
+    health:
+      probes:
+        enabled: true
+  endpoints:
+    web:
+      base-path: /v1/
+      exposure:
+        include: health,info
+  info:
+    env:
+      enabled: true
+
+# OpenTelemetry settings
+otel:
+  exporter:
+    otlp:
+      logs:
+        endpoint: ${OTEL_EXPORTER_OTLP_LOGS_ENDPOINT:http://localhost:4317}
+        protocol: ${OTEL_EXPORTER_OTLP_LOGS_PROTOCOL:grpc}
+      metrics:
+        endpoint: ${OTEL_EXPORTER_OTLP_METRICS_ENDPOINT:http://localhost:4317}
+        protocol: ${OTEL_EXPORTER_OTLP_METRICS_PROTOCOL:grpc}
+      traces:
+        endpoint: ${OTEL_EXPORTER_OTLP_TRACES_ENDPOINT:http://localhost:4317}
+        protocol: ${OTEL_EXPORTER_OTLP_TRACES_PROTOCOL:grpc}
+  logs:
+    exporter: ${OTEL_LOGS_EXPORTER:none}
+  metrics:
+    exporter: ${OTEL_METRICS_EXPORTER:none}
+  sdk:
+    disabled: ${OTEL_SDK_DISABLED:true}
+  traces:
+    exporter: ${OTEL_TRACES_EXPORTER:none}
+
+scheduled-tasks:
+  enabled: ${SCHEDULED_TASKS_ENABLED:true}
+
+scheduler:
+  base-url: ${SCHEDULER_BASE_URL}
+
+secrets:
+  encryption:
+    key: ${ENCRYPTION_KEY:J$-niT.PNp^?,wF<dB;E.W}
+
+## Section server.* is related to the embedded Tomcat server only
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+  ssl:
+    # Client certificate HTTP header name
+    certificate-header-enabled: ${HEADER_ENABLED}
+    certificate-header-name: ${HEADER_NAME:X-APP-CERTIFICATE}
+    client-auth: want
+    enabled: ${SSL_ENABLE:false}
+    trust-store: ${TS_PATH}
+    trust-store-password: ${TS_PASSWORD}
+    trust-store-type: JKS
+
+# Settings
+settings:
+  cache:
+    refresh-interval: ${SETTINGS_CACHE_REFRESH_INTERVAL:30}
+
+spring:
+  datasource:
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      connectionTimeout: ${CONNECTION_POOL_CONNECTION_TIMEOUT:30000}
+      idleTimeout: ${CONNECTION_POOL_IDLE_TIMEOUT:600000}
+      maxLifetime: ${CONNECTION_POOL_MAX_LIFETIME:1800000}
+      maximumPoolSize: ${CONNECTION_POOL_MAX_POOL_SIZE:40}
+    password: ${JDBC_PASSWORD}
+    url: ${JDBC_URL}
+    username: ${JDBC_USERNAME}
+  flyway:
+    out-of-order: true
+    schemas: ${DB_SCHEMA:core}
+    table: core_schema_history
+  jpa:
+    properties:
+      hibernate:
+        default_schema: ${DB_SCHEMA:core}
+        jdbc:
+          batch_size: 500
+        order_inserts: true
+        order_updates: true
+        type:
+          preferred_duration_jdbc_type: INTERVAL_SECOND
+  # RabbitMQ configuration
+  rabbitmq:
+    host: ${RABBITMQ_HOST}
+    listener:
+      simple:
+        default-requeue-rejected: false
+    password: ${RABBITMQ_PASSWORD}
+    port: ${RABBITMQ_PORT:5672}
+    username: ${RABBITMQ_USERNAME}
+    virtual-host: ${RABBITMQ_VHOST:czertainly}
+  threads:
+    virtual:
+      enabled: true
