@@ -27,11 +27,11 @@ import org.slf4j.LoggerFactory;
 import java.io.*;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -147,7 +147,7 @@ public class OcspUtil {
         try {
             byte[] array = request.getEncoded();
             if (serviceUrl.startsWith("http")) {
-                URL url = new URL(serviceUrl);
+                URL url = URI.create(serviceUrl).toURL();
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
                 con.setConnectTimeout(OCSP_CONNECTION_TIMEOUT);
                 con.setReadTimeout(OCSP_CONNECTION_TIMEOUT);

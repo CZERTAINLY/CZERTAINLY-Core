@@ -5,12 +5,11 @@ import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.x509.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
 import java.io.IOException;
+import java.net.URI;
 import java.net.URL;
 import java.net.URLConnection;
 import java.security.cert.CRLException;
@@ -21,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class CrlUtil {
-    private static final Logger logger = LoggerFactory.getLogger(CrlUtil.class);
     //CRL Timeout setting when initiating URL Connection. If the connection takes more than 30 seconds, it is determined as not reachable
     private static final Integer CRL_CONNECTION_TIMEOUT = 1000; //milliseconds
 
@@ -74,17 +72,18 @@ public class CrlUtil {
             if (crl == null) throw new Exception("Crl not available in LDAP.");
             return (X509CRL) cf.generateCRL(new ByteArrayInputStream(crl));
         }
-        X509CRL X509Crl;
-        URL url = new URL(crlUrl);
+        X509CRL x509Crl;
+        URL url = URI.create(crlUrl).toURL();
         URLConnection connection = url.openConnection();
         connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
+        connection.setReadTimeout(CRL_CONNECTION_TIMEOUT);
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
-            X509Crl = (X509CRL) cf.generateCRL(inStream);
+            x509Crl = (X509CRL) cf.generateCRL(inStream);
         } catch (CRLException e) {
             throw new CertificateException("File " + e.getMessage() + " not found");
         }
-        return X509Crl;
+        return x509Crl;
     }
 
 }
