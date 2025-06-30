@@ -233,6 +233,9 @@ public class TriggerServiceImpl implements TriggerService {
             if (trigger.getResource() != event.getResource()) {
                 throw new ValidationException("Trigger '%s' is for different resource (%s) than event '%s' (%s)".formatted(trigger.getName(), trigger.getResource().getLabel(), event.getLabel(), event.getResource().getLabel()));
             }
+            if (trigger.getEvent() != null && trigger.getEvent() != event) {
+                throw new ValidationException("Trigger '%s' is for different event (%s) than event '%s'".formatted(trigger.getName(), trigger.getEvent().getLabel(), event.getLabel()));
+            }
 
             TriggerAssociation triggerAssociation = new TriggerAssociation();
             triggerAssociation.setTriggerUuid(triggerUuid);
