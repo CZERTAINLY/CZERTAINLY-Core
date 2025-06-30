@@ -38,6 +38,8 @@ import java.util.Map;
 public class OcspUtil {
     private static final Logger logger = LoggerFactory.getLogger(OcspUtil.class);
 
+    private static final int OCSP_CONNECTION_TIMEOUT = 1000; // milliseconds
+
     private static final Map<Integer, String> ocspResponseStatuses = Map.of(
             OCSPResponseStatus.SUCCESSFUL, "Successful",
             OCSPResponseStatus.MALFORMED_REQUEST, "Malformed request",
@@ -147,6 +149,8 @@ public class OcspUtil {
             if (serviceUrl.startsWith("http")) {
                 URL url = new URL(serviceUrl);
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                con.setConnectTimeout(OCSP_CONNECTION_TIMEOUT);
+                con.setReadTimeout(OCSP_CONNECTION_TIMEOUT);
                 con.setRequestProperty("Content-Type", "application/ocsp-request");
                 con.setRequestProperty("Accept", "application/ocsp-response");
                 con.setDoOutput(true);
