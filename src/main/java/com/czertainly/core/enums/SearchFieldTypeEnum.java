@@ -28,11 +28,8 @@ public enum SearchFieldTypeEnum {
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
             , true, null),
     BOOLEAN(FilterFieldType.BOOLEAN,
-         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
-            , false, Boolean.class),
-    OTHERS_AS_STRING(FilterFieldType.STRING,
-            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH, FilterConditionOperator.MATCHES, FilterConditionOperator.NOT_MATCHES)
-            , false, null);
+         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY), false, Boolean.class)
+    ;
 
 
     private FilterFieldType fieldType;
