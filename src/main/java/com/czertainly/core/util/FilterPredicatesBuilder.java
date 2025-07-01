@@ -64,7 +64,7 @@ public class FilterPredicatesBuilder {
         final String[] fieldIdentifier = identifier.split("\\|");
         final AttributeContentType contentType = AttributeContentType.valueOf(fieldIdentifier[1]);
         final String attributeName = fieldIdentifier[0];
-        final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY).contains(filterDto.getCondition());
+        final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_MATCHES).contains(filterDto.getCondition());
 
         // attributes content for cryptographic key items are stored under resource CRYPTOGRAPHIC_KEY, but for meta attributes, object uuid is uuid of cryptographic key item and for custom and data attribute it is uuid of cryptographic key
         // place for improvement is to consolidate resource for attributes content
@@ -101,7 +101,12 @@ public class FilterPredicatesBuilder {
         boolean multipleValues = filterValues.size() > 1;
 
         Object filterValue = filterValues.isEmpty() ? null : filterValues.getFirst();
-        FilterConditionOperator conditionOperator = (filterDto.getCondition() == FilterConditionOperator.NOT_EQUALS) ? FilterConditionOperator.EQUALS : ((filterDto.getCondition() == FilterConditionOperator.NOT_CONTAINS) ? FilterConditionOperator.CONTAINS : filterDto.getCondition());
+        FilterConditionOperator conditionOperator = switch (filterDto.getCondition()) {
+            case NOT_EQUALS -> FilterConditionOperator.EQUALS;
+            case NOT_CONTAINS -> FilterConditionOperator.CONTAINS;
+            case NOT_MATCHES -> FilterConditionOperator.MATCHES;
+            default -> filterDto.getCondition();
+        };
         ZonedDateTime nowDateTime = ZonedDateTime.now();
         return switch (conditionOperator) {
             case EQUALS ->
@@ -126,6 +131,7 @@ public class FilterPredicatesBuilder {
                 yield criteriaBuilder.between(expression, nowDateTime,
                         nowDateTime.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
+            case MATCHES -> criteriaBuilder.equal(criteriaBuilder.function("textregexeq", Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
             case null, default -> null;
         };
     }
@@ -271,6 +277,9 @@ public class FilterPredicatesBuilder {
                 predicate = criteriaBuilder.between(expression, now,
                         now.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
+            case MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function("textregexeq", Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            case NOT_MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function("textregexeq", Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
+
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
