@@ -23,6 +23,8 @@ import org.bouncycastle.operator.OperatorException;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.math.BigInteger;
@@ -35,10 +37,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+@Component
 public class OcspUtil {
     private static final Logger logger = LoggerFactory.getLogger(OcspUtil.class);
 
-    private static final int OCSP_CONNECTION_TIMEOUT = 1000; // milliseconds
+    private static int ocspConnectionTimeout; // milliseconds
 
     private static final Map<Integer, String> ocspResponseStatuses = Map.of(
             OCSPResponseStatus.SUCCESSFUL, "Successful",
@@ -48,6 +51,11 @@ public class OcspUtil {
             OCSPResponseStatus.SIG_REQUIRED, "Signature required",
             OCSPResponseStatus.UNAUTHORIZED, "Unauthorized"
     );
+
+    @Value("${validation.ocsp.timeout:1000}")
+    public void setOcspConnectionTimeout(int value) {
+        ocspConnectionTimeout = value;
+    }
 
     private OcspUtil() {
 
@@ -149,8 +157,8 @@ public class OcspUtil {
             if (serviceUrl.startsWith("http")) {
                 URL url = URI.create(serviceUrl).toURL();
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
-                con.setConnectTimeout(OCSP_CONNECTION_TIMEOUT);
-                con.setReadTimeout(OCSP_CONNECTION_TIMEOUT);
+                con.setConnectTimeout(ocspConnectionTimeout);
+                con.setReadTimeout(ocspConnectionTimeout);
                 con.setRequestProperty("Content-Type", "application/ocsp-request");
                 con.setRequestProperty("Accept", "application/ocsp-response");
                 con.setDoOutput(true);

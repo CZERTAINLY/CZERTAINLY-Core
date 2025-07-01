@@ -5,6 +5,8 @@ import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.DERIA5String;
 import org.bouncycastle.asn1.DEROctetString;
 import org.bouncycastle.asn1.x509.*;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.ByteArrayInputStream;
 import java.io.DataInputStream;
@@ -19,9 +21,14 @@ import java.security.cert.X509CRL;
 import java.util.ArrayList;
 import java.util.List;
 
+@Component
 public class CrlUtil {
-    //CRL Timeout setting when initiating URL Connection. If the connection takes more than 30 seconds, it is determined as not reachable
-    private static final Integer CRL_CONNECTION_TIMEOUT = 1000; //milliseconds
+    private static int crlConnectionTimeout; // milliseconds
+
+    @Value("${validation.crl.timeout:1000}")
+    public void setOcspConnectionTimeout(int value) {
+        crlConnectionTimeout = value;
+    }
 
     private CrlUtil() {
     }
@@ -75,8 +82,8 @@ public class CrlUtil {
         X509CRL x509Crl;
         URL url = URI.create(crlUrl).toURL();
         URLConnection connection = url.openConnection();
-        connection.setConnectTimeout(CRL_CONNECTION_TIMEOUT);
-        connection.setReadTimeout(CRL_CONNECTION_TIMEOUT);
+        connection.setConnectTimeout(crlConnectionTimeout);
+        connection.setReadTimeout(crlConnectionTimeout);
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             x509Crl = (X509CRL) cf.generateCRL(inStream);

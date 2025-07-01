@@ -139,3 +139,9 @@ spring:
   threads:
     virtual:
       enabled: true
+
+validation:
+  crl:
+    timeout: 2000
+  ocsp:
+    timeout: 1000
