@@ -195,9 +195,23 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.ENDS_WITH);
         condition.setValue("eE");
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.MATCHES);
+        condition.setValue("^\\\\d"); // starts with a number
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue("^(?:[^m]*m){3}[^m]*$"); // contains exactly 3 'm'
+        condition.setOperator(FilterConditionOperator.NOT_MATCHES);
+        condition.setValue("^\\\\d"); // starts with a number
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue("^(?:[^m]*m){3}[^m]*$"); // contains exactly 3 'm'
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
         certificate.setCommonName(null);
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+
+
+
 
         certificate.setPublicKeyAlgorithm("RSA");
         condition.setOperator(FilterConditionOperator.EQUALS);
