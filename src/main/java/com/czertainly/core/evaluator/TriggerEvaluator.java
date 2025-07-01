@@ -372,6 +372,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         stringOperatorFunctionMap.put(FilterConditionOperator.NOT_CONTAINS, (o, c) -> !o.toString().contains(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.STARTS_WITH, (o, c) -> o.toString().startsWith(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.ENDS_WITH, (o, c) -> o.toString().endsWith(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.MATCHES, (o,c) -> o.toString().matches(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.NOT_MATCHES, (o,c) -> !o.toString().matches(c.toString()));
+
         fieldTypeToOperatorActionMap.put(FilterFieldType.STRING, stringOperatorFunctionMap);
 
         numberOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
