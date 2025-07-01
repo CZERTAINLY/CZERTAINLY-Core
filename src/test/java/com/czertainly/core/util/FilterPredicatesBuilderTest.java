@@ -38,6 +38,7 @@ import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import org.hibernate.query.sqm.ComparisonOperator;
+import org.hibernate.query.sqm.function.SelfRenderingSqmFunction;
 import org.hibernate.query.sqm.tree.predicate.*;
 import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
@@ -182,7 +183,13 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final Predicate filterPredicate = FilterPredicatesBuilder.getFiltersPredicate(criteriaBuilder, criteriaQuery, root, List.of(prepareDummyFilterRequest(FilterConditionOperator.MATCHES)));
         Predicate predicateTest = ((SqmJunctionPredicate) filterPredicate).getPredicates().getFirst();
         Assertions.assertInstanceOf(SqmComparisonPredicate.class, predicateTest);
-
+        SqmComparisonPredicate comparisonPredicateTest = (SqmComparisonPredicate) predicateTest;
+        Assertions.assertEquals(ComparisonOperator.EQUAL, comparisonPredicateTest.getSqmOperator());
+        Assertions.assertEquals("true", comparisonPredicateTest.getRightHandExpression().toHqlString());
+        Assertions.assertInstanceOf(SelfRenderingSqmFunction.class, comparisonPredicateTest.getLeftHandExpression());
+        SelfRenderingSqmFunction<?> leftHandExpressionHandExpression = (SelfRenderingSqmFunction<?>) comparisonPredicateTest.getLeftHandExpression();
+        Assertions.assertEquals("textregexeq", leftHandExpressionHandExpression.getFunctionName());
+        Assertions.assertEquals("'" + testValue + "'", leftHandExpressionHandExpression.getArguments().getLast().toHqlString());
     }
 
     @Test
