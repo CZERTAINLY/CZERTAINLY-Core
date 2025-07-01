@@ -11,17 +11,23 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateHolder;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
 import org.bouncycastle.cert.ocsp.*;
 import org.bouncycastle.cert.ocsp.jcajce.JcaBasicOCSPRespBuilder;
+import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
+import org.bouncycastle.jcajce.spec.MLKEMParameterSpec;
+import org.bouncycastle.jcajce.spec.SLHDSAParameterSpec;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DigestCalculator;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.bouncycastle.pqc.jcajce.spec.FalconParameterSpec;
 
 import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.security.spec.AlgorithmParameterSpec;
+import java.security.spec.ECGenParameterSpec;
+import java.security.spec.ECParameterSpec;
 import java.security.spec.RSAKeyGenParameterSpec;
 import java.util.Base64;
 import java.util.Date;
@@ -110,12 +116,12 @@ public class CertificateGeneratorHelper {
     public static AlgorithmParameterSpec getDefaultParameterSpec(KeyAlgorithm algorithm) {
         return switch (algorithm) {
             case RSA -> new RSAKeyGenParameterSpec(2048, RSAKeyGenParameterSpec.F4);
-            case ECDSA -> null;
-            case FALCON -> null;
-            case MLDSA -> null;
-            case SLHDSA -> null;
-            case MLKEM -> null;
-            default -> null;
+            case ECDSA -> new ECGenParameterSpec("secp521r1");
+            case FALCON -> FalconParameterSpec.falcon_1024;
+            case MLDSA -> MLDSAParameterSpec.ml_dsa_87_with_sha512;
+            case SLHDSA -> SLHDSAParameterSpec.slh_dsa_sha2_256s_with_sha512;
+            case MLKEM -> MLKEMParameterSpec.ml_kem_1024;
+            default -> throw new UnsupportedOperationException("Unsupported algorithm: " + algorithm);
         };
     }
 

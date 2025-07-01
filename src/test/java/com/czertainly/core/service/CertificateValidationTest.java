@@ -349,10 +349,18 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         uploadDto.setCertificate(certificateChainInfo.getCaCertificateBase64Encoded());
         certificateService.upload(uploadDto, true);
 
+        KeyPair ecdsaKeyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.ECDSA, null);
+        X509Certificate ecdsaX509Certificate = CertificateGeneratorHelper.generateEndEntityCertificate(certificateChainInfo.getCaCertificateKeyPair(), certificateChainInfo.getCaCertificate(), ecdsaKeyPair, "CN=Test-EndEntity-ECDSA", null);
+        uploadDto.setCertificate(Base64.getEncoder().encodeToString(ecdsaX509Certificate.getEncoded()));
+        CertificateDetailDto certificateEcdsa = certificateService.upload(uploadDto, true);
+
+        var validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEcdsa.getUuid()));
+        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getValidationChecks().get(CertificateValidationCheck.OCSP_VERIFICATION).getStatus());
+
         uploadDto.setCertificate(certificateChainInfo.getEndEntityCertificateBase64Encoded());
         CertificateDetailDto certificateEndEntity = certificateService.upload(uploadDto, true);
 
-        var validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEndEntity.getUuid()));
+        validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEndEntity.getUuid()));
         Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.OCSP_VERIFICATION).getStatus());
 
         OCSPResp ocspResp = CertificateGeneratorHelper.generateOCSPResponse(certificateChainInfo.getCaCertificate(), certificateChainInfo.getCaCertificateKeyPair().getPrivate(), certificateChainInfo.getEndEntityCertificate(), CertificateStatus.GOOD);
@@ -367,7 +375,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEndEntity.getUuid()));
         Assertions.assertEquals(CertificateValidationStatus.VALID, validationResult.getValidationChecks().get(CertificateValidationCheck.OCSP_VERIFICATION).getStatus());
 
-        mockServer.removeStubMapping(mockServer.getStubMappings().getFirst());
+        mockServer.resetAll();
     }
 
     @Test
@@ -428,7 +436,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         crlRepository.deleteAll();
 
         // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
-        mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
+        mockServer.removeStubMapping(mockServer.getStubMappings().getFirst());
         Map<BigInteger, Integer> crlEntries = new HashMap<>();
         crlEntries.put(certificateWithCrl.getSerialNumber(), CRLReason.keyCompromise);
         X509CRL x509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, crlEntries);
