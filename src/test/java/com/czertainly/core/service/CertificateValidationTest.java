@@ -357,9 +357,9 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         certificateWithCrlDeltaEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlDeltaEntity);
 
-        // Test no CRL available
+        // Test no CRL available for existing URLs
         var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
-        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
 
         // Test CRL without the end certificate and without delta
         X509CRL emptyX509Crl = createEmptyCRL(x509CaCertificate, pair.getPrivate());
