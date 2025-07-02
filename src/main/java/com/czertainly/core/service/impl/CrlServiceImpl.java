@@ -91,7 +91,7 @@ public class CrlServiceImpl implements CrlService {
         List<String> crlUrls = CrlUtil.getCDPFromCertificate(crlDistributionPointsEncoded);
 
         Crl crl = null;
-
+        boolean failedToRead = false;
         for (String crlUrl : crlUrls) {
             X509CRL x509CRL;
             try {
@@ -99,6 +99,7 @@ public class CrlServiceImpl implements CrlService {
             } catch (Exception e) {
                 // Failed to read content from URL, continue to next URL
                 logger.error("Failed to read CRL content from URL: {}, {}", crlUrl, e.getMessage());
+                failedToRead = true;
                 continue;
             }
 
@@ -137,6 +138,11 @@ public class CrlServiceImpl implements CrlService {
             // Managed to process a CRL url and do not need to try other URLs
             return crl;
         }
+
+        if (failedToRead) {
+            throw new IOException("Failed to read CRL from %d available URL(s)".formatted(crlUrls.size()));
+        }
+
         return crl;
     }
 

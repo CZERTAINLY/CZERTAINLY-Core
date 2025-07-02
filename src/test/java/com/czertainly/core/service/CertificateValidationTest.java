@@ -2,6 +2,8 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -12,6 +14,7 @@ import com.czertainly.api.model.core.settings.PlatformSettingsUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.helpers.CertificateGeneratorHelper;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
@@ -31,6 +34,8 @@ import org.bouncycastle.cert.X509CertificateHolder;
 import org.bouncycastle.cert.X509v2CRLBuilder;
 import org.bouncycastle.cert.X509v3CertificateBuilder;
 import org.bouncycastle.cert.jcajce.*;
+import org.bouncycastle.cert.ocsp.CertificateStatus;
+import org.bouncycastle.cert.ocsp.OCSPResp;
 import org.bouncycastle.cms.CMSException;
 import org.bouncycastle.cms.CMSSignedData;
 import org.bouncycastle.operator.ContentSigner;
@@ -337,8 +342,44 @@ public class CertificateValidationTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCrlProcessing() throws GeneralSecurityException, OperatorCreationException, IOException, NotFoundException {
+    void testOcspValidationCheck() throws Exception {
+        var certificateChainInfo = CertificateGeneratorHelper.generateCertificateWithIssuer(KeyAlgorithm.RSA, "CN=Test-Ca", "CN=Test-EndEntity", "http://localhost:%d/ocsp".formatted(mockServer.port()));
 
+        UploadCertificateRequestDto uploadDto = new UploadCertificateRequestDto();
+        uploadDto.setCertificate(certificateChainInfo.getCaCertificateBase64Encoded());
+        certificateService.upload(uploadDto, true);
+
+        KeyPair ecdsaKeyPair = CertificateGeneratorHelper.generateKeyPair(KeyAlgorithm.ECDSA, null);
+        X509Certificate ecdsaX509Certificate = CertificateGeneratorHelper.generateEndEntityCertificate(certificateChainInfo.getCaCertificateKeyPair(), certificateChainInfo.getCaCertificate(), ecdsaKeyPair, "CN=Test-EndEntity-ECDSA", null);
+        uploadDto.setCertificate(Base64.getEncoder().encodeToString(ecdsaX509Certificate.getEncoded()));
+        CertificateDetailDto certificateEcdsa = certificateService.upload(uploadDto, true);
+
+        var validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEcdsa.getUuid()));
+        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getValidationChecks().get(CertificateValidationCheck.OCSP_VERIFICATION).getStatus());
+
+        uploadDto.setCertificate(certificateChainInfo.getEndEntityCertificateBase64Encoded());
+        CertificateDetailDto certificateEndEntity = certificateService.upload(uploadDto, true);
+
+        validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEndEntity.getUuid()));
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.OCSP_VERIFICATION).getStatus());
+
+        OCSPResp ocspResp = CertificateGeneratorHelper.generateOCSPResponse(certificateChainInfo.getCaCertificate(), certificateChainInfo.getCaCertificateKeyPair().getPrivate(), certificateChainInfo.getEndEntityCertificate(), CertificateStatus.GOOD);
+        mockServer.stubFor(WireMock
+                .post(WireMock.urlPathMatching("/ocsp"))
+                .willReturn(aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/ocsp-response")
+                        .withBody(ocspResp.getEncoded())));
+
+
+        validationResult = certificateService.getCertificateValidationResult(SecuredUUID.fromString(certificateEndEntity.getUuid()));
+        Assertions.assertEquals(CertificateValidationStatus.VALID, validationResult.getValidationChecks().get(CertificateValidationCheck.OCSP_VERIFICATION).getStatus());
+
+        mockServer.resetAll();
+    }
+
+    @Test
+    void testCrlProcessing() throws GeneralSecurityException, OperatorCreationException, IOException, NotFoundException {
         KeyPairGenerator keyPairGen = KeyPairGenerator.getInstance("RSA");
         keyPairGen.initialize(2048);
         KeyPair pair = keyPairGen.generateKeyPair();
@@ -357,9 +398,9 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         certificateWithCrlDeltaEntity.setTrustedCa(true);
         certificateRepository.save(certificateWithCrlDeltaEntity);
 
-        // Test no CRL available
+        // Test no CRL available for existing URLs
         var validationResult = certificateService.getCertificateValidationResult(certificateWithCrlEntity.getSecuredUuid());
-        Assertions.assertEquals(CertificateValidationStatus.NOT_CHECKED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
+        Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
 
         // Test CRL without the end certificate and without delta
         X509CRL emptyX509Crl = createEmptyCRL(x509CaCertificate, pair.getPrivate());
@@ -395,7 +436,7 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         crlRepository.deleteAll();
 
         // Test CRL with revoked certificate and without delta and with one invalid CRL distribution point
-        mockServer.removeStubMapping(mockServer.getStubMappings().get(0));
+        mockServer.removeStubMapping(mockServer.getStubMappings().getFirst());
         Map<BigInteger, Integer> crlEntries = new HashMap<>();
         crlEntries.put(certificateWithCrl.getSerialNumber(), CRLReason.keyCompromise);
         X509CRL x509CrlRevokedCert = addRevocationToCRL(pair.getPrivate(), "SHA256WithRSAEncryption", emptyX509Crl, crlEntries);
@@ -430,8 +471,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         Assertions.assertEquals(CertificateValidationStatus.FAILED, validationResult.getValidationChecks().get(CertificateValidationCheck.CRL_VERIFICATION).getStatus());
         Assertions.assertThrows(ValidationException.class, () -> crlService.getCurrentCrl(certificateWithDelta, certificateWithDelta));
 
-
-
         // Test deltaCrl with revoked cert and with one certificate to remove from CRL entries
         crlRepository.deleteAll();
         X509CRL deltaCrl3 = createEmptyDeltaCRL(x509CaCertificate.getSubjectX500Principal(), pair.getPrivate(), BigInteger.valueOf(Integer.parseInt(crlWithRevoked.getCrlNumber())), BigInteger.TWO);
@@ -457,7 +496,6 @@ public class CertificateValidationTest extends BaseSpringBootTest {
         crlEntryId1.setCrlUuid(crlWithDelta2Uuid);
         crlEntryId1.setSerialNumber(BigInteger.valueOf(1234).toString(16));
         Assertions.assertEquals(CertificateRevocationReason.KEY_COMPROMISE, crlEntryRepository.findById(crlEntryId1).get().getRevocationReason());
-
     }
 
 
