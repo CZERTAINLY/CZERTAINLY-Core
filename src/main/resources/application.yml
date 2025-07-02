@@ -147,4 +147,3 @@ validation:
   ocsp:
     read-timeout: 1000
     connect-timeout: 1000
-    
