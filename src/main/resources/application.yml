@@ -142,6 +142,8 @@ spring:
 
 validation:
   crl:
-    timeout: 2000
+    read-timeout: 2000
+    connect-timeout: 1000
   ocsp:
-    timeout: 1000
+    read-timeout: 1000
+    connect-timeout: 1000

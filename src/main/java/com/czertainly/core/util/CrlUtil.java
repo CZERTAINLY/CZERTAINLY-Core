@@ -22,12 +22,19 @@ import java.util.ArrayList;
 import java.util.List;
 
 @Component
+@SuppressWarnings("java:S2696")
 public class CrlUtil {
-    private static int crlConnectionTimeout; // milliseconds
+    private static int crlReadTimeout; // milliseconds
+    private static int crlConnectTimeout; // milliseconds
 
-    @Value("${validation.crl.timeout:1000}")
-    public void setOcspConnectionTimeout(int value) {
-        crlConnectionTimeout = value;
+    @Value("${validation.crl.read-timeout:1000}")
+    public void setCrlReadTimeout(int timeout) {
+        crlReadTimeout = timeout;
+    }
+
+    @Value("${validation.crl.connect-timeout:1000}")
+    public void setCrlConnectTimeout(int timeout) {
+        crlConnectTimeout = timeout;
     }
 
     private CrlUtil() {
@@ -82,8 +89,8 @@ public class CrlUtil {
         X509CRL x509Crl;
         URL url = URI.create(crlUrl).toURL();
         URLConnection connection = url.openConnection();
-        connection.setConnectTimeout(crlConnectionTimeout);
-        connection.setReadTimeout(crlConnectionTimeout);
+        connection.setConnectTimeout(crlConnectTimeout);
+        connection.setReadTimeout(crlReadTimeout);
 
         try (DataInputStream inStream = new DataInputStream(connection.getInputStream())) {
             x509Crl = (X509CRL) cf.generateCRL(inStream);
