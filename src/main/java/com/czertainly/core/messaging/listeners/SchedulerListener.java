@@ -25,7 +25,7 @@ public class SchedulerListener {
         this.schedulerService = schedulerService;
     }
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_SCHEDULER_NAME, messageConverter = "jsonMessageConverter", concurrency = "10")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_SCHEDULER_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.scheduler}")
     public void processMessage(SchedulerJobExecutionMessage schedulerMessage) {
         logger.debug("Received scheduler message: {}", schedulerMessage);
         try {
