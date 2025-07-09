@@ -127,7 +127,7 @@ public class NotificationListener {
         this.resourceObjectAssociationService = resourceObjectAssociationService;
     }
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_NOTIFICATIONS_NAME, messageConverter = "jsonMessageConverter")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_NOTIFICATIONS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.notifications}")
     public void processMessage(NotificationMessage message) {
         logger.debug("Received notification message: {}", message);
 
