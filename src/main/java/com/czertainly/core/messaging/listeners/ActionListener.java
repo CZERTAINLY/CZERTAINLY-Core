@@ -49,7 +49,6 @@ public class ActionListener {
 
     @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.actions}")
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
-        logger.debug("|||Handling message");
         boolean hasApproval = actionMessage.getApprovalUuid() != null;
         boolean isApproved = hasApproval && actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);
 
