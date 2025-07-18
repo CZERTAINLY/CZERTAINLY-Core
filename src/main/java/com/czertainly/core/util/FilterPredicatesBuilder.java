@@ -28,6 +28,8 @@ import java.io.Serializable;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class FilterPredicatesBuilder {
 
@@ -132,7 +134,10 @@ public class FilterPredicatesBuilder {
                 yield criteriaBuilder.between(expression, nowDateTime,
                         nowDateTime.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
-            case MATCHES -> criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            case MATCHES -> {
+                validateRegexForDbQuery(filterValues.getFirst().toString());
+                yield criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            }
             case null, default -> null;
         };
     }
@@ -278,13 +283,28 @@ public class FilterPredicatesBuilder {
                 predicate = criteriaBuilder.between(expression, now,
                         now.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
-            case MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
-            case NOT_MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
+            case MATCHES -> {
+                validateRegexForDbQuery(filterValues.getFirst().toString());
+                predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            }
+            case NOT_MATCHES -> {
+                validateRegexForDbQuery(filterValues.getFirst().toString());
+                predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
+            }
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
     }
+
+    private static void validateRegexForDbQuery(String regex) {
+        try {
+            Pattern.compile(regex);
+        } catch (PatternSyntaxException e) {
+            throw new ValidationException("Input is not a valid regex.");
+        }
+    }
+
 
     private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField) {
         From from = root;
