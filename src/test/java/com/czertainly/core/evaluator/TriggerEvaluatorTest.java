@@ -171,7 +171,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
     @Test
     void testCertificateEvaluatorOnProperties() throws RuleException {
-
         certificate.setCommonName("Common Name");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
@@ -208,10 +207,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         certificate.setCommonName(null);
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
-
-
-
-
 
         certificate.setPublicKeyAlgorithm("RSA");
         condition.setOperator(FilterConditionOperator.EQUALS);
@@ -278,8 +273,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(List.of("loc"));
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
-
-
     }
 
     @Test

@@ -37,6 +37,7 @@ public class FilterPredicatesBuilder {
 
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
+    private static final String TEXTREGEXEQ_FUNCTION_NAME = "textregexeq";
 
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
@@ -131,7 +132,7 @@ public class FilterPredicatesBuilder {
                 yield criteriaBuilder.between(expression, nowDateTime,
                         nowDateTime.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
-            case MATCHES -> criteriaBuilder.equal(criteriaBuilder.function("textregexeq", Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            case MATCHES -> criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
             case null, default -> null;
         };
     }
@@ -277,8 +278,8 @@ public class FilterPredicatesBuilder {
                 predicate = criteriaBuilder.between(expression, now,
                         now.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
-            case MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function("textregexeq", Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
-            case NOT_MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function("textregexeq", Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
+            case MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            case NOT_MATCHES -> predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
