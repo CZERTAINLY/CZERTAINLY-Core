@@ -35,7 +35,7 @@ public class EventListener {
         this.eventHandlers = eventHandlers;
     }
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter", concurrency = "3")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_EVENTS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.events}")
     public void processMessage(EventMessage eventMessage) {
         if (eventMessage.getUserUuid() != null) {
             authHelper.authenticateAsUser(eventMessage.getUserUuid());

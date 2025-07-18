@@ -19,7 +19,6 @@ import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -33,7 +32,6 @@ import java.util.Objects;
 import java.util.Optional;
 
 @Component
-@Transactional
 public class ActionListener {
     private static final Logger logger = LoggerFactory.getLogger(ActionListener.class);
 
@@ -49,7 +47,7 @@ public class ActionListener {
 
     private AuthHelper authHelper;
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.actions}")
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
         boolean hasApproval = actionMessage.getApprovalUuid() != null;
         boolean isApproved = hasApproval && actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);

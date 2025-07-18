@@ -532,7 +532,8 @@ public class ScepServiceImpl implements ScepService {
         CertificateDetailDto response;
         try {
             response = clientOperationService.submitCertificateRequest(requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
-        } catch (CertificateException | NotFoundException | NoSuchAlgorithmException | AttributeException | ConnectorException | CertificateRequestException e) {
+        } catch (CertificateException | NotFoundException | NoSuchAlgorithmException | AttributeException |
+                 ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);
         }
 
@@ -610,13 +611,7 @@ public class ScepServiceImpl implements ScepService {
         ArrayList<X509Certificate> certificateChain = new ArrayList<>();
         for (CertificateDetailDto certificate : certificateService.getCertificateChain(leafCertificate.getSecuredUuid(), true).getCertificates()) {
             // only certificate with valid status should be used
-            if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
-                throw new ScepException(String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
-                        certificate.getUuid(),
-                        certificate.getFingerprint(),
-                        certificate.getValidationStatus().getLabel()),
-                        FailInfo.BAD_REQUEST);
-            }
+            checkCertificateValidity(certificate);
             try {
                 certificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent()));
             } catch (CertificateException e) {
@@ -632,6 +627,8 @@ public class ScepServiceImpl implements ScepService {
     private List<X509Certificate> getIssuedCertificateChain(Certificate certificate) throws ScepException, NotFoundException {
         if (!this.scepProfile.isIncludeCaCertificateChain() && !this.scepProfile.isIncludeCaCertificate()) {
             try {
+                checkCertificateValidity(certificate.mapToDto());
+
                 return List.of(CertificateUtil.parseCertificate(certificate.getCertificateContent().getContent()));
             } catch (CertificateException e) {
                 // This should not happen
@@ -811,6 +808,17 @@ public class ScepServiceImpl implements ScepService {
             }
         } else {
             logger.error("Unable to update Intune because the client is not available.");
+        }
+    }
+
+    private void checkCertificateValidity(CertificateDetailDto certificate) throws ScepException {
+        if (certificate.getValidationStatus() != CertificateValidationStatus.VALID
+                && certificate.getValidationStatus() != CertificateValidationStatus.EXPIRING) {
+            throw new ScepException(String.format("Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
+                    certificate.getUuid(),
+                    certificate.getFingerprint(),
+                    certificate.getValidationStatus().getLabel()),
+                    FailInfo.BAD_REQUEST);
         }
     }
 }

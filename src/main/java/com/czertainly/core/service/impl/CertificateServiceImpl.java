@@ -783,7 +783,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.save(certificate);
         }
 
-        if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
+        if (!oldStatus.equals(newStatus)) {
             eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), oldStatus, newStatus));
         }
     }

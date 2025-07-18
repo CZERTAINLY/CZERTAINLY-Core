@@ -139,3 +139,19 @@ spring:
   threads:
     virtual:
       enabled: true
+
+messaging:
+  concurrency:
+    actions: 10
+    events: 5
+    notifications: 3
+    scheduler: 10
+    validation: 5
+
+validation:
+  crl:
+    read-timeout: 2000
+    connect-timeout: 1000
+  ocsp:
+    read-timeout: 1000
+    connect-timeout: 1000

@@ -23,20 +23,27 @@ import org.bouncycastle.operator.OperatorException;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.io.*;
 import java.math.BigInteger;
 import java.net.HttpURLConnection;
+import java.net.URI;
 import java.net.URL;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
+@Component
+@SuppressWarnings("java:S2696")
 public class OcspUtil {
     private static final Logger logger = LoggerFactory.getLogger(OcspUtil.class);
+
+    private static int ocspReadTimeout; // milliseconds
+    private static int ocspConnectTimeout; // milliseconds
 
     private static final Map<Integer, String> ocspResponseStatuses = Map.of(
             OCSPResponseStatus.SUCCESSFUL, "Successful",
@@ -46,6 +53,16 @@ public class OcspUtil {
             OCSPResponseStatus.SIG_REQUIRED, "Signature required",
             OCSPResponseStatus.UNAUTHORIZED, "Unauthorized"
     );
+
+    @Value("${validation.ocsp.read-timeout:1000}")
+    public void setOcspReadTimeout(int timeout) {
+        ocspReadTimeout = timeout;
+    }
+
+    @Value("${validation.ocsp.connect-timeout:1000}")
+    public void setOcspConnectTimeout(int timeout) {
+        ocspConnectTimeout = timeout;
+    }
 
     private OcspUtil() {
 
@@ -145,8 +162,10 @@ public class OcspUtil {
         try {
             byte[] array = request.getEncoded();
             if (serviceUrl.startsWith("http")) {
-                URL url = new URL(serviceUrl);
+                URL url = URI.create(serviceUrl).toURL();
                 HttpURLConnection con = (HttpURLConnection) url.openConnection();
+                con.setConnectTimeout(ocspConnectTimeout);
+                con.setReadTimeout(ocspReadTimeout);
                 con.setRequestProperty("Content-Type", "application/ocsp-request");
                 con.setRequestProperty("Accept", "application/ocsp-response");
                 con.setDoOutput(true);
