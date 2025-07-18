@@ -70,11 +70,10 @@ public class SearchHelper {
 
         SearchFieldTypeEnum searchFieldTypeEnum = null;
         switch (attributeContentType) {
-            case TEXT, STRING -> searchFieldTypeEnum = SearchFieldTypeEnum.STRING;
             case DATE, DATETIME, TIME -> searchFieldTypeEnum = SearchFieldTypeEnum.DATE;
             case INTEGER, FLOAT -> searchFieldTypeEnum = SearchFieldTypeEnum.NUMBER;
             case BOOLEAN -> searchFieldTypeEnum = SearchFieldTypeEnum.BOOLEAN;
-            default -> searchFieldTypeEnum = SearchFieldTypeEnum.OTHERS_AS_STRING;
+            default -> searchFieldTypeEnum = SearchFieldTypeEnum.STRING;
         }
         return searchFieldTypeEnum;
     }

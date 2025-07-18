@@ -28,6 +28,8 @@ import java.io.Serializable;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
+import java.util.regex.Pattern;
+import java.util.regex.PatternSyntaxException;
 
 public class FilterPredicatesBuilder {
 
@@ -37,6 +39,7 @@ public class FilterPredicatesBuilder {
 
     private static final List<AttributeContentType> castedAttributeContentData = List.of(AttributeContentType.INTEGER, AttributeContentType.FLOAT, AttributeContentType.DATE, AttributeContentType.TIME, AttributeContentType.DATETIME);
     private static final String JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME = "jsonb_extract_path_text";
+    private static final String TEXTREGEXEQ_FUNCTION_NAME = "textregexeq";
 
     public static <T> Predicate getFiltersPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, final List<SearchFilterRequestDto> filterDtos) {
         Map<String, From> joinedAssociations = new HashMap<>();
@@ -64,7 +67,7 @@ public class FilterPredicatesBuilder {
         final String[] fieldIdentifier = identifier.split("\\|");
         final AttributeContentType contentType = AttributeContentType.valueOf(fieldIdentifier[1]);
         final String attributeName = fieldIdentifier[0];
-        final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY).contains(filterDto.getCondition());
+        final boolean isNotExistCondition = List.of(FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_MATCHES).contains(filterDto.getCondition());
 
         // attributes content for cryptographic key items are stored under resource CRYPTOGRAPHIC_KEY, but for meta attributes, object uuid is uuid of cryptographic key item and for custom and data attribute it is uuid of cryptographic key
         // place for improvement is to consolidate resource for attributes content
@@ -101,7 +104,12 @@ public class FilterPredicatesBuilder {
         boolean multipleValues = filterValues.size() > 1;
 
         Object filterValue = filterValues.isEmpty() ? null : filterValues.getFirst();
-        FilterConditionOperator conditionOperator = (filterDto.getCondition() == FilterConditionOperator.NOT_EQUALS) ? FilterConditionOperator.EQUALS : ((filterDto.getCondition() == FilterConditionOperator.NOT_CONTAINS) ? FilterConditionOperator.CONTAINS : filterDto.getCondition());
+        FilterConditionOperator conditionOperator = switch (filterDto.getCondition()) {
+            case NOT_EQUALS -> FilterConditionOperator.EQUALS;
+            case NOT_CONTAINS -> FilterConditionOperator.CONTAINS;
+            case NOT_MATCHES -> FilterConditionOperator.MATCHES;
+            default -> filterDto.getCondition();
+        };
         ZonedDateTime nowDateTime = ZonedDateTime.now();
         return switch (conditionOperator) {
             case EQUALS ->
@@ -125,6 +133,10 @@ public class FilterPredicatesBuilder {
                 Duration duration = (Duration) filterValues.getFirst();
                 yield criteriaBuilder.between(expression, nowDateTime,
                         nowDateTime.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
+            }
+            case MATCHES -> {
+                validateRegexForDbQuery(filterValues.getFirst().toString());
+                yield criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
             }
             case null, default -> null;
         };
@@ -271,10 +283,28 @@ public class FilterPredicatesBuilder {
                 predicate = criteriaBuilder.between(expression, now,
                         now.plus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).plusHours(duration.getHours()).plusMinutes(duration.getMinutes()).plusSeconds(duration.getSeconds()));
             }
+            case MATCHES -> {
+                validateRegexForDbQuery(filterValues.getFirst().toString());
+                predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), true);
+            }
+            case NOT_MATCHES -> {
+                validateRegexForDbQuery(filterValues.getFirst().toString());
+                predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
+            }
+
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
     }
+
+    private static void validateRegexForDbQuery(String regex) {
+        try {
+            Pattern.compile(regex);
+        } catch (PatternSyntaxException e) {
+            throw new ValidationException("Input is not a valid regex.");
+        }
+    }
+
 
     private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField) {
         From from = root;
