@@ -16,7 +16,10 @@ import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.oid.OidEntry_;
+import com.czertainly.core.dao.entity.oid.RdnAttributeTypeOidEntry_;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.metamodel.Attribute;
 
@@ -120,8 +123,15 @@ public enum FilterField {
     APPROVAL_STATUS(Resource.APPROVAL, null, null, Approval_.status, "Status", SearchFieldTypeEnum.LIST, ApprovalStatusEnum.class),
     APPROVAL_CREATED_AT(Resource.APPROVAL, null, null, Approval_.createdAt, "Created At", SearchFieldTypeEnum.DATETIME),
     APPROVAL_EXPIRY_AT(Resource.APPROVAL, null, null, Approval_.expiryAt, "Expiry At", SearchFieldTypeEnum.DATETIME),
-    APPROVAL_CLOSED_AT(Resource.APPROVAL, null, null, Approval_.closedAt, "Closed At", SearchFieldTypeEnum.DATETIME)
+    APPROVAL_CLOSED_AT(Resource.APPROVAL, null, null, Approval_.closedAt, "Closed At", SearchFieldTypeEnum.DATETIME),
 
+    // OID Entry
+    OID_ENTRY_OID(Resource.OID, null, null, OidEntry_.oid, "OID", SearchFieldTypeEnum.STRING),
+    OID_ENTRY_DISPLAY_NAME(Resource.OID, null, null, OidEntry_.displayName, "Display Name", SearchFieldTypeEnum.STRING),
+    OID_ENTRY_CATEGORY(Resource.OID, null, null, OidEntry_.category, "Category", SearchFieldTypeEnum.LIST, OidCategory.class),
+    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeOidEntry_.code, "Code", SearchFieldTypeEnum.STRING),
+    OID_ENTRY_ALT_CODES(Resource.OID, null, null, RdnAttributeTypeOidEntry_.altCodes, "Alt Codes", SearchFieldTypeEnum.LIST),
+    OID_ENTRY_VALUE_TYPE(Resource.OID, null, null, RdnAttributeTypeOidEntry_.valueType, "Value Type", SearchFieldTypeEnum.STRING)
     ;
 
     private static final FilterField[] VALUES;
