@@ -69,6 +69,8 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         OidEntry oidEntry = oidEntryRepository.findById(request.getOid()).orElse(null);
         Assertions.assertNotNull(oidEntry);
         Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
+        request.setOid(SystemOid.COUNTRY.getOid());
+        Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
 
         request.setOid("1.2.3.4");
         request.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);

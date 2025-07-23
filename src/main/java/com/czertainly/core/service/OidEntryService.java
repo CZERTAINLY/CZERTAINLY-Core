@@ -57,4 +57,8 @@ public interface OidEntryService extends ResourceExtensionService {
      * @return list of OID entry responses matching the criteria
      */
     OidEntryListResponseDto listOidEntries(SearchRequestDto request);
+
+    String getDisplayName(String oid);
+
+    String getCode(String oid);
 }

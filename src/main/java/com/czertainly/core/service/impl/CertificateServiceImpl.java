@@ -60,6 +60,7 @@ import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.function.TriFunction;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
@@ -88,10 +89,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.cert.CertificateEncodingException;
+import java.security.cert.*;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.time.Duration;
 import java.time.Instant;
@@ -129,6 +128,7 @@ public class CertificateServiceImpl implements CertificateService {
     private CertificateApiClient certificateApiClient;
     private UserManagementApiClient userManagementApiClient;
     private CrlService crlService;
+    private OidEntryService oidEntryService;
 
     private AttributeEngine attributeEngine;
     private ExtendedAttributeService extendedAttributeService;
@@ -145,6 +145,11 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     public void setLocationService(LocationService locationService) {
         this.locationService = locationService;
+    }
+
+    @Autowired
+    public void setOidEntryService(OidEntryService oidEntryService) {
+        this.oidEntryService = oidEntryService;
     }
 
     @Autowired
@@ -881,7 +886,7 @@ public class CertificateServiceImpl implements CertificateService {
                 throw new com.czertainly.api.exception.CertificateException(message);
             }
 
-            CertificateUtil.prepareIssuedCertificate(entity, certificate);
+            prepareIssuedCertificate(entity, certificate);
             byte[] altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
             uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
             entity.setFingerprint(fingerprint);
@@ -892,6 +897,23 @@ public class CertificateServiceImpl implements CertificateService {
 
             return entity;
         }
+    }
+
+    private void prepareIssuedCertificate(Certificate certificate, X509Certificate x509Certificate) {
+        CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate);
+        try {
+            List<String> extendedKeyUsageOids = x509Certificate.getExtendedKeyUsage();
+            List<String> extendedKeyUsageNames = extendedKeyUsageOids.stream().map(oid -> oidEntryService.getDisplayName(oid)).toList();
+            certificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsageNames));
+        } catch (CertificateParsingException e) {
+            logger.warn("Cannot read extended key usage for certificate.");
+        }
+        byte[] subjectDnPrincipalEncoded = x509Certificate.getSubjectX500Principal().getEncoded();
+        byte[] issuerDnPrincipalEncoded = x509Certificate.getIssuerX500Principal().getEncoded();
+        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), subjectDnPrincipalEncoded));
+        CertificateUtil.setIssuerDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), issuerDnPrincipalEncoded));
+        certificate.setIssuerDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true, oidEntryService), issuerDnPrincipalEncoded).toString());
+        certificate.setSubjectDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true, oidEntryService), subjectDnPrincipalEncoded).toString());
     }
 
     @Override
@@ -914,7 +936,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Unable to calculate sha 256 thumbprint");
         }
 
-        CertificateUtil.prepareIssuedCertificate(modal, certificate);
+        prepareIssuedCertificate(modal, certificate);
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(certificateContent);
@@ -1039,7 +1061,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEntity.setUpdated(now);
         certificateEntity.setFingerprint(fingerprint);
         certificateEntity.setCertificateContent(certificateContent);
-        CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);
+        prepareIssuedCertificate(certificateEntity, x509Cert);
 
         int countInserted = certificateRepository.insertWithFingerprintConflictResolve(certificateEntity);
         certificateEntity = certificateRepository.findByFingerprint(fingerprint).orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
@@ -1369,6 +1391,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = new Certificate();
         // prepare certificate request data for certificate
         CertificateUtil.prepareCsrObject(certificate, request);
+        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), request.getSubject()));
 
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
@@ -1531,7 +1554,7 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        CertificateUtil.prepareIssuedCertificate(certificate, x509Cert);
+        prepareIssuedCertificate(certificate, x509Cert);
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert));
         certificate.setFingerprint(fingerprint);
         certificate.setCertificateContent(certificateContent);

@@ -19,10 +19,8 @@ import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.*;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.KeySizeUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.X509ObjectToString;
+import com.czertainly.core.util.*;
+import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +54,12 @@ public class CertificateHandler {
     private CertificateRepository certificateRepository;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+    private OidEntryService oidEntryService;
+
+    @Autowired
+    public void setOidEntryService(OidEntryService oidEntryService) {
+        this.oidEntryService = oidEntryService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -140,6 +144,14 @@ public class CertificateHandler {
                 Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
 
                 discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert);
+                if (existingCertificate == null) {
+                    Certificate certificateModal = new Certificate();
+                    CertificateUtil.setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), x509Cert.getSubjectX500Principal().getEncoded()));
+                    CertificateUtil.setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), x509Cert.getIssuerX500Principal().getEncoded()));
+                    discoveryCertificate.setCommonName(certificateModal.getCommonName());
+                    discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
+                }
+
                 discoveryCertificate.setDiscovery(discovery);
                 discoveryCertificate.setNewlyDiscovered(existingCertificate == null);
                 discoveryCertificate.setMeta(certificate.getMeta());

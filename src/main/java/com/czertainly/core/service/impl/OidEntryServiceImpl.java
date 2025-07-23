@@ -27,6 +27,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service(Resource.Codes.OID)
 @Transactional
@@ -42,6 +43,7 @@ public class OidEntryServiceImpl implements OidEntryService {
     @Override
     public OidEntryDetailResponseDto createOidEntry(OidEntryRequestDto request) {
         String oid = request.getOid();
+        if (SystemOid.fromOID(oid) != null) throw new ValidationException("OID %s is reserved for system OID %s".formatted(oid, SystemOid.fromOID(oid).getDisplayName()));
         if (oidEntryRepository.existsById(oid)) throw new ValidationException("OID Entry with OID %s already exists.".formatted(oid));
         OidEntry oidEntry;
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
@@ -136,6 +138,24 @@ public class OidEntryServiceImpl implements OidEntryService {
         response.setTotalPages((int) Math.ceil((double) totalItems / request.getItemsPerPage()));
 
         return response;
+    }
+
+    @Override
+    public String getDisplayName(String oid) {
+        SystemOid systemOid = SystemOid.fromOID(oid);
+        if (systemOid != null) return systemOid.getDisplayName();
+        Optional<OidEntry> oidEntry = oidEntryRepository.findById(oid);
+        if (oidEntry.isPresent()) return oidEntry.get().getDisplayName();
+        return oid;
+    }
+
+    @Override
+    public String getCode(String oid) {
+        SystemOid systemOid = SystemOid.fromOID(oid);
+        if (systemOid != null && systemOid.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE) return systemOid.getCode();
+        Optional<OidEntry> oidEntry = oidEntryRepository.findById(oid);
+        if (oidEntry.isPresent() && oidEntry.get() instanceof RdnAttributeTypeOidEntry rdnAttributeTypeOidEntry) return rdnAttributeTypeOidEntry.getCode();
+        return oid;
     }
 
     @Override
