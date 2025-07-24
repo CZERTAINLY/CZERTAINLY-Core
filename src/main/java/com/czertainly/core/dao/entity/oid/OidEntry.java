@@ -9,7 +9,7 @@ import lombok.Setter;
 
 @Entity
 @Inheritance
-@DiscriminatorColumn
+@DiscriminatorColumn(name = "category")
 @Getter
 @Setter
 public class OidEntry {
@@ -24,7 +24,7 @@ public class OidEntry {
     @Column(name = "description")
     private String description;
 
-    @Column(name = "category", nullable = false)
+    @Column(name = "category", nullable = false, insertable = false, updatable = false)
     @Enumerated(EnumType.STRING)
     private OidCategory category;
 

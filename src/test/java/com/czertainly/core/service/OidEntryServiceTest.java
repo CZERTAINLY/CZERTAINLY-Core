@@ -8,6 +8,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.oid.*;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.core.dao.entity.oid.GenericOidEntry;
 import com.czertainly.core.dao.entity.oid.OidEntry;
 import com.czertainly.core.dao.entity.oid.RdnAttributeTypeOidEntry;
 import com.czertainly.core.dao.repository.OidEntryRepository;
@@ -18,7 +19,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
-import java.io.Serializable;
 import java.util.List;
 
 class OidEntryServiceTest extends BaseSpringBootTest {
@@ -35,7 +35,7 @@ class OidEntryServiceTest extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() {
-        genericOidEntry = new OidEntry();
+        genericOidEntry = new GenericOidEntry();
         genericOidEntry.setCategory(OidCategory.GENERIC);
         genericOidEntry.setDescription("desc");
         genericOidEntry.setDisplayName("generic");
@@ -49,7 +49,6 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         rdnOidEntry.setOid("1.2.3.4.6");
         rdnOidEntry.setCode("RDN");
         rdnOidEntry.setAltCodes(List.of("R","D"));
-        rdnOidEntry.setValueType("STRING");
         oidEntryRepository.save(rdnOidEntry);
     }
 
@@ -80,7 +79,6 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
         propertiesDto.setCode("CN");
         propertiesDto.setAltCodes(List.of("CN1","CN2"));
-        propertiesDto.setValueType("DER STRING");
         request.setAdditionalProperties(propertiesDto);
         response = oidEntryService.createOidEntry(request);
         Assertions.assertEquals(request.getOid(), response.getOid());
@@ -91,7 +89,6 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(oidEntryRepository.existsById(request.getOid()));
         Assertions.assertEquals(propertiesDto.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
         Assertions.assertEquals(propertiesDto.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
-        Assertions.assertEquals(propertiesDto.getValueType(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getValueType());
     }
 
     @Test
@@ -112,7 +109,6 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(rdnOidEntry.getDisplayName(), response.getDisplayName());
         Assertions.assertEquals(rdnOidEntry.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
         Assertions.assertEquals(rdnOidEntry.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
-        Assertions.assertEquals(rdnOidEntry.getValueType(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getValueType());
     }
 
     @Test
@@ -141,7 +137,7 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(genericOidEntry.getOid(), response.getOidEntries().getFirst().getOid());
 
         filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CODE.name(), FilterConditionOperator.EQUALS, rdnOidEntry.getCode());
-        searchRequestDto.setFilters(List.of(filterRequestDto, new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_ALT_CODES.name(), FilterConditionOperator.EQUALS, (Serializable) rdnOidEntry.getAltCodes())));
+        searchRequestDto.setFilters(List.of(filterRequestDto));
         response = oidEntryService.listOidEntries(searchRequestDto);
         Assertions.assertEquals(1, response.getOidEntries().size());
         Assertions.assertEquals(rdnOidEntry.getOid(), response.getOidEntries().getFirst().getOid());
@@ -152,12 +148,20 @@ class OidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> oidEntryService.editOidEntry(NON_EXISTENT_OID, new OidEntryUpdateRequestDto()));
         OidEntryUpdateRequestDto request = new OidEntryUpdateRequestDto();
         request.setDisplayName("generic2");
-        request.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
+        request.setDescription("newDesc");
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         propertiesDto.setCode("G");
         request.setAdditionalProperties(propertiesDto);
         oidEntryService.editOidEntry(genericOidEntry.getOid(), request);
         genericOidEntry = oidEntryRepository.findById(genericOidEntry.getOid()).get();
+        Assertions.assertEquals(request.getDisplayName(), genericOidEntry.getDisplayName());
+        Assertions.assertEquals(request.getDescription(), genericOidEntry.getDescription());
+
+        oidEntryService.editOidEntry(rdnOidEntry.getOid(), request);
+        rdnOidEntry = (RdnAttributeTypeOidEntry) oidEntryRepository.findById(rdnOidEntry.getOid()).get();
+        Assertions.assertEquals(request.getDisplayName(), rdnOidEntry.getDisplayName());
+        Assertions.assertEquals(request.getDescription(), rdnOidEntry.getDescription());
+        Assertions.assertEquals(propertiesDto.getCode(), rdnOidEntry.getCode());
 
     }
 

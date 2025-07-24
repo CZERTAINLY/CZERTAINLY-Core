@@ -131,7 +131,6 @@ public enum FilterField {
     OID_ENTRY_CATEGORY(Resource.OID, null, null, OidEntry_.category, "Category", SearchFieldTypeEnum.LIST, OidCategory.class),
     OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeOidEntry_.code, "Code", SearchFieldTypeEnum.STRING),
     OID_ENTRY_ALT_CODES(Resource.OID, null, null, RdnAttributeTypeOidEntry_.altCodes, "Alt Codes", SearchFieldTypeEnum.LIST),
-    OID_ENTRY_VALUE_TYPE(Resource.OID, null, null, RdnAttributeTypeOidEntry_.valueType, "Value Type", SearchFieldTypeEnum.STRING)
     ;
 
     private static final FilterField[] VALUES;
