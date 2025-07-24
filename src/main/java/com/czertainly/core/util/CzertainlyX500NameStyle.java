@@ -10,6 +10,7 @@ import org.bouncycastle.asn1.x500.style.BCStrictStyle;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Map;
 
 public class CzertainlyX500NameStyle extends BCStrictStyle {
 
@@ -19,10 +20,10 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
     private final boolean normalizedStyle;
     private final String delimiter;
 
-    private final OidEntryService oidEntryService;
+    private final Map<String, String> oidToCodeMap;
 
-    public CzertainlyX500NameStyle(boolean normalizedStyle, OidEntryService oidEntryService) {
-        this.oidEntryService = oidEntryService;
+    public CzertainlyX500NameStyle(boolean normalizedStyle, Map<String, String> oidToCodeMap) {
+        this.oidToCodeMap = oidToCodeMap;
         this.normalizedStyle = normalizedStyle;
         this.delimiter = normalizedStyle ? "," : ", ";
     }
@@ -53,13 +54,9 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
     private String getRdnCode(AttributeTypeAndValue attributeTypeAndValue) {
         ASN1ObjectIdentifier type = attributeTypeAndValue.getType();
         if (this.normalizedStyle) return type.getId();
-        try {
-            return oidEntryService.getCode(type.getId());
-        } catch (IllegalArgumentException e) {
-            if (this.defaultSymbols.get(type) != null)
-                return (String) this.defaultSymbols.get(type);
-            else return type.getId();
-        }
+        if (oidToCodeMap.get(type.getId()) != null) return  oidToCodeMap.get(type.getId());
+        if (this.defaultSymbols.get(type) != null) return (String) this.defaultSymbols.get(type);
+        return type.getId();
     }
 
     private void appendRDN(StringBuilder stringBuilder, RDN rdn) {

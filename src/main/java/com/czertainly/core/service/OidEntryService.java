@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.oid.*;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Service for managing OID entries.
@@ -58,7 +59,7 @@ public interface OidEntryService extends ResourceExtensionService {
      */
     OidEntryListResponseDto listOidEntries(SearchRequestDto request);
 
-    String getDisplayName(String oid);
+    Map<String, String> getOidToDisplayNameMap(OidCategory oidCategory);
 
-    String getCode(String oid);
+    Map<String, String> getOidToCodeMap();
 }

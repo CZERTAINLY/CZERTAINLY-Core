@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -298,6 +299,10 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
         CertificateDetailDto dto = certificate.mapToDto();
+        Map<String, String> oidToName = oidEntryService.getOidToDisplayNameMap(OidCategory.EXTENDED_KEY_USAGE);
+        List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid): oid).toList();
+        dto.setExtendedKeyUsage(extendedKeyUsageNames);
+
         if (certificate.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(certificate.getComplianceResult()));
         }
@@ -901,19 +906,13 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void prepareIssuedCertificate(Certificate certificate, X509Certificate x509Certificate) {
         CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate);
-        try {
-            List<String> extendedKeyUsageOids = x509Certificate.getExtendedKeyUsage();
-            List<String> extendedKeyUsageNames = extendedKeyUsageOids.stream().map(oid -> oidEntryService.getDisplayName(oid)).toList();
-            certificate.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsageNames));
-        } catch (CertificateParsingException e) {
-            logger.warn("Cannot read extended key usage for certificate.");
-        }
         byte[] subjectDnPrincipalEncoded = x509Certificate.getSubjectX500Principal().getEncoded();
         byte[] issuerDnPrincipalEncoded = x509Certificate.getIssuerX500Principal().getEncoded();
-        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), subjectDnPrincipalEncoded));
-        CertificateUtil.setIssuerDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), issuerDnPrincipalEncoded));
-        certificate.setIssuerDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true, oidEntryService), issuerDnPrincipalEncoded).toString());
-        certificate.setSubjectDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true, oidEntryService), subjectDnPrincipalEncoded).toString());
+        Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
+        CertificateUtil.setIssuerDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false,oidToCodeMap), issuerDnPrincipalEncoded));
+        certificate.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
+        certificate.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
     }
 
     @Override
@@ -1391,7 +1390,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = new Certificate();
         // prepare certificate request data for certificate
         CertificateUtil.prepareCsrObject(certificate, request);
-        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), request.getSubject()));
+        Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), request.getSubject()));
 
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);

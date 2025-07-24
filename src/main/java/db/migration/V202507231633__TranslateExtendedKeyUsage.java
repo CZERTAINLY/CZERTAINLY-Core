@@ -10,6 +10,7 @@ import java.sql.ResultSet;
 import java.sql.Statement;
 import java.sql.Types;
 import java.util.List;
+import java.util.Map;
 
 @SuppressWarnings("java:S101")
 public class V202507231633__TranslateExtendedKeyUsage extends BaseJavaMigration {
@@ -24,9 +25,9 @@ public class V202507231633__TranslateExtendedKeyUsage extends BaseJavaMigration 
                     if (extendedKeyUsage != null && !extendedKeyUsage.equals("null") ) {
                         List<String> extendedKeyUsagesOid = MetaDefinitions.deserializeArrayString(extendedKeyUsage);
                         String extendedKeyUsagesName = MetaDefinitions.serializeArrayString(extendedKeyUsagesOid.stream().map(oid -> {
-                            SystemOid systemOid = SystemOid.fromOID(oid);
+                            SystemOid systemOid = SystemOid.fromName(oid);
                             if (systemOid == null) return oid;
-                            return systemOid.getDisplayName();
+                            return systemOid.getOid();
                         }).toList());
                         preparedStatement.setString(1, extendedKeyUsagesName);
                         preparedStatement.setObject(2, certificates.getObject("uuid"), Types.OTHER);

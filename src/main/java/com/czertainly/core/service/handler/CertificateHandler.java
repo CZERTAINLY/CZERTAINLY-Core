@@ -146,8 +146,9 @@ public class CertificateHandler {
                 discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert);
                 if (existingCertificate == null) {
                     Certificate certificateModal = new Certificate();
-                    CertificateUtil.setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), x509Cert.getSubjectX500Principal().getEncoded()));
-                    CertificateUtil.setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidEntryService), x509Cert.getIssuerX500Principal().getEncoded()));
+                    Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+                    CertificateUtil.setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), x509Cert.getSubjectX500Principal().getEncoded()));
+                    CertificateUtil.setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), x509Cert.getIssuerX500Principal().getEncoded()));
                     discoveryCertificate.setCommonName(certificateModal.getCommonName());
                     discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
                 }
