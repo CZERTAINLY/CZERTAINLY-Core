@@ -37,6 +37,7 @@ import java.util.stream.Collectors;
 @Transactional
 public class OidEntryServiceImpl implements OidEntryService {
 
+    public static final String OID_ENTRY = "OID Entry";
     private OidEntryRepository oidEntryRepository;
 
     @Autowired
@@ -49,7 +50,7 @@ public class OidEntryServiceImpl implements OidEntryService {
     public OidEntryDetailResponseDto createOidEntry(OidEntryRequestDto request) {
         String oid = request.getOid();
         if (SystemOid.fromOID(oid) != null)
-            throw new ValidationException("OID %s is reserved for system OID %s".formatted(oid, SystemOid.fromOID(oid).getDisplayName()));
+            throw new ValidationException("OID %s is reserved for system OID %s.".formatted(oid, SystemOid.fromOID(oid).getDisplayName()));
         if (oidEntryRepository.existsById(oid))
             throw new ValidationException("OID Entry with OID %s already exists.".formatted(oid));
         OidEntry oidEntry;
@@ -61,9 +62,7 @@ public class OidEntryServiceImpl implements OidEntryService {
             case RDN_ATTRIBUTE_TYPE -> {
                 oidEntry = new RdnAttributeTypeOidEntry();
                 if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
-                    throw new ValidationException("Incorrect properties for OID category RDN Attribute type.");
-                if (additionalProperties.getCode() == null)
-                    throw new ValidationException("Code must not be empty for OID with category RDN Attribute type.");
+                    throw new ValidationException("Incorrect type of properties for OID category RDN Attribute type.");
                 ((RdnAttributeTypeOidEntry) oidEntry).setCode(additionalProperties.getCode());
                 ((RdnAttributeTypeOidEntry) oidEntry).setAltCodes(additionalProperties.getAltCodes());
                 responseAdditionalProperties = ((RdnAttributeTypeOidEntry) oidEntry).mapToPropertiesDto();
@@ -86,7 +85,7 @@ public class OidEntryServiceImpl implements OidEntryService {
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DETAIL)
     public OidEntryDetailResponseDto getOidEntry(String oid) throws NotFoundException {
-        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException("OID Entry", oid));
+        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         OidEntryDetailResponseDto response = oidEntry.mapToDetailDto();
         if (oidEntry.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE)
             response.setAdditionalProperties(((RdnAttributeTypeOidEntry) oidEntry).mapToPropertiesDto());
@@ -96,14 +95,12 @@ public class OidEntryServiceImpl implements OidEntryService {
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.UPDATE)
     public OidEntryResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException {
-        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException("OID Entry", oid));
+        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
 
         if (oidEntry instanceof RdnAttributeTypeOidEntry rdnAttributeTypeOidEntry) {
             if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                 throw new ValidationException("Incorrect properties for OID category RDN Attribute type.");
-            if (additionalProperties.getCode() == null)
-                throw new ValidationException("Code must not be empty for OID with category RDN Attribute type.");
             rdnAttributeTypeOidEntry.setCode(additionalProperties.getCode());
             rdnAttributeTypeOidEntry.setAltCodes(additionalProperties.getAltCodes());
             responseAdditionalProperties = rdnAttributeTypeOidEntry.mapToPropertiesDto();
@@ -121,7 +118,7 @@ public class OidEntryServiceImpl implements OidEntryService {
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
     public void deleteOidEntry(String oid) throws NotFoundException {
-        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException("OID Entry", oid));
+        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         oidEntryRepository.delete(oidEntry);
     }
 
