@@ -10,7 +10,8 @@ import java.util.List;
 public enum SearchFieldTypeEnum {
 
     STRING(FilterFieldType.STRING,
-            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH)
+            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH,
+                    FilterConditionOperator.MATCHES, FilterConditionOperator.NOT_MATCHES)
             , false, null),
     DATE(FilterFieldType.DATE,
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.GREATER, FilterConditionOperator.GREATER_OR_EQUAL, FilterConditionOperator.LESSER, FilterConditionOperator.LESSER_OR_EQUAL, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY,
@@ -27,11 +28,8 @@ public enum SearchFieldTypeEnum {
             List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
             , true, null),
     BOOLEAN(FilterFieldType.BOOLEAN,
-         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY)
-            , false, Boolean.class),
-    OTHERS_AS_STRING(FilterFieldType.STRING,
-            List.of(FilterConditionOperator.CONTAINS, FilterConditionOperator.NOT_CONTAINS, FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.STARTS_WITH, FilterConditionOperator.ENDS_WITH)
-            , false, null);
+         List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY), false, Boolean.class)
+    ;
 
 
     private FilterFieldType fieldType;
