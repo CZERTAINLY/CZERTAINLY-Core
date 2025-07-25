@@ -362,8 +362,8 @@ public class CertificateUtil {
             discoveryCertificate.setCertificateContent(entry.getCertificateContent());
         } else {
             Certificate certificateModal = new Certificate();
-            CertificateUtil.setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getSubjectX500Principal().getEncoded()));
-            CertificateUtil.setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getIssuerX500Principal().getEncoded()));
+            setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getSubjectX500Principal().getEncoded()));
+            setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getIssuerX500Principal().getEncoded()));
             discoveryCertificate.setCommonName(certificateModal.getCommonName());
             discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
             discoveryCertificate.setSerialNumber(certificate.getSerialNumber().toString(16));
@@ -421,8 +421,8 @@ public class CertificateUtil {
 
         byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
-        CertificateUtil.setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
-        CertificateUtil.setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), issuerDnPrincipalEncoded));
+        setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
+        setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), issuerDnPrincipalEncoded));
         modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
@@ -486,7 +486,7 @@ public class CertificateUtil {
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(certificateRequest.getSubjectAlternativeNames()));
     }
 
-    public static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
+    private static void setIssuerDNParams(Certificate modal, X500Name issuerDN) {
         modal.setIssuerDn(issuerDN.toString());
 
         for (RDN i : issuerDN.getRDNs()) {
@@ -498,7 +498,7 @@ public class CertificateUtil {
         }
     }
 
-    public static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
+    private static void setSubjectDNParams(Certificate modal, X500Name subjectDN) {
         modal.setSubjectDn(subjectDN.toString());
 
         for (RDN i : subjectDN.getRDNs()) {
