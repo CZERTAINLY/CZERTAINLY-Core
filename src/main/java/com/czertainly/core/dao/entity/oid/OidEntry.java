@@ -30,20 +30,21 @@ public class OidEntry {
 
     public OidEntryResponseDto mapToDto() {
         OidEntryResponseDto dto = new OidEntryResponseDto();
-        dto.setOid(oid);
-        dto.setCategory(category);
-        dto.setDescription(description);
-        dto.setDisplayName(displayName);
+        populateBaseDtoFields(dto);
         return dto;
     }
 
     public OidEntryDetailResponseDto mapToDetailDto() {
         OidEntryDetailResponseDto dto = new OidEntryDetailResponseDto();
+        populateBaseDtoFields(dto);
+        return dto;
+    }
+
+    private void populateBaseDtoFields(OidEntryResponseDto dto) {
         dto.setOid(oid);
         dto.setCategory(category);
         dto.setDescription(description);
         dto.setDisplayName(displayName);
-        return dto;
     }
 
 }

@@ -1385,9 +1385,8 @@ public class CertificateServiceImpl implements CertificateService {
 
         Certificate certificate = new Certificate();
         // prepare certificate request data for certificate
-        CertificateUtil.prepareCsrObject(certificate, request);
         Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
-        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), request.getSubject()));
+        CertificateUtil.prepareCsrObject(certificate, request, oidToCodeMap);
 
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);

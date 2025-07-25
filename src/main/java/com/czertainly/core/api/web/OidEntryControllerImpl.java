@@ -59,7 +59,7 @@ public class OidEntryControllerImpl implements OidEntryController {
     }
 
     @Override
-    @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION_PROFILE, operation = Operation.LIST)
+    @AuditLogged(module = Module.CORE, resource = Resource.OID, operation = Operation.LIST)
     public OidEntryListResponseDto listOidEntries(SearchRequestDto searchRequestDto) {
         return oidEntryService.listOidEntries(searchRequestDto);
     }

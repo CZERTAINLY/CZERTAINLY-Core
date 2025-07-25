@@ -20,7 +20,6 @@ import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.*;
-import org.bouncycastle.asn1.x500.X500Name;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -143,16 +142,8 @@ public class CertificateHandler {
                 String fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
                 Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
 
-                discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert);
-                if (existingCertificate == null) {
-                    Certificate certificateModal = new Certificate();
-                    Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
-                    CertificateUtil.setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), x509Cert.getSubjectX500Principal().getEncoded()));
-                    CertificateUtil.setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), x509Cert.getIssuerX500Principal().getEncoded()));
-                    discoveryCertificate.setCommonName(certificateModal.getCommonName());
-                    discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
-                }
-
+                Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+                discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert, oidToCodeMap);
                 discoveryCertificate.setDiscovery(discovery);
                 discoveryCertificate.setNewlyDiscovered(existingCertificate == null);
                 discoveryCertificate.setMeta(certificate.getMeta());

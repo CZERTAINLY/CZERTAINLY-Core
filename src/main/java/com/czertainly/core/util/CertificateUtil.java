@@ -351,7 +351,7 @@ public class CertificateUtil {
                 .replace("\n", "");
     }
 
-    public static DiscoveryCertificate prepareDiscoveryCertificate(Certificate entry, X509Certificate certificate) {
+    public static DiscoveryCertificate prepareDiscoveryCertificate(Certificate entry, X509Certificate certificate, Map<String, String> oidToCodeMap) {
         DiscoveryCertificate discoveryCertificate = new DiscoveryCertificate();
         if (entry != null) {
             discoveryCertificate.setCommonName(entry.getCommonName());
@@ -361,6 +361,11 @@ public class CertificateUtil {
             discoveryCertificate.setNotBefore(entry.getNotBefore());
             discoveryCertificate.setCertificateContent(entry.getCertificateContent());
         } else {
+            Certificate certificateModal = new Certificate();
+            CertificateUtil.setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getSubjectX500Principal().getEncoded()));
+            CertificateUtil.setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getIssuerX500Principal().getEncoded()));
+            discoveryCertificate.setCommonName(certificateModal.getCommonName());
+            discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
             discoveryCertificate.setSerialNumber(certificate.getSerialNumber().toString(16));
             discoveryCertificate.setNotAfter(certificate.getNotAfter());
             discoveryCertificate.setNotBefore(certificate.getNotBefore());
@@ -417,7 +422,7 @@ public class CertificateUtil {
         byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
         CertificateUtil.setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
-        CertificateUtil.setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false,oidToCodeMap), issuerDnPrincipalEncoded));
+        CertificateUtil.setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), issuerDnPrincipalEncoded));
         modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
@@ -460,7 +465,7 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
+    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest, Map<String, String> oidToCodeMap) throws NoSuchAlgorithmException, CertificateRequestException {
         if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
@@ -468,6 +473,7 @@ public class CertificateUtil {
                     )
             );
         }
+        setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificateRequest.getSubject()));
         try {
             modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {
