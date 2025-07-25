@@ -171,7 +171,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
     @Test
     void testCertificateEvaluatorOnProperties() throws RuleException {
-
         certificate.setCommonName("Common Name");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
@@ -195,6 +194,16 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.ENDS_WITH);
         condition.setValue("eE");
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.MATCHES);
+        condition.setValue("^\\\\d"); // starts with a number
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue("^(?:[^m]*m){3}[^m]*$"); // contains exactly 3 'm'
+        condition.setOperator(FilterConditionOperator.NOT_MATCHES);
+        condition.setValue("^\\\\d"); // starts with a number
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue("^(?:[^m]*m){3}[^m]*$"); // contains exactly 3 'm'
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
         certificate.setCommonName(null);
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
@@ -264,8 +273,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(List.of("loc"));
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
-
-
     }
 
     @Test
