@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.oid.*;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 
 import java.util.List;
 import java.util.Map;
@@ -10,7 +11,7 @@ import java.util.Map;
 /**
  * Service for managing OID entries.
  */
-public interface OidEntryService extends ResourceExtensionService {
+public interface OidEntryService {
 
     /**
      * Creates a new OID entry.
@@ -59,7 +60,26 @@ public interface OidEntryService extends ResourceExtensionService {
      */
     OidEntryListResponseDto listOidEntries(SearchRequestDto request);
 
+
+    /**
+     * Returns a list of properties for filtering OID entries
+     *
+     * @return list of properties for filtering OID entries
+     */
+    List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
+
+    /**
+     * Returns a map of OID to display name for given category
+     *
+     * @param oidCategory category to retrieve map for
+     * @return map of OID to display name
+     */
     Map<String, String> getOidToDisplayNameMap(OidCategory oidCategory);
 
+    /**
+     * Returns a map of OID to code for RDN Attribute Type
+     *
+     * @return map of OID to display name
+     */
     Map<String, String> getOidToCodeMap();
 }

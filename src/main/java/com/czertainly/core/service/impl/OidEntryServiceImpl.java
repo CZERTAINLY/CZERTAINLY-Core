@@ -3,18 +3,22 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.oid.*;
+import com.czertainly.api.model.core.search.FilterFieldSource;
+import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
+import com.czertainly.api.model.core.search.SearchFieldDataDto;
+import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.oid.*;
 import com.czertainly.core.dao.repository.OidEntryRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
-import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.OidEntryService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
+import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.criteria.CriteriaBuilder;
 import jakarta.persistence.criteria.CriteriaQuery;
 import jakarta.persistence.criteria.Predicate;
@@ -26,9 +30,7 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.OID)
@@ -150,6 +152,22 @@ public class OidEntryServiceImpl implements OidEntryService {
     }
 
     @Override
+    public List<SearchFieldDataByGroupDto> getSearchableFieldInformation() {
+        List<SearchFieldDataByGroupDto> searchFieldDataByGroupDtos = new ArrayList<>();
+        List<SearchFieldDataDto> fields = List.of(
+                SearchHelper.prepareSearch(FilterField.OID_ENTRY_DISPLAY_NAME),
+                SearchHelper.prepareSearch(FilterField.OID_ENTRY_OID),
+                SearchHelper.prepareSearch(FilterField.OID_ENTRY_CODE),
+                SearchHelper.prepareSearch(FilterField.OID_ENTRY_CATEGORY, Arrays.stream(OidCategory.values()).map(OidCategory::getCode).toList())
+        );
+        fields = new ArrayList<>(fields);
+        fields.sort(new SearchFieldDataComparator());
+        searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fields, FilterFieldSource.PROPERTY));
+
+        return searchFieldDataByGroupDtos;
+    }
+
+    @Override
     public Map<String, String> getOidToDisplayNameMap(OidCategory oidCategory) {
         Map<String, String> oidToDisplayNameMap = new HashMap<>(SystemOid.getMapOfOidToDisplayName(oidCategory));
         oidToDisplayNameMap.putAll(oidEntryRepository.findAllByCategory(oidCategory)
@@ -164,15 +182,5 @@ public class OidEntryServiceImpl implements OidEntryService {
                 .stream().collect(Collectors.toMap(OidEntry::getOid, oidEntry ->
                         ((RdnAttributeTypeOidEntry)oidEntry).getCode())));
         return oidToCodeMap;
-    }
-
-    @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        throw new UnsupportedOperationException();
-    }
-
-    @Override
-    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
-
     }
 }

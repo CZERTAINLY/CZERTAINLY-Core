@@ -67,6 +67,6 @@ public class OidEntryControllerImpl implements OidEntryController {
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.SEARCH_FILTER, affiliatedResource = Resource.OID, operation = Operation.LIST)
     public List<SearchFieldDataByGroupDto> getSearchableInformation() {
-        return List.of();
+        return oidEntryService.getSearchableFieldInformation();
     }
 }
