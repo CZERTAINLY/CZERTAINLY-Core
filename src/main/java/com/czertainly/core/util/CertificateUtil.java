@@ -369,7 +369,7 @@ public class CertificateUtil {
         return discoveryCertificate;
     }
 
-    public static void prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
+    public static void prepareIssuedCertificate(Certificate modal, X509Certificate certificate, Map<String, String> oidToCodeMap) {
         modal.setState(CertificateState.ISSUED);
         modal.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
@@ -414,9 +414,14 @@ public class CertificateUtil {
         modal.setKeyUsage(
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
 
+        byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
+        byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
+        CertificateUtil.setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
+        CertificateUtil.setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false,oidToCodeMap), issuerDnPrincipalEncoded));
+        modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
+        modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
         modal.setSubjectType(subjectType);
-
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)
             modal.setTrustedCa(false);

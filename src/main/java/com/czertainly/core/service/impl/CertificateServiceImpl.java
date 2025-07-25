@@ -299,9 +299,11 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
         CertificateDetailDto dto = certificate.mapToDto();
-        Map<String, String> oidToName = oidEntryService.getOidToDisplayNameMap(OidCategory.EXTENDED_KEY_USAGE);
-        List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid): oid).toList();
-        dto.setExtendedKeyUsage(extendedKeyUsageNames);
+        if (dto.getExtendedKeyUsage() != null) {
+            Map<String, String> oidToName = oidEntryService.getOidToDisplayNameMap(OidCategory.EXTENDED_KEY_USAGE);
+            List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid) : oid).toList();
+            dto.setExtendedKeyUsage(extendedKeyUsageNames);
+        }
 
         if (certificate.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(certificate.getComplianceResult()));
@@ -905,14 +907,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void prepareIssuedCertificate(Certificate certificate, X509Certificate x509Certificate) {
-        CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate);
-        byte[] subjectDnPrincipalEncoded = x509Certificate.getSubjectX500Principal().getEncoded();
-        byte[] issuerDnPrincipalEncoded = x509Certificate.getIssuerX500Principal().getEncoded();
         Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
-        CertificateUtil.setSubjectDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
-        CertificateUtil.setIssuerDNParams(certificate, X500Name.getInstance(new CzertainlyX500NameStyle(false,oidToCodeMap), issuerDnPrincipalEncoded));
-        certificate.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
-        certificate.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
+        CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate, oidToCodeMap);
     }
 
     @Override
