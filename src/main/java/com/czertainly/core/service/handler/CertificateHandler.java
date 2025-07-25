@@ -19,10 +19,7 @@ import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.service.*;
-import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.KeySizeUtil;
-import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.X509ObjectToString;
+import com.czertainly.core.util.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -56,6 +53,12 @@ public class CertificateHandler {
     private CertificateRepository certificateRepository;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
+    private OidEntryService oidEntryService;
+
+    @Autowired
+    public void setOidEntryService(OidEntryService oidEntryService) {
+        this.oidEntryService = oidEntryService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -139,7 +142,8 @@ public class CertificateHandler {
                 String fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
                 Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
 
-                discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert);
+                Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+                discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert, oidToCodeMap);
                 discoveryCertificate.setDiscovery(discovery);
                 discoveryCertificate.setNewlyDiscovered(existingCertificate == null);
                 discoveryCertificate.setMeta(certificate.getMeta());

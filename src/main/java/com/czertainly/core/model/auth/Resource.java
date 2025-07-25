@@ -19,6 +19,7 @@ public enum Resource {
     CONNECTOR("connectors"),
     ATTRIBUTE("attributes"),
     SCHEDULED_JOB("jobs"),
+    OID("oids"),
 
     // AUTH
     USER("users"),
