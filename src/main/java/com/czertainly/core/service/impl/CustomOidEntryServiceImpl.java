@@ -10,12 +10,12 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.oid.*;
-import com.czertainly.core.dao.repository.OidEntryRepository;
+import com.czertainly.core.dao.repository.CustomOidEntryRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.OidEntryService;
+import com.czertainly.core.service.CustomOidEntryService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
 import com.czertainly.core.util.SearchHelper;
@@ -35,70 +35,70 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.OID)
 @Transactional
-public class OidEntryServiceImpl implements OidEntryService {
+public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
     public static final String OID_ENTRY = "OID Entry";
-    private OidEntryRepository oidEntryRepository;
+    private CustomOidEntryRepository customOidEntryRepository;
 
     @Autowired
-    public void setOidEntryRepository(OidEntryRepository oidEntryRepository) {
-        this.oidEntryRepository = oidEntryRepository;
+    public void setOidEntryRepository(CustomOidEntryRepository customOidEntryRepository) {
+        this.customOidEntryRepository = customOidEntryRepository;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.CREATE)
-    public OidEntryDetailResponseDto createOidEntry(OidEntryRequestDto request) {
+    public CustomOidEntryDetailResponseDto createCustomOidEntry(CustomOidEntryRequestDto request) {
         String oid = request.getOid();
         if (SystemOid.fromOID(oid) != null)
             throw new ValidationException("OID %s is reserved for system OID %s.".formatted(oid, SystemOid.fromOID(oid).getDisplayName()));
-        if (oidEntryRepository.existsById(oid))
+        if (customOidEntryRepository.existsById(oid))
             throw new ValidationException("OID Entry with OID %s already exists.".formatted(oid));
-        OidEntry oidEntry;
+        CustomOidEntry customOidEntry;
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
 
         switch (request.getCategory()) {
-            case GENERIC -> oidEntry = new GenericOidEntry();
-            case EXTENDED_KEY_USAGE -> oidEntry = new ExtendedKeyUsageOidEntry();
+            case GENERIC -> customOidEntry = new GenericCustomOidEntry();
+            case EXTENDED_KEY_USAGE -> customOidEntry = new ExtendedKeyUsageCustomOidEntry();
             case RDN_ATTRIBUTE_TYPE -> {
-                oidEntry = new RdnAttributeTypeOidEntry();
+                customOidEntry = new RdnAttributeTypeCustomOidEntry();
                 if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                     throw new ValidationException("Incorrect type of properties for OID category RDN Attribute type.");
-                ((RdnAttributeTypeOidEntry) oidEntry).setCode(additionalProperties.getCode());
-                ((RdnAttributeTypeOidEntry) oidEntry).setAltCodes(additionalProperties.getAltCodes());
-                responseAdditionalProperties = ((RdnAttributeTypeOidEntry) oidEntry).mapToPropertiesDto();
+                ((RdnAttributeTypeCustomOidEntry) customOidEntry).setCode(additionalProperties.getCode());
+                ((RdnAttributeTypeCustomOidEntry) customOidEntry).setAltCodes(additionalProperties.getAltCodes());
+                responseAdditionalProperties = ((RdnAttributeTypeCustomOidEntry) customOidEntry).mapToPropertiesDto();
             }
-            default -> oidEntry = new OidEntry();
+            default -> customOidEntry = new CustomOidEntry();
         }
 
-        oidEntry.setDisplayName(request.getDisplayName());
-        oidEntry.setCategory(request.getCategory());
-        oidEntry.setDescription(request.getDescription());
-        oidEntry.setOid(oid);
+        customOidEntry.setDisplayName(request.getDisplayName());
+        customOidEntry.setCategory(request.getCategory());
+        customOidEntry.setDescription(request.getDescription());
+        customOidEntry.setOid(oid);
 
-        oidEntryRepository.save(oidEntry);
+        customOidEntryRepository.save(customOidEntry);
 
-        OidEntryDetailResponseDto response = oidEntry.mapToDetailDto();
+        CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
         return response;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DETAIL)
-    public OidEntryDetailResponseDto getOidEntry(String oid) throws NotFoundException {
-        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
-        OidEntryDetailResponseDto response = oidEntry.mapToDetailDto();
-        if (oidEntry.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE)
-            response.setAdditionalProperties(((RdnAttributeTypeOidEntry) oidEntry).mapToPropertiesDto());
+    public CustomOidEntryDetailResponseDto getCustomOidEntry(String oid) throws NotFoundException {
+        CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
+        CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
+        if (customOidEntry.getCategory() == OidCategory.RDN_ATTRIBUTE_TYPE)
+            response.setAdditionalProperties(((RdnAttributeTypeCustomOidEntry) customOidEntry).mapToPropertiesDto());
         return response;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.UPDATE)
-    public OidEntryDetailResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException {
-        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
+    public CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request) throws NotFoundException {
+        CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
 
-        if (oidEntry instanceof RdnAttributeTypeOidEntry rdnAttributeTypeOidEntry) {
+        if (customOidEntry instanceof RdnAttributeTypeCustomOidEntry rdnAttributeTypeOidEntry) {
             if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                 throw new ValidationException("Incorrect properties for OID category RDN Attribute type.");
             rdnAttributeTypeOidEntry.setCode(additionalProperties.getCode());
@@ -106,40 +106,40 @@ public class OidEntryServiceImpl implements OidEntryService {
             responseAdditionalProperties = rdnAttributeTypeOidEntry.mapToPropertiesDto();
         }
 
-        oidEntry.setDisplayName(request.getDisplayName());
-        oidEntry.setDescription(request.getDescription());
-        oidEntryRepository.save(oidEntry);
+        customOidEntry.setDisplayName(request.getDisplayName());
+        customOidEntry.setDescription(request.getDescription());
+        customOidEntryRepository.save(customOidEntry);
 
-        OidEntryDetailResponseDto response = oidEntry.mapToDetailDto();
+        CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
         return response;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
-    public void deleteOidEntry(String oid) throws NotFoundException {
-        OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
-        oidEntryRepository.delete(oidEntry);
+    public void deleteCustomOidEntry(String oid) throws NotFoundException {
+        CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
+        customOidEntryRepository.delete(customOidEntry);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
-    public void bulkDeleteOidEntry(List<String> oids) {
-        oidEntryRepository.deleteAllById(oids);
+    public void bulkDeleteCustomOidEntry(List<String> oids) {
+        customOidEntryRepository.deleteAllById(oids);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.LIST)
-    public OidEntryListResponseDto listOidEntries(SearchRequestDto request) {
+    public CustomOidEntryListResponseDto listCustomOidEntries(SearchRequestDto request) {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final TriFunction<Root<OidEntry>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<OidEntryResponseDto> oidEntries = oidEntryRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(OidEntry_.oid)))
+        final TriFunction<Root<CustomOidEntry>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final List<CustomOidEntryResponseDto> oidEntries = customOidEntryRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(OidEntry_.oid)))
                 .stream()
-                .map(OidEntry::mapToDto).toList();
-        final Long totalItems = oidEntryRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
-        OidEntryListResponseDto response = new OidEntryListResponseDto();
+                .map(CustomOidEntry::mapToDto).toList();
+        final Long totalItems = customOidEntryRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+        CustomOidEntryListResponseDto response = new CustomOidEntryListResponseDto();
         response.setOidEntries(oidEntries);
         response.setItemsPerPage(request.getItemsPerPage());
         response.setPageNumber(request.getPageNumber());
@@ -167,17 +167,17 @@ public class OidEntryServiceImpl implements OidEntryService {
     @Override
     public Map<String, String> getOidToDisplayNameMap(OidCategory oidCategory) {
         Map<String, String> oidToDisplayNameMap = new HashMap<>(SystemOid.getMapOfOidToDisplayName(oidCategory));
-        oidToDisplayNameMap.putAll(oidEntryRepository.findAllByCategory(oidCategory)
-                .stream().collect(Collectors.toMap(OidEntry::getOid, OidEntry::getDisplayName)));
+        oidToDisplayNameMap.putAll(customOidEntryRepository.findAllByCategory(oidCategory)
+                .stream().collect(Collectors.toMap(CustomOidEntry::getOid, CustomOidEntry::getDisplayName)));
         return oidToDisplayNameMap;
     }
 
     @Override
     public Map<String, String> getOidToCodeMap() {
         Map<String, String> oidToCodeMap = new HashMap<>(SystemOid.getMapOfOidToCode());
-        oidToCodeMap.putAll(oidEntryRepository.findAllByCategory(OidCategory.RDN_ATTRIBUTE_TYPE)
-                .stream().collect(Collectors.toMap(OidEntry::getOid, oidEntry ->
-                        ((RdnAttributeTypeOidEntry)oidEntry).getCode())));
+        oidToCodeMap.putAll(customOidEntryRepository.findAllByCategory(OidCategory.RDN_ATTRIBUTE_TYPE)
+                .stream().collect(Collectors.toMap(CustomOidEntry::getOid, oidEntry ->
+                        ((RdnAttributeTypeCustomOidEntry)oidEntry).getCode())));
         return oidToCodeMap;
     }
 }

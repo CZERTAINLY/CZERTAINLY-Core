@@ -1,8 +1,7 @@
 package com.czertainly.core.util;
 
-import com.czertainly.core.service.OidEntryService;
+import com.czertainly.core.service.CustomOidEntryService;
 import org.bouncycastle.asn1.x500.X500Name;
-import org.jboss.jandex.VoidType;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -15,7 +14,7 @@ import java.util.Map;
 class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
 
     @Autowired
-    OidEntryService oidService;
+    CustomOidEntryService oidService;
 
     private Map<String,String> oidToCodeMap;
 

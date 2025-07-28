@@ -61,7 +61,6 @@ import jakarta.persistence.criteria.*;
 import org.apache.commons.lang3.function.TriFunction;
 import org.bouncycastle.asn1.ASN1Primitive;
 import org.bouncycastle.asn1.cms.ContentInfo;
-import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.bouncycastle.cert.jcajce.JcaCertStore;
 import org.bouncycastle.cms.CMSProcessableByteArray;
@@ -129,7 +128,7 @@ public class CertificateServiceImpl implements CertificateService {
     private CertificateApiClient certificateApiClient;
     private UserManagementApiClient userManagementApiClient;
     private CrlService crlService;
-    private OidEntryService oidEntryService;
+    private CustomOidEntryService customOidEntryService;
 
     private AttributeEngine attributeEngine;
     private ExtendedAttributeService extendedAttributeService;
@@ -149,8 +148,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Autowired
-    public void setOidEntryService(OidEntryService oidEntryService) {
-        this.oidEntryService = oidEntryService;
+    public void setOidEntryService(CustomOidEntryService customOidEntryService) {
+        this.customOidEntryService = customOidEntryService;
     }
 
     @Autowired
@@ -300,7 +299,7 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
         CertificateDetailDto dto = certificate.mapToDto();
         if (dto.getExtendedKeyUsage() != null) {
-            Map<String, String> oidToName = oidEntryService.getOidToDisplayNameMap(OidCategory.EXTENDED_KEY_USAGE);
+            Map<String, String> oidToName = customOidEntryService.getOidToDisplayNameMap(OidCategory.EXTENDED_KEY_USAGE);
             List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid) : oid).toList();
             dto.setExtendedKeyUsage(extendedKeyUsageNames);
         }
@@ -907,7 +906,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private void prepareIssuedCertificate(Certificate certificate, X509Certificate x509Certificate) {
-        Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+        Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
         CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate, oidToCodeMap);
     }
 
@@ -1385,7 +1384,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         Certificate certificate = new Certificate();
         // prepare certificate request data for certificate
-        Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+        Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
         CertificateUtil.prepareCsrObject(certificate, request, oidToCodeMap);
 
         certificate.setState(CertificateState.REQUESTED);

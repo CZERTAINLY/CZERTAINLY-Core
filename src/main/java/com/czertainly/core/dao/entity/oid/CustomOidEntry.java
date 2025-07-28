@@ -1,8 +1,8 @@
 package com.czertainly.core.dao.entity.oid;
 
 import com.czertainly.api.model.core.oid.OidCategory;
-import com.czertainly.api.model.core.oid.OidEntryDetailResponseDto;
-import com.czertainly.api.model.core.oid.OidEntryResponseDto;
+import com.czertainly.api.model.core.oid.CustomOidEntryDetailResponseDto;
+import com.czertainly.api.model.core.oid.CustomOidEntryResponseDto;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -12,7 +12,7 @@ import lombok.Setter;
 @DiscriminatorColumn(name = "category")
 @Getter
 @Setter
-public class OidEntry {
+public class CustomOidEntry {
 
     @Id
     @Column(name = "oid", nullable = false, updatable = false)
@@ -28,19 +28,19 @@ public class OidEntry {
     @Enumerated(EnumType.STRING)
     private OidCategory category;
 
-    public OidEntryResponseDto mapToDto() {
-        OidEntryResponseDto dto = new OidEntryResponseDto();
+    public CustomOidEntryResponseDto mapToDto() {
+        CustomOidEntryResponseDto dto = new CustomOidEntryResponseDto();
         populateBaseDtoFields(dto);
         return dto;
     }
 
-    public OidEntryDetailResponseDto mapToDetailDto() {
-        OidEntryDetailResponseDto dto = new OidEntryDetailResponseDto();
+    public CustomOidEntryDetailResponseDto mapToDetailDto() {
+        CustomOidEntryDetailResponseDto dto = new CustomOidEntryDetailResponseDto();
         populateBaseDtoFields(dto);
         return dto;
     }
 
-    private void populateBaseDtoFields(OidEntryResponseDto dto) {
+    private void populateBaseDtoFields(CustomOidEntryResponseDto dto) {
         dto.setOid(oid);
         dto.setCategory(category);
         dto.setDescription(description);

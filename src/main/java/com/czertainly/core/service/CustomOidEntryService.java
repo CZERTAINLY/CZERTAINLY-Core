@@ -11,58 +11,58 @@ import java.util.Map;
 /**
  * Service for managing OID entries.
  */
-public interface OidEntryService {
+public interface CustomOidEntryService {
 
     /**
-     * Creates a new OID entry.
+     * Creates a new custom OID entry.
      *
-     * @param request the OID entry creation request
-     * @return details of the created OID entry
+     * @param request the custom OID entry creation request
+     * @return details of the created custom OID entry
      */
-    OidEntryDetailResponseDto createOidEntry(OidEntryRequestDto request);
+    CustomOidEntryDetailResponseDto createCustomOidEntry(CustomOidEntryRequestDto request);
 
     /**
-     * Retrieves an OID entry by its OID value.
+     * Retrieves a custom OID entry by its OID value.
      *
      * @param oid the OID string
-     * @return details of the requested OID entry
+     * @return details of the requested custom OID entry
      */
-    OidEntryDetailResponseDto getOidEntry(String oid) throws NotFoundException;
+    CustomOidEntryDetailResponseDto getCustomOidEntry(String oid) throws NotFoundException;
 
     /**
-     * Edits an existing OID entry.
+     * Edits an existing custom OID entry.
      *
      * @param oid     the OID to update
      * @param request the update request data
-     * @return updated basic information of the OID entry
+     * @return updated basic information of the custom OID entry
      */
-    OidEntryDetailResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException;
+    CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request) throws NotFoundException;
 
     /**
-     * Deletes an OID entry by its OID.
+     * Deletes a custom OID entry by its OID.
      *
      * @param oid the OID to delete
      */
-    void deleteOidEntry(String oid) throws NotFoundException;
+    void deleteCustomOidEntry(String oid) throws NotFoundException;
 
     /**
-     * Deletes multiple OID entries in batch.
+     * Deletes multiple custom OID entries in batch.
      *
      * @param oids list of OIDs to delete
      */
-    void bulkDeleteOidEntry(List<String> oids);
+    void bulkDeleteCustomOidEntry(List<String> oids);
 
     /**
-     * Returns a filtered and paginated list of OID entries.
+     * Returns a filtered and paginated list of custom OID entries.
      *
      * @param request search and pagination criteria
      * @return list of OID entry responses matching the criteria
      */
-    OidEntryListResponseDto listOidEntries(SearchRequestDto request);
+    CustomOidEntryListResponseDto listCustomOidEntries(SearchRequestDto request);
 
 
     /**
-     * Returns a list of properties for filtering OID entries
+     * Returns a list of properties for filtering custom OID entries
      *
      * @return list of properties for filtering OID entries
      */

@@ -31,7 +31,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ComplianceService;
-import com.czertainly.core.service.OidEntryService;
+import com.czertainly.core.service.CustomOidEntryService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.RaProfileService;
 import com.czertainly.core.service.model.SecuredList;
@@ -80,7 +80,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
-    private OidEntryService oidEntryService;
+    private CustomOidEntryService customOidEntryService;
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
@@ -640,7 +640,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 certificateDetailDtos.add(existingCertificate.get().mapToDto());
             } else {
                 Certificate modal = new Certificate();
-                Map<String,String> oidToCodeMap = oidEntryService.getOidToCodeMap();
+                Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
                 CertificateUtil.prepareIssuedCertificate(modal, certificate, oidToCodeMap);
                 CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
                 if (certificateContent == null) {
@@ -823,7 +823,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Autowired
-    public void setOidEntryService(OidEntryService oidEntryService) {
-        this.oidEntryService = oidEntryService;
+    public void setOidEntryService(CustomOidEntryService customOidEntryService) {
+        this.customOidEntryService = customOidEntryService;
     }
 }

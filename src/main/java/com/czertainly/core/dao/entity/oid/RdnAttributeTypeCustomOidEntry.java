@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.entity.oid;
 
-import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.api.model.core.oid.RdnAttributeTypeOidPropertiesDto;
 import jakarta.persistence.Column;
 import jakarta.persistence.DiscriminatorValue;
@@ -15,7 +14,7 @@ import java.util.List;
 @Getter
 @Setter
 @DiscriminatorValue("RDN_ATTRIBUTE_TYPE")
-public class RdnAttributeTypeOidEntry extends OidEntry {
+public class RdnAttributeTypeCustomOidEntry extends CustomOidEntry {
 
     @Column(name = "code")
     private String code;

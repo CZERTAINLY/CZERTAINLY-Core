@@ -1,4 +1,4 @@
-CREATE TABLE oid_entry (
+CREATE TABLE custom_oid_entry (
     oid TEXT PRIMARY KEY,
     display_name TEXT NOT NULL,
     description TEXT,

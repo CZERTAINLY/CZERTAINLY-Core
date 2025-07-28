@@ -4,6 +4,6 @@ import jakarta.persistence.DiscriminatorValue;
 import jakarta.persistence.Entity;
 
 @Entity
-@DiscriminatorValue("EXTENDED_KEY_USAGE")
-public class ExtendedKeyUsageOidEntry extends OidEntry {
+@DiscriminatorValue("GENERIC")
+public class GenericCustomOidEntry extends CustomOidEntry {
 }

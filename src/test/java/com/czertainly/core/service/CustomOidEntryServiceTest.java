@@ -8,10 +8,10 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.oid.*;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
-import com.czertainly.core.dao.entity.oid.GenericOidEntry;
-import com.czertainly.core.dao.entity.oid.OidEntry;
-import com.czertainly.core.dao.entity.oid.RdnAttributeTypeOidEntry;
-import com.czertainly.core.dao.repository.OidEntryRepository;
+import com.czertainly.core.dao.entity.oid.CustomOidEntry;
+import com.czertainly.core.dao.entity.oid.GenericCustomOidEntry;
+import com.czertainly.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry;
+import com.czertainly.core.dao.repository.CustomOidEntryRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -21,88 +21,88 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
 
-class OidEntryServiceTest extends BaseSpringBootTest {
+class CustomOidEntryServiceTest extends BaseSpringBootTest {
 
     public static final String NON_EXISTENT_OID = "1.2";
     @Autowired
-    OidEntryService oidEntryService;
+    CustomOidEntryService customOidEntryService;
 
     @Autowired
-    OidEntryRepository oidEntryRepository;
+    CustomOidEntryRepository customOidEntryRepository;
 
-    private OidEntry genericOidEntry;
-    private RdnAttributeTypeOidEntry rdnOidEntry;
+    private CustomOidEntry genericCustomOidEntry;
+    private RdnAttributeTypeCustomOidEntry rdnOidEntry;
 
     @BeforeEach
     void setUp() {
-        genericOidEntry = new GenericOidEntry();
-        genericOidEntry.setCategory(OidCategory.GENERIC);
-        genericOidEntry.setDescription("desc");
-        genericOidEntry.setDisplayName("generic");
-        genericOidEntry.setOid("1.2.3.4.5");
-        oidEntryRepository.save(genericOidEntry);
+        genericCustomOidEntry = new GenericCustomOidEntry();
+        genericCustomOidEntry.setCategory(OidCategory.GENERIC);
+        genericCustomOidEntry.setDescription("desc");
+        genericCustomOidEntry.setDisplayName("generic");
+        genericCustomOidEntry.setOid("1.2.3.4.5");
+        customOidEntryRepository.save(genericCustomOidEntry);
 
-        rdnOidEntry = new RdnAttributeTypeOidEntry();
+        rdnOidEntry = new RdnAttributeTypeCustomOidEntry();
         rdnOidEntry.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
         rdnOidEntry.setDescription("desc");
         rdnOidEntry.setDisplayName("rdn");
         rdnOidEntry.setOid("1.2.3.4.6");
         rdnOidEntry.setCode("RDN");
         rdnOidEntry.setAltCodes(List.of("R","D"));
-        oidEntryRepository.save(rdnOidEntry);
+        customOidEntryRepository.save(rdnOidEntry);
     }
 
     @Test
-    void testCreateOidEntry() {
-        OidEntryRequestDto request = new OidEntryRequestDto();
+    void testCreateCustomOidEntry() {
+        CustomOidEntryRequestDto request = new CustomOidEntryRequestDto();
         request.setOid("1.2.3");
         request.setCategory(OidCategory.GENERIC);
         request.setDescription("desc");
         request.setDisplayName("display name");
-        OidEntryDetailResponseDto response = oidEntryService.createOidEntry(request);
+        CustomOidEntryDetailResponseDto response = customOidEntryService.createCustomOidEntry(request);
         Assertions.assertEquals(request.getOid(), response.getOid());
         Assertions.assertEquals(request.getCategory(), response.getCategory());
         Assertions.assertEquals(request.getAdditionalProperties(), response.getAdditionalProperties());
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getDisplayName(), response.getDisplayName());
-        OidEntry oidEntry = oidEntryRepository.findById(request.getOid()).orElse(null);
-        Assertions.assertNotNull(oidEntry);
-        Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
+        CustomOidEntry customOidEntry = customOidEntryRepository.findById(request.getOid()).orElse(null);
+        Assertions.assertNotNull(customOidEntry);
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         request.setOid(SystemOid.COUNTRY.getOid());
-        Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
 
         request.setOid("1.2.3.4");
         request.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
-        Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         request.setAdditionalProperties(propertiesDto);
-        Assertions.assertThrows(ValidationException.class, () -> oidEntryService.createOidEntry(request));
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         propertiesDto.setCode("CN");
         propertiesDto.setAltCodes(List.of("CN1","CN2"));
         request.setAdditionalProperties(propertiesDto);
-        response = oidEntryService.createOidEntry(request);
+        response = customOidEntryService.createCustomOidEntry(request);
         Assertions.assertEquals(request.getOid(), response.getOid());
         Assertions.assertEquals(request.getCategory(), response.getCategory());
         Assertions.assertEquals(request.getAdditionalProperties(), response.getAdditionalProperties());
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getDisplayName(), response.getDisplayName());
-        Assertions.assertTrue(oidEntryRepository.existsById(request.getOid()));
+        Assertions.assertTrue(customOidEntryRepository.existsById(request.getOid()));
         Assertions.assertEquals(propertiesDto.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
         Assertions.assertEquals(propertiesDto.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
     }
 
     @Test
-    void testGetOidEntry() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> oidEntryService.getOidEntry(NON_EXISTENT_OID));
-        OidEntryDetailResponseDto response = oidEntryService.getOidEntry(genericOidEntry.getOid());
-        Assertions.assertEquals(genericOidEntry.getOid(), response.getOid());
-        Assertions.assertEquals(genericOidEntry.getCategory(), response.getCategory());
+    void testGetCustomOidEntry() throws NotFoundException {
+        Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.getCustomOidEntry(NON_EXISTENT_OID));
+        CustomOidEntryDetailResponseDto response = customOidEntryService.getCustomOidEntry(genericCustomOidEntry.getOid());
+        Assertions.assertEquals(genericCustomOidEntry.getOid(), response.getOid());
+        Assertions.assertEquals(genericCustomOidEntry.getCategory(), response.getCategory());
         Assertions.assertNull(response.getAdditionalProperties());
-        Assertions.assertEquals(genericOidEntry.getDescription(), response.getDescription());
-        Assertions.assertEquals(genericOidEntry.getDisplayName(), response.getDisplayName());
+        Assertions.assertEquals(genericCustomOidEntry.getDescription(), response.getDescription());
+        Assertions.assertEquals(genericCustomOidEntry.getDisplayName(), response.getDisplayName());
 
 
-        response = oidEntryService.getOidEntry(rdnOidEntry.getOid());
+        response = customOidEntryService.getCustomOidEntry(rdnOidEntry.getOid());
         Assertions.assertEquals(rdnOidEntry.getOid(), response.getOid());
         Assertions.assertEquals(rdnOidEntry.getCategory(), response.getCategory());
         Assertions.assertEquals(rdnOidEntry.getDescription(), response.getDescription());
@@ -113,52 +113,52 @@ class OidEntryServiceTest extends BaseSpringBootTest {
 
     @Test
     void testRemoveOidEntry() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> oidEntryService.deleteOidEntry(NON_EXISTENT_OID));
-        oidEntryService.deleteOidEntry(genericOidEntry.getOid());
-        Assertions.assertTrue(oidEntryRepository.findById(genericOidEntry.getOid()).isEmpty());
+        Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.deleteCustomOidEntry(NON_EXISTENT_OID));
+        customOidEntryService.deleteCustomOidEntry(genericCustomOidEntry.getOid());
+        Assertions.assertTrue(customOidEntryRepository.findById(genericCustomOidEntry.getOid()).isEmpty());
     }
 
     @Test
     void testBulkDeleteOidEntries() {
-        oidEntryService.bulkDeleteOidEntry(List.of(NON_EXISTENT_OID, genericOidEntry.getOid(), rdnOidEntry.getOid()));
-        Assertions.assertTrue(oidEntryRepository.findAll().isEmpty());
+        customOidEntryService.bulkDeleteCustomOidEntry(List.of(NON_EXISTENT_OID, genericCustomOidEntry.getOid(), rdnOidEntry.getOid()));
+        Assertions.assertTrue(customOidEntryRepository.findAll().isEmpty());
     }
 
     @Test
-    void testListOidEntries() {
-        OidEntryListResponseDto response = oidEntryService.listOidEntries(new SearchRequestDto());
+    void testListCustomOidEntries() {
+        CustomOidEntryListResponseDto response = customOidEntryService.listCustomOidEntries(new SearchRequestDto());
         Assertions.assertEquals(2, response.getOidEntries().size());
 
         SearchRequestDto searchRequestDto = new SearchRequestDto();
         SearchFilterRequestDto filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CATEGORY.name(), FilterConditionOperator.EQUALS, OidCategory.GENERIC.getCode());
         searchRequestDto.setFilters(List.of(filterRequestDto));
-        response = oidEntryService.listOidEntries(searchRequestDto);
+        response = customOidEntryService.listCustomOidEntries(searchRequestDto);
         Assertions.assertEquals(1, response.getOidEntries().size());
-        Assertions.assertEquals(genericOidEntry.getOid(), response.getOidEntries().getFirst().getOid());
+        Assertions.assertEquals(genericCustomOidEntry.getOid(), response.getOidEntries().getFirst().getOid());
 
         filterRequestDto = new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.OID_ENTRY_CODE.name(), FilterConditionOperator.EQUALS, rdnOidEntry.getCode());
         searchRequestDto.setFilters(List.of(filterRequestDto));
-        response = oidEntryService.listOidEntries(searchRequestDto);
+        response = customOidEntryService.listCustomOidEntries(searchRequestDto);
         Assertions.assertEquals(1, response.getOidEntries().size());
         Assertions.assertEquals(rdnOidEntry.getOid(), response.getOidEntries().getFirst().getOid());
     }
 
     @Test
     void testUpdateOidEntry() throws NotFoundException {
-        Assertions.assertThrows(NotFoundException.class, () -> oidEntryService.editOidEntry(NON_EXISTENT_OID, new OidEntryUpdateRequestDto()));
-        OidEntryUpdateRequestDto request = new OidEntryUpdateRequestDto();
+        Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.editCustomOidEntry(NON_EXISTENT_OID, new CustomOidEntryUpdateRequestDto()));
+        CustomOidEntryUpdateRequestDto request = new CustomOidEntryUpdateRequestDto();
         request.setDisplayName("generic2");
         request.setDescription("newDesc");
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         propertiesDto.setCode("G");
         request.setAdditionalProperties(propertiesDto);
-        oidEntryService.editOidEntry(genericOidEntry.getOid(), request);
-        genericOidEntry = oidEntryRepository.findById(genericOidEntry.getOid()).get();
-        Assertions.assertEquals(request.getDisplayName(), genericOidEntry.getDisplayName());
-        Assertions.assertEquals(request.getDescription(), genericOidEntry.getDescription());
+        customOidEntryService.editCustomOidEntry(genericCustomOidEntry.getOid(), request);
+        genericCustomOidEntry = customOidEntryRepository.findById(genericCustomOidEntry.getOid()).get();
+        Assertions.assertEquals(request.getDisplayName(), genericCustomOidEntry.getDisplayName());
+        Assertions.assertEquals(request.getDescription(), genericCustomOidEntry.getDescription());
 
-        oidEntryService.editOidEntry(rdnOidEntry.getOid(), request);
-        rdnOidEntry = (RdnAttributeTypeOidEntry) oidEntryRepository.findById(rdnOidEntry.getOid()).get();
+        customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request);
+        rdnOidEntry = (RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(rdnOidEntry.getOid()).get();
         Assertions.assertEquals(request.getDisplayName(), rdnOidEntry.getDisplayName());
         Assertions.assertEquals(request.getDescription(), rdnOidEntry.getDescription());
         Assertions.assertEquals(propertiesDto.getCode(), rdnOidEntry.getCode());
