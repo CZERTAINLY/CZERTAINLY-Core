@@ -94,7 +94,7 @@ public class OidEntryServiceImpl implements OidEntryService {
 
     @Override
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.UPDATE)
-    public OidEntryResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException {
+    public OidEntryDetailResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException {
         OidEntry oidEntry = oidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
 

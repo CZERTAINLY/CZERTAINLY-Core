@@ -36,7 +36,7 @@ public interface OidEntryService {
      * @param request the update request data
      * @return updated basic information of the OID entry
      */
-    OidEntryResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException;
+    OidEntryDetailResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto request) throws NotFoundException;
 
     /**
      * Deletes an OID entry by its OID.

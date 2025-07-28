@@ -6,10 +6,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.oid.OidEntryListResponseDto;
-import com.czertainly.api.model.core.oid.OidEntryRequestDto;
-import com.czertainly.api.model.core.oid.OidEntryResponseDto;
-import com.czertainly.api.model.core.oid.OidEntryUpdateRequestDto;
+import com.czertainly.api.model.core.oid.*;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.service.OidEntryService;
@@ -30,19 +27,19 @@ public class OidEntryControllerImpl implements OidEntryController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.OID, operation = Operation.CREATE)
-    public OidEntryResponseDto createOidEntry(OidEntryRequestDto requestDto) {
+    public OidEntryDetailResponseDto createOidEntry(OidEntryRequestDto requestDto) {
         return oidEntryService.createOidEntry(requestDto);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.OID, operation = Operation.DETAIL)
-    public OidEntryResponseDto getOidEntry(String oid) throws NotFoundException {
+    public OidEntryDetailResponseDto getOidEntry(String oid) throws NotFoundException {
         return oidEntryService.getOidEntry(oid);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.OID, operation = Operation.UPDATE)
-    public OidEntryResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto updateDto) throws NotFoundException {
+    public OidEntryDetailResponseDto editOidEntry(String oid, OidEntryUpdateRequestDto updateDto) throws NotFoundException {
         return oidEntryService.editOidEntry(oid, updateDto);
     }
 

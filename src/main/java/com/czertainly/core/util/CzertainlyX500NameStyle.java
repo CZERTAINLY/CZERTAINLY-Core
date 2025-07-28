@@ -1,6 +1,5 @@
 package com.czertainly.core.util;
 
-import com.czertainly.core.service.OidEntryService;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
 import org.bouncycastle.asn1.x500.RDN;
