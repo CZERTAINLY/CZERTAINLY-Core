@@ -543,7 +543,7 @@ public class CertificateUtil {
     }
 
     public static boolean isCertificateScepCaCertAcceptable(Certificate certificate, boolean intuneEnabled) {
-        if (certificate.getKey() == null || !certificate.getState().equals(CertificateState.ISSUED) || (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID) && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))) {
+        if (certificate.isArchived() || certificate.getKey() == null || !certificate.getState().equals(CertificateState.ISSUED) || (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID) && !certificate.getValidationStatus().equals(CertificateValidationStatus.EXPIRING))) {
             return false;
         }
 
@@ -759,6 +759,7 @@ public class CertificateUtil {
     }
 
     public static boolean isValidationEnabled(Certificate certificate, @Nullable CertificateValidationResultDto validationResultDto) {
+        if (certificate.isArchived()) return false;
         Boolean raValidationEnabled = certificate.getRaProfile() != null ? certificate.getRaProfile().getValidationEnabled() : null;
 
         if (Boolean.FALSE.equals(raValidationEnabled)) {

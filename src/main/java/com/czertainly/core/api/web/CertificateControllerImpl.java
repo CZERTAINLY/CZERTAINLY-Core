@@ -60,7 +60,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.LIST)
-    public CertificateResponseDto listCertificates(SearchRequestDto request) {
+    public CertificateResponseDto listCertificates(CertificateSearchRequestDto request) {
         return certificateService.listCertificates(SecurityFilter.create(), request);
     }
 
@@ -191,6 +191,26 @@ public class CertificateControllerImpl implements CertificateController {
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.APPROVAL, operation = Operation.LIST)
     public ApprovalResponseDto listCertificateApprovals(@LogResource(uuid = true) final String uuid, final PaginationRequestDto paginationRequestDto) {
         return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
+    }
+
+    @Override
+    public void archiveCertificate(String uuid) throws NotFoundException {
+        certificateService.archiveCertificate(UUID.fromString(uuid));
+    }
+
+    @Override
+    public void unarchiveCertificate(String uuid) throws NotFoundException {
+        certificateService.unarchiveCertificate(UUID.fromString(uuid));
+    }
+
+    @Override
+    public void bulkArchiveCertificate(List<UUID> uuids) {
+        certificateService.bulkArchiveCertificates(uuids);
+    }
+
+    @Override
+    public void bulkUnarchiveCertificate(List<UUID> uuids) {
+        certificateService.bulkUnarchiveCertificates(uuids);
     }
 
     // SETTERs

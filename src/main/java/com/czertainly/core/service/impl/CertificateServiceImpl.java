@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -270,12 +271,15 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.MEMBERS)
-    public CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request) {
+    public CertificateResponseDto listCertificates(SecurityFilter filter, CertificateSearchRequestDto request) {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        List<SearchFilterRequestDto> filters = new ArrayList<>(request.getFilters());
+        if (!request.isIncludeArchived()) {
+            filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.ARCHIVED.name(), FilterConditionOperator.EQUALS, false));
+        }
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
@@ -792,6 +796,7 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateValidationResultDto getCertificateValidationResult(SecuredUUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
+        if (certificate.isArchived()) throw new ValidationException("Cannot validate archived certificate with UUID %s.".formatted(uuid));
         CertificateValidationResultDto resultDto = new CertificateValidationResultDto();
         if (CertificateUtil.isValidationEnabled(certificate, resultDto)) {
             validate(certificate);
@@ -1106,7 +1111,8 @@ public class CertificateServiceImpl implements CertificateService {
     public void checkCompliance(CertificateComplianceCheckDto request) throws NotFoundException {
         for (String uuid : request.getCertificateUuids()) {
             try {
-                complianceService.checkComplianceOfCertificate(getCertificateEntity(SecuredUUID.fromString(uuid)));
+                Certificate certificateEntity = getCertificateEntity(SecuredUUID.fromString(uuid));
+                if (!certificateEntity.isArchived()) complianceService.checkComplianceOfCertificate(certificateEntity);
             } catch (ConnectorException e) {
                 logger.error("Compliance check failed.", e);
             }
@@ -1612,6 +1618,34 @@ public class CertificateServiceImpl implements CertificateService {
             eventProducer.produceMessage(CertificateExpiringEventHandler.constructEventMessages(uuid));
         }
         return expiringCertificates.size();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ARCHIVE)
+    public void archiveCertificate(UUID uuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(()-> new NotFoundException("Certificate", uuid));
+        certificate.setArchived(true);
+        certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.ARCHIVE, CertificateEventStatus.SUCCESS, "Certificate has been archived.", "");
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ARCHIVE)
+    public void unarchiveCertificate(UUID uuid) throws NotFoundException {
+        Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(()-> new NotFoundException("Certificate", uuid));
+        certificate.setArchived(false);
+        certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UNARCHIVE, CertificateEventStatus.SUCCESS, "Certificate has been unarchived.", "");
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ARCHIVE)
+    public void bulkArchiveCertificates(List<UUID> uuids) {
+        certificateRepository.archiveCertificates(true, uuids);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ARCHIVE)
+    public void bulkUnarchiveCertificates(List<UUID> uuids) {
+        certificateRepository.archiveCertificates(false, uuids);
     }
 
 

@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public interface CertificateService extends ResourceExtensionService  {
 
-    CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request);
+    CertificateResponseDto listCertificates(SecurityFilter filter, CertificateSearchRequestDto request);
 
     CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
@@ -295,5 +295,35 @@ public interface CertificateService extends ResourceExtensionService  {
      * Find certificates which are expiring and not renewed and trigger event handling these certificates
      */
     int handleExpiringCertificates();
+
+    /**
+     * Archives a single certificate by its UUID.
+     *
+     * @param uuid the UUID of the certificate to archive
+     */
+    void archiveCertificate(UUID uuid) throws NotFoundException;
+
+    /**
+     * Unarchives a single certificate by its UUID.
+     *
+     * @param uuid the UUID of the certificate to unarchive
+     */
+    void unarchiveCertificate(UUID uuid) throws NotFoundException;
+
+    /**
+     * Archives a list of certificates by their UUIDs.
+     *
+     * @param uuids the list of UUIDs of certificates to archive
+     */
+    void bulkArchiveCertificates(List<UUID> uuids);
+
+    /**
+     * Unarchives a list of certificates by their UUIDs.
+     *
+     * @param uuids the list of UUIDs of certificates to unarchive
+     */
+    void bulkUnarchiveCertificates(List<UUID> uuids);
+
+
 
 }

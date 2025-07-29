@@ -189,7 +189,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListCertificates() {
-        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new SearchRequestDto());
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new CertificateSearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
         Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
         Assertions.assertEquals(1, certificateEntities.getCertificates().size());
