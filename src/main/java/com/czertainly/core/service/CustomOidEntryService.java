@@ -6,7 +6,6 @@ import com.czertainly.api.model.core.oid.*;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 
 import java.util.List;
-import java.util.Map;
 
 /**
  * Service for managing OID entries.
