@@ -410,12 +410,14 @@ public class CertificateUtil {
         }
 
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(CertificateUtil.getSAN(certificate)));
+        List<String> extendedKeyUsage = null;
         try {
-            modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(certificate.getExtendedKeyUsage()));
+            extendedKeyUsage = certificate.getExtendedKeyUsage();
         } catch (CertificateParsingException e) {
             logger.warn("Unable to get the extended key usage. Failed to parse certificate");
             logger.error(e.getMessage());
         }
+        if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
         modal.setKeyUsage(
                 MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
 
