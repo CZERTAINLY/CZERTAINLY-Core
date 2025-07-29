@@ -131,7 +131,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
         CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
-        OidHandler.cacheOid(customOidEntry.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code));
+        if (SystemOid.fromOID(oid) == null) OidHandler.cacheOid(customOidEntry.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code));
         return response;
     }
 

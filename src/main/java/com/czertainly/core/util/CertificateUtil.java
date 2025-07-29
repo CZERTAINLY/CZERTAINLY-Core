@@ -414,8 +414,7 @@ public class CertificateUtil {
         try {
             extendedKeyUsage = certificate.getExtendedKeyUsage();
         } catch (CertificateParsingException e) {
-            logger.warn("Unable to get the extended key usage. Failed to parse certificate");
-            logger.error(e.getMessage());
+            logger.warn("Unable to get the extended key usage: {}", e.getMessage());
         }
         if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
         modal.setKeyUsage(

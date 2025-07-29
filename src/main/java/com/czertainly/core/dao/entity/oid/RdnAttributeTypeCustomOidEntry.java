@@ -19,7 +19,7 @@ public class RdnAttributeTypeCustomOidEntry extends CustomOidEntry {
     @Column(name = "code")
     private String code;
 
-    @Column(name = "altCodes")
+    @Column(name = "alt_codes")
     private List<String> altCodes = new ArrayList<>();
 
 
