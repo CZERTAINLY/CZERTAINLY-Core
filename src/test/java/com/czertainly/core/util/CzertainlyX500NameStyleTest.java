@@ -3,18 +3,16 @@ package com.czertainly.core.util;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 import javax.security.auth.x500.X500Principal;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 
-public class CzertainlyX500NameStyleTest {
-    private static final Logger logger = LoggerFactory.getLogger(CzertainlyX500NameStyleTest.class);
+class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
+
 
     @Test
-    public void testCustomNameStyle() throws CertificateException {
+    void testCustomNameStyle() throws CertificateException {
         Assertions.assertEquals("CN=Certificate Authority, L=Location, ST=State, C=US, O=Organization", getDnWithCustomStyle("CN=Certificate Authority; L=Location,ST=State, C=US;O=Organization"));
         Assertions.assertEquals("2.5.4.10=Organization,2.5.4.3=Certificate Authority,2.5.4.6=US,2.5.4.7=Location,2.5.4.8=State", getDnWithCustomStyleNormalized("CN=Certificate Authority; L=Location,ST=State, C=US;O=Organization"));
         Assertions.assertEquals("CN=Example Root CA, O=Example Corp, EMAIL=admin@example.com, C=US", getDnWithCustomStyle("CN=Example Root CA; O=Example Corp; EMAILADDRESS=admin@example.com,C=US"));
@@ -30,6 +28,7 @@ public class CzertainlyX500NameStyleTest {
     }
 
     private String getDnWithCustomStyle(String dn) {
+
         return X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, new X500Principal(dn).getEncoded()).toString();
     }
 
