@@ -19,6 +19,7 @@ import com.czertainly.core.dao.entity.DiscoveryCertificate;
 import com.czertainly.core.model.request.CertificateRequest;
 import com.czertainly.core.model.request.CrmfCertificateRequest;
 import com.czertainly.core.model.request.Pkcs10CertificateRequest;
+import com.czertainly.core.oid.OidHandler;
 import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -351,7 +352,7 @@ public class CertificateUtil {
                 .replace("\n", "");
     }
 
-    public static DiscoveryCertificate prepareDiscoveryCertificate(Certificate entry, X509Certificate certificate, Map<String, String> oidToCodeMap) {
+    public static DiscoveryCertificate prepareDiscoveryCertificate(Certificate entry, X509Certificate certificate) {
         DiscoveryCertificate discoveryCertificate = new DiscoveryCertificate();
         if (entry != null) {
             discoveryCertificate.setCommonName(entry.getCommonName());
@@ -362,8 +363,8 @@ public class CertificateUtil {
             discoveryCertificate.setCertificateContent(entry.getCertificateContent());
         } else {
             Certificate certificateModal = new Certificate();
-            setSubjectDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getSubjectX500Principal().getEncoded()));
-            setIssuerDNParams(certificateModal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificate.getIssuerX500Principal().getEncoded()));
+            setSubjectDNParams(certificateModal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getSubjectX500Principal().getEncoded()));
+            setIssuerDNParams(certificateModal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificate.getIssuerX500Principal().getEncoded()));
             discoveryCertificate.setCommonName(certificateModal.getCommonName());
             discoveryCertificate.setIssuerCommonName(certificateModal.getIssuerCommonName());
             discoveryCertificate.setSerialNumber(certificate.getSerialNumber().toString(16));
@@ -374,7 +375,7 @@ public class CertificateUtil {
         return discoveryCertificate;
     }
 
-    public static void prepareIssuedCertificate(Certificate modal, X509Certificate certificate, Map<String, String> oidToCodeMap) {
+    public static void prepareIssuedCertificate(Certificate modal, X509Certificate certificate) {
         modal.setState(CertificateState.ISSUED);
         modal.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         modal.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
@@ -423,8 +424,8 @@ public class CertificateUtil {
 
         byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
-        setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), subjectDnPrincipalEncoded));
-        setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), issuerDnPrincipalEncoded));
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, subjectDnPrincipalEncoded));
+        setIssuerDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, issuerDnPrincipalEncoded));
         modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
@@ -467,7 +468,7 @@ public class CertificateUtil {
     }
 
 
-    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest, Map<String, String> oidToCodeMap) throws NoSuchAlgorithmException, CertificateRequestException {
+    public static void prepareCsrObject(Certificate modal, CertificateRequest certificateRequest) throws NoSuchAlgorithmException, CertificateRequestException {
         if (certificateRequest.getPublicKey() == null) {
             throw new ValidationException(
                     ValidationError.create(
@@ -475,7 +476,7 @@ public class CertificateUtil {
                     )
             );
         }
-        setSubjectDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false, oidToCodeMap), certificateRequest.getSubject()));
+        setSubjectDNParams(modal, X500Name.getInstance(CzertainlyX500NameStyle.DEFAULT, certificateRequest.getSubject()));
         try {
             modal.setPublicKeyFingerprint(getThumbprint(Base64.getEncoder().encodeToString(certificateRequest.getPublicKey().getEncoded()).getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {

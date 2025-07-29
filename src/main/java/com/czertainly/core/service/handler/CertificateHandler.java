@@ -53,12 +53,6 @@ public class CertificateHandler {
     private CertificateRepository certificateRepository;
     private DiscoveryRepository discoveryRepository;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
-    private CustomOidEntryService customOidEntryService;
-
-    @Autowired
-    public void setOidEntryService(CustomOidEntryService customOidEntryService) {
-        this.customOidEntryService = customOidEntryService;
-    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -142,8 +136,7 @@ public class CertificateHandler {
                 String fingerprint = CertificateUtil.getThumbprint(x509Cert.getEncoded());
                 Certificate existingCertificate = certificateRepository.findByFingerprint(fingerprint).orElse(null);
 
-                Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
-                discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert, oidToCodeMap);
+                discoveryCertificate = CertificateUtil.prepareDiscoveryCertificate(existingCertificate, x509Cert);
                 discoveryCertificate.setDiscovery(discovery);
                 discoveryCertificate.setNewlyDiscovered(existingCertificate == null);
                 discoveryCertificate.setMeta(certificate.getMeta());

@@ -13,6 +13,8 @@ import com.czertainly.core.dao.entity.oid.*;
 import com.czertainly.core.dao.repository.CustomOidEntryRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.oid.OidHandler;
+import com.czertainly.core.oid.OidRecord;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CustomOidEntryService;
@@ -28,9 +30,11 @@ import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.OID)
@@ -38,11 +42,21 @@ import java.util.stream.Collectors;
 public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
     public static final String OID_ENTRY = "OID Entry";
-    private CustomOidEntryRepository customOidEntryRepository;
+    private final CustomOidEntryRepository customOidEntryRepository;
 
     @Autowired
-    public void setOidEntryRepository(CustomOidEntryRepository customOidEntryRepository) {
-        this.customOidEntryRepository = customOidEntryRepository;
+    public CustomOidEntryServiceImpl(CustomOidEntryRepository oidEntryRepository) {
+        this.customOidEntryRepository = oidEntryRepository;
+
+        refreshCache();
+    }
+
+
+    @Scheduled(fixedRateString = "${settings.cache.refresh-interval}", timeUnit = TimeUnit.SECONDS, initialDelayString = "${settings.cache.refresh-interval}")
+    public void refreshCache() {
+        for (OidCategory oidCategory : OidCategory.values()) {
+            OidHandler.cacheOidCategory(oidCategory, getOidToRecordMap(oidCategory));
+        }
     }
 
     @Override
@@ -55,6 +69,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
             throw new ValidationException("OID Entry with OID %s already exists.".formatted(oid));
         CustomOidEntry customOidEntry;
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
+        String code = null;
 
         switch (request.getCategory()) {
             case GENERIC -> customOidEntry = new GenericCustomOidEntry();
@@ -63,7 +78,8 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
                 customOidEntry = new RdnAttributeTypeCustomOidEntry();
                 if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                     throw new ValidationException("Incorrect type of properties for OID category RDN Attribute type.");
-                ((RdnAttributeTypeCustomOidEntry) customOidEntry).setCode(additionalProperties.getCode());
+                code = additionalProperties.getCode();
+                ((RdnAttributeTypeCustomOidEntry) customOidEntry).setCode(code);
                 ((RdnAttributeTypeCustomOidEntry) customOidEntry).setAltCodes(additionalProperties.getAltCodes());
                 responseAdditionalProperties = ((RdnAttributeTypeCustomOidEntry) customOidEntry).mapToPropertiesDto();
             }
@@ -79,6 +95,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
         CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
+        OidHandler.cacheOid(request.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code));
         return response;
     }
 
@@ -97,11 +114,13 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
     public CustomOidEntryDetailResponseDto editCustomOidEntry(String oid, CustomOidEntryUpdateRequestDto request) throws NotFoundException {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
+        String code = null;
 
         if (customOidEntry instanceof RdnAttributeTypeCustomOidEntry rdnAttributeTypeOidEntry) {
             if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                 throw new ValidationException("Incorrect properties for OID category RDN Attribute type.");
-            rdnAttributeTypeOidEntry.setCode(additionalProperties.getCode());
+            code = additionalProperties.getCode();
+            rdnAttributeTypeOidEntry.setCode(code);
             rdnAttributeTypeOidEntry.setAltCodes(additionalProperties.getAltCodes());
             responseAdditionalProperties = rdnAttributeTypeOidEntry.mapToPropertiesDto();
         }
@@ -112,6 +131,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
         CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
+        OidHandler.cacheOid(customOidEntry.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code));
         return response;
     }
 
@@ -119,6 +139,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
     public void deleteCustomOidEntry(String oid) throws NotFoundException {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
+        if (SystemOid.fromOID(oid) == null) OidHandler.removeCachedOid(customOidEntry.getCategory(), oid);
         customOidEntryRepository.delete(customOidEntry);
     }
 
@@ -126,6 +147,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
     @ExternalAuthorization(resource = Resource.OID, action = ResourceAction.DELETE)
     public void bulkDeleteCustomOidEntry(List<String> oids) {
         customOidEntryRepository.deleteAllById(oids);
+        refreshCache();
     }
 
     @Override
@@ -164,20 +186,13 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
         return searchFieldDataByGroupDtos;
     }
 
-    @Override
-    public Map<String, String> getOidToDisplayNameMap(OidCategory oidCategory) {
-        Map<String, String> oidToDisplayNameMap = new HashMap<>(SystemOid.getMapOfOidToDisplayName(oidCategory));
-        oidToDisplayNameMap.putAll(customOidEntryRepository.findAllByCategory(oidCategory)
-                .stream().collect(Collectors.toMap(CustomOidEntry::getOid, CustomOidEntry::getDisplayName)));
+    private Map<String, OidRecord> getOidToRecordMap(OidCategory oidCategory) {
+        Map<String, OidRecord> oidToDisplayNameMap = new HashMap<>(customOidEntryRepository.findAllByCategory(oidCategory)
+                .stream().collect(Collectors.toMap(CustomOidEntry::getOid, oid ->
+                        new OidRecord(oid.getDisplayName(), oidCategory == OidCategory.RDN_ATTRIBUTE_TYPE ? ((RdnAttributeTypeCustomOidEntry) oid).getCode() : null))));
+        oidToDisplayNameMap.putAll(Arrays.stream(SystemOid.values()).filter(oid -> oid.getCategory() == oidCategory)
+                .collect(Collectors.toMap(SystemOid::getOid, oid ->
+                        new OidRecord(oid.getDisplayName(), oid.getCode()))));
         return oidToDisplayNameMap;
-    }
-
-    @Override
-    public Map<String, String> getOidToCodeMap() {
-        Map<String, String> oidToCodeMap = new HashMap<>(SystemOid.getMapOfOidToCode());
-        oidToCodeMap.putAll(customOidEntryRepository.findAllByCategory(OidCategory.RDN_ATTRIBUTE_TYPE)
-                .stream().collect(Collectors.toMap(CustomOidEntry::getOid, oidEntry ->
-                        ((RdnAttributeTypeCustomOidEntry)oidEntry).getCode())));
-        return oidToCodeMap;
     }
 }

@@ -1,5 +1,7 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.core.oid.OidHandler;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
 import org.bouncycastle.asn1.x500.RDN;
@@ -10,21 +12,26 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.Map;
+import java.util.stream.Collectors;
 
 public class CzertainlyX500NameStyle extends BCStrictStyle {
 
     // Kept here because of migration
-    public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false, null);
-    public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true, null);
+    public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false);
+    public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true);
     private final boolean normalizedStyle;
     private final String delimiter;
 
     private final Map<String, String> oidToCodeMap;
 
-    public CzertainlyX500NameStyle(boolean normalizedStyle, Map<String, String> oidToCodeMap) {
-        this.oidToCodeMap = oidToCodeMap;
+    public CzertainlyX500NameStyle(boolean normalizedStyle) {
         this.normalizedStyle = normalizedStyle;
         this.delimiter = normalizedStyle ? "," : ", ";
+        this.oidToCodeMap = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().code()
+                ));
     }
 
     @Override

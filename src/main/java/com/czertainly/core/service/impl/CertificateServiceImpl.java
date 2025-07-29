@@ -47,6 +47,8 @@ import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.oid.OidHandler;
+import com.czertainly.core.oid.OidRecord;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -128,7 +130,6 @@ public class CertificateServiceImpl implements CertificateService {
     private CertificateApiClient certificateApiClient;
     private UserManagementApiClient userManagementApiClient;
     private CrlService crlService;
-    private CustomOidEntryService customOidEntryService;
 
     private AttributeEngine attributeEngine;
     private ExtendedAttributeService extendedAttributeService;
@@ -145,11 +146,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     public void setLocationService(LocationService locationService) {
         this.locationService = locationService;
-    }
-
-    @Autowired
-    public void setOidEntryService(CustomOidEntryService customOidEntryService) {
-        this.customOidEntryService = customOidEntryService;
     }
 
     @Autowired
@@ -299,8 +295,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
         CertificateDetailDto dto = certificate.mapToDto();
         if (dto.getExtendedKeyUsage() != null) {
-            Map<String, String> oidToName = customOidEntryService.getOidToDisplayNameMap(OidCategory.EXTENDED_KEY_USAGE);
-            List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid) : oid).toList();
+            Map<String, OidRecord> oidToName = OidHandler.getOidCache(OidCategory.EXTENDED_KEY_USAGE);
+            List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid).displayName() : oid).toList();
             dto.setExtendedKeyUsage(extendedKeyUsageNames);
         }
 
@@ -892,7 +888,7 @@ public class CertificateServiceImpl implements CertificateService {
                 throw new com.czertainly.api.exception.CertificateException(message);
             }
 
-            prepareIssuedCertificate(entity, certificate);
+            CertificateUtil.prepareIssuedCertificate(entity, certificate);
             byte[] altPublicKey = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
             uploadCertificateKey(certificate.getPublicKey(), entity, altPublicKey);
             entity.setFingerprint(fingerprint);
@@ -903,11 +899,6 @@ public class CertificateServiceImpl implements CertificateService {
 
             return entity;
         }
-    }
-
-    private void prepareIssuedCertificate(Certificate certificate, X509Certificate x509Certificate) {
-        Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
-        CertificateUtil.prepareIssuedCertificate(certificate, x509Certificate, oidToCodeMap);
     }
 
     @Override
@@ -930,7 +921,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.error("Unable to calculate sha 256 thumbprint");
         }
 
-        prepareIssuedCertificate(modal, certificate);
+        CertificateUtil.prepareIssuedCertificate(modal, certificate);
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(certificate));
         modal.setFingerprint(fingerprint);
         modal.setCertificateContent(certificateContent);
@@ -1055,7 +1046,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEntity.setUpdated(now);
         certificateEntity.setFingerprint(fingerprint);
         certificateEntity.setCertificateContent(certificateContent);
-        prepareIssuedCertificate(certificateEntity, x509Cert);
+        CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);
 
         int countInserted = certificateRepository.insertWithFingerprintConflictResolve(certificateEntity);
         certificateEntity = certificateRepository.findByFingerprint(fingerprint).orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
@@ -1384,8 +1375,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         Certificate certificate = new Certificate();
         // prepare certificate request data for certificate
-        Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
-        CertificateUtil.prepareCsrObject(certificate, request, oidToCodeMap);
+        CertificateUtil.prepareCsrObject(certificate, request);
 
         certificate.setState(CertificateState.REQUESTED);
         certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
@@ -1548,7 +1538,7 @@ public class CertificateServiceImpl implements CertificateService {
             throw new AlreadyExistException("Certificate already exists with fingerprint " + fingerprint);
         }
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        prepareIssuedCertificate(certificate, x509Cert);
+        CertificateUtil.prepareIssuedCertificate(certificate, x509Cert);
         CertificateContent certificateContent = checkAddCertificateContent(fingerprint, X509ObjectToString.toPem(x509Cert));
         certificate.setFingerprint(fingerprint);
         certificate.setCertificateContent(certificateContent);

@@ -67,19 +67,4 @@ public interface CustomOidEntryService {
      * @return list of properties for filtering OID entries
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformation();
-
-    /**
-     * Returns a map of OID to display name for given category
-     *
-     * @param oidCategory category to retrieve map for
-     * @return map of OID to display name
-     */
-    Map<String, String> getOidToDisplayNameMap(OidCategory oidCategory);
-
-    /**
-     * Returns a map of OID to code for RDN Attribute Type
-     *
-     * @return map of OID to display name
-     */
-    Map<String, String> getOidToCodeMap();
 }

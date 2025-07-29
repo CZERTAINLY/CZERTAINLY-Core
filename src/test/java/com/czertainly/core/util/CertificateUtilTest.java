@@ -72,7 +72,7 @@ class CertificateUtilTest {
         X509Certificate certificate = CertificateTestUtil.createHybridCertificate();
 
         Certificate certificateEntity = new Certificate();
-        CertificateUtil.prepareIssuedCertificate(certificateEntity, certificate, new HashMap<>());
+        CertificateUtil.prepareIssuedCertificate(certificateEntity, certificate);
         Assertions.assertEquals("ML-DSA-44", certificateEntity.getAltSignatureAlgorithm());
 
     }

@@ -13,6 +13,7 @@ import com.czertainly.core.dao.entity.oid.GenericCustomOidEntry;
 import com.czertainly.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry;
 import com.czertainly.core.dao.repository.CustomOidEntryRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.oid.OidHandler;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -68,8 +69,10 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(request.getOid()).orElse(null);
         Assertions.assertNotNull(customOidEntry);
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
+        Assertions.assertNotNull(OidHandler.getOidCache(OidCategory.GENERIC).get(request.getOid()));
         request.setOid(SystemOid.COUNTRY.getOid());
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
+
 
         request.setOid("1.2.3.4");
         request.setCategory(OidCategory.RDN_ATTRIBUTE_TYPE);
@@ -88,6 +91,8 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(customOidEntryRepository.existsById(request.getOid()));
         Assertions.assertEquals(propertiesDto.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
         Assertions.assertEquals(propertiesDto.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
+
+        Assertions.assertNotNull(OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).get(request.getOid()));
     }
 
     @Test
@@ -115,6 +120,7 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> customOidEntryService.deleteCustomOidEntry(NON_EXISTENT_OID));
         customOidEntryService.deleteCustomOidEntry(genericCustomOidEntry.getOid());
         Assertions.assertTrue(customOidEntryRepository.findById(genericCustomOidEntry.getOid()).isEmpty());
+        Assertions.assertNull(OidHandler.getOidCache(OidCategory.GENERIC).get(genericCustomOidEntry.getOid()));
     }
 
     @Test

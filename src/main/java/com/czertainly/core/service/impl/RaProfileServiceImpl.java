@@ -80,7 +80,6 @@ public class RaProfileServiceImpl implements RaProfileService {
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
     private ApprovalProfileRepository approvalProfileRepository;
     private CertificateContentRepository certificateContentRepository;
-    private CustomOidEntryService customOidEntryService;
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
@@ -640,8 +639,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 certificateDetailDtos.add(existingCertificate.get().mapToDto());
             } else {
                 Certificate modal = new Certificate();
-                Map<String,String> oidToCodeMap = customOidEntryService.getOidToCodeMap();
-                CertificateUtil.prepareIssuedCertificate(modal, certificate, oidToCodeMap);
+                CertificateUtil.prepareIssuedCertificate(modal, certificate);
                 CertificateContent certificateContent = certificateContentRepository.findByFingerprint(fingerprint);
                 if (certificateContent == null) {
                     certificateContent = new CertificateContent();
@@ -822,8 +820,4 @@ public class RaProfileServiceImpl implements RaProfileService {
         this.attributeEngine = attributeEngine;
     }
 
-    @Autowired
-    public void setOidEntryService(CustomOidEntryService customOidEntryService) {
-        this.customOidEntryService = customOidEntryService;
-    }
 }
