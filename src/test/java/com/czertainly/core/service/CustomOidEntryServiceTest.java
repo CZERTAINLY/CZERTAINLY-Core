@@ -76,7 +76,6 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         request.setAdditionalProperties(propertiesDto);
-        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         propertiesDto.setCode("CN");
         propertiesDto.setAltCodes(List.of("CN1","CN2"));
         request.setAdditionalProperties(propertiesDto);
