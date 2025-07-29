@@ -423,7 +423,7 @@ public class CertificateUtil {
         try {
             extendedKeyUsage = certificate.getExtendedKeyUsage();
         } catch (CertificateParsingException e) {
-            logger.warn("Unable to get the extended key usage for certificate with serial number {} and issuer {}: {}", modal.getSerialNumber(), modal.getIssuerDn(), e.getMessage());
+            logger.warn("Unable to get the extended key usage for certificate with serial number {} and subject DN {}: {}", modal.getSerialNumber(), modal.getSubjectDn(), e.getMessage());
         }
         if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
         modal.setKeyUsage(
