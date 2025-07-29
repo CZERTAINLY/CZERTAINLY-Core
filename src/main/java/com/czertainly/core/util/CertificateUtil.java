@@ -410,15 +410,6 @@ public class CertificateUtil {
         }
 
         modal.setSubjectAlternativeNames(CertificateUtil.serializeSans(CertificateUtil.getSAN(certificate)));
-        List<String> extendedKeyUsage = null;
-        try {
-            extendedKeyUsage = certificate.getExtendedKeyUsage();
-        } catch (CertificateParsingException e) {
-            logger.warn("Unable to get the extended key usage: {}", e.getMessage());
-        }
-        if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
-        modal.setKeyUsage(
-                MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
 
         byte[] subjectDnPrincipalEncoded = certificate.getSubjectX500Principal().getEncoded();
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
@@ -427,6 +418,16 @@ public class CertificateUtil {
         modal.setIssuerDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
+
+        List<String> extendedKeyUsage = null;
+        try {
+            extendedKeyUsage = certificate.getExtendedKeyUsage();
+        } catch (CertificateParsingException e) {
+            logger.warn("Unable to get the extended key usage for certificate with serial number {} and issuer {}: {}", modal.getSerialNumber(), modal.getIssuerDn(), e.getMessage());
+        }
+        if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
+        modal.setKeyUsage(
+                MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
         modal.setSubjectType(subjectType);
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)
