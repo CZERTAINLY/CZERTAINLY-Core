@@ -334,9 +334,10 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
         // -- parse found CA certificate(s)
         for (CertificateDetailDto certificate : caChain) {
             // only certificate with valid status should be used
-            if (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)) {
+            if (certificate.getValidationStatus() != CertificateValidationStatus.VALID
+                    && certificate.getValidationStatus() != CertificateValidationStatus.EXPIRING) {
                 throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
-                        String.format("SN=%s | CA Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
+                        String.format("SN=%s | Certificate is not valid. UUID: %s, Fingerprint: %s, Status: %s",
                                 leafCertificateSerialNumber,
                                 certificate.getUuid(),
                                 certificate.getFingerprint(),
@@ -346,7 +347,7 @@ public class CrmfMessageHandler implements MessageHandler<PKIMessage> {
                 certificateChain.add(CertificateUtil.parseCertificate(certificate.getCertificateContent()));
             } catch (CertificateException e) { // This should not happen
                 throw new CmpCrmfValidationException(tid, bodyType, PKIFailureInfo.systemFailure,
-                        String.format("SN=%s | failed to parse CA certificate (caSN=%s); content=%s",
+                        String.format("SN=%s | Failed to parse certificate (caSN=%s); content=%s",
                                 leafCertificateSerialNumber,
                                 certificate.getSerialNumber(),
                                 certificate.getCertificateContent()));

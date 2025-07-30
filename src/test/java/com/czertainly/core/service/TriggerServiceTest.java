@@ -167,7 +167,11 @@ class TriggerServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid(), ruleMixed.getUuid()), List.of(actionCert.getUuid(), actionDisc.getUuid())), "Creating trigger with mismatching resource of rules should fail");
         Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, null, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionDisc.getUuid())), "Creating trigger with mismatching resource of actions should fail");
         Assertions.assertThrows(ValidationException.class, () -> createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_STATUS_CHANGED, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionMixed.getUuid())));
-        Assertions.assertDoesNotThrow(() -> createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_STATUS_CHANGED, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionAny.getUuid())));
+
+        final TriggerDto triggerWithEvent = createTrigger(Resource.CERTIFICATE, ResourceEvent.CERTIFICATE_STATUS_CHANGED, List.of(ruleCert.getUuid()), List.of(actionCert.getUuid(), actionAny.getUuid()));
+        Assertions.assertThrows(ValidationException.class,
+                () -> triggerService.createTriggerAssociations(ResourceEvent.CERTIFICATE_EXPIRING, null, null, List.of(UUID.fromString(triggerWithEvent.getUuid())), true),
+                "Creating trigger association with mismatching event should fail");
     }
 
     private ConditionDto createCondition(Resource resource, ConditionType type) throws AlreadyExistException {

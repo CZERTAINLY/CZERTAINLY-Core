@@ -42,7 +42,6 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.v2.ClientOperationService;
 import com.czertainly.core.service.v2.ExtendedAttributeService;
 import com.czertainly.core.util.*;
-import jakarta.transaction.Transactional;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
@@ -53,6 +52,8 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
+import org.springframework.transaction.annotation.Propagation;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
 import javax.security.auth.x500.X500Principal;
@@ -197,7 +198,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto issueCertificate(final SecuredParentUUID authorityUuid, final SecuredUUID raProfileUuid, final ClientCertificateSignRequestDto request, final CertificateProtocolInfo protocolInfo) throws NotFoundException, CertificateException, NoSuchAlgorithmException, CertificateOperationException, CertificateRequestException {
         // validate RA profile
@@ -255,6 +256,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void issueCertificateAction(final UUID certificateUuid, boolean isApproved) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AlreadyExistException, CertificateOperationException, NotFoundException {
         if (!isApproved) {
             certificateService.checkIssuePermissions();
@@ -295,7 +297,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateRepository.save(certificate);
 
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), "");
-            logger.error("Failed to issue certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to issue certificate: " + e.getMessage());
         }
 
@@ -359,7 +360,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto renewCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRenewRequestDto request) throws NotFoundException, CertificateOperationException, CertificateRequestException {
         Certificate oldCertificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(), ResourceAction.RENEW);
@@ -411,6 +412,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void renewCertificateAction(final UUID certificateUuid, ClientCertificateRenewRequestDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
         if (!isApproved) {
             certificateService.checkRenewPermissions();
@@ -454,7 +456,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            logger.error("Failed to renew Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
         }
 
@@ -500,7 +501,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
-    @Transactional(Transactional.TxType.NOT_SUPPORTED)
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
     public ClientCertificateDataResponseDto rekeyCertificate(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, String certificateUuid, ClientCertificateRekeyRequestDto request) throws NotFoundException, CertificateException, CertificateOperationException, CertificateRequestException {
         Certificate oldCertificate = validateOldCertificateForOperation(certificateUuid, raProfileUuid.toString(), ResourceAction.REKEY);
@@ -603,6 +604,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
     public void rekeyCertificateAction(final UUID certificateUuid, ClientCertificateRekeyRequestDto request, boolean isApproved) throws NotFoundException, CertificateOperationException {
         if (!isApproved) {
             certificateService.checkRenewPermissions();
@@ -645,7 +647,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            logger.error("Failed to rekey Certificate: {}", e.getMessage());
             throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
         }
 

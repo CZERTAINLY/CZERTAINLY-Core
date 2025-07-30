@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -46,6 +47,8 @@ import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
+import com.czertainly.core.oid.OidHandler;
+import com.czertainly.core.oid.OidRecord;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
@@ -88,10 +91,8 @@ import java.net.URL;
 import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.security.*;
-import java.security.cert.CertificateEncodingException;
+import java.security.cert.*;
 import java.security.cert.CertificateException;
-import java.security.cert.CertificateFactory;
-import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
 import java.time.Duration;
 import java.time.Instant;
@@ -293,6 +294,12 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
         CertificateDetailDto dto = certificate.mapToDto();
+        if (dto.getExtendedKeyUsage() != null) {
+            Map<String, OidRecord> oidToName = OidHandler.getOidCache(OidCategory.EXTENDED_KEY_USAGE);
+            List<String> extendedKeyUsageNames = dto.getExtendedKeyUsage().stream().map(oid -> oidToName.get(oid) != null ? oidToName.get(oid).displayName() : oid).toList();
+            dto.setExtendedKeyUsage(extendedKeyUsageNames);
+        }
+
         if (certificate.getComplianceResult() != null) {
             dto.setNonCompliantRules(frameComplianceResult(certificate.getComplianceResult()));
         }
@@ -783,7 +790,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificateRepository.save(certificate);
         }
 
-        if (!oldStatus.equals(CertificateValidationStatus.NOT_CHECKED) && !oldStatus.equals(newStatus)) {
+        if (!oldStatus.equals(newStatus)) {
             eventProducer.produceMessage(CertificateStatusChangedEventHandler.constructEventMessage(certificate.getUuid(), oldStatus, newStatus));
         }
     }

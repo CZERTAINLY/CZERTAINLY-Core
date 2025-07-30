@@ -278,7 +278,7 @@ public class X509CertificateValidator implements ICertificateValidator {
         try {
             crlUuid = crlService.getCurrentCrl(certificate, issuerCertificate);
         } catch (IOException e) {
-            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL URL from certificate: " + e.getMessage());
+            return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to retrieve CRL: " + e.getMessage());
         } catch (ValidationException e) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.CRL_VERIFICATION, CertificateValidationStatus.FAILED, "Failed to process CRL: " + e.getMessage());
         }
