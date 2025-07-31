@@ -18,9 +18,8 @@ RUN jdeps \
 # Create a custom Java runtime
 # The modules 'jdk.crypto.ec' and 'jdk.jdwp.agent' are explicitly included because:
 # - 'jdk.crypto.ec' is required for elliptic-curve cryptography support.
-# - 'jdk.jdwp.agent' is included to enable Java Debug Wire Protocol (JDWP) for debugging purposes.
 # These modules can be overridden or extended using the ADDITIONAL_MODULES environment variable.
-ENV ADDITIONAL_MODULES=jdk.crypto.ec,jdk.jdwp.agent
+ENV ADDITIONAL_MODULES=jdk.crypto.ec
 RUN $JAVA_HOME/bin/jlink \
   --add-modules $(cat modules.txt),${ADDITIONAL_MODULES} \
   --strip-debug \
