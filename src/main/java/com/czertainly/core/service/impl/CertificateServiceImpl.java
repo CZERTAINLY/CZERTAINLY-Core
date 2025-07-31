@@ -308,7 +308,8 @@ public class CertificateServiceImpl implements CertificateService {
             dto.getCertificateRequest().setSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
             dto.getCertificateRequest().setAltSignatureAttributes(attributeEngine.getObjectDataAttributesContent(null, AttributeOperation.CERTIFICATE_REQUEST_SIGN, AttributeContentPurpose.CERTIFICATE_REQUEST_ALT_KEY, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
         }
-        if (certificate.getRaProfile() != null) {
+        // if has RA profile with authority and connector
+        if (certificate.getRaProfile() != null && certificate.getRaProfile().getAuthorityInstanceReference() != null && certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid() != null) {
             dto.setIssueAttributes(attributeEngine.getObjectDataAttributesContent(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.CERTIFICATE, certificate.getUuid()));
             dto.setRevokeAttributes(attributeEngine.getObjectDataAttributesContent(certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, Resource.CERTIFICATE, certificate.getUuid()));
         }
