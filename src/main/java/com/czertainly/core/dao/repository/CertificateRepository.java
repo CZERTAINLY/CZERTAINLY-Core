@@ -70,19 +70,19 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     @Query("""
              SELECT COUNT(*) FROM Certificate c LEFT JOIN c.raProfile rp
-             WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
+             WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses AND c.archived = false
              AND ((rp.validationEnabled is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))
             """)
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("platformEnabled") boolean platformEnabled);
 
 
-    // Select certificates which have content, and they are not revoked or expired (since these statuses cannot change)
+    // Select certificates which have content, and they are not revoked, expired (since these statuses cannot change) or archived
     // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned or certificates which have RA Profile
     // assigned, validation for that RA Profile is null
     // Select certificates which have validation frequency set in RA Profile
     @Query("""
             SELECT c.uuid FROM Certificate c LEFT JOIN c.raProfile rp
-                WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
+                WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses AND c.archived = false
                     AND
                     (
                 ((rp.validationEnabled is NULL AND :platformEnabled = true) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp))
@@ -98,7 +98,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByComplianceResultContaining(String ruleUuid);
 
-    List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
+    List<Certificate> findByRaProfileAndComplianceStatusIsNotNullAndNotArchived(RaProfile raProfile);
 
     Optional<Certificate> findBySubjectDnNormalizedAndSerialNumber(String subjectDnNormalized, String serialNumber);
 
@@ -149,6 +149,10 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             """, nativeQuery = true)
     int insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
 
-    @Query("SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)")
+    @Query("""
+            SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} 
+            AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)
+            AND archived = false
+            """)
     List<UUID> findExpiringCertificatesWithoutRenewal();
 }
