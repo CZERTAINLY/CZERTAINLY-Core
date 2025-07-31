@@ -194,21 +194,25 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public void archiveCertificate(String uuid) throws NotFoundException {
-        certificateService.archiveCertificate(UUID.fromString(uuid));
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ARCHIVE)
+    public void archiveCertificate(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        certificateService.archiveCertificate(uuid);
     }
 
     @Override
-    public void unarchiveCertificate(String uuid) throws NotFoundException {
-        certificateService.unarchiveCertificate(UUID.fromString(uuid));
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UNARCHIVE)
+    public void unarchiveCertificate(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        certificateService.unarchiveCertificate(uuid);
     }
 
     @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ARCHIVE)
     public void bulkArchiveCertificate(List<UUID> uuids) {
         certificateService.bulkArchiveCertificates(uuids);
     }
 
     @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UNARCHIVE)
     public void bulkUnarchiveCertificate(List<UUID> uuids) {
         certificateService.bulkUnarchiveCertificates(uuids);
     }
