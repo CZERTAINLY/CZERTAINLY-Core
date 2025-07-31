@@ -417,6 +417,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void updateTrustedCaMark(SecuredUUID uuid, Boolean trustedCa) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
+        if (certificate.isArchived()) {
+            logger.info("Certificate with UUID {} is archived and the trusted CA mark will not be updated.", uuid);
+            return;
+        }
         if (certificate.getTrustedCa() == null) {
             throw new ValidationException("Trying to mark certificate as trusted CA when certificate is not CA.");
         }
@@ -1103,7 +1107,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     // Only Internal method
     public List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile) {
-        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNull(raProfile);
+        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNullAndNotArchived(raProfile);
     }
 
     @Override
@@ -1112,7 +1116,7 @@ public class CertificateServiceImpl implements CertificateService {
         for (String uuid : request.getCertificateUuids()) {
             try {
                 Certificate certificateEntity = getCertificateEntity(SecuredUUID.fromString(uuid));
-                if (!certificateEntity.isArchived()) complianceService.checkComplianceOfCertificate(certificateEntity);
+                complianceService.checkComplianceOfCertificate(certificateEntity);
             } catch (ConnectorException e) {
                 logger.error("Compliance check failed.", e);
             }
@@ -1173,6 +1177,10 @@ public class CertificateServiceImpl implements CertificateService {
     // Internal Use Only
     public void updateCertificateUser(UUID certificateUuid, String userUuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+        if (certificate.isArchived()) {
+            logger.info("Certificate with UUID {} is archived and the user cannot be set.", certificateUuid);
+            return;
+        }
         if (userUuid == null) {
             certificate.setUserUuid(null);
         } else {
@@ -1323,8 +1331,10 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     public void updateCertificateKeys(UUID keyUuid, String publicKeyFingerprint) {
         for (Certificate certificate : certificateRepository.findByPublicKeyFingerprint(publicKeyFingerprint)) {
-            certificate.setKeyUuid(keyUuid);
-            certificateRepository.save(certificate);
+            if (!certificate.isArchived()) {
+                certificate.setKeyUuid(keyUuid);
+                certificateRepository.save(certificate);
+            }
         }
     }
 
@@ -1602,7 +1612,7 @@ public class CertificateServiceImpl implements CertificateService {
                         cb.or(
                                 cb.equal(root.get("validationStatus"), CertificateValidationStatus.VALID),
                                 cb.equal(root.get("validationStatus"), CertificateValidationStatus.EXPIRING)
-                        )
+                        ), cb.not(root.get(Certificate_.ARCHIVED))
                 )
         );
 
@@ -1625,6 +1635,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void archiveCertificate(UUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(()-> new NotFoundException("Certificate", uuid));
         certificate.setArchived(true);
+        certificateRepository.save(certificate);
         certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.ARCHIVE, CertificateEventStatus.SUCCESS, "Certificate has been archived.", "");
     }
 
@@ -1633,6 +1644,7 @@ public class CertificateServiceImpl implements CertificateService {
     public void unarchiveCertificate(UUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(()-> new NotFoundException("Certificate", uuid));
         certificate.setArchived(false);
+        certificateRepository.save(certificate);
         certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UNARCHIVE, CertificateEventStatus.SUCCESS, "Certificate has been unarchived.", "");
     }
 
@@ -1771,6 +1783,10 @@ public class CertificateServiceImpl implements CertificateService {
 
     public void switchRaProfile(SecuredUUID uuid, SecuredUUID raProfileUuid) throws NotFoundException, CertificateOperationException, AttributeException {
         Certificate certificate = getCertificateEntity(uuid);
+        if (certificate.isArchived()) {
+            logger.info("Certificate with UUID {} is archived and its RA Profile will not be updated.", uuid);
+            return;
+        }
 
         // check if there is change in RA profile compared to current state
         if ((raProfileUuid == null && certificate.getRaProfileUuid() == null) || (raProfileUuid != null && certificate.getRaProfileUuid() != null) && certificate.getRaProfileUuid().toString().equals(raProfileUuid.toString())) {
@@ -1829,6 +1845,11 @@ public class CertificateServiceImpl implements CertificateService {
     public void updateCertificateGroups(SecuredUUID uuid, Set<UUID> groupUuids) throws NotFoundException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
 
+        if (certificate.isArchived()) {
+            logger.info("Certificate with UUID {} is archived and its groups will not be updated.", uuid);
+            return;
+        }
+
         if (groupUuids == null) {
             groupUuids = new HashSet<>();
         }
@@ -1849,6 +1870,11 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void updateOwner(SecuredUUID uuid, String ownerUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntityWithAssociations(uuid);
+
+        if (certificate.isArchived()) {
+            logger.info("Certificate with UUID {} is archived and owner will not be updated.", uuid);
+            return;
+        }
 
         // if there is no change, do not update and save request to Auth service
         if ((ownerUuid == null && certificate.getOwner() == null) || (ownerUuid != null && certificate.getOwner() != null) && certificate.getOwner().getUuid().equals(UUID.fromString(ownerUuid))) {
