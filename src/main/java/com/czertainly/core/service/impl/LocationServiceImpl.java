@@ -460,6 +460,10 @@ public class LocationServiceImpl implements LocationService {
 
         Certificate certificate = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
 
+        if (certificate.isArchived())
+            throw new ValidationException(ValidationError.create("Cannot push archived certificate %s to location %s".formatted(certificate, location.getName())));
+
+
         if (certificate.getState().equals(CertificateState.REJECTED)) {
             throw new ValidationException(ValidationError.create("Cannot push rejected certificate %s to location %s".formatted(certificate, location.getName())));
         }
@@ -684,6 +688,9 @@ public class LocationServiceImpl implements LocationService {
         }
 
         Certificate certificateInScope = certificateService.getCertificateEntity(SecuredUUID.fromString(certificateUuid));
+        if (certificateInScope.isArchived()) {
+            throw new LocationException("Certificate with UUID %s is archived. Cannot renew the certificate in the location with UUID %s.".formatted(certificateUuid, locationUuid));
+        }
         if (certificateInScope.getRaProfile() == null) {
             logger.debug("Certificate {} is not associated with any RA Profile. Cannot renew the certificate", certificateInScope.getCommonName());
             throw new LocationException("Certificate is not associated with any RA Profile. Cannot renew the certificate in the location");
