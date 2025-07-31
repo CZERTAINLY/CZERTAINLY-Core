@@ -449,12 +449,17 @@ class LocationServiceTest extends BaseSpringBootTest {
         certificateContentRepository.save(certificateContent);
         certificateToPush.setCertificateContent(certificateContent);
         certificateToPush.setState(CertificateState.ISSUED);
+        certificateToPush.setArchived(true);
         certificateRepository.save(certificateToPush);
         PushToLocationRequestDto pushRequest = new PushToLocationRequestDto();
         pushRequest.setAttributes(new ArrayList<>());
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")).willReturn(WireMock.okJson("{\"withKey\": false}")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
+        Assertions.assertThrows(ValidationException.class, () -> locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest));
+
+        certificateToPush.setArchived(false);
+        certificateRepository.save(certificateToPush);
         LocationDto locationDto = locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest);
         Assertions.assertNotNull(locationDto.getCertificates().stream()
                 .filter(cl -> cl.getCertificateUuid().equals(certificateToPush.getUuid().toString()))
@@ -481,6 +486,11 @@ class LocationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
 
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(LocationException.class, () -> locationService.renewCertificateInLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificate.getUuid().toString()));
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
         LocationDto locationDto = locationService.renewCertificateInLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificate.getUuid().toString());
         Assertions.assertNotNull(locationDto.getCertificates().stream()
                 .filter(cl ->  cl.getCertificateUuid().equals(renewedCertificate.getUuid().toString()))

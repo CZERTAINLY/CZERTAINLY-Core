@@ -1107,7 +1107,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     // Only Internal method
     public List<Certificate> listCertificatesForRaProfileAndNonNullComplianceStatus(RaProfile raProfile) {
-        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNullAndNotArchived(raProfile);
+        return certificateRepository.findByRaProfileAndComplianceStatusIsNotNullAndArchivedIsFalse(raProfile);
     }
 
     @Override
