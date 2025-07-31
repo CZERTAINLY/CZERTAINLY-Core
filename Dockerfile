@@ -1,4 +1,37 @@
-FROM eclipse-temurin:21.0.6_7-jre-alpine
+# Optimize stage
+FROM eclipse-temurin:21-jdk-alpine AS optimize
+
+COPY data/target/*.jar /app/app.jar
+
+WORKDIR /app
+
+# List jar modules
+RUN jar xf app.jar
+RUN jdeps \
+  --ignore-missing-deps \
+  --print-module-deps \
+  --multi-release 21 \
+  --recursive \
+  --class-path 'BOOT-INF/lib/*' \
+  app.jar > modules.txt
+
+# Create a custom Java runtime
+RUN $JAVA_HOME/bin/jlink \
+  --add-modules $(cat modules.txt),jdk.crypto.ec,jdk.jdwp.agent \
+  --strip-debug \
+  --no-man-pages \
+  --no-header-files \
+  --compress=2 \
+  --output /javaruntime
+
+# Package stage
+FROM alpine:latest
+
+ENV JAVA_HOME=/opt/jre
+ENV PATH="${JAVA_HOME}/bin:${PATH}"
+
+# copy optimized JRE
+COPY --from=optimize /javaruntime $JAVA_HOME
 
 LABEL org.opencontainers.image.authors="CZERTAINLY <support@czertainly.com>"
 
