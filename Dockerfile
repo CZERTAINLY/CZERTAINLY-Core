@@ -16,7 +16,6 @@ RUN jdeps \
   app.jar > modules.txt
 
 # Create a custom Java runtime
-# The modules 'jdk.crypto.ec' and 'jdk.jdwp.agent' are explicitly included because:
 # - 'jdk.crypto.ec' is required for elliptic-curve cryptography support.
 # These modules can be overridden or extended using the ADDITIONAL_MODULES environment variable.
 ENV ADDITIONAL_MODULES=jdk.crypto.ec
