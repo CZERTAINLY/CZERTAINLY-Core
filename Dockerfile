@@ -1,7 +1,7 @@
 # Optimize stage
 FROM eclipse-temurin:21-jdk-alpine AS optimize
 
-COPY data/target/app.jar /app/app.jar
+COPY data/target/*.jar /app/app.jar
 
 WORKDIR /app
 
