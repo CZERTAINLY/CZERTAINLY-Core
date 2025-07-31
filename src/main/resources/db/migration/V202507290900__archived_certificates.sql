@@ -1,1 +1,1 @@
-ALTER TABLE certificate ADD COLUMN archived BOOLEAN;
+ALTER TABLE certificate ADD COLUMN archived BOOLEAN DEFAULT FALSE;
