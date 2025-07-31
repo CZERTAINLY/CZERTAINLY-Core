@@ -579,6 +579,7 @@ public class CertificateUtil {
     }
 
     public static boolean isCertificateCmpAcceptable(Certificate certificate) {
+        if (certificate.isArchived()) return false;
         if (certificate.getKey() == null ||
                 !certificate.getState().equals(CertificateState.ISSUED) ||
                 (!certificate.getValidationStatus().equals(CertificateValidationStatus.VALID)
