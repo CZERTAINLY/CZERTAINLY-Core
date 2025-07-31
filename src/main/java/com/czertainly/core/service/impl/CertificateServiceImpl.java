@@ -1217,35 +1217,36 @@ public class CertificateServiceImpl implements CertificateService {
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.invokeAll(List.of(
                     () -> {
-                        dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null));
+                        dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null, false));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null));
+                        dto.setCertificateStatByType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null, false));
                         return null;
                     },
                     () -> {
-                        dto.setGroupStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null));
+                        dto.setGroupStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null, false));
                         return null;
                     },
                     () -> {
-                        dto.setRaProfileStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null));
+                        dto.setRaProfileStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null, false));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatBySubjectType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.subjectType, null));
+                        dto.setCertificateStatBySubjectType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.subjectType, null, false));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByState(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null));
+                        dto.setCertificateStatByState(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null, false
+                        ));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByValidationStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null));
+                        dto.setCertificateStatByValidationStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null, false));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null));
+                        dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null, false));
                         return null;
                     },
                     (Callable<Void>) () -> {
@@ -1261,7 +1262,7 @@ public class CertificateServiceImpl implements CertificateService {
                                 .when(cb.isNotNull(root.get(Certificate_.notAfter)), "Expired")
                                 .otherwise("Not Issued");
 
-                        dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression));
+                        dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression, false));
                         return null;
                     }
             ));

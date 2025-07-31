@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.core.dao.AggregateResultDto;
+import com.czertainly.core.dao.entity.Certificate_;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.CryptographicKeyItem_;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -89,7 +90,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression) {
+    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression, boolean certificateArchived) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
@@ -104,6 +105,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         }
         cr.multiselect(groupBySelection, cb.countDistinct(root));
         cr.groupBy(groupBySelection);
+        if (!certificateArchived) cr.where(cb.isFalse(root.get(Certificate_.ARCHIVED)));
 
         final List<Predicate> predicates = getPredicates(filter, null, root, cb, cr);
         cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
