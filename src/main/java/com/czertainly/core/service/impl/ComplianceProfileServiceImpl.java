@@ -398,9 +398,11 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             if (raProfile.getComplianceProfiles() != null || raProfile.getComplianceProfiles().isEmpty()) {
                 List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);
                 for (Certificate certificate : certificates) {
-                    certificate.setComplianceResult(null);
-                    certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
-                    certificateService.updateCertificateEntity(certificate);
+                    if (!certificate.isArchived()) {
+                        certificate.setComplianceResult(null);
+                        certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
+                        certificateService.updateCertificateEntity(certificate);
+                    }
                 }
             } else {
                 try {
