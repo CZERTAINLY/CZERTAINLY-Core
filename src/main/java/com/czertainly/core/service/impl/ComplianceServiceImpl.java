@@ -133,7 +133,11 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Override
     // Internal purpose only
     public void checkComplianceOfCertificate(Certificate certificate) throws ConnectorException, NotFoundException {
-        if(certificate.getCertificateContent() == null) {
+        if (certificate.getCertificateContent() == null) {
+            return;
+        }
+        if (certificate.isArchived()) {
+            logger.info("Certificate with uuid: {} is archived, will not be checked for compliance,", certificate.getUuid());
             return;
         }
         logger.debug("Checking the Compliance of the Certificate: {}", certificate);

@@ -100,6 +100,12 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certToRevalidate2.setValidationStatus(CertificateValidationStatus.INVALID);
         certificateRepository.save(certToRevalidate2);
 
+        Certificate archivedCertificate = new Certificate();
+        archivedCertificate.setArchived(true);
+        setCertificateContent(archivedCertificate);
+        archivedCertificate.setValidationStatus(CertificateValidationStatus.NOT_CHECKED);
+        certificateRepository.save(archivedCertificate);
+
         Mockito.doAnswer(execution -> {
             Certificate certificate = execution.getArgument(0);
             certificate.setStatusValidationTimestamp(OffsetDateTime.now());

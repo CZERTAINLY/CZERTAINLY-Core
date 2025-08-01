@@ -21,25 +21,19 @@ public class StatisticsServiceImpl implements StatisticsService {
 
     private static final Logger logger = LoggerFactory.getLogger(StatisticsServiceImpl.class);
 
-    @Autowired
     private CertificateService certificateService;
-
-    @Autowired
     private DiscoveryService discoveryService;
-
-    @Autowired
     private GroupService groupService;
 
-    @Autowired
     private RaProfileService raProfileService;
 
 
     @Override
-    public StatisticsDto getStatistics() {
+    public StatisticsDto getStatistics(boolean includeArchived) {
         logger.info("Gathering the statistics information from database");
         StatisticsDto dto = new StatisticsDto();
 
-        dto.setTotalCertificates(certificateService.statisticsCertificateCount(SecurityFilter.create()));
+        dto.setTotalCertificates(certificateService.statisticsCertificateCount(SecurityFilter.create(), includeArchived));
         try {
             dto.setTotalDiscoveries(discoveryService.statisticsDiscoveryCount(SecurityFilter.create()));
         } catch (AccessDeniedException e) {
@@ -55,6 +49,26 @@ public class StatisticsServiceImpl implements StatisticsService {
         } catch (AccessDeniedException e){
             dto.setTotalRaProfiles(0L);
         }
-        return certificateService.addCertificateStatistics(SecurityFilter.create(), dto);
+        return certificateService.addCertificateStatistics(SecurityFilter.create(), dto, includeArchived);
+    }
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setDiscoveryService(DiscoveryService discoveryService) {
+        this.discoveryService = discoveryService;
+    }
+
+    @Autowired
+    public void setGroupService(GroupService groupService) {
+        this.groupService = groupService;
+    }
+
+    @Autowired
+    public void setRaProfileService(RaProfileService raProfileService) {
+        this.raProfileService = raProfileService;
     }
 }

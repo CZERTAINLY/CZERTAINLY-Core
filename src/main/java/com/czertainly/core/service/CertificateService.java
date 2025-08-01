@@ -27,7 +27,7 @@ import java.util.UUID;
 
 public interface CertificateService extends ResourceExtensionService  {
 
-    CertificateResponseDto listCertificates(SecurityFilter filter, SearchRequestDto request);
+    CertificateResponseDto listCertificates(SecurityFilter filter, CertificateSearchRequestDto request);
 
     CertificateDetailDto getCertificate(SecuredUUID uuid) throws NotFoundException, CertificateException, IOException;
 
@@ -49,7 +49,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException;
 
-    CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;
+    CertificateDownloadResponseDto downloadCertificate(UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;
 
     /**
      * Function to get the validation result of the certificate
@@ -192,15 +192,16 @@ public interface CertificateService extends ResourceExtensionService  {
      *
      * @return Number of certificates
      */
-    Long statisticsCertificateCount(SecurityFilter filter);
+    Long statisticsCertificateCount(SecurityFilter filter, boolean includeArchived);
 
     /**
      * Add statistics information based on the permission with the logged in user
      *
      * @param dto Statistics DTO with predefined records
+     * @param includeArchived include also archived certificates in statistics
      * @return Statistics DTO
      */
-    StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto);
+    StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto, boolean includeArchived);
 
     /**
      * Method to check if the permission is available for the user to create certificate and submit certificate request
@@ -247,7 +248,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param uuids UUIDs of the certificate
      * @return List of certificate contents
      */
-    List<CertificateContentDto> getCertificateContent(List<String> uuids);
+    List<CertificateContentDto> getCertificateContent(List<UUID> uuids);
 
     /**
      * Create certificate request entity and certificate in status New, store it in the database ready for issuing
@@ -295,5 +296,35 @@ public interface CertificateService extends ResourceExtensionService  {
      * Find certificates which are expiring and not renewed and trigger event handling these certificates
      */
     int handleExpiringCertificates();
+
+    /**
+     * Archives a single certificate by its UUID.
+     *
+     * @param uuid the UUID of the certificate to archive
+     */
+    void archiveCertificate(UUID uuid) throws NotFoundException;
+
+    /**
+     * Unarchives a single certificate by its UUID.
+     *
+     * @param uuid the UUID of the certificate to unarchive
+     */
+    void unarchiveCertificate(UUID uuid) throws NotFoundException;
+
+    /**
+     * Archives a list of certificates by their UUIDs.
+     *
+     * @param uuids the list of UUIDs of certificates to archive
+     */
+    void bulkArchiveCertificates(List<UUID> uuids);
+
+    /**
+     * Unarchives a list of certificates by their UUIDs.
+     *
+     * @param uuids the list of UUIDs of certificates to unarchive
+     */
+    void bulkUnarchiveCertificates(List<UUID> uuids);
+
+
 
 }

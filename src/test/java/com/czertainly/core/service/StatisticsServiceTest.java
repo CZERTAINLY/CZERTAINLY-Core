@@ -14,7 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 @SpringBootTest
 @Transactional
 @Rollback
-public class StatisticsServiceTest extends BaseSpringBootTest {
+class StatisticsServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private StatisticsService statisticsService;
@@ -23,18 +23,18 @@ public class StatisticsServiceTest extends BaseSpringBootTest {
     private GroupRepository groupRepository;
 
     @Test
-    public void testGetStatistics() {
-        StatisticsDto result = statisticsService.getStatistics();
+    void testGetStatistics() {
+        StatisticsDto result = statisticsService.getStatistics(false);
         Assertions.assertNotNull(result);
         Assertions.assertEquals(0l, result.getTotalCertificates());
         Assertions.assertEquals(0l, result.getTotalGroups());
     }
 
     @Test
-    public void testGetStatistics_oneGroup() {
+    void testGetStatistics_oneGroup() {
         groupRepository.save(new Group());
 
-        StatisticsDto result = statisticsService.getStatistics();
+        StatisticsDto result = statisticsService.getStatistics(false);
         Assertions.assertNotNull(result);
         Assertions.assertEquals(0l, result.getTotalCertificates());
         Assertions.assertEquals(1l, result.getTotalGroups());

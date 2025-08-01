@@ -70,19 +70,19 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     @Query("""
              SELECT COUNT(*) FROM Certificate c LEFT JOIN c.raProfile rp
-             WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
+             WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses AND c.archived = false
              AND ((rp.validationEnabled is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))
             """)
     long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("platformEnabled") boolean platformEnabled);
 
 
-    // Select certificates which have content, and they are not revoked or expired (since these statuses cannot change)
+    // Select certificates which have content, and they are not revoked, expired (since these statuses cannot change) or archived
     // Select certificates according to platform settings, this applies to certificates which either do not have RA Profile assigned or certificates which have RA Profile
     // assigned, validation for that RA Profile is null
     // Select certificates which have validation frequency set in RA Profile
     @Query("""
             SELECT c.uuid FROM Certificate c LEFT JOIN c.raProfile rp
-                WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses
+                WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses AND c.archived = false
                     AND
                     (
                 ((rp.validationEnabled is NULL AND :platformEnabled = true) AND (c.statusValidationTimestamp IS NULL OR c.statusValidationTimestamp <= :statusValidityEndTimestamp))
@@ -98,7 +98,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByComplianceResultContaining(String ruleUuid);
 
-    List<Certificate> findByRaProfileAndComplianceStatusIsNotNull(RaProfile raProfile);
+    List<Certificate> findByRaProfileAndComplianceStatusIsNotNullAndArchivedIsFalse(RaProfile raProfile);
 
     Optional<Certificate> findBySubjectDnNormalizedAndSerialNumber(String subjectDnNormalized, String serialNumber);
 
@@ -115,6 +115,10 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     void setKeyUuid(UUID keyUuid, List<UUID> uuids);
 
     @Modifying
+    @Query("UPDATE Certificate c SET c.archived = ?1 WHERE c.uuid IN ?2")
+    void archiveCertificates(boolean archive, List<UUID> uuids);
+
+    @Modifying
     @Query("UPDATE Certificate c SET c.altKeyUuid = ?1, c.hybridCertificate = true WHERE c.uuid IN ?2")
     void setAltKeyUuidAndHybridCertificate(UUID keyUuid, List<UUID> uuids);
 
@@ -128,7 +132,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             extended_key_usage,fingerprint,issuer_common_name,issuer_dn,issuer_dn_normalized,
             issuer_serial_number,key_size,key_usage,key_uuid,public_key_algorithm,
             public_key_fingerprint,serial_number,signature_algorithm,subject_alternative_names,
-            subject_dn,subject_dn_normalized,subject_type,trusted_ca,user_uuid,hybrid_certificate,alt_signature_algorithm)
+            subject_dn,subject_dn_normalized,subject_type,trusted_ca,user_uuid,hybrid_certificate,alt_signature_algorithm,archived)
             VALUES (
             :#{#cert.uuid}, :#{#cert.author}, :#{#cert.created}, :#{#cert.updated}, :#{#cert.raProfileUuid}, :#{#cert.certificateContentId},
             :#{#cert.certificateRequestUuid}, :#{#cert.sourceCertificateUuid}, :#{#cert.issuerCertificateUuid}, :#{#cert.certificateType.name()},
@@ -138,13 +142,17 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             :#{#cert.issuerSerialNumber}, :#{#cert.keySize}, :#{#cert.keyUsage}, :#{#cert.keyUuid}, :#{#cert.publicKeyAlgorithm},
             :#{#cert.publicKeyFingerprint}, :#{#cert.serialNumber}, :#{#cert.signatureAlgorithm}, :#{#cert.subjectAlternativeNames},
             :#{#cert.subjectDn}, :#{#cert.subjectDnNormalized}, :#{#cert.subjectType.name()}, :#{#cert.trustedCa}, :#{#cert.userUuid},
-            :#{#cert.hybridCertificate}, :#{#cert.altSignatureAlgorithm}
+            :#{#cert.hybridCertificate}, :#{#cert.altSignatureAlgorithm}, :#{#cert.archived}
             )
             ON CONFLICT (fingerprint)
             DO NOTHING
             """, nativeQuery = true)
     int insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
 
-    @Query("SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)")
+    @Query("""
+            SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} 
+            AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)
+            AND archived = false
+            """)
     List<UUID> findExpiringCertificatesWithoutRenewal();
 }

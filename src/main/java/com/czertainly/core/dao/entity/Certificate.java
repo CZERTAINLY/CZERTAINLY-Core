@@ -211,6 +211,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "hybrid_certificate")
     private boolean hybridCertificate = false;
 
+    @Column(name = "archived")
+    private boolean archived = false;
+
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate", cascade = CascadeType.ALL)
     @ToString.Exclude
     private CertificateProtocolAssociation protocolAssociation;
