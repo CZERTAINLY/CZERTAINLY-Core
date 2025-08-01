@@ -545,7 +545,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
-        CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid().toString(), format, encoding);
+        CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid(), format, encoding);
         Assertions.assertDoesNotThrow(() -> (certificateService.createCertificate(certificateDownloadResponseDto.getContent(), CertificateType.X509)));
     }
 }

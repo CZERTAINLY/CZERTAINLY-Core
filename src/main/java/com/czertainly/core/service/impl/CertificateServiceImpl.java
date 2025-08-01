@@ -20,7 +20,6 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
-import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -706,7 +705,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
-        List<CertificateContentDto> certificateContent = getCertificateContent(List.of(uuid.toString()));
+        List<CertificateContentDto> certificateContent = getCertificateContent(List.of(uuid.getValue()));
         if (certificateContent.isEmpty()) {
             throw new ValidationException("Cannot download certificate chain, the end certificate is not issued.");
         }
@@ -722,8 +721,8 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
-    public CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
-        CertificateDetailDto certificate = getCertificate(SecuredUUID.fromString(uuid));
+    public CertificateDownloadResponseDto downloadCertificate(UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
+        CertificateDetailDto certificate = getCertificate(SecuredUUID.fromUUID(uuid));
         if (certificate.getCertificateContent() == null) {
             throw new ValidationException("Cannot download the certificate, certificate is not issued.");
         }
@@ -1366,15 +1365,15 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST)
-    public List<CertificateContentDto> getCertificateContent(List<String> uuids) {
+    public List<CertificateContentDto> getCertificateContent(List<UUID> uuids) {
         List<CertificateContentDto> response = new ArrayList<>();
-        for (String uuid : uuids) {
+        for (UUID uuid : uuids) {
             try {
-                SecuredUUID securedUUID = SecuredUUID.fromString(uuid);
+                SecuredUUID securedUUID = SecuredUUID.fromUUID(uuid);
                 permissionEvaluator.certificate(securedUUID);
                 Certificate certificate = getCertificateEntity(securedUUID);
                 CertificateContentDto dto = new CertificateContentDto();
-                dto.setUuid(uuid);
+                dto.setUuid(uuid.toString());
                 dto.setCommonName(certificate.getCommonName());
                 dto.setSerialNumber(certificate.getSerialNumber());
                 dto.setCertificateContent(certificate.getCertificateContent().getContent());

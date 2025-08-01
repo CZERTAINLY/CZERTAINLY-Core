@@ -49,7 +49,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     CertificateChainDownloadResponseDto downloadCertificateChain(SecuredUUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException;
 
-    CertificateDownloadResponseDto downloadCertificate(String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;
+    CertificateDownloadResponseDto downloadCertificate(UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException;
 
     /**
      * Function to get the validation result of the certificate
@@ -248,7 +248,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param uuids UUIDs of the certificate
      * @return List of certificate contents
      */
-    List<CertificateContentDto> getCertificateContent(List<String> uuids);
+    List<CertificateContentDto> getCertificateContent(List<UUID> uuids);
 
     /**
      * Create certificate request entity and certificate in status New, store it in the database ready for issuing
