@@ -55,10 +55,7 @@ import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 
 @Service(Resource.Codes.RA_PROFILE)
 @Transactional
@@ -821,4 +818,5 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }
+
 }
