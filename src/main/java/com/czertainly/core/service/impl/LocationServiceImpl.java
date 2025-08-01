@@ -165,7 +165,7 @@ public class LocationServiceImpl implements LocationService {
         final List<LocationDto> listedKeyDTOs = locationRepository.findUsingSecurityFilter(filter, List.of("certificates", "certificates.certificate"), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(Location::mapToDto).toList();
-        final Long maxItems = locationRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        final Long maxItems = locationRepository.countUsingSecurityFilter(filter, additionalWhereClause, null);
 
         final LocationsResponseDto responseDto = new LocationsResponseDto();
         responseDto.setLocations(listedKeyDTOs);

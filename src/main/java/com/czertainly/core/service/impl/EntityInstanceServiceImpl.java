@@ -95,7 +95,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(EntityInstanceReference::mapToDto).toList();
-        final Long maxItems = entityInstanceReferenceRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        final Long maxItems = entityInstanceReferenceRepository.countUsingSecurityFilter(filter, additionalWhereClause, null);
 
         final EntityInstanceResponseDto responseDto = new EntityInstanceResponseDto();
         responseDto.setEntities(listedKeyDTOs);

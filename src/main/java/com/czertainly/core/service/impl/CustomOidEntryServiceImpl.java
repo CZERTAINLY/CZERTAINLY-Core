@@ -160,7 +160,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
         final List<CustomOidEntryResponseDto> oidEntries = customOidEntryRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(CustomOidEntry_.oid)))
                 .stream()
                 .map(CustomOidEntry::mapToDto).toList();
-        final Long totalItems = customOidEntryRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+        final Long totalItems = customOidEntryRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause, null);
         CustomOidEntryListResponseDto response = new CustomOidEntryListResponseDto();
         response.setOidEntries(oidEntries);
         response.setItemsPerPage(request.getItemsPerPage());

@@ -33,9 +33,9 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression, boolean certificateArchived);
 
-    Long countUsingSecurityFilter(SecurityFilter filter);
+    Long countUsingSecurityFilter(SecurityFilter filter, Boolean includeArchived);
 
-    Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause);
+    Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Boolean includeArchived);
 
     int deleteUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete<T>, Predicate> additionalWhereClause);
 

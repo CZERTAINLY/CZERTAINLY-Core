@@ -114,13 +114,13 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter) {
-        return countUsingSecurityFilter(filter, null);
+    public Long countUsingSecurityFilter(SecurityFilter filter, Boolean includeArchived) {
+        return countUsingSecurityFilter(filter, null, includeArchived);
     }
 
     @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
-        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
+    public Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Boolean includeArchived) {
+        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause, includeArchived);
         List<Long> crlist = entityManager.createQuery(cr).getResultList();
         return crlist.get(0);
     }
@@ -159,11 +159,14 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
-    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
+    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Boolean includeArchived) {
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
         final Root<T> root = cr.from(entity);
+        if (includeArchived == Boolean.FALSE) {
+            cr.where(cb.isFalse(root.get(Certificate_.ARCHIVED)));
+        }
         cr.select(cb.countDistinct(root));
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));

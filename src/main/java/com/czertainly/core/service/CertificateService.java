@@ -192,15 +192,16 @@ public interface CertificateService extends ResourceExtensionService  {
      *
      * @return Number of certificates
      */
-    Long statisticsCertificateCount(SecurityFilter filter);
+    Long statisticsCertificateCount(SecurityFilter filter, boolean includeArchived);
 
     /**
      * Add statistics information based on the permission with the logged in user
      *
      * @param dto Statistics DTO with predefined records
+     * @param includeArchived include also archived certificates in statistics
      * @return Statistics DTO
      */
-    StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto);
+    StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto, boolean includeArchived);
 
     /**
      * Method to check if the permission is available for the user to create certificate and submit certificate request

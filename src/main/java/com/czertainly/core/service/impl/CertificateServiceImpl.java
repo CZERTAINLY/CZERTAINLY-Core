@@ -282,7 +282,7 @@ public class CertificateServiceImpl implements CertificateService {
         }
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
         final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
-        final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause, request.isIncludeArchived());
 
         final CertificateResponseDto responseDto = new CertificateResponseDto();
         responseDto.setCertificates(listedKeyDTOs);
@@ -1211,50 +1211,50 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
-    public Long statisticsCertificateCount(SecurityFilter filter) {
+    public Long statisticsCertificateCount(SecurityFilter filter, boolean includeArchived) {
         setupSecurityFilter(filter);
-        return certificateRepository.countUsingSecurityFilter(filter);
+        return certificateRepository.countUsingSecurityFilter(filter, includeArchived);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.LIST, parentResource = Resource.RA_PROFILE, parentAction = ResourceAction.LIST)
-    public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto) {
+    public StatisticsDto addCertificateStatistics(SecurityFilter filter, StatisticsDto dto, boolean includeArchived) {
         setupSecurityFilter(filter);
 
         long start = System.nanoTime();
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.invokeAll(List.of(
                     () -> {
-                        dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null, false));
+                        dto.setCertificateStatByKeySize(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.keySize, null, includeArchived));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null, false));
+                        dto.setCertificateStatByType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.certificateType, null, includeArchived));
                         return null;
                     },
                     () -> {
-                        dto.setGroupStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null, false));
+                        dto.setGroupStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.groups, Group_.name, null, includeArchived));
                         return null;
                     },
                     () -> {
-                        dto.setRaProfileStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null, false));
+                        dto.setRaProfileStatByCertificateCount(certificateRepository.countGroupedUsingSecurityFilter(filter, Certificate_.raProfile, RaProfile_.name, null, includeArchived));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatBySubjectType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.subjectType, null, false));
+                        dto.setCertificateStatBySubjectType(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.subjectType, null, includeArchived));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByState(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null, false
+                        dto.setCertificateStatByState(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.state, null, includeArchived
                         ));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByValidationStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null, false));
+                        dto.setCertificateStatByValidationStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.validationStatus, null, includeArchived));
                         return null;
                     },
                     () -> {
-                        dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null, false));
+                        dto.setCertificateStatByComplianceStatus(certificateRepository.countGroupedUsingSecurityFilter(filter, null, Certificate_.complianceStatus, null, includeArchived));
                         return null;
                     },
                     (Callable<Void>) () -> {
@@ -1270,7 +1270,7 @@ public class CertificateServiceImpl implements CertificateService {
                                 .when(cb.isNotNull(root.get(Certificate_.notAfter)), "Expired")
                                 .otherwise("Not Issued");
 
-                        dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression, false));
+                        dto.setCertificateStatByExpiry(certificateRepository.countGroupedUsingSecurityFilter(filter, null, null, groupByExpression, includeArchived));
                         return null;
                     }
             ));

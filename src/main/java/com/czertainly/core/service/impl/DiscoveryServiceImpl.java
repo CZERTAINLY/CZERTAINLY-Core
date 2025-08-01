@@ -172,7 +172,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto).toList();
-        final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
+        final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause, null);
 
         final DiscoveryResponseDto responseDto = new DiscoveryResponseDto();
         responseDto.setDiscoveries(listedDiscoveriesDTOs);
@@ -269,7 +269,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
     public Long statisticsDiscoveryCount(SecurityFilter filter) {
-        return discoveryRepository.countUsingSecurityFilter(filter);
+        return discoveryRepository.countUsingSecurityFilter(filter, null);
     }
 
     @Override
