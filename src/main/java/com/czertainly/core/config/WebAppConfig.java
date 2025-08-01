@@ -2,6 +2,7 @@ package com.czertainly.core.config;
 
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
@@ -38,7 +39,7 @@ public class WebAppConfig implements WebMvcConfigurer {
     @Bean(name="jacksonObjectMapper")
     public ObjectMapper jsonObjectMapper() {
         return Jackson2ObjectMapperBuilder.json()
-                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+                .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
                 .modules(new JavaTimeModule())
                 .serializationInclusion(JsonInclude.Include.NON_NULL)
                 .build();

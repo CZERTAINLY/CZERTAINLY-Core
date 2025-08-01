@@ -27,7 +27,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     Certificate findFirstByUuidIn(List<UUID> uuids);
 
-    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items"})
+    @EntityGraph(attributePaths = {"certificateContent", "key", "key.items", "groups", "owner", "altKey", "altKey.items", "raProfile"})
     Optional<Certificate> findWithAssociationsByUuid(UUID uuid);
 
     Optional<Certificate> findBySerialNumberIgnoreCase(String serialNumber);

@@ -1,6 +1,7 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.core.certificate.X500RdnType;
+import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.core.oid.OidHandler;
 import org.bouncycastle.asn1.ASN1ObjectIdentifier;
 import org.bouncycastle.asn1.x500.AttributeTypeAndValue;
 import org.bouncycastle.asn1.x500.RDN;
@@ -10,26 +11,35 @@ import org.bouncycastle.asn1.x500.style.BCStrictStyle;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 public class CzertainlyX500NameStyle extends BCStrictStyle {
 
+    // Kept here because of migration
     public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false);
     public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true);
-    private final boolean normalized;
+    private final boolean normalizedStyle;
     private final String delimiter;
 
+    private final Map<String, String> oidToCodeMap;
 
-    public CzertainlyX500NameStyle(boolean normalized) {
-        this.normalized = normalized;
-        if (normalized) this.delimiter = ","; else this.delimiter = ", ";
+    public CzertainlyX500NameStyle(boolean normalizedStyle) {
+        this.normalizedStyle = normalizedStyle;
+        this.delimiter = normalizedStyle ? "," : ", ";
+        this.oidToCodeMap = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).entrySet().stream()
+                .collect(Collectors.toMap(
+                        Map.Entry::getKey,
+                        entry -> entry.getValue().code()
+                ));
     }
 
     @Override
     public String toString(X500Name x500Name) {
-        StringBuffer stringBuffer = new StringBuffer();
+        StringBuilder stringBuilder = new StringBuilder();
         boolean isFirstRdn = true;
         RDN[] rdNs = x500Name.getRDNs();
-        if (this.normalized) {
+        if (this.normalizedStyle) {
             Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
         } else {
             Collections.reverse(Arrays.asList(rdNs));
@@ -38,28 +48,24 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
             if (isFirstRdn) {
                 isFirstRdn = false;
             } else {
-                stringBuffer.append(this.delimiter);
+                stringBuilder.append(this.delimiter);
             }
 
-            appendRDN(stringBuffer, rdn);
+            appendRDN(stringBuilder, rdn);
         }
 
-        return stringBuffer.toString();
+        return stringBuilder.toString();
     }
 
     private String getRdnCode(AttributeTypeAndValue attributeTypeAndValue) {
         ASN1ObjectIdentifier type = attributeTypeAndValue.getType();
-        if (this.normalized) return type.getId();
-        try {
-            return X500RdnType.fromOID(type.toString()).getCode();
-        } catch (IllegalArgumentException e) {
-            if (this.defaultSymbols.get(type) != null)
-                return (String) this.defaultSymbols.get(type);
-            else return type.getId();
-        }
+        if (this.normalizedStyle) return type.getId();
+        if (oidToCodeMap.get(type.getId()) != null) return  oidToCodeMap.get(type.getId());
+        if (this.defaultSymbols.get(type) != null) return (String) this.defaultSymbols.get(type);
+        return type.getId();
     }
 
-    private void appendRDN(StringBuffer stringBuffer, RDN rdn) {
+    private void appendRDN(StringBuilder stringBuilder, RDN rdn) {
         if (rdn.isMultiValued()) {
             AttributeTypeAndValue[] attributeTypeAndValues = rdn.getTypesAndValues();
             boolean isFirst = true;
@@ -68,19 +74,19 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
                 if (isFirst) {
                     isFirst = false;
                 } else {
-                    stringBuffer.append('+');
+                    stringBuilder.append('+');
                 }
-                appendTypeAndValue(stringBuffer, attributeTypeAndValues[i]);
+                appendTypeAndValue(stringBuilder, attributeTypeAndValues[i]);
             }
         } else if (rdn.getFirst() != null) {
-            appendTypeAndValue(stringBuffer, rdn.getFirst());
+            appendTypeAndValue(stringBuilder, rdn.getFirst());
         }
     }
 
-    private void appendTypeAndValue(StringBuffer stringBuffer, AttributeTypeAndValue attributeTypeAndValue) {
-        stringBuffer.append(getRdnCode(attributeTypeAndValue));
-        stringBuffer.append('=');
-        stringBuffer.append(attributeTypeAndValue.getValue().toString());
+    private void appendTypeAndValue(StringBuilder stringBuilder, AttributeTypeAndValue attributeTypeAndValue) {
+        stringBuilder.append(getRdnCode(attributeTypeAndValue));
+        stringBuilder.append('=');
+        stringBuilder.append(attributeTypeAndValue.getValue().toString());
     }
 
 }
