@@ -172,7 +172,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto).toList();
-        final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause, null);
+        final Long maxItems = discoveryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final DiscoveryResponseDto responseDto = new DiscoveryResponseDto();
         responseDto.setDiscoveries(listedDiscoveriesDTOs);

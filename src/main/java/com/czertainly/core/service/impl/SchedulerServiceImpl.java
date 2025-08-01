@@ -160,7 +160,7 @@ public class SchedulerServiceImpl implements SchedulerService {
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());
         final List<ScheduledJobHistory> scheduledJobHistoryList = scheduledJobHistoryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, pageable, (root, cb) -> cb.desc(root.get("jobExecution")));
 
-        final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause, null);
+        final Long maxItems = scheduledJobHistoryRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final ScheduledJobHistoryResponseDto responseDto = new ScheduledJobHistoryResponseDto();
         responseDto.setScheduledJobHistory(scheduledJobHistoryList.stream().map(ScheduledJobHistory::mapToDto).toList());
         responseDto.setItemsPerPage(paginationRequestDto.getItemsPerPage());

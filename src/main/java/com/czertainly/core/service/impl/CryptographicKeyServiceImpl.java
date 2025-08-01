@@ -183,7 +183,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 .map(CryptographicKeyItem::mapToSummaryDto)
                 .toList();
 
-        final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause, null);
+        final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();
         responseDto.setCryptographicKeys(listedKeyDtos);
         responseDto.setItemsPerPage(request.getItemsPerPage());

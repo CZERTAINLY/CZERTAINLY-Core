@@ -92,7 +92,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         final List<AuditLogDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(AuditLog_.id)))
                 .stream()
                 .map(AuditLog::mapToDto).toList();
-        final Long totalItems = auditLogRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause, null);
+        final Long totalItems = auditLogRepository.countUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
 
         AuditLogResponseDto response = new AuditLogResponseDto();
         response.setItems(auditLogs);

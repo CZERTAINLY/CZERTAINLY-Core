@@ -90,7 +90,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression, boolean certificateArchived) {
+    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
@@ -105,22 +105,21 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         }
         cr.multiselect(groupBySelection, cb.countDistinct(root));
         cr.groupBy(groupBySelection);
-        if (!certificateArchived) cr.where(cb.isFalse(root.get(Certificate_.ARCHIVED)));
 
-        final List<Predicate> predicates = getPredicates(filter, null, root, cb, cr);
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         cr = predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
 
         return entityManager.createQuery(cr).getResultList().stream().collect(Collectors.toMap(i -> i.aggregatedValue() == null ? "Unassigned" : i.aggregatedValue(), i -> i.aggregation().longValue()));
     }
 
     @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter, Boolean includeArchived) {
-        return countUsingSecurityFilter(filter, null, includeArchived);
+    public Long countUsingSecurityFilter(SecurityFilter filter) {
+        return countUsingSecurityFilter(filter, null);
     }
 
     @Override
-    public Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Boolean includeArchived) {
-        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause, includeArchived);
+    public Long countUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
+        CriteriaQuery<Long> cr = createCountCriteriaBuilder(filter, additionalWhereClause);
         List<Long> crlist = entityManager.createQuery(cr).getResultList();
         return crlist.get(0);
     }
@@ -159,14 +158,11 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
     }
 
-    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, Boolean includeArchived) {
+    private CriteriaQuery<Long> createCountCriteriaBuilder(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaQuery<Long> cr = cb.createQuery(Long.class);
         final Root<T> root = cr.from(entity);
-        if (includeArchived == Boolean.FALSE) {
-            cr.where(cb.isFalse(root.get(Certificate_.ARCHIVED)));
-        }
         cr.select(cb.countDistinct(root));
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
         return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
