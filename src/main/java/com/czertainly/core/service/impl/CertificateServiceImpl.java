@@ -1653,12 +1653,18 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ARCHIVE)
     public void bulkArchiveCertificates(List<UUID> uuids) {
         certificateRepository.archiveCertificates(true, uuids);
+        for (UUID uuid : uuids) {
+            certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.ARCHIVE, CertificateEventStatus.SUCCESS, "Certificate has been archived.", "");
+        }
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.ARCHIVE)
     public void bulkUnarchiveCertificates(List<UUID> uuids) {
         certificateRepository.archiveCertificates(false, uuids);
+        for (UUID uuid : uuids) {
+            certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UNARCHIVE, CertificateEventStatus.SUCCESS, "Certificate has been unarchived.", "");
+        }
     }
 
 
