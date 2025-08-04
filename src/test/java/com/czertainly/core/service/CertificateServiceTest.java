@@ -32,7 +32,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -359,7 +358,6 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         certificate.setArchived(false);
         certificateRepository.save(certificate);
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
         certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();

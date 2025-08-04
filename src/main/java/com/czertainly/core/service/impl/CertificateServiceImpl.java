@@ -1228,12 +1228,7 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
 
         long start = System.nanoTime();
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause;
-        if (!includeArchived) additionalWhereClause = (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
-
-        else {
-            additionalWhereClause = null;
-        }
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = includeArchived ? null : (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.invokeAll(List.of(
