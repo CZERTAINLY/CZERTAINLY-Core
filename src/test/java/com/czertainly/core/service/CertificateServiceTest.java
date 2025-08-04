@@ -43,9 +43,11 @@ import java.util.*;
 
 class CertificateServiceTest extends BaseSpringBootTest {
 
+    private static final int AUTH_SERVICE_MOCK_PORT = 10000;
+
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
     }
 
     @Autowired
@@ -386,7 +388,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
@@ -497,7 +499,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetSearchableFieldInformation() {
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(
