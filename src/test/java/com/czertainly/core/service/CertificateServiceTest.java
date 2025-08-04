@@ -297,7 +297,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
 
         UUID oldRaProfileUuid = certificate.getRaProfileUuid();
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
         Certificate certificateReloaded = certificateRepository.findByUuid(certificate.getUuid()).get();
         Assertions.assertEquals(oldRaProfileUuid, certificateReloaded.getRaProfile().getUuid());
 
@@ -354,7 +354,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         certificate.setArchived(true);
         certificateRepository.save(certificate);
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
         Certificate certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertTrue(certificateEntity.getGroups().isEmpty());
 
@@ -401,7 +401,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setArchived(true);
         certificateRepository.save(certificate);
         String oldOwnerUsername = certificate.getOwner().getOwnerUsername();
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request));
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(oldOwnerUsername, owner.getName());
 
