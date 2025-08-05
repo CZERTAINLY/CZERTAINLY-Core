@@ -456,13 +456,16 @@ class LocationServiceTest extends BaseSpringBootTest {
         mockServer.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push")).willReturn(WireMock.okJson("{\"withKey\": false}")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/push/attributes")).willReturn(WireMock.okJson("[]")));
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/entityProvider/entities/[^/]+/locations/csr/attributes")).willReturn(WireMock.okJson("[]")));
-        Assertions.assertThrows(ValidationException.class, () -> locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest));
+        SecuredParentUUID entityUuid = entityInstanceReference.getSecuredParentUuid();
+        SecuredUUID locationUuid = location.getSecuredUuid();
+        String certificateUuid = certificateToPush.getUuid().toString();
+        Assertions.assertThrows(ValidationException.class, () -> locationService.pushCertificateToLocation(entityUuid, locationUuid, certificateUuid, pushRequest));
 
         certificateToPush.setArchived(false);
         certificateRepository.save(certificateToPush);
-        LocationDto locationDto = locationService.pushCertificateToLocation(entityInstanceReference.getSecuredParentUuid(), location.getSecuredUuid(), certificateToPush.getUuid().toString(), pushRequest);
+        LocationDto locationDto = locationService.pushCertificateToLocation(entityUuid, locationUuid, certificateUuid, pushRequest);
         Assertions.assertNotNull(locationDto.getCertificates().stream()
-                .filter(cl -> cl.getCertificateUuid().equals(certificateToPush.getUuid().toString()))
+                .filter(cl -> cl.getCertificateUuid().equals(certificateUuid))
                 .findFirst().orElse(null));
     }
 

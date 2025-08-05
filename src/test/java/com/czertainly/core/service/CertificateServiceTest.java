@@ -298,18 +298,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
 
         UUID oldRaProfileUuid = certificate.getRaProfileUuid();
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
+        SecuredUUID certificateSecuredUuid = certificate.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificateSecuredUuid, uuidDto));
         Certificate certificateReloaded = certificateRepository.findByUuid(certificate.getUuid()).get();
         Assertions.assertEquals(oldRaProfileUuid, certificateReloaded.getRaProfile().getUuid());
 
         certificate.setArchived(false);
         certificateRepository.save(certificate);
 
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        certificateService.updateCertificateObjects(certificateSecuredUuid, uuidDto);
 
         certificateReloaded = certificateRepository.findByUuid(certificate.getUuid()).get();
         Assertions.assertEquals(raProfile, certificateReloaded.getRaProfile());
-        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
+        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificateSecuredUuid);
 
         Assertions.assertEquals(1, certificateDetailDto.getMetadata().size());
         Assertions.assertEquals(connector.getName(), certificateDetailDto.getMetadata().getFirst().getConnectorName());
