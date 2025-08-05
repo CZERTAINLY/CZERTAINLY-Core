@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.acme.AcmeConstants;
@@ -74,6 +75,13 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "require_terms_of_service")
     private Boolean requireTermsOfService;
 
+    @Column(name = "certificate_association_uuid")
+    private UUID certificateAssociationUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_association_uuid")
+    private ProtocolCertificateAssociation certificateAssociation;
+
     @Override
     public AcmeProfileDto mapToDto() {
         AcmeProfileDto acmeProfileDto = new AcmeProfileDto();
@@ -94,6 +102,7 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setRequireTermsOfService(requireTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
+        if (certificateAssociation != null) acmeProfileDto.setProtocolCertificateAssociations(certificateAssociation.mapToDto());
         if (raProfile != null) {
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
         }

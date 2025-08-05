@@ -21,6 +21,7 @@ import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -78,6 +79,7 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
+import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -130,6 +132,9 @@ public class CertificateServiceImpl implements CertificateService {
     private CertificateApiClient certificateApiClient;
     private UserManagementApiClient userManagementApiClient;
     private CrlService crlService;
+    private AcmeProfileService acmeProfileService;
+    private CmpProfileService cmpProfileService;
+    private ScepProfileService scepProfileService;
 
     private AttributeEngine attributeEngine;
     private ExtendedAttributeService extendedAttributeService;
@@ -151,6 +156,21 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
         this.transactionManager = transactionManager;
+    }
+
+    @Autowired
+    public void setAcmeProfileService(AcmeProfileService acmeProfileService) {
+        this.acmeProfileService = acmeProfileService;
+    }
+
+    @Autowired
+    public void setCmpProfileService(CmpProfileService cmpProfileService) {
+        this.cmpProfileService = cmpProfileService;
+    }
+
+    @Autowired
+    public void setScepProfileService(ScepProfileService scepProfileService) {
+        this.scepProfileService = scepProfileService;
     }
 
     @Autowired
@@ -1556,6 +1576,18 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         certificate = certificateRepository.save(certificate);
+
+        if (certificate.getProtocolAssociation() != null) {
+            UUID protocolProfileUuid = certificate.getProtocolAssociation().getProtocolProfileUuid();
+            ProtocolCertificateAssociationsDto certificateAssociation = switch (certificate.getProtocolAssociation().getProtocol()) {
+                case ACME -> acmeProfileService.getAcmeProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getProtocolCertificateAssociations();
+                case SCEP -> scepProfileService.getScepProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getProtocolCertificateAssociations();
+                case CMP -> cmpProfileService.getCmpProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getProtocolCertificateAssociations();
+            };
+            updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
+            updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
+            attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
+        }
 
         // save metadata
         UUID connectorUuid = certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();

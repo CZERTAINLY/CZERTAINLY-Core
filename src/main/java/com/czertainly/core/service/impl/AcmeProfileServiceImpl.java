@@ -12,10 +12,12 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -46,6 +48,12 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
     private AttributeEngine attributeEngine;
+    private ProtocolCertificateAssociationRepository certificateAssociationRepository;
+
+    @Autowired
+    public void setCertificateAssociationRepository(ProtocolCertificateAssociationRepository certificateAssociationRepository) {
+        this.certificateAssociationRepository = certificateAssociationRepository;
+    }
 
     @Autowired
     public AcmeProfileServiceImpl(AcmeProfileRepository acmeProfileRepository) {
@@ -139,6 +147,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
         acmeProfile.setRaProfile(raProfile);
+        if (request.getProtocolCertificateAssociations() != null) {
+            ProtocolCertificateAssociation certificateAssociation = new ProtocolCertificateAssociation();
+            certificateAssociation.setOwnerUuid(request.getProtocolCertificateAssociations().getOwnerUuid());
+            certificateAssociation.setGroupUuids(request.getProtocolCertificateAssociations().getGroupUuids());
+            certificateAssociation.setCustomAttributes(request.getProtocolCertificateAssociations().getCustomAttributes());
+            certificateAssociationRepository.save(certificateAssociation);
+            acmeProfile.setCertificateAssociation(certificateAssociation);
+        }
         acmeProfile = acmeProfileRepository.save(acmeProfile);
 
         AcmeProfileDto dto = acmeProfile.mapToDto();
@@ -212,6 +228,19 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
+
+        ProtocolCertificateAssociation certificateAssociation = null;
+        if (request.getProtocolCertificateAssociations() != null) {
+            certificateAssociation = acmeProfile.getCertificateAssociation();
+            certificateAssociation.setOwnerUuid(request.getProtocolCertificateAssociations().getOwnerUuid());
+            certificateAssociation.setGroupUuids(request.getProtocolCertificateAssociations().getGroupUuids());
+            certificateAssociation.setCustomAttributes(request.getProtocolCertificateAssociations().getCustomAttributes());
+            certificateAssociationRepository.save(certificateAssociation);
+        }
+
+        acmeProfile.setCertificateAssociation(certificateAssociation);
+
+
         acmeProfile = acmeProfileRepository.save(acmeProfile);
 
         AcmeProfileDto dto = acmeProfile.mapToDto();

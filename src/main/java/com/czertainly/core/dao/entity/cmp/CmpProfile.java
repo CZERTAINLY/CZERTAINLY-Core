@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.cmp.CmpConstants;
@@ -92,6 +93,13 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     @Column(name = "signing_certificate_uuid")
     private UUID signingCertificateUuid;
 
+    @Column(name = "certificate_association_uuid")
+    private UUID certificateAssociationUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "certificate_association_uuid")
+    private ProtocolCertificateAssociation certificateAssociation;
+
     @Override
     public CmpProfileDto mapToDto() {
         CmpProfileDto cmpProfileDto = new CmpProfileDto();
@@ -102,6 +110,7 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     public CmpProfileDetailDto mapToDetailDto() {
         CmpProfileDetailDto cmpProfileDto = new CmpProfileDetailDto();
         setCommonFields(cmpProfileDto);
+        if (certificateAssociation != null) cmpProfileDto.setProtocolCertificateAssociations(certificateAssociation.mapToDto());
         cmpProfileDto.setRequestProtectionMethod(requestProtectionMethod);
         cmpProfileDto.setResponseProtectionMethod(responseProtectionMethod);
 

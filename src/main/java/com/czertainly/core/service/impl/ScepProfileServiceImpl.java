@@ -14,9 +14,11 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
 import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -48,6 +50,12 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     private ExtendedAttributeService extendedAttributeService;
     private CertificateService certificateService;
     private AttributeEngine attributeEngine;
+    private ProtocolCertificateAssociationRepository certificateAssociationRepository;
+
+    @Autowired
+    public void setCertificateAssociationRepository(ProtocolCertificateAssociationRepository certificateAssociationRepository) {
+        this.certificateAssociationRepository = certificateAssociationRepository;
+    }
 
     @Autowired
     public ScepProfileServiceImpl(ScepProfileRepository scepProfileRepository) {
@@ -149,6 +157,16 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         scepProfile.setRaProfile(raProfile);
+
+        if (request.getProtocolCertificateAssociations() != null) {
+            ProtocolCertificateAssociation certificateAssociation = new ProtocolCertificateAssociation();
+            certificateAssociation.setOwnerUuid(request.getProtocolCertificateAssociations().getOwnerUuid());
+            certificateAssociation.setGroupUuids(request.getProtocolCertificateAssociations().getGroupUuids());
+            certificateAssociation.setCustomAttributes(request.getProtocolCertificateAssociations().getCustomAttributes());
+            certificateAssociationRepository.save(certificateAssociation);
+            scepProfile.setCertificateAssociation(certificateAssociation);
+        }
+
         scepProfile = scepProfileRepository.save(scepProfile);
 
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
@@ -207,6 +225,18 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setIntuneTenant(request.getIntuneTenant());
         scepProfile.setIntuneApplicationId(request.getIntuneApplicationId());
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
+
+        ProtocolCertificateAssociation certificateAssociation = null;
+        if (request.getProtocolCertificateAssociations() != null) {
+            certificateAssociation = scepProfile.getCertificateAssociation();
+            certificateAssociation.setOwnerUuid(request.getProtocolCertificateAssociations().getOwnerUuid());
+            certificateAssociation.setGroupUuids(request.getProtocolCertificateAssociations().getGroupUuids());
+            certificateAssociation.setCustomAttributes(request.getProtocolCertificateAssociations().getCustomAttributes());
+            certificateAssociationRepository.save(certificateAssociation);
+        }
+
+        scepProfile.setCertificateAssociation(certificateAssociation);
+
         scepProfileRepository.save(scepProfile);
 
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
