@@ -462,7 +462,10 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setArchived(true);
         certificateRepository.save(certificate);
         UUID certificateUuid = certificate.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateUser(certificateUuid, "user"));
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateUser(certificateUuid, null));
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
+        Assertions.assertDoesNotThrow(() -> certificateService.updateCertificateUser(certificateUuid, null));
     }
 
     @Test
@@ -565,6 +568,14 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertFalse(certificate.isArchived());
 
         certificateService.archiveCertificate(certificate.getUuid());
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertTrue(certificate.isArchived());
+
+        certificateService.bulkUnarchiveCertificates(List.of(certificate.getUuid()));
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertFalse(certificate.isArchived());
+
+        certificateService.bulkArchiveCertificates(List.of(certificate.getUuid()));
         certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
         Assertions.assertTrue(certificate.isArchived());
     }
