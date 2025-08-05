@@ -250,6 +250,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setCertificateType(certificateType);
         dto.setTrustedCa(trustedCa);
         dto.setHybridCertificate(hybridCertificate);
+        dto.setArchived(archived);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
@@ -339,6 +340,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setFingerprint(fingerprint);
         dto.setTrustedCa(trustedCa);
         dto.setHybridCertificate(hybridCertificate);
+        dto.setArchived(archived);
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
