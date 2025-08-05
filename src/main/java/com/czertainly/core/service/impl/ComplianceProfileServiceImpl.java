@@ -384,7 +384,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public void disassociateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raprofile) throws NotFoundException {
-        logger.info("Associate RA Profiles: {} to Compliance Profile: {}", raprofile, uuid);
+        logger.info("Disassociate RA Profiles: {} from Compliance Profile: {}", raprofile, uuid);
         for (String raProfileUuid : raprofile.getRaProfileUuids()) {
             RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromString(raProfileUuid));
             ComplianceProfile complianceProfile = getComplianceProfileEntityByUuid(uuid);
@@ -395,12 +395,14 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                     raProfile.getComplianceProfiles().remove(complianceProfile);
                 }
             }
-            if (raProfile.getComplianceProfiles() != null || raProfile.getComplianceProfiles().isEmpty()) {
+            if (raProfile.getComplianceProfiles() == null || raProfile.getComplianceProfiles().isEmpty()) {
                 List<Certificate> certificates = certificateService.listCertificatesForRaProfile(raProfile);
                 for (Certificate certificate : certificates) {
-                    certificate.setComplianceResult(null);
-                    certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
-                    certificateService.updateCertificateEntity(certificate);
+                    if (!certificate.isArchived()) {
+                        certificate.setComplianceResult(null);
+                        certificate.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
+                        certificateService.updateCertificateEntity(certificate);
+                    }
                 }
             } else {
                 try {

@@ -269,6 +269,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                 throw new CertificateException("Cannot upload certificate that should be assigned to the user: " + e.getMessage());
             }
         } else {
+            if (certificate.isArchived()) throw new ValidationException("Cannot assign archived certificate to the user.");
             if (!certificate.getState().equals(CertificateState.ISSUED)) {
                 throw new ValidationException(ValidationError.create("Cannot assign certificate with state %s to the user".formatted(certificate.getState().getLabel())));
             }

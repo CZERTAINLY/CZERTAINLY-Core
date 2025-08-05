@@ -489,7 +489,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.LIST)
     public Long statisticsRaProfilesCount(SecurityFilter filter) {
         filter.setParentRefProperty("authorityInstanceReferenceUuid");
-        return raProfileRepository.countUsingSecurityFilter(filter);
+        return raProfileRepository.countUsingSecurityFilter(filter, null);
     }
 
     @Override

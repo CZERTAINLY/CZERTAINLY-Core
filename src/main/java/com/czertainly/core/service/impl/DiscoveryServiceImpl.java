@@ -269,7 +269,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Override
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.LIST)
     public Long statisticsDiscoveryCount(SecurityFilter filter) {
-        return discoveryRepository.countUsingSecurityFilter(filter);
+        return discoveryRepository.countUsingSecurityFilter(filter, null);
     }
 
     @Override

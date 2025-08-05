@@ -60,33 +60,33 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.LIST)
-    public CertificateResponseDto listCertificates(SearchRequestDto request) {
+    public CertificateResponseDto listCertificates(CertificateSearchRequestDto request) {
         return certificateService.listCertificates(SecurityFilter.create(), request);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DETAIL)
-    public CertificateDetailDto getCertificate(@LogResource(uuid = true) @PathVariable String uuid)
+    public CertificateDetailDto getCertificate(@LogResource(uuid = true) @PathVariable UUID uuid)
             throws NotFoundException, CertificateException, IOException {
-        return certificateService.getCertificate(SecuredUUID.fromString(uuid));
+        return certificateService.getCertificate(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DOWNLOAD)
-    public CertificateDownloadResponseDto downloadCertificate(@LogResource(uuid = true) String uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
+    public CertificateDownloadResponseDto downloadCertificate(@LogResource(uuid = true) UUID uuid, CertificateFormat certificateFormat, CertificateFormatEncoding encoding) throws CertificateException, NotFoundException, IOException {
         return certificateService.downloadCertificate(uuid, certificateFormat, encoding);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DELETE)
-    public void deleteCertificate(@LogResource(uuid = true) @PathVariable String uuid) throws NotFoundException {
-        certificateService.deleteCertificate(SecuredUUID.fromString(uuid));
+    public void deleteCertificate(@LogResource(uuid = true) @PathVariable UUID uuid) throws NotFoundException {
+        certificateService.deleteCertificate(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE)
-    public void updateCertificateObjects(@LogResource(uuid = true) String uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException {
-        certificateService.updateCertificateObjects(SecuredUUID.fromString(uuid), request);
+    public void updateCertificateObjects(@LogResource(uuid = true) UUID uuid, CertificateUpdateObjectsDto request) throws NotFoundException, CertificateOperationException, AttributeException {
+        certificateService.updateCertificateObjects(SecuredUUID.fromUUID(uuid), request);
     }
 
     @Override
@@ -135,14 +135,14 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.HISTORY)
-    public List<CertificateEventHistoryDto> getCertificateEventHistory(@LogResource(uuid = true) String uuid) throws NotFoundException {
-        return certificateEventHistoryService.getCertificateEventHistory(UUID.fromString(uuid));
+    public List<CertificateEventHistoryDto> getCertificateEventHistory(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        return certificateEventHistoryService.getCertificateEventHistory(uuid);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.LOCATION, operation = Operation.LIST)
-    public List<LocationDto> listLocations(@LogResource(uuid = true) String certificateUuid) throws NotFoundException {
-        return certificateService.listLocations(SecuredUUID.fromString(certificateUuid));
+    public List<LocationDto> listLocations(@LogResource(uuid = true) UUID certificateUuid) throws NotFoundException {
+        return certificateService.listLocations(SecuredUUID.fromUUID(certificateUuid));
     }
 
     @Override
@@ -153,8 +153,8 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.CHECK_VALIDATION)
-    public CertificateValidationResultDto getCertificateValidationResult(@LogResource(uuid = true) String uuid) throws NotFoundException, CertificateException {
-        return certificateService.getCertificateValidationResult(SecuredUUID.fromString(uuid));
+    public CertificateValidationResultDto getCertificateValidationResult(@LogResource(uuid = true) UUID uuid) throws NotFoundException, CertificateException {
+        return certificateService.getCertificateValidationResult(SecuredUUID.fromUUID(uuid));
     }
 
     @Override
@@ -165,7 +165,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_CONTENT)
-    public List<CertificateContentDto> getCertificateContent(@LogResource(uuid = true) List<String> uuids) {
+    public List<CertificateContentDto> getCertificateContent(@LogResource(uuid = true) List<UUID> uuids) {
         return certificateService.getCertificateContent(uuids);
     }
 
@@ -177,20 +177,44 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_CHAIN)
-    public CertificateChainResponseDto getCertificateChain(@LogResource(uuid = true) String uuid, boolean withEndCertificate) throws NotFoundException {
-        return certificateService.getCertificateChain(SecuredUUID.fromString(uuid), withEndCertificate);
+    public CertificateChainResponseDto getCertificateChain(@LogResource(uuid = true) UUID uuid, boolean withEndCertificate) throws NotFoundException {
+        return certificateService.getCertificateChain(SecuredUUID.fromUUID(uuid), withEndCertificate);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DOWNLOAD_CHAIN)
-    public CertificateChainDownloadResponseDto downloadCertificateChain(@LogResource(uuid = true) String uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
-        return certificateService.downloadCertificateChain(SecuredUUID.fromString(uuid), certificateFormat, withEndCertificate, encoding);
+    public CertificateChainDownloadResponseDto downloadCertificateChain(@LogResource(uuid = true) UUID uuid, CertificateFormat certificateFormat, boolean withEndCertificate, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException {
+        return certificateService.downloadCertificateChain(SecuredUUID.fromUUID(uuid), certificateFormat, withEndCertificate, encoding);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, affiliatedResource = Resource.APPROVAL, operation = Operation.LIST)
-    public ApprovalResponseDto listCertificateApprovals(@LogResource(uuid = true) final String uuid, final PaginationRequestDto paginationRequestDto) {
-        return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, UUID.fromString(uuid), paginationRequestDto);
+    public ApprovalResponseDto listCertificateApprovals(@LogResource(uuid = true) final UUID uuid, final PaginationRequestDto paginationRequestDto) {
+        return approvalService.listApprovalsByObject(SecurityFilter.create(), Resource.CERTIFICATE, uuid, paginationRequestDto);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ARCHIVE)
+    public void archiveCertificate(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        certificateService.archiveCertificate(uuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UNARCHIVE)
+    public void unarchiveCertificate(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        certificateService.unarchiveCertificate(uuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ARCHIVE)
+    public void bulkArchiveCertificate(List<UUID> uuids) {
+        certificateService.bulkArchiveCertificates(uuids);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UNARCHIVE)
+    public void bulkUnarchiveCertificate(List<UUID> uuids) {
+        certificateService.bulkUnarchiveCertificates(uuids);
     }
 
     // SETTERs

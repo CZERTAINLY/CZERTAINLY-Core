@@ -31,6 +31,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -100,6 +101,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private RSAKey newRsa2048PublicJWK;
     private String b64UrlCertificate;
     private String nonAcmeB64UrlCertificate;
+    private Certificate certificate;
 
     @BeforeEach
     void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
@@ -158,7 +160,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
         certificateContent.setContent(b64Certificate);
         certificateContent = certificateContentRepository.save(certificateContent);
 
-        Certificate certificate = new Certificate();
+        certificate = new Certificate();
         certificate.setCertificateContent(certificateContent);
         certificate.setState(CertificateState.ISSUED);
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
@@ -595,6 +597,17 @@ class AcmeServiceTest extends BaseSpringBootTest {
                 () -> acmeService.revokeCertificate(
                         RA_PROFILE_NAME, buildRevokeCertRequestJSON_fail(requestUri, baseUri), requestUri, true));
 
+    }
+
+    @Test
+    void testRevokeCert_fail_archivedCertificate() throws URISyntaxException {
+        String baseUri = RA_BASE_URI + RA_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/revoke-cert");
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(AcmeProblemDocumentException.class, ()-> acmeService.revokeCertificate(
+                ACME_PROFILE_NAME,
+                buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, b64UrlCertificate), requestUri, false));
     }
 
     private String buildRevokeCertRequestJSON_fail(URI requestUri, String baseUri) throws JOSEException {
