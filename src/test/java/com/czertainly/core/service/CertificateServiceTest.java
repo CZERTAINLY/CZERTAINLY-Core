@@ -439,6 +439,14 @@ class CertificateServiceTest extends BaseSpringBootTest {
         dto.setOwnerUuid("testOwner");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), dto));
     }
+    
+    @Test
+    void testUpdateCertificateUserArchived() {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        UUID certificateUuid = certificate.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateUser(certificateUuid, "user"));
+    }
 
     @Test
     void testBulkRemove() throws NotFoundException {

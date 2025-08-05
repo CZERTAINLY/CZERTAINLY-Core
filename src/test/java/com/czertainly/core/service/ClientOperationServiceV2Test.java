@@ -260,7 +260,13 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         ClientCertificateRenewRequestDto request = ClientCertificateRenewRequestDto.builder().build();
         request.setRequest(SAMPLE_PKCS10);
-        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificate.getUuid(), request, true));
+        UUID certificateUuid = certificate.getUuid();
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificateUuid, request, true));
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificateUuid, request, true));
     }
 
     @Test
@@ -875,5 +881,16 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     @Test
     void testRevokeCertificate_validationFail() {
         Assertions.assertThrows(NotFoundException.class, () -> clientOperationService.revokeCertificateAction(UUID.randomUUID(), null, true));
+    }
+
+    @Test
+    void testCertificateActionsWithArchived() {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        UUID certificateUuid = certificate.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.issueCertificateAction(certificateUuid, true));
+        ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
+        Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificateUuid, renewRequest, true));
+
     }
 }

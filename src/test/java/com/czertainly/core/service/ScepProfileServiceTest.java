@@ -189,6 +189,11 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         request.setDescription("sample");
         request.setChallengePassword("1234");
         request.setCaCertificateUuid(certificate.getUuid().toString());
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(ValidationException.class, () -> scepProfileService.createScepProfile(request));
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
         ScepProfileDetailDto dto = scepProfileService.createScepProfile(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());

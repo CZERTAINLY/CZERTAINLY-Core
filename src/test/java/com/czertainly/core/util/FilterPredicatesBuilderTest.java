@@ -412,7 +412,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.NOT_MATCHES, "^\\\\d"))); // starts with a number
         Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid(), certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.NOT_MATCHES,"[abc"))); // starts with a number
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, ATTR_IDENTIFIER, FilterConditionOperator.NOT_MATCHES, "[abc"))); // starts with a number
         Assertions.assertThrows(ValidationException.class, () -> certificateService.listCertificates(new SecurityFilter(), searchRequestDto));
     }
 
@@ -796,6 +796,18 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testIncludeArchived() {
+        certificate1.setArchived(true);
+        certificateRepository.save(certificate1);
+        int allCertificates = certificateRepository.findAll().size();
+        CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
+        searchRequestDto.setIncludeArchived(true);
+        Assertions.assertEquals(allCertificates, certificateService.listCertificates(new SecurityFilter(), searchRequestDto).getCertificates().size());
+        searchRequestDto.setIncludeArchived(false);
+        Assertions.assertEquals(allCertificates - 1, certificateService.listCertificates(new SecurityFilter(), searchRequestDto).getCertificates().size());
+    }
+
+    @Test
     void testBooleanProperty() {
         certificate1.setTrustedCa(true);
         certificate2.setTrustedCa(false);
@@ -856,8 +868,10 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
                     dummy = new SearchFilterRequestDTODummy(FilterField.NOT_BEFORE, FilterConditionOperator.LESSER, testDateValue);
             case LESSER_OR_EQUAL ->
                     dummy = new SearchFilterRequestDTODummy(FilterField.NOT_AFTER, FilterConditionOperator.LESSER_OR_EQUAL, testDateValue);
-            case MATCHES -> dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.MATCHES, testValue);
-            case NOT_MATCHES -> dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_MATCHES, testValue);
+            case MATCHES ->
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.MATCHES, testValue);
+            case NOT_MATCHES ->
+                    dummy = new SearchFilterRequestDTODummy(FilterField.COMMON_NAME, FilterConditionOperator.NOT_MATCHES, testValue);
             default -> dummy = null;
         }
         return dummy;
