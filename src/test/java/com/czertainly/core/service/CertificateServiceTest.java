@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -385,6 +386,22 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
     }
 
+    @Test
+    void testUpdateTrustedCaMark() throws CertificateOperationException, NotFoundException, AttributeException {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        CertificateUpdateObjectsDto request = new CertificateUpdateObjectsDto();
+        request.setTrustedCa(true);
+        SecuredUUID uuid = certificate.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(uuid, request));
+        certificate.setArchived(false);
+        certificate.setTrustedCa(false);
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateObjects(uuid, request);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertTrue(certificate.getTrustedCa());
+    }
+
 
     @Test
     void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
@@ -552,8 +569,26 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificate.isArchived());
     }
 
+    @Test
+    void testListCmpCertificates() {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertTrue(certificateService.listCmpSigningCertificates(new SecurityFilter()).isEmpty());
+    }
+
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
         CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid(), format, encoding);
         Assertions.assertDoesNotThrow(() -> (certificateService.createCertificate(certificateDownloadResponseDto.getContent(), CertificateType.X509)));
+    }
+
+    @Test
+    void testCheckCompliance() throws NotFoundException {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        ComplianceStatus oldComplianceStatus = certificate.getComplianceStatus();
+        CertificateComplianceCheckDto request = new CertificateComplianceCheckDto();
+        request.setCertificateUuids(List.of(certificate.getUuid().toString()));
+        certificateService.checkCompliance(request);
+        Assertions.assertEquals(oldComplianceStatus, certificateRepository.findByUuid(certificate.getUuid()).get().getComplianceStatus());
     }
 }
