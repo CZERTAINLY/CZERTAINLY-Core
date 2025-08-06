@@ -647,6 +647,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         Certificate cert = certificateService.getCertificateEntityByContent(base64Certificate);
         LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.CERTIFICATE, false, cert.getUuid().toString(), cert.getSubjectDn());
+        if (cert.isArchived()) throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ARCHIVED);
         if (cert.getState().equals(CertificateState.REVOKED)) {
             logger.error("Certificate is already revoked. Serial number: {}, Fingerprint: {}", cert.getSerialNumber(), cert.getFingerprint());
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ALREADY_REVOKED);

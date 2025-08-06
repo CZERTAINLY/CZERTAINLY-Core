@@ -705,6 +705,8 @@ public class ScepServiceImpl implements ScepService {
         } catch (CertificateEncodingException | NoSuchAlgorithmException e) {
             throw new ScepException("Unable to parse the signer certificate");
         }
+        if (extCertificate.isArchived())
+            throw new ScepException("Certificate with UUID %s is archived. Cannot be renewed by SCEP.".formatted(extCertificate.getUuid()));
         if (!(new X500Name(extCertificate.getSubjectDn())).equals(pkcs10Request.getSubject())) {
             throw new ScepException("Subject DN for the renewal request does not match the original certificate");
         }

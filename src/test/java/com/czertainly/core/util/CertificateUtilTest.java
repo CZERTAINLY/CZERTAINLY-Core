@@ -77,4 +77,11 @@ class CertificateUtilTest {
 
     }
 
+    @Test
+    void testIsValidationEnabled() {
+        Certificate certificate = new Certificate();
+        certificate.setArchived(true);
+        Assertions.assertFalse(CertificateUtil.isValidationEnabled(certificate, null));
+    }
+
 }

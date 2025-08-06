@@ -11,7 +11,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
-public class StatisticsControllerImpl implements StatisticsController{
+public class StatisticsControllerImpl implements StatisticsController {
 
 	private StatisticsService statisticsService;
 
@@ -22,7 +22,7 @@ public class StatisticsControllerImpl implements StatisticsController{
 	
 	@Override
 	@AuditLogged(module = Module.CORE, resource = Resource.DASHBOARD, operation = Operation.STATISTICS)
-	public StatisticsDto getStatistics() {
-		return statisticsService.getStatistics();
+	public StatisticsDto getStatistics(boolean includeArchived) {
+		return statisticsService.getStatistics(includeArchived);
 	}
 }

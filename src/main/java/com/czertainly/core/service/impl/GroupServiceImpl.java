@@ -132,7 +132,7 @@ public class GroupServiceImpl implements GroupService {
     @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public Long statisticsGroupCount(SecurityFilter filter) {
-        return groupRepository.countUsingSecurityFilter(filter);
+        return groupRepository.countUsingSecurityFilter(filter, null);
     }
 
     @Override

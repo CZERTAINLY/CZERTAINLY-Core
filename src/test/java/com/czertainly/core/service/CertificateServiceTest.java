@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttribute
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -43,9 +44,11 @@ import java.util.*;
 
 class CertificateServiceTest extends BaseSpringBootTest {
 
+    private static final int AUTH_SERVICE_MOCK_PORT = 10000;
+
     @DynamicPropertySource
     static void authServiceProperties(DynamicPropertyRegistry registry) {
-        registry.add("auth-service.base-url", () -> "http://localhost:10001");
+        registry.add("auth-service.base-url", () -> "http://localhost:" + AUTH_SERVICE_MOCK_PORT);
     }
 
     @Autowired
@@ -164,7 +167,9 @@ class CertificateServiceTest extends BaseSpringBootTest {
         tst.setName("Test");
         tst.setContentType(AttributeContentType.STRING);
         tst.setUuid("9f94036e-f050-4c9c-a3b8-f47b1be696aa");
-        tst.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
+        tst.setProperties(new MetadataAttributeProperties() {{
+            setLabel("Test meta");
+        }});
         tst.setContent(List.of(new StringAttributeContent("xyz", "xyz")));
         meta.add(tst);
 
@@ -189,7 +194,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListCertificates() {
-        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new SearchRequestDto());
+        CertificateResponseDto certificateEntities = certificateService.listCertificates(SecurityFilter.create(), new CertificateSearchRequestDto());
         Assertions.assertNotNull(certificateEntities);
         Assertions.assertFalse(certificateEntities.getCertificates().isEmpty());
         Assertions.assertEquals(1, certificateEntities.getCertificates().size());
@@ -288,12 +293,24 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid(raProfile.getUuid().toString());
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
 
-        var certificateReloaded = certificateRepository.findByUuid(certificate.getUuid());
-        Assertions.assertTrue(certificateReloaded.isPresent());
-        Assertions.assertEquals(raProfile, certificateReloaded.get().getRaProfile());
-        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+
+        UUID oldRaProfileUuid = certificate.getRaProfileUuid();
+        SecuredUUID certificateSecuredUuid = certificate.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificateSecuredUuid, uuidDto));
+        Certificate certificateReloaded = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertEquals(oldRaProfileUuid, certificateReloaded.getRaProfile().getUuid());
+
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
+
+        certificateService.updateCertificateObjects(certificateSecuredUuid, uuidDto);
+
+        certificateReloaded = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertEquals(raProfile, certificateReloaded.getRaProfile());
+        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificateSecuredUuid);
 
         Assertions.assertEquals(1, certificateDetailDto.getMetadata().size());
         Assertions.assertEquals(connector.getName(), certificateDetailDto.getMetadata().getFirst().getConnectorName());
@@ -337,8 +354,17 @@ class CertificateServiceTest extends BaseSpringBootTest {
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setGroupUuids(List.of(group.getUuid().toString()));
 
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
         Certificate certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertTrue(certificateEntity.getGroups().isEmpty());
+
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
+
+        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(1, certificateEntity.getGroups().size());
         Assertions.assertEquals(group.getUuid(), certificateEntity.getGroups().stream().findFirst().get().getUuid());
 
@@ -361,10 +387,26 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
     }
 
+    @Test
+    void testUpdateTrustedCaMark() throws CertificateOperationException, NotFoundException, AttributeException {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        CertificateUpdateObjectsDto request = new CertificateUpdateObjectsDto();
+        request.setTrustedCa(true);
+        SecuredUUID uuid = certificate.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(uuid, request));
+        certificate.setArchived(false);
+        certificate.setTrustedCa(false);
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateObjects(uuid, request);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertTrue(certificate.getTrustedCa());
+    }
+
 
     @Test
     void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
@@ -374,10 +416,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
         CertificateUpdateObjectsDto request = new CertificateUpdateObjectsDto();
         request.setOwnerUuid(UUID.randomUUID().toString());
 
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        String oldOwnerUsername = certificate.getOwner().getOwnerUsername();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request));
+        NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(oldOwnerUsername, owner.getName());
+
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
         certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
 
         // use association service to load certificate owner association since owner is not lazy loaded to mapped certificate relation due to scope of transaction in test
-        NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
+        owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
         Assertions.assertEquals(request.getOwnerUuid(), owner.getUuid());
         Assertions.assertEquals("newOwner", owner.getName());
@@ -405,6 +456,17 @@ class CertificateServiceTest extends BaseSpringBootTest {
         CertificateUpdateObjectsDto dto = new CertificateUpdateObjectsDto();
         dto.setOwnerUuid("testOwner");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), dto));
+    }
+    
+    @Test
+    void testUpdateCertificateUserArchived() {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        UUID certificateUuid = certificate.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateUser(certificateUuid, null));
+        certificate.setArchived(false);
+        certificateRepository.save(certificate);
+        Assertions.assertDoesNotThrow(() -> certificateService.updateCertificateUser(certificateUuid, null));
     }
 
     @Test
@@ -466,7 +528,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetSearchableFieldInformation() {
-        mockServer = new WireMockServer(10001);
+        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users")).willReturn(
@@ -500,8 +562,45 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNull(altCertificate.getAltKeyUuid());
     }
 
+    @Test
+    void testArchiveCertificate() throws NotFoundException {
+        certificateService.unarchiveCertificate(certificate.getUuid());
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertFalse(certificate.isArchived());
+
+        certificateService.archiveCertificate(certificate.getUuid());
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertTrue(certificate.isArchived());
+
+        certificateService.bulkUnarchiveCertificates(List.of(certificate.getUuid()));
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertFalse(certificate.isArchived());
+
+        certificateService.bulkArchiveCertificates(List.of(certificate.getUuid()));
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).get();
+        Assertions.assertTrue(certificate.isArchived());
+    }
+
+    @Test
+    void testListCmpCertificates() {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        Assertions.assertTrue(certificateService.listCmpSigningCertificates(new SecurityFilter()).isEmpty());
+    }
+
     private void testDownloadInternal(CertificateFormat format, CertificateFormatEncoding encoding) throws NotFoundException, CertificateException, IOException {
-        CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid().toString(), format, encoding);
+        CertificateDownloadResponseDto certificateDownloadResponseDto = certificateService.downloadCertificate(certificate.getUuid(), format, encoding);
         Assertions.assertDoesNotThrow(() -> (certificateService.createCertificate(certificateDownloadResponseDto.getContent(), CertificateType.X509)));
+    }
+
+    @Test
+    void testCheckCompliance() throws NotFoundException {
+        certificate.setArchived(true);
+        certificateRepository.save(certificate);
+        ComplianceStatus oldComplianceStatus = certificate.getComplianceStatus();
+        CertificateComplianceCheckDto request = new CertificateComplianceCheckDto();
+        request.setCertificateUuids(List.of(certificate.getUuid().toString()));
+        certificateService.checkCompliance(request);
+        Assertions.assertEquals(oldComplianceStatus, certificateRepository.findByUuid(certificate.getUuid()).get().getComplianceStatus());
     }
 }

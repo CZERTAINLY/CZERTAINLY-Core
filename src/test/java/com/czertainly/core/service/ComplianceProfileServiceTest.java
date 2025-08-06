@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -60,6 +61,11 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private RaProfileRepository raProfileRepository;
+
+    @Autowired
+    private CertificateRepository certificateRepository;
+    @Autowired
+    private CertificateContentRepository certificateContentRepository;
 
     private Connector connector;
     private WireMockServer mockServer;
@@ -346,6 +352,36 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
         RaProfileAssociationRequestDto request = new RaProfileAssociationRequestDto();
         request.setRaProfileUuids(List.of(raProfile.getUuid().toString()));
         complianceProfileService.associateProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), request);
+    }
+
+    @Test
+    void testDisassociateProfile() throws NotFoundException {
+        Certificate archivedCertificate = new Certificate();
+        archivedCertificate.setArchived(true);
+        archivedCertificate.setRaProfile(raProfile);
+        archivedCertificate.setComplianceStatus(ComplianceStatus.OK);
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent("c");
+        certificateContentRepository.save(certificateContent);
+        archivedCertificate.setCertificateContent(certificateContent);
+        certificateRepository.save(archivedCertificate);
+        Certificate notArchivedCertificate = new Certificate();
+        notArchivedCertificate.setRaProfile(raProfile);
+        notArchivedCertificate.setComplianceStatus(ComplianceStatus.OK);
+        CertificateContent certificateContent2 = new CertificateContent();
+        certificateContent2.setContent("c2");
+        certificateContentRepository.save(certificateContent2);
+        notArchivedCertificate.setCertificateContent(certificateContent2);
+        certificateRepository.save(notArchivedCertificate);
+
+        RaProfileAssociationRequestDto request = new RaProfileAssociationRequestDto();
+        request.setRaProfileUuids(List.of(raProfile.getUuid().toString()));
+        complianceProfileService.disassociateProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()), request);
+        archivedCertificate = certificateRepository.findByUuid(archivedCertificate.getUuid()).get();
+        notArchivedCertificate = certificateRepository.findByUuid(notArchivedCertificate.getUuid()).get();
+        Assertions.assertEquals(ComplianceStatus.OK, archivedCertificate.getComplianceStatus());
+        Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, notArchivedCertificate.getComplianceStatus());
+
     }
 
     @Test
