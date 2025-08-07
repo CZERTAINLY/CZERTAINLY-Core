@@ -9,7 +9,7 @@ import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
-import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
@@ -45,10 +45,10 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         cmpProfile.setDescription("sample description");
         cmpProfile.setName("sameName");
         cmpProfile.setEnabled(true);
-        ProtocolCertificateAssociation protocolCertificateAssociation = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID(), UUID.randomUUID()), attributeService);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
-        cmpProfile.setCertificateAssociation(protocolCertificateAssociation);
-        cmpProfile.setCertificateAssociationUuid(protocolCertificateAssociation.getUuid());
+        ProtocolCertificateAssociations protocolCertificateAssociations = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID(), UUID.randomUUID()), attributeService);
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        cmpProfile.setCertificateAssociations(protocolCertificateAssociations);
+        cmpProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         cmpProfileRepository.save(cmpProfile);
     }
 
@@ -59,9 +59,9 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(cmpProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificateAssociations());
-        Assertions.assertEquals(cmpProfile.getCertificateAssociation().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
-        Assertions.assertEquals(cmpProfile.getCertificateAssociation().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
-        Assertions.assertEquals(cmpProfile.getCertificateAssociation().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
+        Assertions.assertEquals(cmpProfile.getCertificateAssociations().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
+        Assertions.assertEquals(cmpProfile.getCertificateAssociations().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
+        Assertions.assertEquals(cmpProfile.getCertificateAssociations().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
     }
 
     @Test
@@ -90,7 +90,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         dto = cmpProfileService.createCmpProfile(request);
         CmpProfile cmpProfileNew = cmpProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
         Assertions.assertNotNull(cmpProfileNew);
-        Assertions.assertNotNull(cmpProfileNew.getCertificateAssociation());
+        Assertions.assertNotNull(cmpProfileNew.getCertificateAssociations());
 
     }
 
@@ -123,7 +123,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testRemoveCmpProfile() throws NotFoundException {
-        UUID certificateAssociationsUuid = cmpProfile.getCertificateAssociationUuid();
+        UUID certificateAssociationsUuid = cmpProfile.getCertificateAssociationsUuid();
         cmpProfileService.deleteCmpProfile(cmpProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
         Assertions.assertTrue(protocolCertificateAssociationRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());

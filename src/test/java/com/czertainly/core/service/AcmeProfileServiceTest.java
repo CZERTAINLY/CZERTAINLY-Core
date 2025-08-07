@@ -8,7 +8,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
-import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
@@ -52,10 +52,10 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
         acmeProfile.setEnabled(false);
-        ProtocolCertificateAssociation protocolCertificateAssociation = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID(), UUID.randomUUID()), attributeService);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
-        acmeProfile.setCertificateAssociation(protocolCertificateAssociation);
-        acmeProfile.setCertificateAssociationUuid(protocolCertificateAssociation.getUuid());
+        ProtocolCertificateAssociations protocolCertificateAssociations = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID(), UUID.randomUUID()), attributeService);
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
+        acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         acmeProfileRepository.save(acmeProfile);
     }
 
@@ -77,9 +77,9 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificateAssociations());
-        Assertions.assertEquals(acmeProfile.getCertificateAssociation().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
-        Assertions.assertEquals(acmeProfile.getCertificateAssociation().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
-        Assertions.assertEquals(acmeProfile.getCertificateAssociation().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
+        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
+        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
+        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
     }
 
     @Test
@@ -111,7 +111,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         dto = acmeProfileService.createAcmeProfile(request);
         AcmeProfile acmeProfileNew = acmeProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
         Assertions.assertNotNull(acmeProfileNew);
-        Assertions.assertNotNull(acmeProfileNew.getCertificateAssociation());
+        Assertions.assertNotNull(acmeProfileNew.getCertificateAssociations());
 
     }
 
@@ -162,7 +162,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testRemoveAcmeProfile() throws NotFoundException {
-        UUID certificateAssociationsUuid = acmeProfile.getCertificateAssociationUuid();
+        UUID certificateAssociationsUuid = acmeProfile.getCertificateAssociationsUuid();
         acmeProfileService.deleteAcmeProfile(acmeProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
         Assertions.assertTrue(protocolCertificateAssociationRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());

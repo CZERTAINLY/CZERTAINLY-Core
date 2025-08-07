@@ -18,7 +18,7 @@ import java.util.UUID;
 @Getter
 @Setter
 @EqualsAndHashCode(callSuper = true)
-public class ProtocolCertificateAssociation extends UniquelyIdentified implements DtoMapper<ProtocolCertificateAssociationsDto> {
+public class ProtocolCertificateAssociations extends UniquelyIdentified implements DtoMapper<ProtocolCertificateAssociationsDto> {
 
     @Column
     private UUID ownerUuid;

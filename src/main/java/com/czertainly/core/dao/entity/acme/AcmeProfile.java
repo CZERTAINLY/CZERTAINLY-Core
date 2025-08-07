@@ -3,7 +3,7 @@ package com.czertainly.core.dao.entity.acme;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
-import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.acme.AcmeConstants;
@@ -75,14 +75,14 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "require_terms_of_service")
     private Boolean requireTermsOfService;
 
-    @Column(name = "certificate_association_uuid")
-    private UUID certificateAssociationUuid;
+    @Column(name = "certificate_associations_uuid")
+    private UUID certificateAssociationsUuid;
 
     @OneToOne(fetch = FetchType.LAZY, orphanRemoval = true)
-    @JoinColumn(name = "certificate_association_uuid", insertable = false, updatable = false)
+    @JoinColumn(name = "certificate_associations_uuid", insertable = false, updatable = false)
     @JsonBackReference
     @ToString.Exclude
-    private ProtocolCertificateAssociation certificateAssociation;
+    private ProtocolCertificateAssociations certificateAssociations;
 
     @Override
     public AcmeProfileDto mapToDto() {
@@ -104,8 +104,8 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setRequireTermsOfService(requireTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
-        if (certificateAssociation != null)
-            acmeProfileDto.setCertificateAssociations(certificateAssociation.mapToDto());
+        if (certificateAssociations != null)
+            acmeProfileDto.setCertificateAssociations(certificateAssociations.mapToDto());
         if (raProfile != null) {
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
         }

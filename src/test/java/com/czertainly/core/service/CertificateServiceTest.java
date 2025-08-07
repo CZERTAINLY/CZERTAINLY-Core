@@ -6,7 +6,6 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
@@ -32,7 +31,6 @@ import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
-import jakarta.transaction.Transactional;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.jetbrains.annotations.NotNull;
@@ -42,7 +40,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -669,19 +666,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
         acmeProfile.setEnabled(false);
-        ProtocolCertificateAssociation protocolCertificateAssociation = getProtocolCertificateAssociation();
-        acmeProfile.setCertificateAssociation(protocolCertificateAssociation);
-        acmeProfile.setCertificateAssociationUuid(protocolCertificateAssociation.getUuid());
+        ProtocolCertificateAssociations protocolCertificateAssociations = getProtocolCertificateAssociation();
+        acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
+        acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         acmeProfileRepository.save(acmeProfile);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
         return acmeProfile;
     }
 
     @NotNull
-    private ProtocolCertificateAssociation getProtocolCertificateAssociation() throws AlreadyExistException, AttributeException {
-        ProtocolCertificateAssociation protocolCertificateAssociation = new ProtocolCertificateAssociation();
-        protocolCertificateAssociation.setOwnerUuid(UUID.randomUUID());
-        protocolCertificateAssociation.setGroupUuids(List.of(group.getUuid()));
+    private ProtocolCertificateAssociations getProtocolCertificateAssociation() throws AlreadyExistException, AttributeException {
+        ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
+        protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
+        protocolCertificateAssociations.setGroupUuids(List.of(group.getUuid()));
         CustomAttributeCreateRequestDto customAttributeRequest = new CustomAttributeCreateRequestDto();
         customAttributeRequest.setName("name");
         customAttributeRequest.setLabel("name");
@@ -693,8 +690,8 @@ class CertificateServiceTest extends BaseSpringBootTest {
         requestAttributeDto.setName(customAttributeRequest.getName());
         requestAttributeDto.setContentType(customAttributeRequest.getContentType());
         requestAttributeDto.setContent(List.of(new StringAttributeContent("ref", "data")));
-        protocolCertificateAssociation.setCustomAttributes(List.of(requestAttributeDto));
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
-        return protocolCertificateAssociation;
+        protocolCertificateAssociations.setCustomAttributes(List.of(requestAttributeDto));
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        return protocolCertificateAssociations;
     }
 }

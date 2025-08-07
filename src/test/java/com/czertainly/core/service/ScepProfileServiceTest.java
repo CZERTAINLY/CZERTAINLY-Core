@@ -161,10 +161,10 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         scepProfile.setIncludeCaCertificate(true);
         scepProfile.setEnabled(false);
         scepProfile.setCaCertificate(certificate);
-        ProtocolCertificateAssociation protocolCertificateAssociation = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID()), attributeService);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
-        scepProfile.setCertificateAssociation(protocolCertificateAssociation);
-        scepProfile.setCertificateAssociationUuid(protocolCertificateAssociation.getUuid());
+        ProtocolCertificateAssociations protocolCertificateAssociations = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID()), attributeService);
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        scepProfile.setCertificateAssociations(protocolCertificateAssociations);
+        scepProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         scepProfileRepository.save(scepProfile);
     }
 
@@ -234,7 +234,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         dto = scepProfileService.createScepProfile(request);
         ScepProfile scepProfileNew = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
         Assertions.assertNotNull(scepProfileNew);
-        Assertions.assertNotNull(scepProfileNew.getCertificateAssociation());
+        Assertions.assertNotNull(scepProfileNew.getCertificateAssociations());
     }
 
     @Test

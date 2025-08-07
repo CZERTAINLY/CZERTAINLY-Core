@@ -7,7 +7,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.core.dao.entity.ProtocolCertificateAssociation;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.service.AttributeService;
 import org.jetbrains.annotations.NotNull;
 
@@ -17,10 +17,10 @@ import java.util.UUID;
 public class ProtocolTestUtil {
 
     @NotNull
-    public static ProtocolCertificateAssociation getProtocolCertificateAssociation(UUID ownerUuid, List<UUID> groupUuids, AttributeService attributeService) throws AlreadyExistException, AttributeException {
-        ProtocolCertificateAssociation protocolCertificateAssociation = new ProtocolCertificateAssociation();
-        protocolCertificateAssociation.setOwnerUuid(ownerUuid);
-        protocolCertificateAssociation.setGroupUuids(groupUuids);
+    public static ProtocolCertificateAssociations getProtocolCertificateAssociation(UUID ownerUuid, List<UUID> groupUuids, AttributeService attributeService) throws AlreadyExistException, AttributeException {
+        ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
+        protocolCertificateAssociations.setOwnerUuid(ownerUuid);
+        protocolCertificateAssociations.setGroupUuids(groupUuids);
         CustomAttributeCreateRequestDto customAttributeRequest = new CustomAttributeCreateRequestDto();
         customAttributeRequest.setName("name");
         customAttributeRequest.setLabel("name");
@@ -32,7 +32,7 @@ public class ProtocolTestUtil {
         requestAttributeDto.setName(customAttributeRequest.getName());
         requestAttributeDto.setContentType(customAttributeRequest.getContentType());
         requestAttributeDto.setContent(List.of(new StringAttributeContent("ref", "data")));
-        protocolCertificateAssociation.setCustomAttributes(List.of(requestAttributeDto));
-        return protocolCertificateAssociation;
+        protocolCertificateAssociations.setCustomAttributes(List.of(requestAttributeDto));
+        return protocolCertificateAssociations;
     }
 }
