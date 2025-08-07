@@ -142,7 +142,7 @@ public class RaProfileServiceImpl implements RaProfileService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
 
         RaProfileDto dto = raProfile.mapToDto();
-        if (raProfile.getAuthorityInstanceReference().getConnectorUuid() != null) {
+        if (raProfile.getAuthorityInstanceReference() != null && raProfile.getAuthorityInstanceReference().getConnectorUuid() != null) {
             dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
         }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid()));
