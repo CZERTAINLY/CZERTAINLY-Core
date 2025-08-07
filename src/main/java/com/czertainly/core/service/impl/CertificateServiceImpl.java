@@ -1610,8 +1610,8 @@ public class CertificateServiceImpl implements CertificateService {
             };
             if (certificateAssociation != null) {
                 if (certificateAssociation.getOwnerUuid() != null) updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
-                if (certificateAssociation.getGroupUuids() != null) updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
-                if (certificateAssociation.getCustomAttributes() != null) attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
+                if (certificateAssociation.getGroupUuids() != null && !certificateAssociation.getGroupUuids().isEmpty()) updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
+                if (certificateAssociation.getCustomAttributes() != null  && !certificateAssociation.getCustomAttributes().isEmpty()) attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
                 certificateRepository.save(certificate);
             }
         }
