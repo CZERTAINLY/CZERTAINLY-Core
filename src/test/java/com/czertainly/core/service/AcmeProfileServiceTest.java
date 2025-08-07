@@ -15,7 +15,6 @@ import com.czertainly.core.dao.repository.ProtocolCertificateAssociationReposito
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.ProtocolTestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,14 +32,12 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     private AcmeProfileRepository acmeProfileRepository;
 
     @Autowired
-    private AttributeService attributeService;
-    @Autowired
     private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
 
     private AcmeProfile acmeProfile;
 
     @BeforeEach
-    public void setUp() throws AlreadyExistException, AttributeException {
+    public void setUp() {
         acmeProfile = new AcmeProfile();
         acmeProfile.setWebsite("sample website");
         acmeProfile.setTermsOfServiceUrl("sample terms");
@@ -52,8 +49,10 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
         acmeProfile.setEnabled(false);
-        ProtocolCertificateAssociations protocolCertificateAssociations = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID(), UUID.randomUUID()), attributeService);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
+        protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
+        protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
+        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         acmeProfileRepository.save(acmeProfile);

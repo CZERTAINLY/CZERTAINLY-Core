@@ -15,7 +15,6 @@ import com.czertainly.core.dao.repository.ProtocolCertificateAssociationReposito
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.ProtocolTestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -33,20 +32,20 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private CmpProfileRepository cmpProfileRepository;
 
     @Autowired
-    private AttributeService attributeService;
-    @Autowired
     private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
 
     private CmpProfile cmpProfile;
 
     @BeforeEach
-    public void setUp() throws AlreadyExistException, AttributeException {
+    public void setUp() {
         cmpProfile = new CmpProfile();
         cmpProfile.setDescription("sample description");
         cmpProfile.setName("sameName");
         cmpProfile.setEnabled(true);
-        ProtocolCertificateAssociations protocolCertificateAssociations = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID(), UUID.randomUUID()), attributeService);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
+        protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
+        protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
+        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
         cmpProfile.setCertificateAssociations(protocolCertificateAssociations);
         cmpProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         cmpProfileRepository.save(cmpProfile);

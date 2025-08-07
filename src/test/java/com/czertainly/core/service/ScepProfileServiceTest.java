@@ -23,7 +23,6 @@ import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
-import com.czertainly.core.util.ProtocolTestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -59,8 +58,6 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired
     private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
-    @Autowired
-    private AttributeService attributeService;
 
     private TokenInstanceReference tokenInstanceReference;
     private CryptographicKeyItem content;
@@ -74,7 +71,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     private Certificate certificate;
 
     @BeforeEach
-    void setUp() throws AlreadyExistException, AttributeException {
+    void setUp() {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -161,7 +158,10 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         scepProfile.setIncludeCaCertificate(true);
         scepProfile.setEnabled(false);
         scepProfile.setCaCertificate(certificate);
-        ProtocolCertificateAssociations protocolCertificateAssociations = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID()), attributeService);
+        ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
+        protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
+        protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
+        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
         protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
         scepProfile.setCertificateAssociations(protocolCertificateAssociations);
         scepProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
