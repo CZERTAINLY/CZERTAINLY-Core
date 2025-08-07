@@ -57,7 +57,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     @Autowired
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired
-    private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
+    private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private TokenInstanceReference tokenInstanceReference;
     private CryptographicKeyItem content;
@@ -162,7 +162,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
         protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
         protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         scepProfile.setCertificateAssociations(protocolCertificateAssociations);
         scepProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         scepProfileRepository.save(scepProfile);

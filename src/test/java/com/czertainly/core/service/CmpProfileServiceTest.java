@@ -11,7 +11,7 @@ import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
-import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -32,7 +32,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private CmpProfileRepository cmpProfileRepository;
 
     @Autowired
-    private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
+    private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private CmpProfile cmpProfile;
 
@@ -45,7 +45,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
         protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
         protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
-        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         cmpProfile.setCertificateAssociations(protocolCertificateAssociations);
         cmpProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         cmpProfileRepository.save(cmpProfile);
@@ -125,6 +125,6 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         UUID certificateAssociationsUuid = cmpProfile.getCertificateAssociationsUuid();
         cmpProfileService.deleteCmpProfile(cmpProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid()));
-        Assertions.assertTrue(protocolCertificateAssociationRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());
+        Assertions.assertTrue(protocolCertificateAssociationsRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());
     }
 }

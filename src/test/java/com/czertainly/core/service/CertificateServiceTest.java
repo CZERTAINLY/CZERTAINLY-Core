@@ -89,7 +89,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     @Autowired
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     @Autowired
-    private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
+    private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private AttributeEngine attributeEngine;
 
@@ -670,7 +670,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         acmeProfileRepository.save(acmeProfile);
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return acmeProfile;
     }
 
@@ -691,7 +691,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         requestAttributeDto.setContentType(customAttributeRequest.getContentType());
         requestAttributeDto.setContent(List.of(new StringAttributeContent("ref", "data")));
         protocolCertificateAssociations.setCustomAttributes(List.of(requestAttributeDto));
-        protocolCertificateAssociationRepository.save(protocolCertificateAssociations);
+        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return protocolCertificateAssociations;
     }
 }

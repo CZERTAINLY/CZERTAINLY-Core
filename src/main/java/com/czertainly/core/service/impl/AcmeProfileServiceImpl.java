@@ -17,7 +17,7 @@ import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
-import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -48,10 +48,10 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
     private AttributeEngine attributeEngine;
-    private ProtocolCertificateAssociationRepository certificateAssociationRepository;
+    private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
 
     @Autowired
-    public void setCertificateAssociationRepository(ProtocolCertificateAssociationRepository certificateAssociationRepository) {
+    public void setCertificateAssociationRepository(ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
         this.certificateAssociationRepository = certificateAssociationRepository;
     }
 

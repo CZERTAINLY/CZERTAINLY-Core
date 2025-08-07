@@ -21,7 +21,7 @@ import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
-import com.czertainly.core.dao.repository.ProtocolCertificateAssociationRepository;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -61,10 +61,10 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     private ExtendedAttributeService extendedAttributeService;
     private CertificateService certificateService;
     private AttributeEngine attributeEngine;
-    private ProtocolCertificateAssociationRepository certificateAssociationRepository;
+    private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
 
     @Autowired
-    public void setCertificateAssociationRepository(ProtocolCertificateAssociationRepository certificateAssociationRepository) {
+    public void setCertificateAssociationRepository(ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
         this.certificateAssociationRepository = certificateAssociationRepository;
     }
 
