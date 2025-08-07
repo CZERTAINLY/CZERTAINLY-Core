@@ -88,8 +88,10 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_association_uuid")
     private UUID certificateAssociationUuid;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "certificate_association_uuid")
+    @OneToOne(fetch = FetchType.LAZY, orphanRemoval = true)
+    @JoinColumn(name = "certificate_association_uuid", insertable = false, updatable = false)
+    @JsonBackReference
+    @ToString.Exclude
     private ProtocolCertificateAssociation certificateAssociation;
 
     @Override
@@ -131,7 +133,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setIntuneTenant(intuneTenant);
         scepProfileDto.setIntuneApplicationId(intuneApplicationId);
-        if (certificateAssociation != null) scepProfileDto.setProtocolCertificateAssociations(certificateAssociation.mapToDto());
+        if (certificateAssociation != null)
+            scepProfileDto.setCertificateAssociations(certificateAssociation.mapToDto());
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return scepProfileDto;
     }

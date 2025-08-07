@@ -1,9 +1,12 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
@@ -14,25 +17,32 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
+import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
+import jakarta.transaction.Transactional;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -75,6 +85,14 @@ class CertificateServiceTest extends BaseSpringBootTest {
     private OwnerAssociationRepository ownerAssociationRepository;
     @Autowired
     private CryptographicKeyRepository cryptographicKeyRepository;
+    @Autowired
+    private AttributeService attributeService;
+    @Autowired
+    private AcmeProfileRepository acmeProfileRepository;
+    @Autowired
+    private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
+    @Autowired
+    private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
 
     private AttributeEngine attributeEngine;
 
@@ -356,14 +374,15 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         certificate.setArchived(true);
         certificateRepository.save(certificate);
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto));
+        SecuredUUID certificateSecuredUuid = certificate.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificateSecuredUuid, uuidDto));
         Certificate certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertTrue(certificateEntity.getGroups().isEmpty());
 
         certificate.setArchived(false);
         certificateRepository.save(certificate);
 
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), uuidDto);
+        certificateService.updateCertificateObjects(certificateSecuredUuid, uuidDto);
         certificateEntity = certificateRepository.findWithAssociationsByUuid(certificate.getUuid()).orElseThrow();
         Assertions.assertEquals(1, certificateEntity.getGroups().size());
         Assertions.assertEquals(group.getUuid(), certificateEntity.getGroups().stream().findFirst().get().getUuid());
@@ -406,12 +425,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
     @Test
     void testUpdateOwner() throws NotFoundException, CertificateOperationException, AttributeException {
-        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
-        mockServer.start();
-        WireMock.configureFor("localhost", mockServer.port());
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
-                WireMock.okJson("{ \"username\": \"newOwner\"}")
-        ));
+        mockUpdateUser();
 
         CertificateUpdateObjectsDto request = new CertificateUpdateObjectsDto();
         request.setOwnerUuid(UUID.randomUUID().toString());
@@ -419,13 +433,14 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setArchived(true);
         certificateRepository.save(certificate);
         String oldOwnerUsername = certificate.getOwner().getOwnerUsername();
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request));
+        SecuredUUID certificateSecuredUuid = certificate.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.updateCertificateObjects(certificateSecuredUuid, request));
         NameAndUuidDto owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(oldOwnerUsername, owner.getName());
 
         certificate.setArchived(false);
         certificateRepository.save(certificate);
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
+        certificateService.updateCertificateObjects(certificateSecuredUuid, request);
 
         // use association service to load certificate owner association since owner is not lazy loaded to mapped certificate relation due to scope of transaction in test
         owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
@@ -437,7 +452,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
                 WireMock.okJson("{ \"username\": \"newOwner2\"}")
         ));
         request.setOwnerUuid(UUID.randomUUID().toString());
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
+        certificateService.updateCertificateObjects(certificateSecuredUuid, request);
 
         owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNotNull(owner);
@@ -445,10 +460,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals("newOwner2", owner.getName());
 
         request.setOwnerUuid("");
-        certificateService.updateCertificateObjects(certificate.getSecuredUuid(), request);
+        certificateService.updateCertificateObjects(certificateSecuredUuid, request);
         owner = associationService.getOwner(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertNull(owner);
         mockServer.stop();
+    }
+
+    private void mockUpdateUser() {
+        mockServer = new WireMockServer(AUTH_SERVICE_MOCK_PORT);
+        mockServer.start();
+        WireMock.configureFor("localhost", mockServer.port());
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/auth/users/[^/]+")).willReturn(
+                WireMock.okJson("{ \"username\": \"newOwner\"}")
+        ));
     }
 
     @Test
@@ -602,5 +626,75 @@ class CertificateServiceTest extends BaseSpringBootTest {
         request.setCertificateUuids(List.of(certificate.getUuid().toString()));
         certificateService.checkCompliance(request);
         Assertions.assertEquals(oldComplianceStatus, certificateRepository.findByUuid(certificate.getUuid()).get().getComplianceStatus());
+    }
+
+    @Test
+    void testSetProtocolCertificateAssociations() throws AlreadyExistException, AttributeException, NotFoundException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
+        mockUpdateUser();
+        Certificate certificateToBeIssued = new Certificate();
+        certificateRepository.save(certificateToBeIssued);
+
+        AcmeProfile acmeProfile = getAcmeProfile();
+
+        CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+        protocolAssociation.setProtocol(CertificateProtocol.ACME);
+        protocolAssociation.setProtocolProfileUuid(acmeProfile.getUuid());
+        protocolAssociation.setCertificate(certificateToBeIssued);
+        certificateToBeIssued.setProtocolAssociation(protocolAssociation);
+        certificateToBeIssued.setRaProfile(raProfile);
+        certificateRepository.save(certificateToBeIssued);
+
+        KeyPairGenerator keyPairGenerator = KeyPairGenerator.getInstance("RSA", BouncyCastleProvider.PROVIDER_NAME);
+        keyPairGenerator.initialize(2048);
+        String content = CertificateUtil.generateRandomX509CertificateBase64(keyPairGenerator.generateKeyPair());
+        certificateService.issueRequestedCertificate(certificateToBeIssued.getUuid(), content, List.of());
+        certificateToBeIssued = certificateRepository.findWithAssociationsByUuid(certificateToBeIssued.getUuid()).orElseThrow();
+        Assertions.assertEquals(Set.of(group), certificateToBeIssued.getGroups());
+        Assertions.assertNotNull(associationService.getOwner(Resource.CERTIFICATE, certificateToBeIssued.getUuid()));
+        Assertions.assertNotNull(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificateToBeIssued.getUuid()));
+
+        mockServer.stop();
+    }
+
+    @NotNull
+    private AcmeProfile getAcmeProfile() throws AlreadyExistException, AttributeException {
+        AcmeProfile acmeProfile = new AcmeProfile();
+        acmeProfile.setWebsite("sample website");
+        acmeProfile.setTermsOfServiceUrl("sample terms");
+        acmeProfile.setValidity(30);
+        acmeProfile.setRetryInterval(30);
+        acmeProfile.setDescription("sample description");
+        acmeProfile.setName("sameName");
+        acmeProfile.setDnsResolverPort("53");
+        acmeProfile.setDnsResolverIp("localhost");
+        acmeProfile.setTermsOfServiceChangeUrl("change url");
+        acmeProfile.setEnabled(false);
+        ProtocolCertificateAssociation protocolCertificateAssociation = getProtocolCertificateAssociation();
+        acmeProfile.setCertificateAssociation(protocolCertificateAssociation);
+        acmeProfile.setCertificateAssociationUuid(protocolCertificateAssociation.getUuid());
+        acmeProfileRepository.save(acmeProfile);
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
+        return acmeProfile;
+    }
+
+    @NotNull
+    private ProtocolCertificateAssociation getProtocolCertificateAssociation() throws AlreadyExistException, AttributeException {
+        ProtocolCertificateAssociation protocolCertificateAssociation = new ProtocolCertificateAssociation();
+        protocolCertificateAssociation.setOwnerUuid(UUID.randomUUID());
+        protocolCertificateAssociation.setGroupUuids(List.of(group.getUuid()));
+        CustomAttributeCreateRequestDto customAttributeRequest = new CustomAttributeCreateRequestDto();
+        customAttributeRequest.setName("name");
+        customAttributeRequest.setLabel("name");
+        customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
+        customAttributeRequest.setContentType(AttributeContentType.STRING);
+        String attributeUuid = attributeService.createCustomAttribute(customAttributeRequest).getUuid();
+        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+        requestAttributeDto.setUuid(attributeUuid);
+        requestAttributeDto.setName(customAttributeRequest.getName());
+        requestAttributeDto.setContentType(customAttributeRequest.getContentType());
+        requestAttributeDto.setContent(List.of(new StringAttributeContent("ref", "data")));
+        protocolCertificateAssociation.setCustomAttributes(List.of(requestAttributeDto));
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
+        return protocolCertificateAssociation;
     }
 }

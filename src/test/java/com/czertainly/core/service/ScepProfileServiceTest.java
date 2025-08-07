@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -12,6 +13,7 @@ import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.dao.entity.*;
@@ -21,6 +23,7 @@ import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.ProtocolTestUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +32,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.UUID;
 
 class ScepProfileServiceTest extends BaseSpringBootTest {
 
@@ -53,6 +57,10 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     private TokenProfileRepository tokenProfileRepository;
     @Autowired
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+    @Autowired
+    private ProtocolCertificateAssociationRepository protocolCertificateAssociationRepository;
+    @Autowired
+    private AttributeService attributeService;
 
     private TokenInstanceReference tokenInstanceReference;
     private CryptographicKeyItem content;
@@ -66,7 +74,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     private Certificate certificate;
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws AlreadyExistException, AttributeException {
 
         connector = new Connector();
         connector.setUrl("http://localhost:3665");
@@ -153,6 +161,10 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         scepProfile.setIncludeCaCertificate(true);
         scepProfile.setEnabled(false);
         scepProfile.setCaCertificate(certificate);
+        ProtocolCertificateAssociation protocolCertificateAssociation = ProtocolTestUtil.getProtocolCertificateAssociation(UUID.randomUUID(), List.of(UUID.randomUUID()), attributeService);
+        protocolCertificateAssociationRepository.save(protocolCertificateAssociation);
+        scepProfile.setCertificateAssociation(protocolCertificateAssociation);
+        scepProfile.setCertificateAssociationUuid(protocolCertificateAssociation.getUuid());
         scepProfileRepository.save(scepProfile);
     }
 
@@ -174,6 +186,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         ScepProfileDetailDto dto = scepProfileService.getScepProfile(scepProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(scepProfile.getUuid().toString(), dto.getUuid());
+        Assertions.assertNotNull(dto.getCertificateAssociations());
     }
 
     @Test
@@ -211,6 +224,17 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getUuid());
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
+
+        request.setName("Test2");
+        ProtocolCertificateAssociationsDto certificateAssociations = new ProtocolCertificateAssociationsDto();
+        certificateAssociations.setOwnerUuid(UUID.randomUUID());
+        certificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
+        certificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        request.setCertificateAssociations(certificateAssociations);
+        dto = scepProfileService.createScepProfile(request);
+        ScepProfile scepProfileNew = scepProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
+        Assertions.assertNotNull(scepProfileNew);
+        Assertions.assertNotNull(scepProfileNew.getCertificateAssociation());
     }
 
     @Test
@@ -239,6 +263,14 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         ScepProfileDetailDto dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
+        Assertions.assertNull(dto.getCertificateAssociations());
+
+        ProtocolCertificateAssociationsDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsDto();
+        protocolCertificateAssociationsDto.setOwnerUuid(UUID.randomUUID());
+        request.setCertificateAssociations(protocolCertificateAssociationsDto);
+        dto = scepProfileService.editScepProfile(scepProfile.getSecuredUuid(), request);
+        Assertions.assertNotNull(dto);
+        Assertions.assertNotNull(dto.getCertificateAssociations());
     }
 
     @Test

@@ -78,8 +78,10 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_association_uuid")
     private UUID certificateAssociationUuid;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "certificate_association_uuid")
+    @OneToOne(fetch = FetchType.LAZY, orphanRemoval = true)
+    @JoinColumn(name = "certificate_association_uuid", insertable = false, updatable = false)
+    @JsonBackReference
+    @ToString.Exclude
     private ProtocolCertificateAssociation certificateAssociation;
 
     @Override
@@ -102,7 +104,8 @@ public class AcmeProfile extends UniquelyIdentifiedAndAudited implements Seriali
         acmeProfileDto.setRequireTermsOfService(requireTermsOfService);
         acmeProfileDto.setWebsiteUrl(website);
         acmeProfileDto.setTermsOfServiceChangeUrl(termsOfServiceChangeUrl);
-        if (certificateAssociation != null) acmeProfileDto.setProtocolCertificateAssociations(certificateAssociation.mapToDto());
+        if (certificateAssociation != null)
+            acmeProfileDto.setCertificateAssociations(certificateAssociation.mapToDto());
         if (raProfile != null) {
             acmeProfileDto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString() + AcmeConstants.ACME_URI_HEADER + "/" + name + "/directory");
         }

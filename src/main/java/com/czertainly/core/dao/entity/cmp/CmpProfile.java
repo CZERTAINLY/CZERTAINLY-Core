@@ -35,17 +35,17 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
 
     @Setter
     @Getter
-    @Column(name="name")
+    @Column(name = "name")
     private String name;
 
     @Setter
     @Getter
-    @Column(name="description")
+    @Column(name = "description")
     private String description;
 
     @Setter
     @Getter
-    @Column(name="enabled")
+    @Column(name = "enabled")
     private Boolean enabled;
 
     @Setter
@@ -96,8 +96,8 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     @Column(name = "certificate_association_uuid")
     private UUID certificateAssociationUuid;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "certificate_association_uuid")
+    @OneToOne(fetch = FetchType.LAZY, orphanRemoval = true)
+    @JoinColumn(name = "certificate_association_uuid", insertable = false, updatable = false)
     private ProtocolCertificateAssociation certificateAssociation;
 
     @Override
@@ -110,18 +110,20 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     public CmpProfileDetailDto mapToDetailDto() {
         CmpProfileDetailDto cmpProfileDto = new CmpProfileDetailDto();
         setCommonFields(cmpProfileDto);
-        if (certificateAssociation != null) cmpProfileDto.setProtocolCertificateAssociations(certificateAssociation.mapToDto());
+        if (certificateAssociation != null)
+            cmpProfileDto.setCertificateAssociations(certificateAssociation.mapToDto());
         cmpProfileDto.setRequestProtectionMethod(requestProtectionMethod);
         cmpProfileDto.setResponseProtectionMethod(responseProtectionMethod);
 
-        if(signingCertificate != null) cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
+        if (signingCertificate != null) cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
+        if (certificateAssociation != null) cmpProfileDto.setCertificateAssociations(certificateAssociation.mapToDto());
 
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return cmpProfileDto;
     }
 
     private void setCommonFields(CmpProfileDto cmpProfileDto) {
-        if(raProfile != null) {
+        if (raProfile != null) {
             cmpProfileDto.setRaProfile(raProfile.mapToDtoSimplified());
             cmpProfileDto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                     + CmpConstants.CMP_BASE_CONTEXT + "/" + name);
@@ -140,13 +142,13 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
 
     public void setRaProfile(RaProfile raProfile) {
         this.raProfile = raProfile;
-        if(raProfile != null) this.raProfileUuid = raProfile.getUuid();
+        if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
     }
 
     public void setSigningCertificate(Certificate signingCertificate) {
         this.signingCertificate = signingCertificate;
-        if(signingCertificate != null) this.setSigningCertificateUuid( signingCertificate.getUuid() );
+        if (signingCertificate != null) this.setSigningCertificateUuid(signingCertificate.getUuid());
     }
 
     public String getSharedSecret() {

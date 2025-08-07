@@ -79,7 +79,6 @@ import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.scheduling.annotation.Async;
-import org.springframework.security.core.parameters.P;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.TransactionStatus;
@@ -159,16 +158,19 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Autowired
+    @Lazy
     public void setAcmeProfileService(AcmeProfileService acmeProfileService) {
         this.acmeProfileService = acmeProfileService;
     }
 
     @Autowired
+    @Lazy
     public void setCmpProfileService(CmpProfileService cmpProfileService) {
         this.cmpProfileService = cmpProfileService;
     }
 
     @Autowired
+    @Lazy
     public void setScepProfileService(ScepProfileService scepProfileService) {
         this.scepProfileService = scepProfileService;
     }
@@ -1602,13 +1604,16 @@ public class CertificateServiceImpl implements CertificateService {
         if (certificate.getProtocolAssociation() != null) {
             UUID protocolProfileUuid = certificate.getProtocolAssociation().getProtocolProfileUuid();
             ProtocolCertificateAssociationsDto certificateAssociation = switch (certificate.getProtocolAssociation().getProtocol()) {
-                case ACME -> acmeProfileService.getAcmeProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getProtocolCertificateAssociations();
-                case SCEP -> scepProfileService.getScepProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getProtocolCertificateAssociations();
-                case CMP -> cmpProfileService.getCmpProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getProtocolCertificateAssociations();
+                case ACME -> acmeProfileService.getAcmeProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getCertificateAssociations();
+                case SCEP -> scepProfileService.getScepProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getCertificateAssociations();
+                case CMP -> cmpProfileService.getCmpProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getCertificateAssociations();
             };
-            updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
-            updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
-            attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
+            if (certificateAssociation != null) {
+                if (certificateAssociation.getOwnerUuid() != null) updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
+                if (certificateAssociation.getGroupUuids() != null) updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
+                if (certificateAssociation.getCustomAttributes() != null) attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
+                certificateRepository.save(certificate);
+            }
         }
 
         // save metadata
