@@ -128,7 +128,9 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = raProfileRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
         RaProfileDto dto = raProfile.mapToDto();
-        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        if (raProfile.getAuthorityInstanceReference() != null && raProfile.getAuthorityInstanceReference().getConnectorUuid() != null) {
+            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid()));
         return dto;
     }
@@ -140,7 +142,9 @@ public class RaProfileServiceImpl implements RaProfileService {
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, uuid));
 
         RaProfileDto dto = raProfile.mapToDto();
-        dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        if (raProfile.getAuthorityInstanceReference() != null && raProfile.getAuthorityInstanceReference().getConnectorUuid() != null) {
+            dto.setAttributes(attributeEngine.getObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), null, Resource.RA_PROFILE, raProfile.getUuid()));
+        }
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.RA_PROFILE, raProfile.getUuid()));
         return dto;
     }
@@ -175,8 +179,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         if (Boolean.TRUE.equals(request.getEnabled())) {
             raProfile.setValidationFrequency(request.getFrequency());
             raProfile.setExpiringThreshold(request.getExpiringThreshold());
-        }
-        else {
+        } else {
             raProfile.setValidationFrequency(null);
             raProfile.setExpiringThreshold(null);
         }
@@ -292,6 +295,9 @@ public class RaProfileServiceImpl implements RaProfileService {
         if (ValidatorUtil.containsUnreservedCharacters(raProfile.getName())) {
             throw new ValidationException(ValidationError.create("RA Profile name can contain only unreserved URI characters (alphanumeric, hyphen, period, underscore, and tilde)"));
         }
+        if (raProfile.getAuthorityInstanceReference() == null || raProfile.getAuthorityInstanceReference().getConnectorUuid() == null) {
+            throw new ValidationException(ValidationError.create("Cannot activate ACME protocol for RA profile without associated authority and its connector"));
+        }
         AcmeProfile acmeProfile = acmeProfileRepository.findByUuid(acmeProfileUuid).orElseThrow(() -> new NotFoundException(AcmeProfile.class, acmeProfileUuid));
 
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
@@ -327,6 +333,10 @@ public class RaProfileServiceImpl implements RaProfileService {
     public RaProfileScepDetailResponseDto activateScepForRaProfile(SecuredParentUUID authorityUuid, SecuredUUID uuid, SecuredUUID scepProfileUuid, ActivateScepForRaProfileRequestDto request) throws ConnectorException, ValidationException, AttributeException, NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         ScepProfile scepProfile = scepProfileRepository.findByUuid(scepProfileUuid).orElseThrow(() -> new NotFoundException(ScepProfile.class, scepProfileUuid));
+
+        if (raProfile.getAuthorityInstanceReference() == null || raProfile.getAuthorityInstanceReference().getConnectorUuid() == null) {
+            throw new ValidationException(ValidationError.create("Cannot activate SCEP protocol for RA profile without associated authority and its connector"));
+        }
 
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
 
@@ -389,6 +399,10 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfile raProfile = getRaProfileEntity(uuid);
         CmpProfile cmpProfile = cmpProfileRepository.findByUuid(cmpProfileUuid)
                 .orElseThrow(() -> new NotFoundException(CmpProfile.class, cmpProfileUuid));
+
+        if (raProfile.getAuthorityInstanceReference() == null || raProfile.getAuthorityInstanceReference().getConnectorUuid() == null) {
+            throw new ValidationException(ValidationError.create("Cannot activate CMP protocol for RA profile without associated authority and its connector"));
+        }
 
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
         extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
