@@ -4,6 +4,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.service.model.Securable;
@@ -84,6 +85,15 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "intune_application_key")
     private String intuneApplicationKey;
 
+    @Column(name = "certificate_associations_uuid")
+    private UUID certificateAssociationsUuid;
+
+    @OneToOne(fetch = FetchType.LAZY, orphanRemoval = true)
+    @JoinColumn(name = "certificate_associations_uuid", insertable = false, updatable = false)
+    @JsonBackReference
+    @ToString.Exclude
+    private ProtocolCertificateAssociations certificateAssociations;
+
     @Override
     public ScepProfileDto mapToDto() {
         ScepProfileDto scepProfileDto = new ScepProfileDto();
@@ -123,6 +133,8 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setIntuneTenant(intuneTenant);
         scepProfileDto.setIntuneApplicationId(intuneApplicationId);
+        if (certificateAssociations != null)
+            scepProfileDto.setCertificateAssociations(certificateAssociations.mapToDto());
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return scepProfileDto;
     }
