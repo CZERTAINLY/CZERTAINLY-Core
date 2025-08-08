@@ -52,7 +52,8 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
         protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
         protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
-        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
+        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         acmeProfileRepository.save(acmeProfile);

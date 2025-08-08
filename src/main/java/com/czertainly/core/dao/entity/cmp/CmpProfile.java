@@ -116,7 +116,6 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
         cmpProfileDto.setResponseProtectionMethod(responseProtectionMethod);
 
         if (signingCertificate != null) cmpProfileDto.setSigningCertificate(signingCertificate.mapToListDto());
-        if (certificateAssociations != null) cmpProfileDto.setCertificateAssociations(certificateAssociations.mapToDto());
 
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return cmpProfileDto;
