@@ -130,8 +130,7 @@ public enum FilterField {
     OID_ENTRY_OID(Resource.OID, null, null, CustomOidEntry_.oid, "OID", SearchFieldTypeEnum.STRING),
     OID_ENTRY_DISPLAY_NAME(Resource.OID, null, null, CustomOidEntry_.displayName, "Display Name", SearchFieldTypeEnum.STRING),
     OID_ENTRY_CATEGORY(Resource.OID, null, null, CustomOidEntry_.category, "Category", SearchFieldTypeEnum.LIST, OidCategory.class),
-    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING)
-    ;
+    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING);
 
     private static final FilterField[] VALUES;
 
