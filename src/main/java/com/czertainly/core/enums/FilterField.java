@@ -61,6 +61,7 @@ public enum FilterField {
     TRUSTED_CA(Resource.CERTIFICATE, null, null, Certificate_.trustedCa, "Trusted CA", SearchFieldTypeEnum.BOOLEAN),
     CERTIFICATE_PROTOCOL(Resource.CERTIFICATE, null, List.of(Certificate_.protocolAssociation), CertificateProtocolAssociation_.protocol, "Certificate Protocol", SearchFieldTypeEnum.LIST, CertificateProtocol.class),
     HYBRID_CERTIFICATE(Resource.CERTIFICATE, null, null, Certificate_.hybridCertificate, "Hybrid Certificate", SearchFieldTypeEnum.BOOLEAN),
+    ARCHIVED(Resource.CERTIFICATE, null, null, Certificate_.archived, "Archived", SearchFieldTypeEnum.BOOLEAN),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),
@@ -129,8 +130,7 @@ public enum FilterField {
     OID_ENTRY_OID(Resource.OID, null, null, CustomOidEntry_.oid, "OID", SearchFieldTypeEnum.STRING),
     OID_ENTRY_DISPLAY_NAME(Resource.OID, null, null, CustomOidEntry_.displayName, "Display Name", SearchFieldTypeEnum.STRING),
     OID_ENTRY_CATEGORY(Resource.OID, null, null, CustomOidEntry_.category, "Category", SearchFieldTypeEnum.LIST, OidCategory.class),
-    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING)
-    ;
+    OID_ENTRY_CODE(Resource.OID, null, null, RdnAttributeTypeCustomOidEntry_.code, "Code", SearchFieldTypeEnum.STRING);
 
     private static final FilterField[] VALUES;
 
