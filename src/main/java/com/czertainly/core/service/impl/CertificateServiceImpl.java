@@ -1484,28 +1484,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificate = certificateRepository.save(certificate);
 
         if (protocolInfo != null) {
-            CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
-            UUID protocolProfileUuid = protocolInfo.getProtocolProfileUuid();
-            protocolAssociation.setCertificate(certificate);
-            protocolAssociation.setProtocol(protocolInfo.getProtocol());
-            protocolAssociation.setProtocolProfileUuid(protocolProfileUuid);
-            protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
-            certificateProtocolAssociationRepository.save(protocolAssociation);
-            certificate.setProtocolAssociation(protocolAssociation);
-            ProtocolCertificateAssociations certificateAssociation = switch (protocolInfo.getProtocol()) {
-                case ACME -> protocolCertificateAssociationsRepository.findByAcmeProfileUuid(protocolProfileUuid);
-                case SCEP -> protocolCertificateAssociationsRepository.findByScepProfileUuid(protocolProfileUuid);
-                case CMP -> protocolCertificateAssociationsRepository.findByCmpProfileUuid(protocolProfileUuid);
-            };
-            if (certificateAssociation != null) {
-                if (certificateAssociation.getOwnerUuid() != null)
-                    updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
-                if (certificateAssociation.getGroupUuids() != null && !certificateAssociation.getGroupUuids().isEmpty())
-                    updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
-                if (certificateAssociation.getCustomAttributes() != null && !certificateAssociation.getCustomAttributes().isEmpty())
-                    attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
-                certificateRepository.save(certificate);
-            }
+            setProtocolAssociations(protocolInfo, certificate);
         } else {
             // set owner of certificate to logged user when there is not protocol involved
             objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
@@ -1528,6 +1507,31 @@ public class CertificateServiceImpl implements CertificateService {
         logger.info("Certificate request submitted and certificate created {}", certificate);
 
         return dto;
+    }
+
+    private void setProtocolAssociations(CertificateProtocolInfo protocolInfo, Certificate certificate) throws NotFoundException, AttributeException {
+        CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+        UUID protocolProfileUuid = protocolInfo.getProtocolProfileUuid();
+        protocolAssociation.setCertificate(certificate);
+        protocolAssociation.setProtocol(protocolInfo.getProtocol());
+        protocolAssociation.setProtocolProfileUuid(protocolProfileUuid);
+        protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
+        certificateProtocolAssociationRepository.save(protocolAssociation);
+        certificate.setProtocolAssociation(protocolAssociation);
+        ProtocolCertificateAssociations certificateAssociation = switch (protocolInfo.getProtocol()) {
+            case ACME -> protocolCertificateAssociationsRepository.findByAcmeProfileUuid(protocolProfileUuid);
+            case SCEP -> protocolCertificateAssociationsRepository.findByScepProfileUuid(protocolProfileUuid);
+            case CMP -> protocolCertificateAssociationsRepository.findByCmpProfileUuid(protocolProfileUuid);
+        };
+        if (certificateAssociation != null) {
+            if (certificateAssociation.getOwnerUuid() != null)
+                updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
+            if (certificateAssociation.getGroupUuids() != null && !certificateAssociation.getGroupUuids().isEmpty())
+                updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
+            if (certificateAssociation.getCustomAttributes() != null && !certificateAssociation.getCustomAttributes().isEmpty())
+                attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
+            certificateRepository.save(certificate);
+        }
     }
 
     private void setCertificateRequestAltKey(UUID altKeyUuid, CertificateRequestEntity certificateRequestEntity, CertificateRequest request) throws NoSuchAlgorithmException, CertificateRequestException {
