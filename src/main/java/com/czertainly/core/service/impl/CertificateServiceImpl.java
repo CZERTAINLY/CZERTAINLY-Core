@@ -21,7 +21,6 @@ import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.oid.OidCategory;
-import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -131,9 +130,7 @@ public class CertificateServiceImpl implements CertificateService {
     private CertificateApiClient certificateApiClient;
     private UserManagementApiClient userManagementApiClient;
     private CrlService crlService;
-    private AcmeProfileService acmeProfileService;
-    private CmpProfileService cmpProfileService;
-    private ScepProfileService scepProfileService;
+    private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private AttributeEngine attributeEngine;
     private ExtendedAttributeService extendedAttributeService;
@@ -146,6 +143,11 @@ public class CertificateServiceImpl implements CertificateService {
      */
     private Map<String, ICertificateValidator> certificateValidatorMap;
 
+    @Autowired
+    public void setProtocolCertificateAssociationsRepository(ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository) {
+        this.protocolCertificateAssociationsRepository = protocolCertificateAssociationsRepository;
+    }
+
     @Lazy
     @Autowired
     public void setLocationService(LocationService locationService) {
@@ -155,24 +157,6 @@ public class CertificateServiceImpl implements CertificateService {
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
         this.transactionManager = transactionManager;
-    }
-
-    @Autowired
-    @Lazy
-    public void setAcmeProfileService(AcmeProfileService acmeProfileService) {
-        this.acmeProfileService = acmeProfileService;
-    }
-
-    @Autowired
-    @Lazy
-    public void setCmpProfileService(CmpProfileService cmpProfileService) {
-        this.cmpProfileService = cmpProfileService;
-    }
-
-    @Autowired
-    @Lazy
-    public void setScepProfileService(ScepProfileService scepProfileService) {
-        this.scepProfileService = scepProfileService;
     }
 
     @Autowired
@@ -1501,12 +1485,27 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (protocolInfo != null) {
             CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+            UUID protocolProfileUuid = protocolInfo.getProtocolProfileUuid();
             protocolAssociation.setCertificate(certificate);
             protocolAssociation.setProtocol(protocolInfo.getProtocol());
-            protocolAssociation.setProtocolProfileUuid(protocolInfo.getProtocolProfileUuid());
+            protocolAssociation.setProtocolProfileUuid(protocolProfileUuid);
             protocolAssociation.setAdditionalProtocolUuid(protocolInfo.getAdditionalProtocolUuid());
             certificateProtocolAssociationRepository.save(protocolAssociation);
             certificate.setProtocolAssociation(protocolAssociation);
+            ProtocolCertificateAssociations certificateAssociation = switch (protocolInfo.getProtocol()) {
+                case ACME -> protocolCertificateAssociationsRepository.findByAcmeProfileUuid(protocolProfileUuid);
+                case SCEP -> protocolCertificateAssociationsRepository.findByScepProfileUuid(protocolProfileUuid);
+                case CMP -> protocolCertificateAssociationsRepository.findByCmpProfileUuid(protocolProfileUuid);
+            };
+            if (certificateAssociation != null) {
+                if (certificateAssociation.getOwnerUuid() != null)
+                    updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
+                if (certificateAssociation.getGroupUuids() != null && !certificateAssociation.getGroupUuids().isEmpty())
+                    updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
+                if (certificateAssociation.getCustomAttributes() != null && !certificateAssociation.getCustomAttributes().isEmpty())
+                    attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
+                certificateRepository.save(certificate);
+            }
         } else {
             // set owner of certificate to logged user when there is not protocol involved
             objectAssociationService.setOwnerFromProfile(Resource.CERTIFICATE, certificate.getUuid());
@@ -1600,21 +1599,6 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         certificate = certificateRepository.save(certificate);
-
-        if (certificate.getProtocolAssociation() != null) {
-            UUID protocolProfileUuid = certificate.getProtocolAssociation().getProtocolProfileUuid();
-            ProtocolCertificateAssociationsDto certificateAssociation = switch (certificate.getProtocolAssociation().getProtocol()) {
-                case ACME -> acmeProfileService.getAcmeProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getCertificateAssociations();
-                case SCEP -> scepProfileService.getScepProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getCertificateAssociations();
-                case CMP -> cmpProfileService.getCmpProfile(SecuredUUID.fromUUID(protocolProfileUuid)).getCertificateAssociations();
-            };
-            if (certificateAssociation != null) {
-                if (certificateAssociation.getOwnerUuid() != null) updateOwner(certificate.getSecuredUuid(), String.valueOf(certificateAssociation.getOwnerUuid()));
-                if (certificateAssociation.getGroupUuids() != null && !certificateAssociation.getGroupUuids().isEmpty()) updateCertificateGroups(certificate.getSecuredUuid(), new HashSet<>(certificateAssociation.getGroupUuids()));
-                if (certificateAssociation.getCustomAttributes() != null  && !certificateAssociation.getCustomAttributes().isEmpty()) attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), certificateAssociation.getCustomAttributes());
-                certificateRepository.save(certificate);
-            }
-        }
 
         // save metadata
         UUID connectorUuid = certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
