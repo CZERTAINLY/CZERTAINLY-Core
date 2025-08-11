@@ -330,7 +330,7 @@ public class X509CertificateValidator implements ICertificateValidator {
             return new CertificateValidationCheckDto(CertificateValidationCheck.KEY_USAGE, CertificateValidationStatus.NOT_CHECKED, "Certificate is not CA.");
         }
 
-        if (CertificateUtil.isKeyUsagePresent(certificate.getKeyUsage(), CertificateUtil.KEY_USAGE_KEY_CERT_SIGN)) {
+        if (CertificateUtil.isKeyUsagePresent(certificate.getKeyUsage(), CertificateKeyUsage.KEY_CERT_SIGN)) {
             return new CertificateValidationCheckDto(CertificateValidationCheck.KEY_USAGE, CertificateValidationStatus.VALID, "Certificate keyCertSign bit is set and can be used to verify signatures on other certificates.");
         } else {
             return new CertificateValidationCheckDto(CertificateValidationCheck.KEY_USAGE, CertificateValidationStatus.INVALID, "Certificate keyCertSign bit is not set and cannot be used to verify signatures on other certificates.");

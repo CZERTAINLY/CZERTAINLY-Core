@@ -133,18 +133,18 @@ public class CertificateUtil {
 
         for (int i = 0; i < keyUsage.length; i++) {
             if (Boolean.TRUE.equals(keyUsage[i])) {
-                keyUsageNames.add(KEY_USAGE_LIST.get(i));
+                keyUsageNames.add(CertificateKeyUsage.fromIndex(i).getLabel());
             }
         }
         return keyUsageNames;
     }
 
-    public static boolean isKeyUsagePresent(boolean[] keyUsage, String keyUsageName) {
+    public static boolean isKeyUsagePresent(boolean[] keyUsage, CertificateKeyUsage keyUsageName) {
         if (keyUsage == null) {
             return false;
         }
 
-        int keyUsageIndex = KEY_USAGE_LIST.indexOf(keyUsageName);
+        int keyUsageIndex = keyUsageName.getIndex();
         return keyUsageIndex != -1 && keyUsage[keyUsageIndex];
     }
 
