@@ -146,9 +146,9 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
             }
 
             altCodes = additionalProperties.getAltCodes();
-            List<String> oldAltCodes = rdnAttributeTypeOidEntry.getAltCodes();
+            Set<String> oldAltCodes = rdnAttributeTypeOidEntry.getAltCodes().stream().map(String::toLowerCase).collect(Collectors.toSet());
             for (String altCode : altCodes) {
-                if (!oldAltCodes.contains(altCode.toUpperCase()) && allCodes.contains(altCode.toLowerCase()))
+                if (!oldAltCodes.contains(altCode.toLowerCase()) && allCodes.contains(altCode.toLowerCase()))
                     throw new ValidationException("Alt Code %s is already used".formatted(altCode));
             }
             rdnAttributeTypeOidEntry.setAltCodes(additionalProperties.getAltCodes());
