@@ -69,7 +69,19 @@ class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
                 (Arrays.stream(normalizedX500Name.getRDNs())
                         .filter(rdn -> Arrays.stream(rdn.getTypesAndValues()).findFirst().orElseThrow()
                                 .getValue().toString().equals(value)).findFirst().orElseThrow()
-                        .getTypesAndValues()).findFirst().orElseThrow().getType().toString();
+        // Find the RDN whose value matches the input
+        RDN matchingRdn = null;
+        for (RDN rdn : normalizedX500Name.getRDNs()) {
+            if (rdn.getTypesAndValues().length > 0 &&
+                rdn.getTypesAndValues()[0].getValue().toString().equals(value)) {
+                matchingRdn = rdn;
+                break;
+            }
+        }
+        if (matchingRdn == null) {
+            throw new IllegalArgumentException("No RDN found with value: " + value);
+        }
+        return matchingRdn.getTypesAndValues()[0].getType().toString();
     }
 
 }
