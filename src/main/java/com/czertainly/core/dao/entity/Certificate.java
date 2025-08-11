@@ -4,6 +4,7 @@ import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
@@ -16,8 +17,10 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -154,10 +157,11 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
-    @Column(name = "compliance_result")
-    private String complianceResult;
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ComplianceResultDto complianceResult;
 
-    @Column(name = "compliance_status")
+    @Column(name = "compliance_status", nullable = false)
     @Enumerated(EnumType.STRING)
     private ComplianceStatus complianceStatus;
 
@@ -263,6 +267,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
          * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
          */
         dto.setComplianceStatus(complianceStatus);
+        dto.setComplianceResult(complianceResult);
 
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();

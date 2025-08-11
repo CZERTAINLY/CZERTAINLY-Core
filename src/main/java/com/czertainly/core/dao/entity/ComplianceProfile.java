@@ -26,11 +26,14 @@ import java.util.stream.Collectors;
 @Table(name = "compliance_profile")
 public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
-    @Column(name = "name")
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "description")
     private String description;
+
+    @Column(name = "version", nullable = false)
+    private String version;
 
     @JsonBackReference
     @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
@@ -176,8 +179,8 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         ComplianceProfile that = (ComplianceProfile) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -185,6 +188,6 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

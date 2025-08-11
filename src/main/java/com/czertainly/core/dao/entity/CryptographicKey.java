@@ -1,13 +1,17 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
 import com.czertainly.api.model.core.cryptography.key.*;
 import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.*;
@@ -55,6 +59,14 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "key")
     @ToString.Exclude
     private OwnerAssociation owner;
+
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ComplianceResultDto complianceResult;
+
+    @Column(name = "compliance_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus;
 
     @JsonBackReference
     @OneToMany(mappedBy = "key", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

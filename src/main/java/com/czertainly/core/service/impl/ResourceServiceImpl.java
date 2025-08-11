@@ -18,7 +18,6 @@ import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.service.*;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
@@ -72,6 +71,8 @@ public class ResourceServiceImpl implements ResourceService {
             resourceDto.setHasOwner(resource.hasOwner());
             resourceDto.setHasEvents(!ResourceEvent.listEventsByResource(resource).isEmpty());
             resourceDto.setHasRuleEvaluator(ResourceEvent.isResourceOfEvent(resource));
+            resourceDto.setComplianceSubject(resource.isComplianceSubject());
+            resourceDto.setHasComplianceProfiles(resource.hasComplianceProfiles());
             resources.add(resourceDto);
         }
 
@@ -144,13 +145,6 @@ public class ResourceServiceImpl implements ResourceService {
                         event -> event,
                         Collectors.mapping(ResourceEventDto::new, Collectors.toList())
                 ));
-    }
-
-    private boolean hasRuleEvaluator(Resource resource) {
-        boolean hasFilterFields = !FilterField.getEnumsForResource(resource).isEmpty();
-        boolean isEventResource = ResourceEvent.isResourceOfEvent(resource);
-        boolean hasCustomAttributes = !attributeEngine.getCustomAttributesByResource(resource, SecurityResourceFilter.create()).isEmpty();
-        return hasFilterFields || isEventResource || hasCustomAttributes;
     }
 
 }
