@@ -1680,6 +1680,12 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
+    @Override
+    public void updateCertificateDNs(String oid, String newCode, String oldCode) {
+        certificateRepository.updateCertificateIssuerDN(oid, newCode, oldCode);
+        certificateRepository.updateCertificateSubjectDN(oid, newCode, oldCode);
+    }
+
 
     private List<Object> serializedListOfStringToListOfObject(List<String> serializedData) {
         Set<String> serSet = new LinkedHashSet<>();
