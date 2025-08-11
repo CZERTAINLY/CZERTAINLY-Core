@@ -1,5 +1,10 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.api.model.core.oid.SystemOid;
+import com.czertainly.core.oid.OidHandler;
+import com.czertainly.core.oid.OidRecord;
+import org.bouncycastle.asn1.x500.RDN;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -7,6 +12,9 @@ import org.junit.jupiter.api.Test;
 import javax.security.auth.x500.X500Principal;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 
 class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
 
@@ -35,6 +43,35 @@ class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
     private String getDnWithCustomStyleNormalized(String dn) {
         return X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(dn).getEncoded()).toString();
     }
+
+    @Test
+    void testTranslationFromCodeToOid() {
+        String oid = "1.2.3.4.5";
+        String code = "X";
+        List<String> altCodes = List.of( "XX", "XXX");
+        String oid2 = "1.2.3.4.5.6";
+        String code2 = "UID";
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, oid, new OidRecord("d", code, altCodes));
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, oid2, new OidRecord("d", code2, List.of()));
+
+        Map<String, String> codeToOid = OidHandler.getCodeToOidMap();
+        String originalX500 = "CN=Certificate Authority, X=Location, XX=State, UID=US, O=Organization, IP=1.2.3";
+        X500Principal x500Principal = new X500Principal(originalX500, codeToOid);
+        X500Name normalizedX500Name = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, x500Principal.getEncoded());
+        Assertions.assertEquals(SystemOid.COMMON_NAME.getOid(), getOidByValueFromRDNs(normalizedX500Name, "Certificate Authority"));
+        Assertions.assertEquals(oid, getOidByValueFromRDNs(normalizedX500Name, "Location"));
+        Assertions.assertEquals(oid, getOidByValueFromRDNs(normalizedX500Name, "State"));
+        Assertions.assertEquals(oid2, getOidByValueFromRDNs(normalizedX500Name, "US"));
+    }
+
+    private static String getOidByValueFromRDNs(X500Name normalizedX500Name, String value) {
+        return Arrays.stream
+                (Arrays.stream(normalizedX500Name.getRDNs())
+                        .filter(rdn -> Arrays.stream(rdn.getTypesAndValues()).findFirst().orElseThrow()
+                                .getValue().toString().equals(value)).findFirst().orElseThrow()
+                        .getTypesAndValues()).findFirst().orElseThrow().getType().toString();
+    }
+
 }
 
 

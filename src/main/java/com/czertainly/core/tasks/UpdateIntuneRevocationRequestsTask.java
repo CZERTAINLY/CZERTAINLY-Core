@@ -14,6 +14,7 @@ import com.czertainly.core.intune.carequest.CARevocationRequest;
 import com.czertainly.core.intune.carequest.CARevocationResult;
 import com.czertainly.core.intune.scepvalidation.IntuneRevocationClient;
 import com.czertainly.core.model.ScheduledTaskResult;
+import com.czertainly.core.oid.OidHandler;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
@@ -162,7 +163,7 @@ public class UpdateIntuneRevocationRequestsTask implements ScheduledJobTask {
 
         for (CARevocationRequest revocationRequest : revocationRequests) {
             try {
-                String issuerName = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(revocationRequest.issuerName).getEncoded()).toString();
+                String issuerName = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(revocationRequest.issuerName, OidHandler.getCodeToOidMap()).getEncoded()).toString();
                 Certificate certificate = certificateService.getCertificateEntityByIssuerDnNormalizedAndSerialNumber(
                         issuerName,
                         revocationRequest.serialNumber

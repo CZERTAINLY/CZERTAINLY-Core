@@ -17,14 +17,17 @@ import java.util.stream.Collectors;
 public class CzertainlyX500NameStyle extends BCStrictStyle {
 
     // Kept here because of migration
-    public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false);
-    public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true);
+    public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false, false);
+    public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true, false);
+    public static final CzertainlyX500NameStyle NORMALIZED_PRESERVE_ORDER = new CzertainlyX500NameStyle(true, true);
+
     private final boolean normalizedStyle;
     private final String delimiter;
+    private final boolean preserveOrder;
 
     private final Map<String, String> oidToCodeMap;
 
-    public CzertainlyX500NameStyle(boolean normalizedStyle) {
+    public CzertainlyX500NameStyle(boolean normalizedStyle, boolean preserveOrder) {
         this.normalizedStyle = normalizedStyle;
         this.delimiter = normalizedStyle ? "," : ", ";
         this.oidToCodeMap = OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).entrySet().stream()
@@ -32,6 +35,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
                         Map.Entry::getKey,
                         entry -> entry.getValue().code()
                 ));
+        this.preserveOrder = preserveOrder;
     }
 
     @Override
@@ -39,7 +43,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
         StringBuilder stringBuilder = new StringBuilder();
         boolean isFirstRdn = true;
         RDN[] rdNs = x500Name.getRDNs();
-        if (this.normalizedStyle) {
+        if (this.normalizedStyle && preserveOrder) {
             Arrays.sort(rdNs, Comparator.comparing((RDN obj) -> obj.getFirst().getType().getId()).thenComparing(obj -> obj.getFirst().getValue().toString()));
         } else {
             Collections.reverse(Arrays.asList(rdNs));

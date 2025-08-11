@@ -79,8 +79,8 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         request.setAdditionalProperties(propertiesDto);
-        propertiesDto.setCode("CN");
-        propertiesDto.setAltCodes(List.of("CN1","CN2"));
+        propertiesDto.setCode("A");
+        propertiesDto.setAltCodes(List.of("A1","A2"));
         request.setAdditionalProperties(propertiesDto);
         response = customOidEntryService.createCustomOidEntry(request);
         Assertions.assertEquals(request.getOid(), response.getOid());
@@ -91,8 +91,14 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(customOidEntryRepository.existsById(request.getOid()));
         Assertions.assertEquals(propertiesDto.getCode(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getCode());
         Assertions.assertEquals(propertiesDto.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
-
         Assertions.assertNotNull(OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).get(request.getOid()));
+
+        request.setOid("1.2.3.4.5");
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
+        propertiesDto.setCode("A3");
+        propertiesDto.setAltCodes(List.of("A4","A1"));
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
+
     }
 
     @Test
