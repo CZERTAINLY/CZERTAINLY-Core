@@ -49,7 +49,7 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         rdnOidEntry.setDisplayName("rdn");
         rdnOidEntry.setOid("1.2.3.4.6");
         rdnOidEntry.setCode("RDN");
-        rdnOidEntry.setAltCodes(List.of("R","D"));
+        rdnOidEntry.setAltCodes(List.of("R", "D"));
         customOidEntryRepository.save(rdnOidEntry);
     }
 
@@ -80,7 +80,7 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         RdnAttributeTypeOidPropertiesDto propertiesDto = new RdnAttributeTypeOidPropertiesDto();
         request.setAdditionalProperties(propertiesDto);
         propertiesDto.setCode("A");
-        propertiesDto.setAltCodes(List.of("A1","A2"));
+        propertiesDto.setAltCodes(List.of("A1", "A2"));
         request.setAdditionalProperties(propertiesDto);
         response = customOidEntryService.createCustomOidEntry(request);
         Assertions.assertEquals(request.getOid(), response.getOid());
@@ -93,10 +93,10 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(propertiesDto.getAltCodes(), ((RdnAttributeTypeOidPropertiesDto) response.getAdditionalProperties()).getAltCodes());
         Assertions.assertNotNull(OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).get(request.getOid()));
 
-        request.setOid("1.2.3.4.5");
+        request.setOid("1.2.3.4.5.6");
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
         propertiesDto.setCode("A3");
-        propertiesDto.setAltCodes(List.of("A4","A1"));
+        propertiesDto.setAltCodes(List.of("A4", "A1"));
         Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.createCustomOidEntry(request));
 
     }
@@ -168,11 +168,21 @@ class CustomOidEntryServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDisplayName(), genericCustomOidEntry.getDisplayName());
         Assertions.assertEquals(request.getDescription(), genericCustomOidEntry.getDescription());
 
-        customOidEntryService.editCustomOidEntry(rdnOidEntry.getOid(), request);
-        rdnOidEntry = (RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(rdnOidEntry.getOid()).get();
+        String rdnOidEntryOid = rdnOidEntry.getOid();
+        customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request);
+        rdnOidEntry = (RdnAttributeTypeCustomOidEntry) customOidEntryRepository.findById(rdnOidEntryOid).get();
         Assertions.assertEquals(request.getDisplayName(), rdnOidEntry.getDisplayName());
         Assertions.assertEquals(request.getDescription(), rdnOidEntry.getDescription());
         Assertions.assertEquals(propertiesDto.getCode(), rdnOidEntry.getCode());
+
+        Assertions.assertDoesNotThrow(() -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
+
+        propertiesDto.setCode("CN");
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
+
+        propertiesDto.setCode("G");
+        propertiesDto.setAltCodes(List.of("E"));
+        Assertions.assertThrows(ValidationException.class, () -> customOidEntryService.editCustomOidEntry(rdnOidEntryOid, request));
 
     }
 
