@@ -652,6 +652,13 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals("%s=org, CN=cn".formatted(newCode), certificate.getIssuerDn());
         Assertions.assertEquals("CN=cn, %s=org".formatted(newCode), certificate.getSubjectDn());
 
+        certificate.setIssuerDnNormalized("1.2.3.4=a, 1a2x3=f");
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, "new", newCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, CN=cn".formatted(newCode), certificate.getIssuerDn());
+
+
     }
     @Test
     void testSetProtocolCertificateAssociations() throws AlreadyExistException, AttributeException, NotFoundException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException, ConnectorException, CertificateRequestException {
