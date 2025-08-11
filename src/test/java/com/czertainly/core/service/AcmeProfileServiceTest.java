@@ -3,11 +3,15 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -17,6 +21,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.UUID;
 
 class AcmeProfileServiceTest extends BaseSpringBootTest {
 
@@ -25,6 +30,9 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
+
+    @Autowired
+    private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private AcmeProfile acmeProfile;
 
@@ -41,6 +49,13 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         acmeProfile.setDnsResolverIp("localhost");
         acmeProfile.setTermsOfServiceChangeUrl("change url");
         acmeProfile.setEnabled(false);
+        ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
+        protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
+        protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
+        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
+        acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
+        acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
         acmeProfileRepository.save(acmeProfile);
     }
 
@@ -58,10 +73,13 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     @Test
     void testGetAcmeProfileByUuid() throws NotFoundException {
         acmeProfile.setEnabled(true);
-        acmeProfileRepository.save(acmeProfile);
         AcmeProfileDto dto = acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeProfile.getUuid().toString(), dto.getUuid());
+        Assertions.assertNotNull(dto.getCertificateAssociations());
+        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getOwnerUuid(), dto.getCertificateAssociations().getOwnerUuid());
+        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getGroupUuids(), dto.getCertificateAssociations().getGroupUuids());
+        Assertions.assertEquals(acmeProfile.getCertificateAssociations().getCustomAttributes().size(), dto.getCertificateAssociations().getCustomAttributes().size());
     }
 
     @Test
@@ -83,6 +101,18 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getName(), dto.getName());
         Assertions.assertNotNull(dto.getUuid());
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
+
+        request.setName("Test2");
+        ProtocolCertificateAssociationsDto certificateAssociations = new ProtocolCertificateAssociationsDto();
+        certificateAssociations.setOwnerUuid(UUID.randomUUID());
+        certificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
+        certificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        request.setCertificateAssociations(certificateAssociations);
+        dto = acmeProfileService.createAcmeProfile(request);
+        AcmeProfile acmeProfileNew = acmeProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
+        Assertions.assertNotNull(acmeProfileNew);
+        Assertions.assertNotNull(acmeProfileNew.getCertificateAssociations());
+
     }
 
     @Test
@@ -114,6 +144,14 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertEquals(request.getDnsResolverIp(), dto.getDnsResolverIp());
+        Assertions.assertNull(dto.getCertificateAssociations());
+
+        ProtocolCertificateAssociationsDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsDto();
+        protocolCertificateAssociationsDto.setOwnerUuid(UUID.randomUUID());
+        request.setCertificateAssociations(protocolCertificateAssociationsDto);
+        dto = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);
+        Assertions.assertNotNull(dto);
+        Assertions.assertNotNull(dto.getCertificateAssociations());
     }
 
     @Test
@@ -124,8 +162,10 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testRemoveAcmeProfile() throws NotFoundException {
+        UUID certificateAssociationsUuid = acmeProfile.getCertificateAssociationsUuid();
         acmeProfileService.deleteAcmeProfile(acmeProfile.getSecuredUuid());
         Assertions.assertThrows(NotFoundException.class, () -> acmeProfileService.getAcmeProfile(acmeProfile.getSecuredUuid()));
+        Assertions.assertTrue(protocolCertificateAssociationsRepository.findByUuid(SecuredUUID.fromUUID(certificateAssociationsUuid)).isEmpty());
     }
 
     @Test

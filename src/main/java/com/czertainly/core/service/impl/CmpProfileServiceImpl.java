@@ -17,9 +17,11 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -59,6 +61,12 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     private ExtendedAttributeService extendedAttributeService;
     private CertificateService certificateService;
     private AttributeEngine attributeEngine;
+    private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
+
+    @Autowired
+    public void setCertificateAssociationRepository(ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
+        this.certificateAssociationRepository = certificateAssociationRepository;
+    }
 
     @Autowired
     public void setCmpProfileRepository(CmpProfileRepository cmpProfileRepository) {
@@ -141,6 +149,15 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         cmpProfile.setRequestProtectionMethod(request.getRequestProtectionMethod());
         cmpProfile.setResponseProtectionMethod(request.getResponseProtectionMethod());
 
+        if (request.getCertificateAssociations() != null) {
+            ProtocolCertificateAssociations certificateAssociation = new ProtocolCertificateAssociations();
+            certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
+            certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
+            certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
+            certificateAssociationRepository.save(certificateAssociation);
+            cmpProfile.setCertificateAssociationsUuid(certificateAssociation.getUuid());
+        }
+
         cmpProfile = cmpProfileRepository.save(cmpProfile);
 
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
@@ -157,6 +174,15 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         logger.info("CMP Profile created successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
 
         return dto;
+    }
+
+    private static ProtocolCertificateAssociations getCertificateAssociation(CmpProfileEditRequestDto request, CmpProfile cmpProfile) {
+        ProtocolCertificateAssociations certificateAssociation = cmpProfile.getCertificateAssociations();
+        if (certificateAssociation == null) certificateAssociation = new ProtocolCertificateAssociations();
+        certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
+        certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
+        certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
+        return certificateAssociation;
     }
 
     @Override
@@ -187,6 +213,17 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         cmpProfile.setRaProfile(raProfile);
         cmpProfile.setRequestProtectionMethod(request.getRequestProtectionMethod());
         cmpProfile.setResponseProtectionMethod(request.getResponseProtectionMethod());
+
+        UUID certificateAssociationUuid = null;
+        ProtocolCertificateAssociations certificateAssociation = null;
+        if (request.getCertificateAssociations() != null) {
+            certificateAssociation = getCertificateAssociation(request, cmpProfile);
+            certificateAssociationRepository.save(certificateAssociation);
+            certificateAssociationUuid = certificateAssociation.getUuid();
+        }
+
+        cmpProfile.setCertificateAssociations(certificateAssociation);
+        cmpProfile.setCertificateAssociationsUuid(certificateAssociationUuid);
 
         cmpProfileRepository.save(cmpProfile);
 

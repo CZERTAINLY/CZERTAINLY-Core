@@ -12,10 +12,12 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
+import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -46,6 +48,12 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     private RaProfileService raProfileService;
     private ExtendedAttributeService extendedAttributeService;
     private AttributeEngine attributeEngine;
+    private ProtocolCertificateAssociationsRepository certificateAssociationRepository;
+
+    @Autowired
+    public void setCertificateAssociationRepository(ProtocolCertificateAssociationsRepository certificateAssociationRepository) {
+        this.certificateAssociationRepository = certificateAssociationRepository;
+    }
 
     @Autowired
     public AcmeProfileServiceImpl(AcmeProfileRepository acmeProfileRepository) {
@@ -139,6 +147,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
         acmeProfile.setRaProfile(raProfile);
+        if (request.getCertificateAssociations() != null) {
+            ProtocolCertificateAssociations certificateAssociation = new ProtocolCertificateAssociations();
+            certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
+            certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
+            certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
+            certificateAssociationRepository.save(certificateAssociation);
+            acmeProfile.setCertificateAssociationsUuid(certificateAssociation.getUuid());
+        }
         acmeProfile = acmeProfileRepository.save(acmeProfile);
 
         AcmeProfileDto dto = acmeProfile.mapToDto();
@@ -212,6 +228,19 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setWebsite(request.getWebsiteUrl());
         acmeProfile.setDisableNewOrders(request.isTermsOfServiceChangeDisable());
         acmeProfile.setTermsOfServiceChangeUrl(request.getTermsOfServiceChangeUrl());
+
+        UUID certificateAssociationUuid = null;
+        ProtocolCertificateAssociations certificateAssociation = null;
+        if (request.getCertificateAssociations() != null) {
+            certificateAssociation = getCertificateAssociation(request, acmeProfile);
+            certificateAssociationRepository.save(certificateAssociation);
+            certificateAssociationUuid = certificateAssociation.getUuid();
+        }
+
+        acmeProfile.setCertificateAssociations(certificateAssociation);
+        acmeProfile.setCertificateAssociationsUuid(certificateAssociationUuid);
+
+
         acmeProfile = acmeProfileRepository.save(acmeProfile);
 
         AcmeProfileDto dto = acmeProfile.mapToDto();
@@ -222,6 +251,15 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         }
 
         return dto;
+    }
+
+    private static ProtocolCertificateAssociations getCertificateAssociation(AcmeProfileEditRequestDto request, AcmeProfile acmeProfile) {
+        ProtocolCertificateAssociations certificateAssociation = acmeProfile.getCertificateAssociations();
+        if (certificateAssociation == null) certificateAssociation = new ProtocolCertificateAssociations();
+        certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
+        certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
+        certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
+        return certificateAssociation;
     }
 
     @Override
