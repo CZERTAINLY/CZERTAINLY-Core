@@ -65,10 +65,6 @@ class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
     }
 
     private static String getOidByValueFromRDNs(X500Name normalizedX500Name, String value) {
-        return Arrays.stream
-                (Arrays.stream(normalizedX500Name.getRDNs())
-                        .filter(rdn -> Arrays.stream(rdn.getTypesAndValues()).findFirst().orElseThrow()
-                                .getValue().toString().equals(value)).findFirst().orElseThrow()
         // Find the RDN whose value matches the input
         RDN matchingRdn = null;
         for (RDN rdn : normalizedX500Name.getRDNs()) {
