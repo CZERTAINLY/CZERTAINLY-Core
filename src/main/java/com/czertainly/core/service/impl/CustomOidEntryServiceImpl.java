@@ -17,6 +17,7 @@ import com.czertainly.core.oid.OidHandler;
 import com.czertainly.core.oid.OidRecord;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.CustomOidEntryService;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
@@ -43,6 +44,12 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
     public static final String OID_ENTRY = "OID Entry";
     private final CustomOidEntryRepository customOidEntryRepository;
+    private CertificateService certificateService;
+
+    @Autowired
+    public void setCertificateService(CertificateService certificateService) {
+        this.certificateService = certificateService;
+    }
 
     @Autowired
     public CustomOidEntryServiceImpl(CustomOidEntryRepository oidEntryRepository) {
@@ -70,6 +77,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
         CustomOidEntry customOidEntry;
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
         String code = null;
+        List<String> altCodes = null;
 
         switch (request.getCategory()) {
             case GENERIC -> customOidEntry = new GenericCustomOidEntry();
@@ -79,8 +87,16 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
                 if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                     throw new ValidationException("Incorrect type of properties for OID category RDN Attribute type.");
                 code = additionalProperties.getCode();
+                Set<String> allCodes = getAllCodesInLowerCase();
+                if (allCodes.contains(code.toLowerCase())) throw new ValidationException("Code %s is already used".formatted(code));
                 ((RdnAttributeTypeCustomOidEntry) customOidEntry).setCode(code);
-                ((RdnAttributeTypeCustomOidEntry) customOidEntry).setAltCodes(additionalProperties.getAltCodes());
+                certificateService.updateCertificateDNs(oid, code, oid);
+                altCodes = additionalProperties.getAltCodes();
+                for (String altCode : altCodes) {
+                    if (allCodes.contains(altCode.toLowerCase()))
+                        throw new ValidationException("Alt Code %s is already used".formatted(altCode));
+                }
+                ((RdnAttributeTypeCustomOidEntry) customOidEntry).setAltCodes(altCodes);
                 responseAdditionalProperties = ((RdnAttributeTypeCustomOidEntry) customOidEntry).mapToPropertiesDto();
             }
             default -> customOidEntry = new CustomOidEntry();
@@ -95,7 +111,7 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
         CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
-        OidHandler.cacheOid(request.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code));
+        OidHandler.cacheOid(request.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code, altCodes));
         return response;
     }
 
@@ -115,12 +131,26 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
         CustomOidEntry customOidEntry = customOidEntryRepository.findById(oid).orElseThrow(() -> new NotFoundException(OID_ENTRY, oid));
         AdditionalOidPropertiesDto responseAdditionalProperties = null;
         String code = null;
+        List<String> altCodes = null;
 
         if (customOidEntry instanceof RdnAttributeTypeCustomOidEntry rdnAttributeTypeOidEntry) {
             if (!(request.getAdditionalProperties() instanceof RdnAttributeTypeOidPropertiesDto additionalProperties))
                 throw new ValidationException("Incorrect properties for OID category RDN Attribute type.");
             code = additionalProperties.getCode();
+            String oldCode = rdnAttributeTypeOidEntry.getCode();
+            Set<String> allCodes = getAllCodesInLowerCase();
+            if (!oldCode.equals(code)) {
+            if (allCodes.contains(code.toLowerCase())) throw new ValidationException("Code %s is already used".formatted(code));
             rdnAttributeTypeOidEntry.setCode(code);
+            certificateService.updateCertificateDNs(oid, code, oldCode);
+            }
+
+            altCodes = additionalProperties.getAltCodes();
+            List<String> oldAltCodes = rdnAttributeTypeOidEntry.getAltCodes();
+            for (String altCode : altCodes) {
+                if (!oldAltCodes.contains(altCode.toUpperCase()) && allCodes.contains(altCode.toLowerCase()))
+                    throw new ValidationException("Alt Code %s is already used".formatted(altCode));
+            }
             rdnAttributeTypeOidEntry.setAltCodes(additionalProperties.getAltCodes());
             responseAdditionalProperties = rdnAttributeTypeOidEntry.mapToPropertiesDto();
         }
@@ -131,8 +161,19 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
 
         CustomOidEntryDetailResponseDto response = customOidEntry.mapToDetailDto();
         response.setAdditionalProperties(responseAdditionalProperties);
-        if (SystemOid.fromOID(oid) == null) OidHandler.cacheOid(customOidEntry.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code));
+        if (SystemOid.fromOID(oid) == null)
+            OidHandler.cacheOid(customOidEntry.getCategory(), oid, new OidRecord(customOidEntry.getDisplayName(), code, altCodes));
         return response;
+    }
+
+    private static Set<String> getAllCodesInLowerCase() {
+        return OidHandler.getOidCache(OidCategory.RDN_ATTRIBUTE_TYPE).values().stream().flatMap(r -> {
+                    List<String> combined = new ArrayList<>();
+                    combined.add(r.code());
+                    combined.addAll(r.altCodes());
+                    return combined.stream();
+                }).map(String::toLowerCase)
+                .collect(Collectors.toSet());
     }
 
     @Override
@@ -189,10 +230,12 @@ public class CustomOidEntryServiceImpl implements CustomOidEntryService {
     private Map<String, OidRecord> getOidToRecordMap(OidCategory oidCategory) {
         Map<String, OidRecord> oidToDisplayNameMap = new HashMap<>(customOidEntryRepository.findAllByCategory(oidCategory)
                 .stream().collect(Collectors.toMap(CustomOidEntry::getOid, oid ->
-                        new OidRecord(oid.getDisplayName(), oidCategory == OidCategory.RDN_ATTRIBUTE_TYPE ? ((RdnAttributeTypeCustomOidEntry) oid).getCode() : null))));
+                        new OidRecord(oid.getDisplayName(), oidCategory == OidCategory.RDN_ATTRIBUTE_TYPE ? ((RdnAttributeTypeCustomOidEntry) oid).getCode() : null,
+                                oidCategory == OidCategory.RDN_ATTRIBUTE_TYPE ? ((RdnAttributeTypeCustomOidEntry) oid).getAltCodes() : null)
+                )));
         oidToDisplayNameMap.putAll(Arrays.stream(SystemOid.values()).filter(oid -> oid.getCategory() == oidCategory)
                 .collect(Collectors.toMap(SystemOid::getOid, oid ->
-                        new OidRecord(oid.getDisplayName(), oid.getCode()))));
+                        new OidRecord(oid.getDisplayName(), oid.getCode(), oid.getAltCodes()))));
         return oidToDisplayNameMap;
     }
 }
