@@ -326,5 +326,14 @@ public interface CertificateService extends ResourceExtensionService  {
     void bulkUnarchiveCertificates(List<UUID> uuids);
 
 
+    /***
+     * Update Subject DN and Issuer DN in certificates when there is a change in code
+     * @param oid of RDN to change
+     * @param newCode to change
+     * @param oldCode previous code to be changed
+     */
+    void updateCertificateDNs(String oid, String newCode, String oldCode);
+
+
 
 }
