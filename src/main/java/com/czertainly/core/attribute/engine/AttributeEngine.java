@@ -492,6 +492,36 @@ public class AttributeEngine {
         }
     }
 
+    public List<ResponseAttributeDto> loadResponseAttributes(AttributeType attributeType, UUID connectorUuid, List<RequestAttributeDto> requestAttributes) {
+        List<UUID> attributeUuids = new ArrayList<>();
+        List<String> attributeNames = new ArrayList<>();
+        for (RequestAttributeDto requestAttribute : requestAttributes) {
+            attributeUuids.add(UUID.fromString(requestAttribute.getUuid()));
+            attributeNames.add(requestAttribute.getName());
+        }
+
+        Map<UUID, AttributeDefinition> definitionsMapping = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(attributeType, connectorUuid, attributeUuids, attributeNames).stream().collect(Collectors.toMap(AttributeDefinition::getAttributeUuid, d -> d));
+
+        List<ResponseAttributeDto> responseAttributes = new ArrayList<>();
+        for (RequestAttributeDto requestAttribute : requestAttributes) {
+            AttributeDefinition attributeDefinition = definitionsMapping.get(UUID.fromString(requestAttribute.getUuid()));
+            if (attributeDefinition == null) {
+                continue;
+            }
+
+            ResponseAttributeDto responseAttribute = new ResponseAttributeDto();
+            responseAttribute.setUuid(requestAttribute.getUuid());
+            responseAttribute.setName(requestAttribute.getName());
+            responseAttribute.setContentType(requestAttribute.getContentType());
+            responseAttribute.setContent(requestAttribute.getContent());
+            responseAttribute.setLabel(attributeDefinition.getLabel());
+            responseAttribute.setType(attributeType);
+            responseAttributes.add(responseAttribute);
+        }
+
+        return responseAttributes;
+    }
+
     public List<ResponseAttributeDto> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid) {
         logger.debug("Getting the custom attributes for {} with UUID: {}", objectType.getLabel(), objectUuid);
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();

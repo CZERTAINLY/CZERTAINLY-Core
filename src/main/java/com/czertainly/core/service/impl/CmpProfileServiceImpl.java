@@ -13,6 +13,7 @@ import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -114,10 +115,8 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     public CmpProfileDetailDto getCmpProfile(SecuredUUID cmpProfileUuid) throws NotFoundException {
         logger.info("Requesting the details for the CMP Profile with uuid {}", cmpProfileUuid);
         CmpProfile cmpProfile = getCmpProfileEntity(cmpProfileUuid);
-        CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
-        getDtoAttributes(cmpProfile, dto);
 
-        return dto;
+        return mapToDetailDto(cmpProfile);
     }
 
     @Override
@@ -155,20 +154,19 @@ public class CmpProfileServiceImpl implements CmpProfileService {
             certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
             certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
             certificateAssociationRepository.save(certificateAssociation);
+            cmpProfile.setCertificateAssociations(certificateAssociation);
             cmpProfile.setCertificateAssociationsUuid(certificateAssociation.getUuid());
         }
 
         cmpProfile = cmpProfileRepository.save(cmpProfile);
 
-        CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
-
-        updateDtoAttributes(
+        CmpProfileDetailDto dto = updateAndMapDtoAttributes(
                 cmpProfile,
                 raProfile,
                 request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(),
                 request.getCustomAttributes(),
-                dto
+                request.getCertificateAssociations()
         );
 
         logger.info("CMP Profile created successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
@@ -227,15 +225,13 @@ public class CmpProfileServiceImpl implements CmpProfileService {
 
         cmpProfileRepository.save(cmpProfile);
 
-        CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
-
-        updateDtoAttributes(
+        CmpProfileDetailDto dto = updateAndMapDtoAttributes(
                 cmpProfile,
                 raProfile,
                 request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(),
                 request.getCustomAttributes(),
-                dto
+                request.getCertificateAssociations()
         );
 
         logger.info("CMP Profile updated successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
@@ -465,7 +461,9 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         return raProfile;
     }
 
-    private void getDtoAttributes(CmpProfile cmpProfile, CmpProfileDetailDto dto) {
+    private CmpProfileDetailDto mapToDetailDto(CmpProfile cmpProfile) {
+        CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CMP_PROFILE, cmpProfile.getUuid()));
         if (cmpProfile.getRaProfile() != null) {
             dto.setIssueCertificateAttributes(
                     attributeEngine.getObjectDataAttributesContent(
@@ -484,19 +482,20 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                     )
             );
         }
-        dto.setCustomAttributes(
-                attributeEngine.getObjectCustomAttributesContent(
-                        Resource.CMP_PROFILE,
-                        cmpProfile.getUuid()
-                )
-        );
+
+        if (cmpProfile.getCertificateAssociations() != null) {
+            dto.setCertificateAssociations(cmpProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+        }
+
+        return dto;
     }
 
-    private void updateDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
+    private CmpProfileDetailDto updateAndMapDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
                                      List<RequestAttributeDto> issueCertificateAttributes,
                                      List<RequestAttributeDto> revokeCertificateAttributes,
                                      List<RequestAttributeDto> customAttributes,
-                                     CmpProfileDetailDto dto) throws NotFoundException, AttributeException {
+                                     ProtocolCertificateAssociationsRequestDto protocolCertificateAssociations) throws NotFoundException, AttributeException {
+        CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
         dto.setCustomAttributes(
                 attributeEngine.updateObjectCustomAttributesContent(
                         Resource.CMP_PROFILE,
@@ -524,6 +523,12 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                     )
             );
         }
+
+        if (cmpProfile.getCertificateAssociations() != null) {
+            dto.setCertificateAssociations(cmpProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+        }
+
+        return dto;
     }
 
     private CmpProfile getCmpProfileEntity(SecuredUUID cmpProfileUuid) throws NotFoundException {

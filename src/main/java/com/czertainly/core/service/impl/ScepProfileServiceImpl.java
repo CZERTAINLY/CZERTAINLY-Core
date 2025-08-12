@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -8,6 +9,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -97,12 +99,8 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     public ScepProfileDetailDto getScepProfile(SecuredUUID uuid) throws NotFoundException {
         logger.info("Requesting the details for the SCEP Profile with uuid {}", uuid);
         ScepProfile scepProfile = getScepProfileEntity(uuid);
-        ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        if (scepProfile.getRaProfile() != null) {
-            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid()));
-        }
-        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.SCEP_PROFILE, uuid.getValue()));
-        return dto;
+
+        return mapToDetailDto(scepProfile);
     }
 
     @Override
@@ -164,18 +162,19 @@ public class ScepProfileServiceImpl implements ScepProfileService {
             certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
             certificateAssociation.setCustomAttributes(request.getCertificateAssociations().getCustomAttributes());
             certificateAssociationRepository.save(certificateAssociation);
+            scepProfile.setCertificateAssociations(certificateAssociation);
             scepProfile.setCertificateAssociationsUuid(certificateAssociation.getUuid());
         }
 
         scepProfile = scepProfileRepository.save(scepProfile);
 
-        ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getCustomAttributes()));
-        if (raProfile != null) {
-            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getIssueCertificateAttributes()));
-        }
-
-        return dto;
+        return updateAndMapDtoAttributes(
+                scepProfile,
+                raProfile,
+                request.getIssueCertificateAttributes(),
+                request.getCustomAttributes(),
+                request.getCertificateAssociations()
+        );
     }
 
     @Override
@@ -237,12 +236,40 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setCertificateAssociations(certificateAssociation);
         scepProfile.setCertificateAssociationsUuid(certificateAssociationUuid);
 
-        scepProfileRepository.save(scepProfile);
+        scepProfile = scepProfileRepository.save(scepProfile);
 
+        return updateAndMapDtoAttributes(
+                scepProfile,
+                raProfile,
+                request.getIssueCertificateAttributes(),
+                request.getCustomAttributes(),
+                request.getCertificateAssociations()
+        );
+    }
+
+    private ScepProfileDetailDto mapToDetailDto(ScepProfile scepProfile) {
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
-        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getCustomAttributes()));
+        dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid()));
+        if (scepProfile.getRaProfile() != null) {
+            dto.setIssueCertificateAttributes(attributeEngine.getObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid()));
+        }
+        if (scepProfile.getCertificateAssociations() != null) {
+            dto.setCertificateAssociations(scepProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
+        }
+        return dto;
+    }
+
+    private ScepProfileDetailDto updateAndMapDtoAttributes(ScepProfile scepProfile, RaProfile raProfile,
+                                                     List<RequestAttributeDto> issueCertificateAttributes,
+                                                     List<RequestAttributeDto> customAttributes,
+                                                     ProtocolCertificateAssociationsRequestDto protocolCertificateAssociations) throws NotFoundException, AttributeException {
+        ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
+        dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), customAttributes));
         if (raProfile != null) {
-            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid(), request.getIssueCertificateAttributes()));
+            dto.setIssueCertificateAttributes(attributeEngine.updateObjectDataAttributesContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid(), issueCertificateAttributes));
+        }
+        if (scepProfile.getCertificateAssociations() != null) {
+            dto.setCertificateAssociations(scepProfile.getCertificateAssociations().mapToDto((attributeType, connectorUuid, requestAttributes) -> attributeEngine.loadResponseAttributes(attributeType, connectorUuid, requestAttributes)));
         }
 
         return dto;
