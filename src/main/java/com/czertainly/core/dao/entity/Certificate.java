@@ -230,7 +230,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setNotAfter(notAfter);
             dto.setSubjectType(subjectType);
             dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
-            dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage));
+            dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage).stream().map(CertificateKeyUsage::fromCode).toList());
             dto.setFingerprint(fingerprint);
             dto.setSubjectAlternativeNames(CertificateUtil.deserializeSans(subjectAlternativeNames));
             dto.setIssuerSerialNumber(issuerSerialNumber);

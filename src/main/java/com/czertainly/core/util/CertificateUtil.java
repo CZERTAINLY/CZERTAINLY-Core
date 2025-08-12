@@ -73,9 +73,6 @@ public class CertificateUtil {
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
 
-    public static final String KEY_USAGE_KEY_CERT_SIGN = "keyCertSign";
-    private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", KEY_USAGE_KEY_CERT_SIGN, "cRLSign", "encipherOnly", "decipherOnly");
-
     static {
         SAN_TYPE_MAP.put(GeneralName.otherName, "otherName");
         SAN_TYPE_MAP.put(GeneralName.rfc822Name, "rfc822Name");
@@ -133,7 +130,7 @@ public class CertificateUtil {
 
         for (int i = 0; i < keyUsage.length; i++) {
             if (Boolean.TRUE.equals(keyUsage[i])) {
-                keyUsageNames.add(CertificateKeyUsage.fromIndex(i).getLabel());
+                keyUsageNames.add(CertificateKeyUsage.fromIndex(i).getCode());
             }
         }
         return keyUsageNames;
