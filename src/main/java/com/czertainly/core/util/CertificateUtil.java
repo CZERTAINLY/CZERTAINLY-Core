@@ -142,7 +142,7 @@ public class CertificateUtil {
         }
 
         int keyUsageIndex = keyUsageName.getIndex();
-        return keyUsageIndex != -1 && keyUsage[keyUsageIndex];
+        return keyUsageIndex >= 0 && keyUsageIndex < keyUsage.length && keyUsage[keyUsageIndex];
     }
 
     public static CertificateSubjectType getCertificateSubjectType(X509Certificate certificate, boolean subjectDnEqualsIssuerDn) {
