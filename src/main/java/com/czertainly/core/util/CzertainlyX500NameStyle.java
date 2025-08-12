@@ -19,6 +19,7 @@ public class CzertainlyX500NameStyle extends BCStrictStyle {
     // Kept here because of migration
     public static final CzertainlyX500NameStyle DEFAULT = new CzertainlyX500NameStyle(false);
     public static final CzertainlyX500NameStyle NORMALIZED = new CzertainlyX500NameStyle(true);
+
     private final boolean normalizedStyle;
     private final String delimiter;
 

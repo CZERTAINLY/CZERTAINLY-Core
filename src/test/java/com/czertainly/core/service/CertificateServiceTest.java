@@ -630,6 +630,37 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testUpdateDns() {
+        String oid = "1.2.3";
+        String oldCode = "OU";
+        String newCode = "OO";
+        certificate.setSubjectDn("%s=org, %sA=cn".formatted(oldCode, oldCode));
+        certificate.setSubjectDnNormalized("%s=org".formatted(oid));
+        certificate.setIssuerDn("CN=cn, %s=org".formatted(oldCode));
+        certificate.setIssuerDnNormalized("1.2.3.4=a, %s=f".formatted(oid));
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, newCode, oldCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, %sA=cn".formatted(newCode, oldCode), certificate.getSubjectDn());
+        Assertions.assertEquals("CN=cn, %s=org".formatted(newCode), certificate.getIssuerDn());
+
+        certificate.setIssuerDn("%s=org, CN=cn".formatted(oldCode));
+        certificate.setSubjectDn("CN=cn, %s=org".formatted(oldCode));
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, newCode, oldCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, CN=cn".formatted(newCode), certificate.getIssuerDn());
+        Assertions.assertEquals("CN=cn, %s=org".formatted(newCode), certificate.getSubjectDn());
+
+        certificate.setIssuerDnNormalized("1.2.3.4=a, 1a2x3=f");
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, "new", newCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, CN=cn".formatted(newCode), certificate.getIssuerDn());
+
+
+    }
+    @Test
     void testSetProtocolCertificateAssociations() throws AlreadyExistException, AttributeException, NotFoundException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException, ConnectorException, CertificateRequestException {
         WireMockServer mockServerUpdateUser = mockUpdateUser();
         mockServer.stubFor(WireMock

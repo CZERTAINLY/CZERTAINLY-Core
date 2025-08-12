@@ -2,8 +2,11 @@ package com.czertainly.core.oid;
 
 import jakarta.validation.constraints.NotNull;
 
+import java.util.List;
+
 public record OidRecord(
         @NotNull String displayName,
-        String code
+        String code,
+        List<String> altCodes
 ) {
 }

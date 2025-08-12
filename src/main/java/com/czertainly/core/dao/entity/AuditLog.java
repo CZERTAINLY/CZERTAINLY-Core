@@ -77,7 +77,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
     @Enumerated(EnumType.STRING)
     private OperationResult operationResult;
 
-    @Column(name = "message")
+    @Column(name = "message", columnDefinition = "text")
     private String message;
 
     @Column(name = "log_record", nullable = false, columnDefinition = "jsonb")

@@ -39,6 +39,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
     List<Certificate> findByKeyUuid(UUID keyUuid);
+
     List<Certificate> findByAltKeyUuid(UUID altKeyUuid);
 
     List<Certificate> findBySourceCertificateUuid(UUID sourceCertificateUuid);
@@ -155,4 +156,40 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             AND archived = false
             """)
     List<UUID> findExpiringCertificatesWithoutRenewal();
+
+    @Query(
+            value = """
+                        UPDATE {h-schema}certificate
+                        SET subject_dn = REGEXP_REPLACE(
+                                 subject_dn,
+                                 '(^|, )(' || :oldCode || ')(=)',
+                                 '\\1' || :newCode || '\\3',
+                                 'g'
+                             )
+                        WHERE subject_dn_normalized ~ ('(^|, )' || :oid || '=');
+                    """,
+            nativeQuery = true
+    )
+    @Modifying
+    void updateCertificateSubjectDN(@Param("oid") String oid,
+                                    @Param("newCode") String newCode,
+                                    @Param("oldCode") String oldCode);
+
+    @Query(
+            value = """
+                        UPDATE {h-schema}certificate
+                        SET issuer_dn = REGEXP_REPLACE(
+                                issuer_dn,
+                                '(^|, )(' || :oldCode || ')(=)',
+                                '\\1' || :newCode || '\\3',
+                                'g'
+                            )
+                        WHERE issuer_dn_normalized ~ ('(^|, )' || :oid || '=');
+                    """,
+            nativeQuery = true
+    )
+    @Modifying
+    void updateCertificateIssuerDN(@Param("oid") String oid,
+                                   @Param("newCode") String newCode,
+                                   @Param("oldCode") String oldCode);
 }
