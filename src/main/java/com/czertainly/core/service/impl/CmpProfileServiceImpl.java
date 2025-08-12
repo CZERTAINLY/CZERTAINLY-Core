@@ -13,7 +13,6 @@ import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -165,8 +164,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                 raProfile,
                 request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(),
-                request.getCustomAttributes(),
-                request.getCertificateAssociations()
+                request.getCustomAttributes()
         );
 
         logger.info("CMP Profile created successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
@@ -230,8 +228,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
                 raProfile,
                 request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(),
-                request.getCustomAttributes(),
-                request.getCertificateAssociations()
+                request.getCustomAttributes()
         );
 
         logger.info("CMP Profile updated successfully: name={}, uuid={}", cmpProfile.getName(), cmpProfile.getUuid());
@@ -493,8 +490,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     private CmpProfileDetailDto updateAndMapDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
                                      List<RequestAttributeDto> issueCertificateAttributes,
                                      List<RequestAttributeDto> revokeCertificateAttributes,
-                                     List<RequestAttributeDto> customAttributes,
-                                     ProtocolCertificateAssociationsRequestDto protocolCertificateAssociations) throws NotFoundException, AttributeException {
+                                     List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
         dto.setCustomAttributes(
                 attributeEngine.updateObjectCustomAttributesContent(

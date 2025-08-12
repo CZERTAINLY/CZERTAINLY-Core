@@ -10,7 +10,6 @@ import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -160,8 +159,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                 raProfile,
                 request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(),
-                request.getCustomAttributes(),
-                request.getCertificateAssociations()
+                request.getCustomAttributes()
         );
     }
 
@@ -244,8 +242,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
                 raProfile,
                 request.getIssueCertificateAttributes(),
                 request.getRevokeCertificateAttributes(),
-                request.getCustomAttributes(),
-                request.getCertificateAssociations()
+                request.getCustomAttributes()
         );
     }
 
@@ -265,8 +262,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     private AcmeProfileDto updateAndMapDtoAttributes(AcmeProfile acmeProfile, RaProfile raProfile,
                                                           List<RequestAttributeDto> issueCertificateAttributes,
                                                           List<RequestAttributeDto> revokeCertificateAttributes,
-                                                          List<RequestAttributeDto> customAttributes,
-                                                          ProtocolCertificateAssociationsRequestDto protocolCertificateAssociations) throws NotFoundException, AttributeException {
+                                                          List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
         AcmeProfileDto dto = acmeProfile.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ACME_PROFILE, acmeProfile.getUuid(), customAttributes));
         if (raProfile != null) {

@@ -9,7 +9,6 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
-import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -172,8 +171,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                 scepProfile,
                 raProfile,
                 request.getIssueCertificateAttributes(),
-                request.getCustomAttributes(),
-                request.getCertificateAssociations()
+                request.getCustomAttributes()
         );
     }
 
@@ -242,8 +240,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
                 scepProfile,
                 raProfile,
                 request.getIssueCertificateAttributes(),
-                request.getCustomAttributes(),
-                request.getCertificateAssociations()
+                request.getCustomAttributes()
         );
     }
 
@@ -261,8 +258,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
 
     private ScepProfileDetailDto updateAndMapDtoAttributes(ScepProfile scepProfile, RaProfile raProfile,
                                                      List<RequestAttributeDto> issueCertificateAttributes,
-                                                     List<RequestAttributeDto> customAttributes,
-                                                     ProtocolCertificateAssociationsRequestDto protocolCertificateAssociations) throws NotFoundException, AttributeException {
+                                                     List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), customAttributes));
         if (raProfile != null) {
