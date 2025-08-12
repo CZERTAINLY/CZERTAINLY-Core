@@ -4,7 +4,6 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
-import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import lombok.EqualsAndHashCode;
@@ -16,7 +15,6 @@ import org.hibernate.type.SqlTypes;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.function.BiFunction;
 
 @Entity
 @Getter
