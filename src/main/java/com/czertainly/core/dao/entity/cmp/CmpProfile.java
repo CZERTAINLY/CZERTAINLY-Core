@@ -110,8 +110,6 @@ public class CmpProfile extends UniquelyIdentifiedAndAudited implements Serializ
     public CmpProfileDetailDto mapToDetailDto() {
         CmpProfileDetailDto cmpProfileDto = new CmpProfileDetailDto();
         setCommonFields(cmpProfileDto);
-        if (certificateAssociations != null)
-            cmpProfileDto.setCertificateAssociations(certificateAssociations.mapToDto());
         cmpProfileDto.setRequestProtectionMethod(requestProtectionMethod);
         cmpProfileDto.setResponseProtectionMethod(responseProtectionMethod);
 

@@ -133,8 +133,6 @@ public class ScepProfile extends UniquelyIdentifiedAndAudited implements Seriali
         scepProfileDto.setEnableIntune(intuneEnabled);
         scepProfileDto.setIntuneTenant(intuneTenant);
         scepProfileDto.setIntuneApplicationId(intuneApplicationId);
-        if (certificateAssociations != null)
-            scepProfileDto.setCertificateAssociations(certificateAssociations.mapToDto());
         // Custom Attributes for the DTO should be set in the methods which require the detail DTO
         return scepProfileDto;
     }

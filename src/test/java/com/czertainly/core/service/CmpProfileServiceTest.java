@@ -5,10 +5,18 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
 import com.czertainly.api.model.core.cmp.CmpProfileVariant;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
-import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
@@ -26,6 +34,9 @@ import java.util.UUID;
 class CmpProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
+    private AttributeEngine attributeEngine;
+
+    @Autowired
     private CmpProfileService cmpProfileService;
 
     @Autowired
@@ -35,9 +46,27 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private CmpProfile cmpProfile;
+    private CustomAttribute domainAttr;
+    private RequestAttributeDto domainAttrRequestAttribute;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws AttributeException {
+        domainAttr = new CustomAttribute();
+        domainAttr.setUuid(UUID.randomUUID().toString());
+        domainAttr.setName("domain");
+        domainAttr.setType(AttributeType.CUSTOM);
+        domainAttr.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties customProps = new CustomAttributeProperties();
+        customProps.setLabel("Domain of resource");
+        domainAttr.setProperties(customProps);
+        attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
+
+        domainAttrRequestAttribute = new RequestAttributeDto();
+        domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
+        domainAttrRequestAttribute.setName(domainAttr.getName());
+        domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContent("test")));
+
         cmpProfile = new CmpProfile();
         cmpProfile.setDescription("sample description");
         cmpProfile.setName("sameName");
@@ -45,7 +74,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
         protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
         protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
-        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        protocolCertificateAssociations.setCustomAttributes(List.of(domainAttrRequestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         cmpProfile.setCertificateAssociations(protocolCertificateAssociations);
         cmpProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
@@ -55,7 +84,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     @Test
     void testGetCmpProfileByUuid() throws NotFoundException {
         cmpProfile.setEnabled(true);
-        CmpProfileDto dto = cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid());
+        CmpProfileDetailDto dto = cmpProfileService.getCmpProfile(cmpProfile.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(cmpProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificateAssociations());
@@ -66,7 +95,6 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testAddCmpProfile() throws ConnectorException, AlreadyExistException, AttributeException, NotFoundException {
-
         CmpProfileRequestDto request = new CmpProfileRequestDto();
         request.setName("Test");
         request.setDescription("sample");
@@ -82,10 +110,10 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
 
         request.setName("Test2");
-        ProtocolCertificateAssociationsDto certificateAssociations = new ProtocolCertificateAssociationsDto();
+        ProtocolCertificateAssociationsRequestDto certificateAssociations = new ProtocolCertificateAssociationsRequestDto();
         certificateAssociations.setOwnerUuid(UUID.randomUUID());
         certificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
-        certificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        certificateAssociations.setCustomAttributes(List.of(domainAttrRequestAttribute));
         request.setCertificateAssociations(certificateAssociations);
         dto = cmpProfileService.createCmpProfile(request);
         CmpProfile cmpProfileNew = cmpProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
@@ -108,12 +136,12 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         request.setSharedSecret("secret");
 
 
-        CmpProfileDto dto = cmpProfileService.editCmpProfile(cmpProfile.getSecuredUuid(), request);
+        CmpProfileDetailDto dto = cmpProfileService.editCmpProfile(cmpProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
         Assertions.assertNull(dto.getCertificateAssociations());
 
-        ProtocolCertificateAssociationsDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsDto();
+        ProtocolCertificateAssociationsRequestDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsRequestDto();
         protocolCertificateAssociationsDto.setOwnerUuid(UUID.randomUUID());
         request.setCertificateAssociations(protocolCertificateAssociationsDto);
         dto = cmpProfileService.editCmpProfile(cmpProfile.getSecuredUuid(), request);
