@@ -1,5 +1,6 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.model.core.certificate.CertificateRelationType;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.time.OffsetDateTime;
 import java.util.List;
@@ -40,6 +42,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
+    private CertificateRelationRepository certificateRelationRepository;
 
     @Autowired
     private SettingsCache settingsCache;
@@ -244,6 +248,12 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateEntity.setValidationStatus(status);
         certificateEntity.setSourceCertificateUuid(sourceUuid);
         certificateRepository.save(certificateEntity);
+        if (sourceUuid != null) {
+            CertificateRelation certificateRelation = new CertificateRelation();
+            certificateRelation.setId(new CertificateRelationId(certificateEntity.getUuid(), sourceUuid));
+            certificateRelation.setRelationType(CertificateRelationType.REPLACEMENT);
+            certificateRelationRepository.save(certificateRelation);
+        }
         return certificateEntity;
     }
 
