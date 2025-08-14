@@ -246,7 +246,6 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateContentRepository.save(content);
         certificateEntity.setCertificateContent(content);
         certificateEntity.setValidationStatus(status);
-        certificateEntity.setSourceCertificateUuid(sourceUuid);
         certificateRepository.save(certificateEntity);
         if (sourceUuid != null) {
             CertificateRelation certificateRelation = new CertificateRelation();

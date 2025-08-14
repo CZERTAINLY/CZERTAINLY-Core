@@ -531,7 +531,7 @@ public class ScepServiceImpl implements ScepService {
         }
         CertificateDetailDto response;
         try {
-            response = clientOperationService.submitCertificateRequest(requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()));
+            response = clientOperationService.submitCertificateRequest(requestDto, CertificateProtocolInfo.Scep(scepProfile.getUuid()), null);
         } catch (CertificateException | NotFoundException | NoSuchAlgorithmException | AttributeException |
                  ConnectorException | CertificateRequestException e) {
             throw new ScepException("Unable to submit certificate request", e, FailInfo.BAD_REQUEST);

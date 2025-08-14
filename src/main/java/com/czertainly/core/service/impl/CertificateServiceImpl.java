@@ -339,7 +339,6 @@ public class CertificateServiceImpl implements CertificateService {
         // TODO: originally showing only metadata from discovery resource, should it be like that?
         dto.setMetadata(attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid())));
         dto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid()));
-        dto.setRelatedCertificates(certificateRepository.findBySourceCertificateUuid(certificate.getUuid()).stream().map(Certificate::mapToListDto).toList());
         return dto;
     }
 
@@ -1400,6 +1399,7 @@ public class CertificateServiceImpl implements CertificateService {
             UUID altKeyUuid,
             UUID raProfileUuid,
             UUID sourceCertificateUuid,
+            CertificateRelationType relationType,
             CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
@@ -1489,7 +1489,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setKeyUuid(keyUuid);
         certificate = certificateRepository.save(certificate);
 
-        associateSourceCertificate(certificate.getUuid(), sourceCertificateUuid);
+        if (sourceCertificateUuid != null) associateSourceCertificate(certificate.getUuid(), sourceCertificateUuid, relationType);
 
         if (protocolInfo != null) {
             setProtocolAssociations(protocolInfo, certificate);
@@ -1724,6 +1724,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateRelationsDto getCertificateRelations(UUID uuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         CertificateRelationsDto certificateRelationsDto = new CertificateRelationsDto();
@@ -1746,20 +1747,26 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
+    public void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid, CertificateRelationType relationType) throws NotFoundException {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate sourceCertificate = getCertificateEntity(SecuredUUID.fromUUID(sourceCertificateUuid));
-        // Check if certificate is issued???
-        if (certificate.getRelatedCertificates().contains(sourceCertificate)) throw new ValidationException("Certificate %s cannot be both source and related to certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
-        if (certificate.getSourceCertificates().contains(sourceCertificate)) throw new ValidationException("Certificate %s is already a source certificate for certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
+        // Check if source certificate is issued???
+        if (certificate.getRelatedCertificates().contains(sourceCertificate))
+            throw new ValidationException("Certificate %s cannot be both source and related to certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
+        if (certificate.getSourceCertificates().contains(sourceCertificate))
+            throw new ValidationException("Certificate %s is already a source certificate for certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
         CertificateRelation certificateRelation = new CertificateRelation();
         certificateRelation.setId(new CertificateRelationId(uuid, sourceCertificateUuid));
-        if (certificate.getIssuerDnNormalized().equals(sourceCertificate.getIssuerDnNormalized()) && certificate.getSubjectDnNormalized().equals(sourceCertificate.getSubjectDnNormalized())) {
-            if (certificate.getKeyUuid().equals(sourceCertificate.getKeyUuid()))
-                certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
-            else certificateRelation.setRelationType(CertificateRelationType.REKEY);
-        } else {
-            certificateRelation.setRelationType(CertificateRelationType.REPLACEMENT);
+        if (relationType != null) certificateRelation.setRelationType(relationType);
+        else {
+            if (certificate.getIssuerDnNormalized().equals(sourceCertificate.getIssuerDnNormalized()) && certificate.getSubjectDnNormalized().equals(sourceCertificate.getSubjectDnNormalized())) {
+                if (certificate.getKeyUuid().equals(sourceCertificate.getKeyUuid()))
+                    certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
+                else certificateRelation.setRelationType(CertificateRelationType.REKEY);
+            } else {
+                certificateRelation.setRelationType(CertificateRelationType.REPLACEMENT);
+            }
         }
         certificateRelationRepository.save(certificateRelation);
         certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Source certificate %s has been associated with the certificate by relation type %s".formatted(sourceCertificateUuid, certificateRelation.getRelationType().getLabel()), "");
@@ -1767,6 +1774,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void removeSourceCertificateAssociation(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
         CertificateRelationId id = new CertificateRelationId(uuid, sourceCertificateUuid);
         if (!certificateRelationRepository.existsById(id)) throw new NotFoundException("Certificate Relation", id);

@@ -172,7 +172,7 @@ public class CertificateControllerImpl implements CertificateController {
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.REQUEST)
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
-        return clientOperationService.submitCertificateRequest(request, null);
+        return clientOperationService.submitCertificateRequest(request, null, null);
     }
 
     @Override
@@ -218,17 +218,20 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    public CertificateRelationsDto getCertificateRelations(UUID uuid) throws NotFoundException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_CONTENT)
+    public CertificateRelationsDto getCertificateRelations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         return certificateService.getCertificateRelations(uuid);
     }
 
     @Override
-    public void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
-        certificateService.associateSourceCertificate(uuid, sourceCertificateUuid);
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE, affiliatedResource = Resource.CERTIFICATE)
+    public void associateSourceCertificate(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true) UUID sourceCertificateUuid) throws NotFoundException {
+        certificateService.associateSourceCertificate(uuid, sourceCertificateUuid, null);
     }
 
     @Override
-    public void removeSourceCertificateAssociation(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE, affiliatedResource = Resource.CERTIFICATE)
+    public void removeSourceCertificateAssociation(@LogResource(uuid = true)UUID uuid, @LogResource(uuid = true) UUID sourceCertificateUuid) throws NotFoundException {
         certificateService.removeSourceCertificateAssociation(uuid, sourceCertificateUuid);
     }
 

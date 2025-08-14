@@ -676,7 +676,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         protocolInfo.setProtocolProfileUuid(acmeProfile.getUuid());
         CertificateDetailDto certificateDetailDto = certificateService.submitCertificateRequest(
                 SAMPLE_PKCS10, CertificateRequestFormat.PKCS10, List.of(), List.of(), List.of(), List.of(),
-                null, null, raProfile.getUuid(), null, protocolInfo);
+                null, null, raProfile.getUuid(), null, null, protocolInfo);
         Certificate certificateToBeIssued = certificateRepository.findWithAssociationsByUuid(UUID.fromString(certificateDetailDto.getUuid())).orElseThrow();
         Assertions.assertEquals(Set.of(group), certificateToBeIssued.getGroups());
         Assertions.assertNotNull(associationService.getOwner(Resource.CERTIFICATE, certificateToBeIssued.getUuid()));
@@ -703,12 +703,12 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificateRepository.saveAll(List.of(sourceCertificate1, sourceCertificate2, sourceCertificate3, certificate));
         UUID certificateUuid = certificate.getUuid();
         UUID certificateUuid1 = sourceCertificate1.getUuid();
-        certificateService.associateSourceCertificate(certificateUuid, certificateUuid1);
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateSourceCertificate(certificateUuid, certificateUuid1));
-        certificateService.associateSourceCertificate(certificateUuid, sourceCertificate2.getUuid());
+        certificateService.associateSourceCertificate(certificateUuid, certificateUuid1, null);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateSourceCertificate(certificateUuid, certificateUuid1, null));
+        certificateService.associateSourceCertificate(certificateUuid, sourceCertificate2.getUuid(), null);
         UUID certificate3Uuid = sourceCertificate3.getUuid();
-        certificateService.associateSourceCertificate(certificateUuid, certificate3Uuid);
-        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateSourceCertificate(certificate3Uuid, certificateUuid));
+        certificateService.associateSourceCertificate(certificateUuid, certificate3Uuid, null);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateSourceCertificate(certificate3Uuid, certificateUuid, null));
 
 
         CertificateRelationsDto relations = certificateService.getCertificateRelations(certificateUuid);

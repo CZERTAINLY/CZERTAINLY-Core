@@ -266,7 +266,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * return Certificate detail DTO
      */
     CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> altSignatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid,
-                                                  UUID altKeyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
+                                                  UUID altKeyUuid, UUID raProfileUuid, UUID sourceCertificateUuid, CertificateRelationType relationType, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate
@@ -347,8 +347,9 @@ public interface CertificateService extends ResourceExtensionService  {
      * Associates the given source certificate with the subject certificate.
      * @param uuid                 UUID of the subject certificate.
      * @param sourceCertificateUuid UUID of the source certificate to associate.
+     * @param relationType the relation between certificates
      */
-    void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException;
+    void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid, CertificateRelationType relationType) throws NotFoundException;
 
     /**
      * Removes the association between the given source certificate and the subject certificate.
