@@ -22,7 +22,7 @@ public class CertificateRelation {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreationTimestamp
-    protected OffsetDateTime created;
+    protected OffsetDateTime createdAt;
 
 }
 
