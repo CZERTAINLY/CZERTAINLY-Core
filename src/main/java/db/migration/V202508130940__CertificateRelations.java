@@ -1,6 +1,7 @@
 package db.migration;
 
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
+import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
@@ -10,6 +11,11 @@ import java.sql.*;
 public class V202508130940__CertificateRelations extends BaseJavaMigration {
 
     public static final String KEY_UUID = "key_uuid";
+
+    @Override
+    public Integer getChecksum() {
+        return DatabaseMigration.JavaMigrationChecksums.V202508130940__CertificateRelations.getChecksum();
+    }
 
     @Override
     public void migrate(Context context) throws Exception {
@@ -27,7 +33,7 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
                      certificate_uuid UUID NOT NULL,
                      source_certificate_uuid UUID NOT NULL,
                      relation_type TEXT,
-                     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+                     created_at TIMESTAMP WITH TIME ZONE,
             
                      CONSTRAINT pk_certificate_relation PRIMARY KEY (certificate_uuid, source_certificate_uuid),
             
@@ -44,7 +50,7 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
                          ON DELETE CASCADE
                      )
             """;
-//            statement.execute(createRelationTable);
+            statement.execute(createRelationTable);
 
             ResultSet certificates = statement.executeQuery("""
                     SELECT uuid, source_certificate_uuid, issuer_dn_normalized, subject_dn_normalized, key_uuid
