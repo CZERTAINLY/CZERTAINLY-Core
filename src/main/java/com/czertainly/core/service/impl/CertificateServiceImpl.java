@@ -1751,7 +1751,8 @@ public class CertificateServiceImpl implements CertificateService {
     public void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid, CertificateRelationType relationType) throws NotFoundException {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate sourceCertificate = getCertificateEntity(SecuredUUID.fromUUID(sourceCertificateUuid));
-        // Check if source certificate is issued???
+        if (!(sourceCertificate.getState() == CertificateState.ISSUED || sourceCertificate.getState() == CertificateState.REVOKED))
+            throw new ValidationException("Certificate %s is not issued or revoked and cannot be a source certificate for certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
         if (certificate.getRelatedCertificates().contains(sourceCertificate))
             throw new ValidationException("Certificate %s cannot be both source and related to certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
         if (certificate.getSourceCertificates().contains(sourceCertificate))
