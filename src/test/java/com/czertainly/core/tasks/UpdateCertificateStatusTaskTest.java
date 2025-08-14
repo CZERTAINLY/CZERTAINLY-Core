@@ -22,7 +22,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.time.OffsetDateTime;
 import java.util.List;
