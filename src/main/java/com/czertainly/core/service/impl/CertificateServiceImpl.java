@@ -1761,7 +1761,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRelation.setId(new CertificateRelationId(uuid, sourceCertificateUuid));
         if (relationType != null) certificateRelation.setRelationType(relationType);
         else {
-            if (certificate.getIssuerDnNormalized().equals(sourceCertificate.getIssuerDnNormalized()) && certificate.getSubjectDnNormalized().equals(sourceCertificate.getSubjectDnNormalized())) {
+            if (certificate.getIssuerDnNormalized().equals(sourceCertificate.getIssuerDnNormalized()) && certificate.getSubjectDnNormalized().equals(sourceCertificate.getSubjectDnNormalized()) && certificate.getIssuerSerialNumber().equals(sourceCertificate.getIssuerSerialNumber())) {
                 if (certificate.getKeyUuid().equals(sourceCertificate.getKeyUuid()))
                     certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
                 else certificateRelation.setRelationType(CertificateRelationType.REKEY);

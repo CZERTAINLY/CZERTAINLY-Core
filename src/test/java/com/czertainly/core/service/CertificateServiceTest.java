@@ -689,16 +689,19 @@ class CertificateServiceTest extends BaseSpringBootTest {
     void testCertificateRelations() throws NotFoundException {
         certificate.setIssuerDnNormalized("issuerDn");
         certificate.setSubjectDnNormalized("subjectDn");
+        certificate.setIssuerSerialNumber("serialNumber");
         CryptographicKey key = new CryptographicKey();
         cryptographicKeyRepository.save(key);
         certificate.setKeyUuid(key.getUuid());
         Certificate sourceCertificate1 = new Certificate();
         sourceCertificate1.setIssuerDnNormalized(certificate.getIssuerDnNormalized());
         sourceCertificate1.setSubjectDnNormalized(certificate.getSubjectDnNormalized());
+        sourceCertificate1.setIssuerSerialNumber(certificate.getIssuerSerialNumber());
         sourceCertificate1.setKeyUuid(certificate.getKeyUuid());
         Certificate sourceCertificate2 = new Certificate();
         sourceCertificate2.setIssuerDnNormalized(certificate.getIssuerDnNormalized());
         sourceCertificate2.setSubjectDnNormalized(certificate.getSubjectDnNormalized());
+        sourceCertificate2.setIssuerSerialNumber(certificate.getIssuerSerialNumber());
         Certificate sourceCertificate3 = new Certificate();
         certificateRepository.saveAll(List.of(sourceCertificate1, sourceCertificate2, sourceCertificate3, certificate));
         UUID certificateUuid = certificate.getUuid();

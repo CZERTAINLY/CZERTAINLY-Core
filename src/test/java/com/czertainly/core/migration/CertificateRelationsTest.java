@@ -44,15 +44,18 @@ class CertificateRelationsTest extends BaseSpringBootTest {
         Certificate sourceCertificate = new Certificate();
         sourceCertificate.setSubjectDnNormalized("subjectDn");
         sourceCertificate.setIssuerDnNormalized("issuerDn");
+        sourceCertificate.setIssuerSerialNumber("sn");
         sourceCertificate.setKeyUuid(cryptographicKey.getUuid());
         certificateRepository.save(sourceCertificate);
         Certificate certificate1 = new Certificate();
         certificate1.setIssuerDnNormalized(sourceCertificate.getIssuerDnNormalized());
         certificate1.setSubjectDnNormalized(sourceCertificate.getSubjectDnNormalized());
         certificate1.setKeyUuid(sourceCertificate.getKeyUuid());
+        certificate1.setIssuerSerialNumber(sourceCertificate.getIssuerSerialNumber());
         Certificate certificate2 = new Certificate();
         certificate2.setIssuerDnNormalized(sourceCertificate.getIssuerDnNormalized());
         certificate2.setSubjectDnNormalized(sourceCertificate.getSubjectDnNormalized());
+        certificate2.setIssuerSerialNumber(sourceCertificate.getIssuerSerialNumber());
         Certificate certificate3 = new Certificate();
         certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3));
 

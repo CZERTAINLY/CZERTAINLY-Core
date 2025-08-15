@@ -53,7 +53,7 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
             statement.execute(createRelationTable);
 
             ResultSet certificates = statement.executeQuery("""
-                    SELECT uuid, source_certificate_uuid, issuer_dn_normalized, subject_dn_normalized, key_uuid
+                    SELECT uuid, source_certificate_uuid, issuer_dn_normalized, subject_dn_normalized, issuer_serial_number, key_uuid
                         FROM certificate WHERE source_certificate_uuid IS NOT NULL
                     """);
 
@@ -62,7 +62,7 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
                 try (final Statement selectSourceCertificate = context.getConnection().createStatement()) {
                     String sourceCertificateUuid = certificates.getString("source_certificate_uuid");
                     ResultSet sourceCertificate = selectSourceCertificate.executeQuery("""
-                            SELECT issuer_dn_normalized, subject_dn_normalized, key_uuid
+                            SELECT issuer_dn_normalized, subject_dn_normalized, issuer_serial_number, key_uuid
                                 FROM certificate WHERE uuid = '%s'
                             """.formatted(sourceCertificateUuid));
                     if (sourceCertificate.next()) {
@@ -70,8 +70,11 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
                         String issuerDnSourceCertificate = sourceCertificate.getString("issuer_dn_normalized");
                         String subjectDnCertificate = certificates.getString("subject_dn_normalized");
                         String subjectDnSourceCertificate = sourceCertificate.getString("subject_dn_normalized");
-                        if ( (issuerDnCertificate != null && issuerDnSourceCertificate != null && subjectDnCertificate != null && subjectDnSourceCertificate != null) &&
-                                (issuerDnCertificate.equals(issuerDnSourceCertificate) && subjectDnCertificate.equals(subjectDnSourceCertificate))) {
+                        String issuerSNCertificate = certificates.getString("issuer_serial_number");
+                        String issuerSNSourceCertificate = sourceCertificate.getString("issuer_serial_number");
+
+                        if ( (issuerDnCertificate != null && issuerDnSourceCertificate != null && subjectDnCertificate != null && subjectDnSourceCertificate != null && issuerSNCertificate != null && issuerSNSourceCertificate != null) &&
+                                (issuerDnCertificate.equals(issuerDnSourceCertificate) && subjectDnCertificate.equals(subjectDnSourceCertificate) && issuerSNCertificate.equals(issuerSNSourceCertificate))) {
                             if (certificates.getString(KEY_UUID) != null && certificates.getString(KEY_UUID).equals(sourceCertificate.getString(KEY_UUID)))
                                 relationType = CertificateRelationType.RENEWAL.name();
                             else relationType = CertificateRelationType.REKEY.name();
