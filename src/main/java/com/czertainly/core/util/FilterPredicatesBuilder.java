@@ -19,7 +19,6 @@ import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import org.hibernate.query.criteria.JpaExpression;
-import org.springframework.security.core.parameters.P;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -194,12 +193,13 @@ public class FilterPredicatesBuilder {
 
     private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
         final FilterField filterField = FilterField.valueOf(filterDto.getFieldIdentifier());
-
-        From from = getJoinedAssociation(root, joinedAssociations, filterField);
+        From from = getJoinedAssociation(root, joinedAssociations, filterField, filterDto.getCondition());
 
         // prepare filter values, expression and set filter characteristics
         List<Object> filterValues = preparePropertyFilterValues(filterDto, filterField);
-        Expression expression = from.get(filterField.getFieldAttribute().getName());
+        Expression expression = null;
+        if (filterField.getFieldAttribute() != null && !isCountOperator(filterDto.getCondition()))
+            expression = from.get(filterField.getFieldAttribute().getName());
 
         if (filterField.getJsonPath() != null) {
             expression = switch (filterField.getJsonPath().length) {
@@ -291,6 +291,12 @@ public class FilterPredicatesBuilder {
                 validateRegexForDbQuery(filterValues.getFirst().toString());
                 predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
             }
+            case COUNT_EQUAL -> predicate = criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst());
+            case COUNT_NOT_EQUAL -> predicate = criteriaBuilder.not(criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst()));
+            case COUNT_GREATER_THAN -> predicate = criteriaBuilder.greaterThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+            case COUNT_LESS_THAN -> predicate = criteriaBuilder.lessThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+
+
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
@@ -306,7 +312,7 @@ public class FilterPredicatesBuilder {
     }
 
 
-    private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField) {
+    private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField, FilterConditionOperator condition) {
         From from = root;
         From joinedAssociation;
         String associationFullPath = null;
@@ -320,8 +326,14 @@ public class FilterPredicatesBuilder {
                 from = from.join(joinAttribute.getName(), JoinType.LEFT);
                 joinedAssociations.put(associationFullPath, from);
             }
+            if (isCountOperator(condition) && joinAttribute.isCollection())
+                break;
         }
         return from;
+    }
+
+    private static boolean isCountOperator(FilterConditionOperator condition) {
+        return condition == FilterConditionOperator.COUNT_EQUAL || condition == FilterConditionOperator.COUNT_NOT_EQUAL || condition == FilterConditionOperator.COUNT_GREATER_THAN || condition == FilterConditionOperator.COUNT_LESS_THAN;
     }
 
     private static List<Object> preparePropertyFilterValues(final SearchFilterRequestDto filterDto, final FilterField filterField) {

@@ -10,6 +10,7 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.model.SearchFieldObject;
+import jakarta.persistence.metamodel.Attribute;
 
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -23,22 +24,29 @@ public class SearchHelper {
         return prepareSearch(fieldNameEnum, null);
     }
 
-    public static SearchFieldDataDto prepareSearch(final FilterField fieldNameEnum, Object values) {
+    public static SearchFieldDataDto prepareSearch(final FilterField filterField, Object values) {
         final SearchFieldDataDto fieldDataDto = new SearchFieldDataDto();
-        fieldDataDto.setFieldIdentifier(fieldNameEnum.name());
-        fieldDataDto.setFieldLabel(fieldNameEnum.getLabel());
-        fieldDataDto.setMultiValue(fieldNameEnum.getType().isMultiValue());
-        fieldDataDto.setConditions(fieldNameEnum.getType().getFieldType() == FilterFieldType.BOOLEAN && fieldNameEnum.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : fieldNameEnum.getType().getConditions());
-        fieldDataDto.setType(fieldNameEnum.getType().getFieldType());
+        fieldDataDto.setFieldIdentifier(filterField.name());
+        fieldDataDto.setFieldLabel(filterField.getLabel());
+        fieldDataDto.setMultiValue(filterField.getType().isMultiValue());
+        List<FilterConditionOperator> conditionOperators = new ArrayList<>(filterField.getType().getFieldType() == FilterFieldType.BOOLEAN && filterField.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : filterField.getType().getConditions());
+        if (filterField.getFieldAttribute() == null) conditionOperators = new ArrayList<>(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY));
+
+        if (filterField.getType() == SearchFieldTypeEnum.LIST && filterField.getJoinAttributes() != null && filterField.getJoinAttributes().stream().anyMatch(Attribute::isCollection)) {
+            conditionOperators.addAll(List.of(FilterConditionOperator.COUNT_EQUAL, FilterConditionOperator.COUNT_NOT_EQUAL, FilterConditionOperator.COUNT_GREATER_THAN, FilterConditionOperator.COUNT_LESS_THAN));
+        }
+
+        fieldDataDto.setConditions(conditionOperators);
+        fieldDataDto.setType(filterField.getType().getFieldType());
         // Do not add null value to List filter
-        if (fieldNameEnum.getType().getFieldType() == FilterFieldType.LIST && fieldNameEnum.getEnumClass() == null) {
+        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null) {
             values = new ArrayList<>((List<?>) values);
             ((List<?>) values).remove(null);
         }
         fieldDataDto.setValue(values);
 
-        if (fieldNameEnum.getEnumClass() != null) {
-            fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(fieldNameEnum.getEnumClass()));
+        if (filterField.getEnumClass() != null) {
+            fieldDataDto.setPlatformEnum(PlatformEnum.findByClass(filterField.getEnumClass()));
             if (values == null) {
                 fieldDataDto.setValue(Arrays.stream(fieldDataDto.getPlatformEnum().getEnumClass().getEnumConstants()).map(IPlatformEnum::getCode).sorted().toList());
             }
