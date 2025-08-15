@@ -218,20 +218,20 @@ public class CertificateControllerImpl implements CertificateController {
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_CONTENT)
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_ASSOCIATIONS)
     public CertificateRelationsDto getCertificateRelations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
         return certificateService.getCertificateRelations(uuid);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE, affiliatedResource = Resource.CERTIFICATE)
-    public void associateSourceCertificate(@LogResource(uuid = true) UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    public void associateSourceCertificate(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID sourceCertificateUuid) throws NotFoundException {
         certificateService.associateSourceCertificate(uuid, sourceCertificateUuid, null);
     }
 
     @Override
-    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UPDATE, affiliatedResource = Resource.CERTIFICATE)
-    public void removeSourceCertificateAssociation(@LogResource(uuid = true) UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    public void removeSourceCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID sourceCertificateUuid) throws NotFoundException {
         certificateService.removeSourceCertificateAssociation(uuid, sourceCertificateUuid);
     }
 
