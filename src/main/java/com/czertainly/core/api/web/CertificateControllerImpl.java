@@ -172,7 +172,7 @@ public class CertificateControllerImpl implements CertificateController {
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.REQUEST)
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
-        return clientOperationService.submitCertificateRequest(request, null);
+        return clientOperationService.submitCertificateRequest(request, null, null);
     }
 
     @Override
@@ -215,6 +215,24 @@ public class CertificateControllerImpl implements CertificateController {
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.UNARCHIVE)
     public void bulkUnarchiveCertificate(List<UUID> uuids) {
         certificateService.bulkUnarchiveCertificates(uuids);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_ASSOCIATIONS)
+    public CertificateRelationsDto getCertificateRelations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        return certificateService.getCertificateRelations(uuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    public void associateSourceCertificate(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID sourceCertificateUuid) throws NotFoundException {
+        certificateService.associateSourceCertificate(uuid, sourceCertificateUuid, null);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    public void removeSourceCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID sourceCertificateUuid) throws NotFoundException {
+        certificateService.removeSourceCertificateAssociation(uuid, sourceCertificateUuid);
     }
 
     // SETTERs

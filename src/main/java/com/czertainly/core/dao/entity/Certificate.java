@@ -185,9 +185,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_request_uuid")
     private UUID certificateRequestUuid;
 
-    @Column(name = "source_certificate_uuid")
-    private UUID sourceCertificateUuid;
-
     @Column(name = "trusted_ca")
     private Boolean trustedCa;
 
@@ -218,6 +215,22 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private CertificateProtocolAssociation protocolAssociation;
 
+    @ManyToMany
+    @JoinTable(
+            name = "certificate_relation",
+            joinColumns = @JoinColumn(name = "source_certificate_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "certificate_uuid")
+    )
+    private Set<Certificate> relatedCertificates = new HashSet<>();
+
+    @ManyToMany
+    @JoinTable(
+            name = "certificate_relation",
+            joinColumns = @JoinColumn(name = "certificate_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "source_certificate_uuid")
+    )
+    private Set<Certificate> sourceCertificates = new HashSet<>();
+
     @Override
     public CertificateDetailDto mapToDto() {
         final CertificateDetailDto dto = new CertificateDetailDto();
@@ -244,7 +257,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setIssuerSerialNumber(issuerSerialNumber);
             dto.setSerialNumber(serialNumber);
         }
-        dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
         dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
         dto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
@@ -388,6 +400,28 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
         return dto;
     }
+
+    public CertificateSimpleDto mapToSimpleDto(CertificateRelationType relationType) {
+        CertificateSimpleDto simpleDto = new CertificateSimpleDto();
+        simpleDto.setUuid(uuid);
+        simpleDto.setCertificateType(certificateType);
+        simpleDto.setState(state);
+        simpleDto.setRelationType(relationType);
+        simpleDto.setCommonName(commonName);
+        simpleDto.setSubjectDn(subjectDn);
+        simpleDto.setIssuerCommonName(issuerCommonName);
+        simpleDto.setIssuerDn(issuerDn);
+        simpleDto.setSerialNumber(serialNumber);
+        simpleDto.setFingerprint(fingerprint);
+        simpleDto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        simpleDto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
+        simpleDto.setSignatureAlgorithm(signatureAlgorithm);
+        simpleDto.setAltSignatureAlgorithm(altSignatureAlgorithm);
+        simpleDto.setNotBefore(notBefore);
+        simpleDto.setNotAfter(notAfter);
+        return simpleDto;
+    }
+
 
     public CertificateRequestEntity prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
         final CertificateRequestEntity newCertificateRequestEntity = new CertificateRequestEntity();

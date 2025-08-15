@@ -11,10 +11,7 @@ import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
-import com.czertainly.api.model.core.certificate.CertificateDetailDto;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.certificate.CertificateState;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -23,6 +20,7 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.CertificateRelationRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.events.handlers.CertificateActionPerformedEventHandler;
@@ -81,6 +79,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CryptographicOperationService cryptographicOperationService;
     private CryptographicKeyService keyService;
     private AttributeEngine attributeEngine;
+    private CertificateRelationRepository certificateRelationRepository;
 
     private ActionProducer actionProducer;
     private EventProducer eventProducer;
@@ -175,7 +174,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo, CertificateRelationType relationType) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
         // validate custom Attributes
         boolean createCustomAttributes = !AuthHelper.isLoggedProtocolUser();
         if (createCustomAttributes) {
@@ -187,7 +186,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
         CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
-                protocolInfo);
+                relationType, protocolInfo);
 
         // create custom Attributes
         if (createCustomAttributes) {
@@ -226,7 +225,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto certificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo);
+            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo, null);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -389,7 +388,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null);
+            newCertificate = submitCertificateRequest(certificateRequestDto, null, CertificateRelationType.RENEWAL);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -420,7 +419,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateService.checkRenewPermissions();
         }
         Certificate certificate = validateNewCertificateForOperation(certificateUuid);
-        Certificate oldCertificate = certificateRepository.findByUuid(certificate.getSourceCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificate.getSourceCertificateUuid()));
+        CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificateUuid, CertificateRelationType.RENEWAL).orElseThrow(() -> new NotFoundException("No certificate renewal relation has been found for certificate with UUID %s".formatted(certificateUuid)));
+        Certificate oldCertificate = certificateRepository.findByUuid(certificateRelation.getId().getSourceCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificateRelation.getId().getSourceCertificateUuid()));
         RaProfile raProfile = certificate.getRaProfile();
 
         logger.debug("Renewing Certificate: {}", oldCertificate);
@@ -531,7 +531,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null);
+            newCertificate = submitCertificateRequest(certificateRequestDto, null, CertificateRelationType.REKEY);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -612,7 +612,10 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateService.checkRenewPermissions();
         }
         Certificate certificate = validateNewCertificateForOperation(certificateUuid);
-        Certificate oldCertificate = certificateRepository.findByUuid(certificate.getSourceCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificate.getSourceCertificateUuid()));
+
+        CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificateUuid, CertificateRelationType.REKEY).orElseThrow(() -> new NotFoundException("No certificate renewal relation has been found for certificate with UUID %s".formatted(certificateUuid)));
+        UUID sourceCertificateUuid = certificateRelation.getId().getSourceCertificateUuid();
+        Certificate oldCertificate = certificateRepository.findByUuid(sourceCertificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, sourceCertificateUuid));
         RaProfile raProfile = certificate.getRaProfile();
 
         logger.debug("Rekeying Certificate: {}", oldCertificate);
@@ -789,9 +792,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
         if (certificate.getCertificateRequest() == null) {
             throw new ValidationException(ValidationError.create(String.format("Cannot issue requested certificate with no certificate request set. Certificate: %s", certificate)));
-        }
-        if (certificate.getSourceCertificateUuid() == null) {
-            throw new ValidationException(ValidationError.create(String.format("Cannot renew certificate with no source certificate specified. Certificate: %s", certificate)));
         }
 
         return certificate;
