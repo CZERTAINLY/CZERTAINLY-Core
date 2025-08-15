@@ -1761,7 +1761,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRelation.setId(new CertificateRelationId(uuid, sourceCertificateUuid));
         if (relationType != null) certificateRelation.setRelationType(relationType);
         else {
-            if (certificate.getIssuerDnNormalized().equals(sourceCertificate.getIssuerDnNormalized()) && certificate.getSubjectDnNormalized().equals(sourceCertificate.getSubjectDnNormalized()) && certificate.getIssuerSerialNumber().equals(sourceCertificate.getIssuerSerialNumber())) {
+            if (sameDnsAndIssuerSN(certificate, sourceCertificate)) {
                 if (certificate.getKeyUuid().equals(sourceCertificate.getKeyUuid()))
                     certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
                 else certificateRelation.setRelationType(CertificateRelationType.REKEY);
@@ -1772,6 +1772,10 @@ public class CertificateServiceImpl implements CertificateService {
         certificateRelationRepository.save(certificateRelation);
         certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Source certificate %s has been associated with the certificate by relation type %s".formatted(sourceCertificateUuid, certificateRelation.getRelationType().getLabel()), "");
 
+    }
+
+    private static boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
+        return Objects.equals(certificate.getIssuerDnNormalized(), sourceCertificate.getIssuerDnNormalized()) && Objects.equals(certificate.getSubjectDnNormalized(), sourceCertificate.getSubjectDnNormalized()) && Objects.equals(certificate.getIssuerSerialNumber(), sourceCertificate.getIssuerSerialNumber());
     }
 
     @Override
