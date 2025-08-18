@@ -84,6 +84,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     ADD COLUMN compliance_group_uuid UUID NULL,
                     ADD COLUMN internal_rule_uuid UUID NULL,
                     ALTER COLUMN attributes TYPE JSONB USING attributes::jsonb,
+                    ALTER COLUMN compliance_profile_uuid SET NOT NULL,
                     DROP COLUMN i_author,
                     DROP COLUMN i_cre,
                     DROP COLUMN i_upd,
@@ -108,13 +109,6 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 
                 ALTER TABLE compliance_profile_association
                     ADD CONSTRAINT fk_compliance_profile_association_to_compliance_profile FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
-                
-                ALTER TABLE compliance_profile
-                    ADD COLUMN version TEXT NULL;
-                
-                UPDATE compliance_profile SET version = 'v1';
-                ALTER TABLE compliance_profile
-                    ALTER COLUMN version SET NOT NULL;
                 
                 UPDATE certificate SET compliance_result = NULL WHERE compliance_result = 'null' OR compliance_result = 'NULL';
                 ALTER TABLE certificate

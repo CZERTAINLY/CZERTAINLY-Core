@@ -1,6 +1,10 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.connector.compliance.ComplianceGroupsResponseDto;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
+import com.czertainly.api.model.core.compliance.v2.BaseComplianceRuleDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -24,37 +28,58 @@ import java.util.UUID;
 @Table(name = "compliance_group")
 public class ComplianceGroup extends UniquelyIdentified implements Serializable {
 
-    @Column(name = "name")
+    @Column(name = "name", nullable = false)
     private String name;
-
-    @Column(name = "kind")
-    private String kind;
 
     @Column(name = "description")
     private String description;
 
-    @Column(name="decommissioned")
-    private Boolean decommissioned;
+    @Column(name = "group_uuid", nullable = false)
+    private UUID groupUuid;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resource")
+    private Resource resource;
 
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     @ToString.Exclude
     private Connector connector;
 
-    @Column(name = "connector_uuid", nullable = false)
+    @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
-    @JsonBackReference
-    @OneToMany(mappedBy = "group", fetch = FetchType.LAZY)
-    @ToString.Exclude
-    private Set<ComplianceRule> rules;
+    @Column(name = "kind")
+    private String kind;
+
+//    @JsonBackReference
+//    @OneToMany(mappedBy = "group", fetch = FetchType.LAZY)
+//    @ToString.Exclude
+//    private Set<ComplianceRule> rules;
 
     @JsonBackReference
-    @ManyToMany(mappedBy = "groups", fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "complianceGroup", fetch = FetchType.LAZY)
     @ToString.Exclude
-    private Set<ComplianceProfile> complianceProfiles;
+    private Set<ComplianceProfileRule> complianceProfileRules;
 
-    public ComplianceGroupsResponseDto mapToGroupResponse(){
+    public ComplianceGroupDto mapToDto(ComplianceRuleAvailabilityStatus availabilityStatus) {
+        ComplianceGroupDto dto = new ComplianceGroupDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(description);
+        dto.setResource(resource);
+        dto.setAvailabilityStatus(availabilityStatus);
+
+        if (connectorUuid != null && connector != null) {
+            dto.setKind(kind);
+            dto.setConnectorUuid(connectorUuid);
+            dto.setConnectorName(connector.getName());
+        }
+
+        return dto;
+    }
+
+    public ComplianceGroupsResponseDto mapToGroupResponse() {
         ComplianceGroupsResponseDto dto = new ComplianceGroupsResponseDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
@@ -67,7 +92,9 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
         this.connectorUuid = connector.getUuid();
     }
 
-    public void setConnectorUuidFromString(String connectorUuid) { this.connectorUuid = UUID.fromString(connectorUuid); }
+    public void setConnectorUuidFromString(String connectorUuid) {
+        this.connectorUuid = UUID.fromString(connectorUuid);
+    }
 
 
     @Override

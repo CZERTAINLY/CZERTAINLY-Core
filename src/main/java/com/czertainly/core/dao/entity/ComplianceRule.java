@@ -3,14 +3,18 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.connector.compliance.ComplianceRulesResponseDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
 import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.List;
@@ -29,56 +33,80 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "compliance_rule")
-public class ComplianceRule extends UniquelyIdentified implements Serializable, DtoMapper<ComplianceRulesDto> {
+public class ComplianceRule extends UniquelyIdentified implements Serializable {
 
-    @Column(name = "name")
+    @Column(name = "name", nullable = false)
     private String name;
-
-    @Column(name = "kind")
-    private String kind;
-
-    @Column(name = "decommissioned")
-    private Boolean decommissioned;
-
-    @Enumerated(EnumType.STRING)
-    @Column(name = "certificate_type")
-    private CertificateType certificateType;
-
-    @Column(name = "attributes")
-    private String attributes;
 
     @Column(name = "description")
     private String description;
 
+    @Column(name = "rule_uuid", nullable = false)
+    private UUID ruleUuid;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resource", nullable = false)
+    private Resource resource;
+
+    @Column(name = "type")
+    private String type;
+
     @OneToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "connector_uuid", nullable = false, insertable = false, updatable = false)
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
     @ToString.Exclude
     private Connector connector;
 
-    @Column(name = "connector_uuid", nullable = false)
+    @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
-    @ManyToOne(cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JoinColumn(name = "group_uuid")
-    @ToString.Exclude
-    private ComplianceGroup group;
+    @Column(name = "kind")
+    private String kind;
 
-    @Column(name = "group_uuid", insertable = false, updatable = false)
+//    @ManyToOne(fetch = FetchType.LAZY)
+//    @JoinColumn(name = "group_uuid", insertable = false, updatable = false)
+//    @ToString.Exclude
+//    private ComplianceGroup group;
+
+    @Column(name = "group_uuid")
     private UUID groupUuid;
+
+    @Column(name = "attributes", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<BaseAttribute> attributes;
 
     @JsonBackReference
     @OneToMany(mappedBy = "complianceRule", fetch = FetchType.LAZY)
     @ToString.Exclude
-    private Set<ComplianceProfileRule> rules;
+    private Set<ComplianceProfileRule> complianceProfileRules;
 
-    @Override
-    public ComplianceRulesDto mapToDto() {
+    public ComplianceRuleDto mapToDto(ComplianceRuleAvailabilityStatus availabilityStatus) {
+        ComplianceRuleDto dto = new ComplianceRuleDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(description);
+        dto.setGroupUuid(groupUuid);
+        dto.setAvailabilityStatus(availabilityStatus);
+        dto.setResource(resource);
+        dto.setType(type);
+        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(attributes));
+
+        if (connectorUuid != null && connector != null) {
+            dto.setKind(kind);
+            dto.setConnectorUuid(connectorUuid);
+            dto.setConnectorName(connector.getName());
+        }
+
+        return dto;
+    }
+
+    public ComplianceRulesDto mapToDtoV1() {
         ComplianceRulesDto complianceRulesDto = new ComplianceRulesDto();
         complianceRulesDto.setName(name);
         complianceRulesDto.setUuid(uuid.toString());
         complianceRulesDto.setDescription(description);
-        complianceRulesDto.setCertificateType(certificateType);
+        complianceRulesDto.setCertificateType(CertificateType.X509);
         complianceRulesDto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getAttributes()));
+
         return complianceRulesDto;
     }
 
@@ -87,39 +115,17 @@ public class ComplianceRule extends UniquelyIdentified implements Serializable, 
         dto.setName(name);
         dto.setUuid(uuid.toString());
         dto.setDescription(description);
-        if (group != null) {
-            dto.setGroupUuid(group.getUuid().toString());
+        if (groupUuid != null) {
+            dto.setGroupUuid(groupUuid.toString());
         }
-        dto.setCertificateType(certificateType);
+        dto.setCertificateType(CertificateType.X509);
         dto.setAttributes(getAttributes());
         return dto;
-    }
-
-    public List<BaseAttribute> getAttributes() {
-        return AttributeDefinitionUtils.deserialize(attributes, BaseAttribute.class);
-    }
-
-    public void setAttributes(List<BaseAttribute> attributes) {
-        this.attributes = AttributeDefinitionUtils.serialize(attributes);
     }
 
     public void setConnector(Connector connector) {
         this.connector = connector;
         this.connectorUuid = connector.getUuid();
-    }
-
-    public void setGroup(ComplianceGroup group) {
-        this.group = group;
-        if (group != null) this.groupUuid = group.getUuid();
-        else this.groupUuid = null;
-    }
-
-    public void setConnectorUuidFromString(String connectorUuid) {
-        this.connectorUuid = UUID.fromString(connectorUuid);
-    }
-
-    public void setGroupUuidFromString(String groupUuid) {
-        this.groupUuid = UUID.fromString(groupUuid);
     }
 
     @Override

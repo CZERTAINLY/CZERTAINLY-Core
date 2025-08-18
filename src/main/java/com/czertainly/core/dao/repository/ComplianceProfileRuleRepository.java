@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceRule;
@@ -17,4 +18,7 @@ public interface ComplianceProfileRuleRepository extends SecurityFilterRepositor
     Optional<ComplianceProfileRule> findByComplianceProfileAndComplianceRule(ComplianceProfile complianceProfile, ComplianceRule complianceRule);
 
     List<ComplianceProfileRule> findByUuidIn(List<UUID> uuid);
+
+    long countByComplianceProfileUuidAndInternalRuleUuidNotNull(UUID complianceProfileUuid);
+
 }

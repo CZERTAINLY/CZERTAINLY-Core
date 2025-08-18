@@ -1,15 +1,19 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.compliance.ComplianceProfileRuleDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
+import com.czertainly.api.model.core.compliance.v2.BaseComplianceRuleDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
+import com.czertainly.core.dao.entity.workflows.Rule;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.util.List;
@@ -28,41 +32,52 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "compliance_profile_rule")
-public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileRuleDto> {
-
-    @ManyToOne(cascade = CascadeType.PERSIST, fetch = FetchType.LAZY)
-    @JoinColumn(name = "rule_uuid")
-    @ToString.Exclude
-    private ComplianceRule complianceRule;
-
-    @Column(name = "rule_uuid", insertable = false, updatable = false)
-    private UUID complianceRuleUuid;
-
-    @Column(name = "attributes")
-    private String attributes;
+public class ComplianceProfileRule extends UniquelyIdentified implements Serializable {
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "compliance_profile_uuid")
+    @JoinColumn(name = "compliance_profile_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
     private ComplianceProfile complianceProfile;
 
-    @Column(name = "compliance_profile_uuid", insertable = false, updatable = false)
+    @Column(name = "compliance_profile_uuid", nullable = false)
     private UUID complianceProfileUuid;
 
-    @Override
-    public ComplianceProfileRuleDto mapToDto() {
-        ComplianceProfileRuleDto dto = new ComplianceProfileRuleDto();
-        dto.setName(complianceRule.getName());
-        dto.setUuid(complianceRule.getUuid().toString());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getFullAttributes()));
-        dto.setDescription(complianceRule.getDescription());
-        dto.setComplianceProfileName(complianceProfile.getName());
-        dto.setComplianceProfileUuid(complianceProfile.getUuid().toString());
-        dto.setCertificateType(complianceRule.getCertificateType());
-        dto.setConnectorUuid(complianceRule.getConnectorUuid().toString());
-        dto.setConnectorName(complianceRule.getConnector().getName());
-        dto.setGroupUuid(complianceRule.getGroupUuid() != null ? complianceRule.getGroupUuid().toString() : null);
-        return dto;
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "compliance_rule_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private ComplianceRule complianceRule;
+
+    @Column(name = "compliance_rule_uuid")
+    private UUID complianceRuleUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "compliance_group_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private ComplianceGroup complianceGroup;
+
+    @Column(name = "compliance_group_uuid")
+    private UUID complianceGroupUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "internal_rule_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Rule internalRule;
+
+    @Column(name = "internal_rule_uuid")
+    private UUID internalRuleUuid;
+
+    @Column(name = "attributes", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private List<RequestAttributeDto> attributes;
+
+    public BaseComplianceRuleDto mapToDto(ComplianceRuleAvailabilityStatus availabilityStatus) {
+        if (complianceGroupUuid != null) {
+            return complianceGroup.mapToDto(availabilityStatus);
+        } else if (complianceRuleUuid != null) {
+            return complianceRule.mapToDto(availabilityStatus);
+        }
+
+        return internalRule.mapToComplianceRuleDto(availabilityStatus);
     }
 
     public ComplianceRulesDto mapToDtoForProfile() {
@@ -80,18 +95,10 @@ public class ComplianceProfileRule extends UniquelyIdentifiedAndAudited implemen
         else this.complianceRuleUuid = null;
     }
 
-    public List<RequestAttributeDto> getAttributes() {
-        return AttributeDefinitionUtils.deserializeRequestAttributes(attributes);
-    }
-
-    public void setAttributes(List<RequestAttributeDto> attributes) {
-        this.attributes = AttributeDefinitionUtils.serializeRequestAttributes(attributes);
-    }
-
-    public List<DataAttribute> getFullAttributes() {
-        List<BaseAttribute> fullAttribute = complianceRule.getAttributes();
-        return AttributeDefinitionUtils.mergeAttributes(fullAttribute, AttributeDefinitionUtils.deserializeRequestAttributes(attributes));
-    }
+//    public List<DataAttribute> getFullAttributes() {
+//        List<BaseAttribute> fullAttribute = complianceRule.getAttributes();
+//        return AttributeDefinitionUtils.mergeAttributes(fullAttribute, AttributeDefinitionUtils.deserializeRequestAttributes(attributes));
+//    }
 
     @Override
     public final boolean equals(Object o) {
