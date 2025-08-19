@@ -221,7 +221,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             joinColumns = @JoinColumn(name = "source_certificate_uuid"),
             inverseJoinColumns = @JoinColumn(name = "certificate_uuid")
     )
-    private Set<Certificate> relatedCertificates = new HashSet<>();
+    private Set<Certificate> successorCertificates = new HashSet<>();
 
     @ManyToMany
     @JoinTable(
@@ -229,7 +229,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             joinColumns = @JoinColumn(name = "certificate_uuid"),
             inverseJoinColumns = @JoinColumn(name = "source_certificate_uuid")
     )
-    private Set<Certificate> sourceCertificates = new HashSet<>();
+    private Set<Certificate> predecessorCertificates = new HashSet<>();
 
     @Override
     public CertificateDetailDto mapToDto() {

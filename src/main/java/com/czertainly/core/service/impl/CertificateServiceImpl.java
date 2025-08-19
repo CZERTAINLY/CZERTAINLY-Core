@@ -1489,7 +1489,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setKeyUuid(keyUuid);
         certificate = certificateRepository.save(certificate);
 
-        if (sourceCertificateUuid != null) associateSourceCertificate(certificate.getUuid(), sourceCertificateUuid, relationType);
+        if (sourceCertificateUuid != null) associateCertificates(certificate.getUuid(), sourceCertificateUuid, relationType);
 
         if (protocolInfo != null) {
             setProtocolAssociations(protocolInfo, certificate);
@@ -1730,39 +1730,47 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateRelationsDto certificateRelationsDto = new CertificateRelationsDto();
         certificateRelationsDto.setCertificateUuid(uuid);
         List<CertificateSimpleDto> relatedCertificates = new ArrayList<>();
-        for (Certificate relatedCertificate : certificate.getRelatedCertificates()) {
+        for (Certificate relatedCertificate : certificate.getSuccessorCertificates()) {
             CertificateRelationId certificateRelationId = new CertificateRelationId(relatedCertificate.getUuid(), uuid);
             CertificateRelation certificateRelation = certificateRelationRepository.getReferenceById(certificateRelationId);
             relatedCertificates.add(relatedCertificate.mapToSimpleDto(certificateRelation.getRelationType()));
         }
-        certificateRelationsDto.setRelatedCertificates(relatedCertificates);
+        certificateRelationsDto.setSuccessorCertificates(relatedCertificates);
         List<CertificateSimpleDto> sourceCertificates = new ArrayList<>();
-        for (Certificate sourceCertificate : certificate.getSourceCertificates()) {
+        for (Certificate sourceCertificate : certificate.getPredecessorCertificates()) {
             CertificateRelationId certificateRelationId = new CertificateRelationId(uuid, sourceCertificate.getUuid());
             CertificateRelation certificateRelation = certificateRelationRepository.getReferenceById(certificateRelationId);
             sourceCertificates.add(sourceCertificate.mapToSimpleDto(certificateRelation.getRelationType()));
         }
-        certificateRelationsDto.setSourceCertificates(sourceCertificates);
+        certificateRelationsDto.setPredecessorCertificates(sourceCertificates);
         return certificateRelationsDto;
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    public void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid, CertificateRelationType relationType) throws NotFoundException {
+    public void associateCertificates(UUID uuid, UUID certificateUuid, CertificateRelationType relationType) throws NotFoundException {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
-        Certificate sourceCertificate = getCertificateEntity(SecuredUUID.fromUUID(sourceCertificateUuid));
-        if (!(sourceCertificate.getState() == CertificateState.ISSUED || sourceCertificate.getState() == CertificateState.REVOKED))
-            throw new ValidationException("Certificate %s is not issued or revoked and cannot be a source certificate for certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
-        if (certificate.getRelatedCertificates().contains(sourceCertificate))
-            throw new ValidationException("Certificate %s cannot be both source and related to certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
-        if (certificate.getSourceCertificates().contains(sourceCertificate))
-            throw new ValidationException("Certificate %s is already a source certificate for certificate %s".formatted(sourceCertificate.getUuid(), certificate.getUuid()));
+        Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
+        Date certNotBefore = certificate.getNotBefore();
+        Date assocNotBefore = associatedCertificate.getNotBefore();
+        // Decide which certificate is source, if the first certificate was issued before the second, then it is source certificate
+        if (certNotBefore != null && assocNotBefore != null && certNotBefore.before(assocNotBefore)) {
+            Certificate tmp = certificate;
+            certificate = associatedCertificate;
+            associatedCertificate = tmp;
+        }
+        if (!(associatedCertificate.getState() == CertificateState.ISSUED || associatedCertificate.getState() == CertificateState.REVOKED))
+            throw new ValidationException("Certificate %s is not issued or revoked and cannot be a source certificate for certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
+        if (certificate.getSuccessorCertificates().contains(associatedCertificate))
+            throw new ValidationException("Certificate %s cannot be both source and related to certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
+        if (certificate.getPredecessorCertificates().contains(associatedCertificate))
+            throw new ValidationException("Certificate %s is already a source certificate for certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
         CertificateRelation certificateRelation = new CertificateRelation();
-        certificateRelation.setId(new CertificateRelationId(uuid, sourceCertificateUuid));
+        certificateRelation.setId(new CertificateRelationId(certificate.getUuid(), associatedCertificate.getUuid()));
         if (relationType != null) certificateRelation.setRelationType(relationType);
         else {
-            if (sameDnsAndIssuerSN(certificate, sourceCertificate)) {
-                if (certificate.getKeyUuid().equals(sourceCertificate.getKeyUuid()))
+            if (sameDnsAndIssuerSN(certificate, associatedCertificate)) {
+                if (Objects.equals(certificate.getKeyUuid(), associatedCertificate.getKeyUuid()))
                     certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
                 else certificateRelation.setRelationType(CertificateRelationType.REKEY);
             } else {
@@ -1770,7 +1778,7 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
         certificateRelationRepository.save(certificateRelation);
-        certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Source certificate %s has been associated with the certificate by relation type %s".formatted(sourceCertificateUuid, certificateRelation.getRelationType().getLabel()), "");
+        certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Source certificate %s has been associated with the certificate by relation type %s".formatted(certificateUuid, certificateRelation.getRelationType().getLabel()), "");
 
     }
 
@@ -1780,11 +1788,11 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    public void removeSourceCertificateAssociation(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException {
-        CertificateRelationId id = new CertificateRelationId(uuid, sourceCertificateUuid);
-        if (!certificateRelationRepository.existsById(id)) throw new NotFoundException("Certificate Relation", id);
+    public void removeCertificateAssociation(UUID uuid, UUID certificateUuid) throws NotFoundException {
+        CertificateRelationId id = new CertificateRelationId(uuid, certificateUuid);
+        if (!certificateRelationRepository.existsById(id)) throw new NotFoundException(CertificateRelation.class, id);
         certificateRelationRepository.deleteById(id);
-        certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Source certificate %s has been unassociated with the certificate".formatted(sourceCertificateUuid), "");
+        certificateEventHistoryService.addEventHistory(uuid, CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Certificate %s has been unassociated with the certificate".formatted(certificateUuid), "");
     }
 
 

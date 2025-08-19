@@ -339,23 +339,23 @@ public interface CertificateService extends ResourceExtensionService  {
      * Retrieves the relations for the given certificate.
      *
      * @param uuid UUID of the certificate whose relations should be retrieved.
-     * @return {@link CertificateRelationsDto} containing related and source certificates.
+     * @return {@link CertificateRelationsDto} containing related certificates.
      */
     CertificateRelationsDto getCertificateRelations(UUID uuid) throws NotFoundException;
 
     /**
-     * Associates the given source certificate with the subject certificate.
+     * Associates the given certificate with the subject certificate.
      * @param uuid                 UUID of the subject certificate.
-     * @param sourceCertificateUuid UUID of the source certificate to associate.
+     * @param certificateUuid UUID of the certificate to associate.
      * @param relationType the relation between certificates
      */
-    void associateSourceCertificate(UUID uuid, UUID sourceCertificateUuid, CertificateRelationType relationType) throws NotFoundException;
+    void associateCertificates(UUID uuid, UUID certificateUuid, CertificateRelationType relationType) throws NotFoundException;
 
     /**
-     * Removes the association between the given source certificate and the subject certificate.
+     * Removes the association between the given certificates
      *
      * @param uuid                 UUID of the subject certificate.
-     * @param sourceCertificateUuid UUID of the source certificate to remove from association.
+     * @param certificateUuid UUID of the certificate
      */
-    void removeSourceCertificateAssociation(UUID uuid, UUID sourceCertificateUuid) throws NotFoundException;
+    void removeCertificateAssociation(UUID uuid, UUID certificateUuid) throws NotFoundException;
 }

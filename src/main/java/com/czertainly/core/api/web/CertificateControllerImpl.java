@@ -225,14 +225,14 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
-    public void associateSourceCertificate(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID sourceCertificateUuid) throws NotFoundException {
-        certificateService.associateSourceCertificate(uuid, sourceCertificateUuid, null);
+    public void associateCertificates(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+        certificateService.associateCertificates(uuid, certificateUuid, null);
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
-    public void removeSourceCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID sourceCertificateUuid) throws NotFoundException {
-        certificateService.removeSourceCertificateAssociation(uuid, sourceCertificateUuid);
+    public void removeSourceCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+        certificateService.removeCertificateAssociation(uuid, certificateUuid);
     }
 
     // SETTERs
