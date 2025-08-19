@@ -231,7 +231,7 @@ public class CertificateControllerImpl implements CertificateController {
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
-    public void removeSourceCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+    public void removeCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
         certificateService.removeCertificateAssociation(uuid, certificateUuid);
     }
 
