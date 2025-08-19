@@ -163,6 +163,11 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
                 }
                 if (operator == FilterConditionOperator.EMPTY) return objectValues.isEmpty();
                 if (operator == FilterConditionOperator.NOT_EMPTY) return !objectValues.isEmpty();
+                if (operator == FilterConditionOperator.COUNT_EQUAL) return objectValues.size() == (int) conditionValue;
+                if (operator == FilterConditionOperator.COUNT_NOT_EQUAL) return objectValues.size() != (int) conditionValue;
+                if (operator == FilterConditionOperator.COUNT_GREATER_THAN) return objectValues.size() > (int) conditionValue;
+                if (operator == FilterConditionOperator.COUNT_LESS_THAN) return objectValues.size() < (int) conditionValue;
+
                 for (Object item : objectValues) {
                     Object o = getPropertyValue(item, field, true);
                     if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
