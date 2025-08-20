@@ -667,7 +667,8 @@ public class AttributeEngine {
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
         validateCustomAttributesContent(objectType, requestAttributes, securityResourceFilter);
 
-        if (securityResourceFilter == null) {
+        // if protocol user or has all permissions for attributes
+        if (securityResourceFilter == null || (!securityResourceFilter.areOnlySpecificObjectsAllowed() && securityResourceFilter.getForbiddenObjects().isEmpty())) {
             // custom attributes content is automatically replaced
             deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
             for (RequestAttributeDto requestAttribute : requestAttributes) {
@@ -1013,13 +1014,13 @@ public class AttributeEngine {
 
     private SecurityResourceFilter loadCustomAttributesSecurityResourceFilter() {
         // if user is anonymous or protocol user, allow all custom attribute content for sake of system processes and protocol operations
-        boolean loadAllContent = false;
+        boolean loadAllContent;
         try {
             loadAllContent = AuthHelper.isLoggedProtocolUser();
         } catch (ValidationException ex) {
             // anonymous user
-            // NOTE: subject to change in case of revealing custom attributes content unnecessarily
-            loadAllContent = true;
+            // NOTE: subject to change in case of anonymous user needs custom attributes content
+            loadAllContent = false;
         }
 
         return loadAllContent ? null : authHelper.loadObjectPermissions(Resource.ATTRIBUTE, ResourceAction.MEMBERS);
