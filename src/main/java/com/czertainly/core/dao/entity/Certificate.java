@@ -218,16 +218,16 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ManyToMany
     @JoinTable(
             name = "certificate_relation",
-            joinColumns = @JoinColumn(name = "source_certificate_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "certificate_uuid")
+            joinColumns = @JoinColumn(name = "predecessor_certificate_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "successor_certificate_uuid")
     )
     private Set<Certificate> successorCertificates = new HashSet<>();
 
     @ManyToMany
     @JoinTable(
             name = "certificate_relation",
-            joinColumns = @JoinColumn(name = "certificate_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "source_certificate_uuid")
+            joinColumns = @JoinColumn(name = "successor_certificate_uuid"),
+            inverseJoinColumns = @JoinColumn(name = "predecessor_certificate_uuid")
     )
     private Set<Certificate> predecessorCertificates = new HashSet<>();
 
@@ -271,6 +271,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setTrustedCa(trustedCa);
         dto.setHybridCertificate(hybridCertificate);
         dto.setArchived(archived);
+        if (!predecessorCertificates.isEmpty()) dto.setSourceCertificateUuid(predecessorCertificates.stream().toList().getFirst().getUuid());
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
