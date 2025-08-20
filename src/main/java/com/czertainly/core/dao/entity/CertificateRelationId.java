@@ -16,23 +16,23 @@ import java.util.UUID;
 @Embeddable
 public class CertificateRelationId implements Serializable {
 
-    @Column(name = "certificate_uuid")
-    private UUID certificateUuid;
+    @Column(name = "successor_certificate_uuid")
+    private UUID successorCertificateUuid;
 
-    @Column(name = "source_certificate_uuid")
-    private UUID sourceCertificateUuid;
+    @Column(name = "predecessor_certificate_uuid")
+    private UUID predecessorCertificateUuid;
 
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (!(o instanceof CertificateRelationId that)) return false;
-        return Objects.equals(certificateUuid, that.getCertificateUuid()) &&
-                Objects.equals(sourceCertificateUuid, that.sourceCertificateUuid);
+        return Objects.equals(successorCertificateUuid, that.getSuccessorCertificateUuid()) &&
+                Objects.equals(predecessorCertificateUuid, that.getPredecessorCertificateUuid());
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(certificateUuid, sourceCertificateUuid);
+        return Objects.hash(successorCertificateUuid, predecessorCertificateUuid);
     }
 }

@@ -419,8 +419,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             certificateService.checkRenewPermissions();
         }
         Certificate certificate = validateNewCertificateForOperation(certificateUuid);
-        CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificateUuid, CertificateRelationType.RENEWAL).orElseThrow(() -> new NotFoundException("No certificate renewal relation has been found for certificate with UUID %s".formatted(certificateUuid)));
-        Certificate oldCertificate = certificateRepository.findByUuid(certificateRelation.getId().getSourceCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificateRelation.getId().getSourceCertificateUuid()));
+        CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificateUuid, CertificateRelationType.RENEWAL).orElseThrow(() -> new NotFoundException("No certificate renewal relation has been found for certificate with UUID %s".formatted(certificateUuid)));
+        Certificate oldCertificate = certificateRepository.findByUuid(certificateRelation.getId().getPredecessorCertificateUuid()).orElseThrow(() -> new NotFoundException(Certificate.class, certificateRelation.getId().getPredecessorCertificateUuid()));
         RaProfile raProfile = certificate.getRaProfile();
 
         logger.debug("Renewing Certificate: {}", oldCertificate);
@@ -613,8 +613,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
         Certificate certificate = validateNewCertificateForOperation(certificateUuid);
 
-        CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificateUuid, CertificateRelationType.REKEY).orElseThrow(() -> new NotFoundException("No certificate renewal relation has been found for certificate with UUID %s".formatted(certificateUuid)));
-        UUID sourceCertificateUuid = certificateRelation.getId().getSourceCertificateUuid();
+        CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificateUuid, CertificateRelationType.REKEY).orElseThrow(() -> new NotFoundException("No certificate renewal relation has been found for certificate with UUID %s".formatted(certificateUuid)));
+        UUID sourceCertificateUuid = certificateRelation.getId().getPredecessorCertificateUuid();
         Certificate oldCertificate = certificateRepository.findByUuid(sourceCertificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, sourceCertificateUuid));
         RaProfile raProfile = certificate.getRaProfile();
 

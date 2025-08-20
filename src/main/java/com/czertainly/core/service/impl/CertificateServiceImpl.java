@@ -1753,18 +1753,18 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
         Date certNotBefore = certificate.getNotBefore();
         Date assocNotBefore = associatedCertificate.getNotBefore();
-        // Decide which certificate is source, if the first certificate was issued before the second, then it is source certificate
+        // Decide which certificate is predecessor, if the first certificate was issued before the second, then it is predecessor certificate
         if (certNotBefore != null && assocNotBefore != null && certNotBefore.before(assocNotBefore)) {
             Certificate tmp = certificate;
             certificate = associatedCertificate;
             associatedCertificate = tmp;
         }
         if (!(associatedCertificate.getState() == CertificateState.ISSUED || associatedCertificate.getState() == CertificateState.REVOKED))
-            throw new ValidationException("Certificate %s is not issued or revoked and cannot be a source certificate for certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
+            throw new ValidationException("Certificate %s is not issued or revoked and cannot be a predecessor certificate for certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
         if (certificate.getSuccessorCertificates().contains(associatedCertificate))
-            throw new ValidationException("Certificate %s cannot be both source and related to certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
+            throw new ValidationException("Certificate %s cannot be both successor and predecessor of certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
         if (certificate.getPredecessorCertificates().contains(associatedCertificate))
-            throw new ValidationException("Certificate %s is already a source certificate for certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
+            throw new ValidationException("Certificate %s is already a successor certificate for certificate %s".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
         CertificateRelation certificateRelation = new CertificateRelation();
         certificateRelation.setId(new CertificateRelationId(certificate.getUuid(), associatedCertificate.getUuid()));
         if (relationType != null) certificateRelation.setRelationType(relationType);

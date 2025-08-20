@@ -22,7 +22,7 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
 
         String updateCertificateRelations = """
                 INSERT INTO certificate_relation
-                (certificate_uuid, source_certificate_uuid, relation_type, created_at)
+                (successor_certificate_uuid, predecessor_certificate_uuid, relation_type, created_at)
                 VALUES
                 (?, ?, ?, NOW())
                 """;
@@ -30,21 +30,21 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
              final PreparedStatement preparedStatement = context.getConnection().prepareStatement(updateCertificateRelations)) {
             String createRelationTable = """
                     CREATE TABLE certificate_relation (
-                             certificate_uuid UUID NOT NULL,
-                             source_certificate_uuid UUID NOT NULL,
+                             successor_certificate_uuid UUID NOT NULL,
+                             predecessor_certificate_uuid UUID NOT NULL,
                              relation_type TEXT,
                              created_at TIMESTAMP WITH TIME ZONE,
                     
-                             CONSTRAINT pk_certificate_relation PRIMARY KEY (certificate_uuid, source_certificate_uuid),
+                             CONSTRAINT pk_certificate_relation PRIMARY KEY (successor_certificate_uuid, predecessor_certificate_uuid),
                     
-                             CONSTRAINT fk_certificate_relation_certificate
-                                 FOREIGN KEY (certificate_uuid)
+                             CONSTRAINT fk_certificate_relation_successor_certificate
+                                 FOREIGN KEY (successor_certificate_uuid)
                                  REFERENCES certificate (uuid)
                                  ON UPDATE CASCADE
                                  ON DELETE CASCADE,
                     
-                             CONSTRAINT fk_certificate_relation_source_certificate
-                                 FOREIGN KEY (source_certificate_uuid)
+                             CONSTRAINT fk_certificate_relation_predecessor_certificate
+                                 FOREIGN KEY (predecessor_certificate_uuid)
                                  REFERENCES certificate (uuid)
                                  ON UPDATE CASCADE
                                  ON DELETE CASCADE

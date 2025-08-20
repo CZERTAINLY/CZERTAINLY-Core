@@ -9,5 +9,5 @@ import java.util.UUID;
 
 public interface CertificateRelationRepository extends SecurityFilterRepository<CertificateRelation, CertificateRelationId> {
 
-    Optional<CertificateRelation> findFirstByIdCertificateUuidAndRelationTypeOrderByCreatedAtAsc(UUID certificateUuid, CertificateRelationType relationType);
+    Optional<CertificateRelation> findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(UUID successorCertificateUuid, CertificateRelationType relationType);
 }

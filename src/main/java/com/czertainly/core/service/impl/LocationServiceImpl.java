@@ -554,10 +554,10 @@ public class LocationServiceImpl implements LocationService {
 
         if (isRenewal) {
             //Delete current certificate in location table
-            CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificate.getUuid(), CertificateRelationType.RENEWAL)
+            CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificate.getUuid(), CertificateRelationType.RENEWAL)
                     .orElse(null);
             if (certificateRelation != null) {
-                CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificateRelation.getId().getSourceCertificateUuid());
+                CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificateRelation.getId().getPredecessorCertificateUuid());
                 CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
                         .orElse(null);
 
