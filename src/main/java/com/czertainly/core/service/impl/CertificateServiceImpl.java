@@ -1766,7 +1766,7 @@ public class CertificateServiceImpl implements CertificateService {
         if (relationType != null) certificateRelation.setRelationType(relationType);
         else {
             if (sameDnsAndIssuerSN(certificate, associatedCertificate)) {
-                if (Objects.equals(certificate.getPublicKeyFingerprint(), associatedCertificate.getPublicKeyFingerprint()))
+                if (Objects.equals(certificate.getPublicKeyFingerprint(), associatedCertificate.getPublicKeyFingerprint()) && Objects.equals(certificate.getAltKeyFingerprint(), associatedCertificate.getAltKeyFingerprint()))
                     certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
                 else certificateRelation.setRelationType(CertificateRelationType.REKEY);
             } else {
