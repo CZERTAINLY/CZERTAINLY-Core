@@ -676,6 +676,9 @@ public class AttributeEngine {
                 createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
             }
         } else {
+            // delete only content of allowed attributes
+            deleteObjectAllowedCustomAttributeContent(securityResourceFilter, objectType, objectUuid);
+
             for (RequestAttributeDto requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
@@ -688,7 +691,6 @@ public class AttributeEngine {
                     }
                 }
 
-                deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
                 createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
             }
         }
@@ -997,6 +999,18 @@ public class AttributeEngine {
     public void deleteObjectAttributeContentByType(AttributeType attributeType, Resource objectType, UUID objectUuid) {
         logger.debug("Deleting the {} attributes content for {} with UUID: {}", attributeType.getLabel(), objectType.getLabel(), objectUuid);
         long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndObjectTypeAndObjectUuid(attributeType, objectType, objectUuid);
+        logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
+    }
+
+    public void deleteObjectAllowedCustomAttributeContent(SecurityResourceFilter securityResourceFilter, Resource objectType, UUID objectUuid) {
+        long deletedCount;
+        if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
+            logger.debug("Deleting allowed custom attributes content for {} with UUID: {}", objectType.getLabel(), objectUuid);
+            deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidInAndObjectTypeAndObjectUuid(AttributeType.CUSTOM, securityResourceFilter.getAllowedObjects(), objectType, objectUuid);
+        } else {
+            logger.debug("Deleting not forbidden custom attributes content for {} with UUID: {}", objectType.getLabel(), objectUuid);
+            deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidNotInAndObjectTypeAndObjectUuid(AttributeType.CUSTOM, securityResourceFilter.getForbiddenObjects(), objectType, objectUuid);
+        }
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
     }
 
