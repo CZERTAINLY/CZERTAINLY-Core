@@ -186,7 +186,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         String certificateRequest = generateBase64EncodedCsr(request.getRequest(), request.getFormat(), request.getCsrAttributes(), request.getKeyUuid(), request.getTokenProfileUuid(), request.getSignatureAttributes(), request.getAltKeyUuid(), request.getAltTokenProfileUuid(), request.getAltSignatureAttributes());
         CertificateDetailDto certificate = certificateService.submitCertificateRequest(certificateRequest, request.getFormat(), request.getSignatureAttributes(), request.getAltSignatureAttributes(), request.getCsrAttributes(), request.getIssueAttributes(), request.getKeyUuid(), request.getAltKeyUuid(), request.getRaProfileUuid(), request.getSourceCertificateUuid(),
-                relationType, protocolInfo);
+                protocolInfo);
 
         // create custom Attributes
         if (createCustomAttributes) {
@@ -294,11 +294,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
             certificateService.issueRequestedCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
         } catch (Exception e) {
-            certificate.setState(CertificateState.FAILED);
-            certificateRepository.save(certificate);
-
-            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), "");
-            throw new CertificateOperationException("Failed to issue certificate: " + e.getMessage());
+            handleFailedEvent(e, certificate, null, CertificateEvent.ISSUE, new HashMap<>());
         }
 
         // push certificate to locations
@@ -314,6 +310,24 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         eventProducer.produceMessage(CertificateActionPerformedEventHandler.constructEventMessage(certificate.getUuid(), ResourceAction.ISSUE));
 
         logger.debug("Certificate issued: {}", certificate);
+    }
+
+    private void handleFailedEvent(Exception e, Certificate certificate, UUID oldCertificateUud, CertificateEvent event, Map<String, Object> additionalInformation) throws CertificateOperationException {
+        certificate.setState(CertificateState.FAILED);
+        certificateRepository.save(certificate);
+
+        for (Certificate predecessorCertificate : certificate.getPredecessorCertificates()) {
+            certificateRelationRepository.deleteById(new CertificateRelationId(certificate.getUuid(), predecessorCertificate.getUuid()));
+        }
+
+        certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+        if (event == CertificateEvent.RENEW)
+            certificateEventHistoryService.addEventHistory(oldCertificateUud, CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+        if (event == CertificateEvent.REKEY)
+            certificateEventHistoryService.addEventHistory(oldCertificateUud, CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+
+
+        throw new CertificateOperationException("Failed to %s certificate: ".formatted(event.getCode()) + e.getMessage());
     }
 
     @Override
@@ -453,12 +467,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
-            certificate.setState(CertificateState.FAILED);
-            certificateRepository.save(certificate);
-
-            certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            throw new CertificateOperationException("Failed to renew certificate: " + e.getMessage());
+            handleFailedEvent(e, certificate, oldCertificate.getUuid(), CertificateEvent.RENEW, additionalInformation);
         }
 
         Location location = null;
@@ -647,12 +656,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.SUCCESS, "Rekeyed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
-            certificate.setState(CertificateState.FAILED);
-            certificateRepository.save(certificate);
-
-            certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
-            throw new CertificateOperationException("Failed to rekey certificate: " + e.getMessage());
+            handleFailedEvent(e, certificate, oldCertificate.getUuid(), CertificateEvent.REKEY, additionalInformation);
         }
 
         Location location = null;
@@ -765,7 +769,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private Certificate validateOldCertificateForOperation(String certificateUuid, String raProfileUuid, ResourceAction action) throws NotFoundException {
         Certificate oldCertificate = certificateRepository.findByUuid(UUID.fromString(certificateUuid)).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-        if (oldCertificate.isArchived()) throw new ValidationException("Cannot perform operation %s on archived certificate. Certificate: %s".formatted(action.getCode(), oldCertificate.toStringShort()));
+        if (oldCertificate.isArchived())
+            throw new ValidationException("Cannot perform operation %s on archived certificate. Certificate: %s".formatted(action.getCode(), oldCertificate.toStringShort()));
         if (!oldCertificate.getState().equals(CertificateState.ISSUED)) {
             throw new ValidationException(String.format("Cannot perform operation %s on certificate in state %s. Certificate: %s", action.getCode(), oldCertificate.getState().getLabel(), oldCertificate));
         }
@@ -1045,7 +1050,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private static void checkNotMatchingAlternativePublicKey(CertificateRequest certificateRequest, X509Certificate certificate) throws NoSuchAlgorithmException, CertificateRequestException, IOException, InvalidKeySpecException {
         byte[] altKeyEncoded = certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId());
         PublicKey altKeyCsr = certificateRequest.getAltPublicKey();
-        if (altKeyCsr == null && altKeyEncoded != null) throw new ValidationException("Certificate contains alternative key, but CSR does not.");
+        if (altKeyCsr == null && altKeyEncoded != null)
+            throw new ValidationException("Certificate contains alternative key, but CSR does not.");
         if (altKeyEncoded != null) {
             PublicKey altPublicKey = CertificateUtil.getAltPublicKey(altKeyEncoded);
             if (Arrays.equals(altPublicKey.getEncoded(), certificateRequest.getAltPublicKey().getEncoded())) {

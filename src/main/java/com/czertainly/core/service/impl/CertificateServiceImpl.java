@@ -1401,7 +1401,6 @@ public class CertificateServiceImpl implements CertificateService {
             UUID altKeyUuid,
             UUID raProfileUuid,
             UUID predecessorCertificateUuid,
-            CertificateRelationType relationType,
             CertificateProtocolInfo protocolInfo
     ) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException {
         RaProfile raProfile = raProfileService.getRaProfileEntity(SecuredUUID.fromUUID(raProfileUuid));
@@ -1491,7 +1490,8 @@ public class CertificateServiceImpl implements CertificateService {
         certificate.setKeyUuid(keyUuid);
         certificate = certificateRepository.save(certificate);
 
-        if (predecessorCertificateUuid != null) associateCertificates(certificate.getUuid(), predecessorCertificateUuid, relationType);
+        if (predecessorCertificateUuid != null)
+            associateCertificates(certificate.getUuid(), predecessorCertificateUuid);
 
         if (protocolInfo != null) {
             setProtocolAssociations(protocolInfo, certificate);
@@ -1613,6 +1613,14 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         certificate = certificateRepository.save(certificate);
+
+        for (Certificate predecessorCertificate : certificate.getPredecessorCertificates()) {
+            CertificateRelation relation = certificateRelationRepository.findById(new CertificateRelationId(certificate.getUuid(), predecessorCertificate.getUuid())).orElse(null);
+            if (relation != null) {
+                relation.setRelationType(determineRelationType(certificate, predecessorCertificate));
+                certificateRelationRepository.save(relation);
+            }
+        }
 
         // save metadata
         UUID connectorUuid = certificate.getRaProfile().getAuthorityInstanceReference().getConnectorUuid();
@@ -1750,33 +1758,43 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
-    public void associateCertificates(UUID uuid, UUID certificateUuid, CertificateRelationType relationType) throws NotFoundException {
+    public void associateCertificates(UUID uuid, UUID certificateUuid) throws NotFoundException {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
 
         CertificateRelation certificateRelation = new CertificateRelation();
         CertificateRelationId id = determineCertificateRelationId(certificate, associatedCertificate);
 
-        if (certificateRelationRepository.existsById(id) || certificateRelationRepository.existsById(new CertificateRelationId(id.getPredecessorCertificateUuid(), id.getSuccessorCertificateUuid())))  throw new ValidationException("Association for certificates %s and %s already exists".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
+        if (certificateRelationRepository.existsById(id) || certificateRelationRepository.existsById(new CertificateRelationId(id.getPredecessorCertificateUuid(), id.getSuccessorCertificateUuid())))
+            throw new ValidationException("Association for certificates %s and %s already exists".formatted(associatedCertificate.getUuid(), certificate.getUuid()));
         CertificateState predecessorCertificateState = id.getPredecessorCertificateUuid().equals(certificate.getUuid()) ? certificate.getState() : associatedCertificate.getState();
         if (!(predecessorCertificateState == CertificateState.ISSUED || predecessorCertificateState == CertificateState.REVOKED))
             throw new ValidationException("Certificate %s is not issued or revoked and cannot be a predecessor certificate for certificate %s".formatted(id.getPredecessorCertificateUuid(), id.getSuccessorCertificateUuid()));
 
         certificateRelation.setId(id);
-        if (relationType != null) certificateRelation.setRelationType(relationType);
-        else {
-            if (sameDnsAndIssuerSN(certificate, associatedCertificate)) {
-                if (Objects.equals(certificate.getPublicKeyFingerprint(), associatedCertificate.getPublicKeyFingerprint()) && Objects.equals(certificate.getAltKeyFingerprint(), associatedCertificate.getAltKeyFingerprint()))
-                    certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
-                else certificateRelation.setRelationType(CertificateRelationType.REKEY);
-            } else {
-                certificateRelation.setRelationType(CertificateRelationType.REPLACEMENT);
-            }
-        }
+
+        CertificateState successorCertificateState = id.getSuccessorCertificateUuid().equals(certificate.getUuid()) ? certificate.getState() : associatedCertificate.getState();
+        if (successorCertificateState == CertificateState.FAILED || successorCertificateState == CertificateState.REJECTED || successorCertificateState == CertificateState.REVOKED)
+            throw new ValidationException("Certificate %s state is failed, revoked or rejected and cannot be a successor certificate for certificate %s".formatted(id.getSuccessorCertificateUuid(), id.getPredecessorCertificateUuid()));
+        if (successorCertificateState != CertificateState.ISSUED)
+            certificateRelation.setRelationType(CertificateRelationType.PENDING);
+        else
+            certificateRelation.setRelationType(determineRelationType(certificate, associatedCertificate));
+
         certificateRelationRepository.save(certificateRelation);
         certificateEventHistoryService.addEventHistory(id.getSuccessorCertificateUuid(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Predecessor certificate %s has been associated with the certificate by relation type %s".formatted(id.getPredecessorCertificateUuid(), certificateRelation.getRelationType().getLabel()), "");
         certificateEventHistoryService.addEventHistory(id.getPredecessorCertificateUuid(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Successor certificate %s has been associated with the certificate by relation type %s".formatted(id.getSuccessorCertificateUuid(), certificateRelation.getRelationType().getLabel()), "");
 
+    }
+
+    private static CertificateRelationType determineRelationType(Certificate certificate, Certificate associatedCertificate) {
+        if (sameDnsAndIssuerSN(certificate, associatedCertificate)) {
+            if (Objects.equals(certificate.getPublicKeyFingerprint(), associatedCertificate.getPublicKeyFingerprint()) && Objects.equals(certificate.getAltKeyFingerprint(), associatedCertificate.getAltKeyFingerprint()))
+                return CertificateRelationType.RENEWAL;
+            else return CertificateRelationType.REKEY;
+        } else {
+            return CertificateRelationType.REPLACEMENT;
+        }
     }
 
     private static boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {

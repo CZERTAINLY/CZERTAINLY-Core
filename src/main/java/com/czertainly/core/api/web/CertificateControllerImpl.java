@@ -226,7 +226,7 @@ public class CertificateControllerImpl implements CertificateController {
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
     public void associateCertificates(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
-        certificateService.associateCertificates(uuid, certificateUuid, null);
+        certificateService.associateCertificates(uuid, certificateUuid);
     }
 
     @Override

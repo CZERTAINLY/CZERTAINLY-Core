@@ -252,21 +252,22 @@ public interface CertificateService extends ResourceExtensionService  {
 
     /**
      * Create certificate request entity and certificate in status New, store it in the database ready for issuing
-     * @param csr - PKCS10 certificate request to be added
-     * @param csrFormat - format of the certificate request
-     * @param signatureAttributes signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
-     *                            this parameter should be left empty
-     * @param altSignatureAttributes signatureAttributes used to sign the alternative private key, in case the CSR is for hybrid certificate
-     * @param csrAttributes Attributes used to create CSR
-     * @param issueAttributes Attributes used to issue certificate
-     * @param keyUuid UUID of the key used to sign the CSR
-     * @param altKeyUuid UUID of the alternative key used to sign the hybrid CSR
-     * @param raProfileUuid UUID of the RA profile to be used to issue certificate
+     *
+     * @param csr                        - PKCS10 certificate request to be added
+     * @param csrFormat                  - format of the certificate request
+     * @param signatureAttributes        signatureAttributes used to sign the CSR. If the CSR is uploaded from the User
+     *                                   this parameter should be left empty
+     * @param altSignatureAttributes     signatureAttributes used to sign the alternative private key, in case the CSR is for hybrid certificate
+     * @param csrAttributes              Attributes used to create CSR
+     * @param issueAttributes            Attributes used to issue certificate
+     * @param keyUuid                    UUID of the key used to sign the CSR
+     * @param altKeyUuid                 UUID of the alternative key used to sign the hybrid CSR
+     * @param raProfileUuid              UUID of the RA profile to be used to issue certificate
      * @param predecessorCertificateUuid UUID of the predecessor certificate specified in case of renew/rekey operation
-     * return Certificate detail DTO
+     *                                   return Certificate detail DTO
      */
     CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> altSignatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid,
-                                                  UUID altKeyUuid, UUID raProfileUuid, UUID predecessorCertificateUuid, CertificateRelationType relationType, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
+                                                  UUID altKeyUuid, UUID raProfileUuid, UUID predecessorCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
 
     /**
      * Function to change the Certificate Entity from CSR to Certificate
@@ -345,11 +346,11 @@ public interface CertificateService extends ResourceExtensionService  {
 
     /**
      * Associates the given certificate with the subject certificate.
-     * @param uuid                 UUID of the subject certificate.
+     *
+     * @param uuid            UUID of the subject certificate.
      * @param certificateUuid UUID of the certificate to associate.
-     * @param relationType the relation between certificates
      */
-    void associateCertificates(UUID uuid, UUID certificateUuid, CertificateRelationType relationType) throws NotFoundException;
+    void associateCertificates(UUID uuid, UUID certificateUuid) throws NotFoundException;
 
     /**
      * Removes the association between the given certificates
