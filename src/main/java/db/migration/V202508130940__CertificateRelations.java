@@ -1,11 +1,21 @@
 package db.migration;
 
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
+import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DatabaseMigration;
+import org.bouncycastle.asn1.x509.Extension;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.security.NoSuchAlgorithmException;
+import java.security.PublicKey;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.security.spec.InvalidKeySpecException;
 import java.sql.*;
+import java.util.Base64;
 
 @SuppressWarnings("java:S101")
 public class V202508130940__CertificateRelations extends BaseJavaMigration {
@@ -20,6 +30,7 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
     @Override
     public void migrate(Context context) throws Exception {
 
+        migrateAltKeyFingerprint(context);
         String updateCertificateRelations = """
                 INSERT INTO certificate_relation
                 (successor_certificate_uuid, predecessor_certificate_uuid, relation_type, created_at)
@@ -94,4 +105,30 @@ public class V202508130940__CertificateRelations extends BaseJavaMigration {
             statement.execute("ALTER TABLE certificate DROP COLUMN source_certificate_uuid");
         }
     }
+
+    private void migrateAltKeyFingerprint(Context context) throws SQLException {
+        String addAltKeyFingerprintColumn = "ALTER TABLE certificate ADD COLUMN alt_key_fingerprint TEXT";
+        String updateAltKeyFingerprint = "UPDATE certificate SET alt_key_fingerprint = ? WHERE uuid = ?";
+        try (final Statement statement = context.getConnection().createStatement();
+             PreparedStatement preparedStatement = context.getConnection().prepareStatement(updateAltKeyFingerprint)) {
+            statement.execute(addAltKeyFingerprintColumn);
+            ResultSet certificates = statement.executeQuery("SELECT c.uuid, cc.content FROM certificate c JOIN certificate_content cc ON c.certificate_content_id = cc.id WHERE c.hybrid_certificate = TRUE");
+            while (certificates.next()) {
+                String content = certificates.getString("cc.content");
+                String altPublicKeyFingerprint;
+                try {
+                    X509Certificate x509Certificate = CertificateUtil.getX509Certificate(content);
+                    PublicKey altKey = CertificateUtil.getAltPublicKey(x509Certificate.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId()));
+                    altPublicKeyFingerprint = CertificateUtil.getThumbprint(Base64.getEncoder().encodeToString(altKey.getEncoded()).getBytes(StandardCharsets.UTF_8));
+                } catch (IOException | NoSuchAlgorithmException | InvalidKeySpecException | CertificateException e) {
+                    continue;
+                }
+                preparedStatement.setString(1, altPublicKeyFingerprint);
+                preparedStatement.setObject(2, certificates.getObject("c.uuid"), Types.OTHER);
+                preparedStatement.addBatch();
+            }
+            preparedStatement.executeBatch();
+        }
+    }
+
 }

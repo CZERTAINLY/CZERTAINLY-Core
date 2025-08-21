@@ -202,6 +202,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "alt_key_uuid")
     private UUID altKeyUuid;
 
+    @Column(name = "alt_key_fingerprint")
+    private String altKeyFingerprint;
+
     @Column(name = "alt_signature_algorithm")
     private String altSignatureAlgorithm;
 

@@ -989,6 +989,7 @@ public class CertificateServiceImpl implements CertificateService {
             certificate.setAltKeyUuid(altKeyUuid);
             certificate.setAltPublicKeyAlgorithm(CertificateUtil.getKeyAlgorithmStringFromProviderName(altPublicKey.getAlgorithm()));
             certificate.setAltKeySize(keyLength);
+            certificate.setAltKeyFingerprint(fingerprint);
             certificate.setHybridCertificate(true);
         }
     }
