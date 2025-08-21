@@ -1,6 +1,7 @@
 package com.czertainly.core.tasks;
 
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
@@ -229,13 +230,20 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, expiringRenewedCert.getUuid());
         // Not expiring and is renewed by some certificate
         Certificate renewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, null);
-        // Not expiring and is not renewed by some certificate
+        // Not expiring and is not renewed by some certificate and is renewing previous cert
         createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedCert.getUuid());
+        // Expiring and is renewed by not yet issued certificate
+        Certificate renewedByNotIssuedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, null);
+        // certificate not issued renewing previous cert
+        Certificate notIssued = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedByNotIssuedCert.getUuid());
+        notIssued.setState(CertificateState.PENDING_ISSUE);
+        certificateRepository.save(notIssued);
+
 
         ScheduledTaskResult result = updateCertificateStatusTask.performJob(null, null);
 
         Assertions.assertEquals(SchedulerJobExecutionStatus.SUCCESS, result.getStatus());
-        Assertions.assertTrue(result.getResultMessage().contains("Handled 1 expiring "));
+        Assertions.assertTrue(result.getResultMessage().contains("Handled 2 expiring "));
     }
 
     private Certificate createCertificateForExpiringEventTest(CertificateValidationStatus status, UUID sourceUuid) {
@@ -245,6 +253,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateContentRepository.save(content);
         certificateEntity.setCertificateContent(content);
         certificateEntity.setValidationStatus(status);
+        certificateEntity.setState(CertificateState.ISSUED);
         certificateRepository.save(certificateEntity);
         if (sourceUuid != null) {
             CertificateRelation certificateRelation = new CertificateRelation();

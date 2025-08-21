@@ -154,8 +154,17 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
                 LEFT JOIN CertificateRelation cr
                     ON cr.id.predecessorCertificateUuid = c.uuid
                 WHERE c.validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING}
-                  AND cr.id.predecessorCertificateUuid IS NULL
                   AND c.archived = false
+                  AND (
+                      cr.id.predecessorCertificateUuid IS NULL
+                              OR NOT EXISTS (
+                                    SELECT 1
+                                    FROM CertificateRelation scr
+                                    JOIN Certificate sc ON sc.uuid = scr.id.successorCertificateUuid
+                                    WHERE scr.id.predecessorCertificateUuid = c.uuid
+                                        AND sc.state = ?#{T(com.czertainly.api.model.core.certificate.CertificateState).ISSUED}
+                              )
+                  )
             """)
     List<UUID> findExpiringCertificatesWithoutRenewal();
 
