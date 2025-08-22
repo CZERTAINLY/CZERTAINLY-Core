@@ -1,14 +1,16 @@
 package com.czertainly.core.migration;
 
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.entity.CertificateRelation;
 import com.czertainly.core.dao.entity.CertificateRelationId;
-import com.czertainly.core.dao.entity.CryptographicKey;
+import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRelationRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.czertainly.core.util.CertificateTestUtil;
 import db.migration.V202508130940__CertificateRelations;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
@@ -20,6 +22,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 
 import javax.sql.DataSource;
 import java.sql.Statement;
+import java.util.Base64;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -33,37 +36,46 @@ class CertificateRelationsTest extends BaseSpringBootTest {
     @Autowired
     CertificateRepository certificateRepository;
     @Autowired
-    CertificateRelationRepository certificateRelationRepository;
+    CertificateContentRepository certificateContentRepository;
     @Autowired
-    CryptographicKeyRepository cryptographicKeyRepository;
+    CertificateRelationRepository certificateRelationRepository;
+
 
     @Test
     void testMigration() throws Exception {
-        CryptographicKey cryptographicKey = new CryptographicKey();
-        cryptographicKeyRepository.save(cryptographicKey);
+        Certificate hybridCertificate = new Certificate();
+        String content = Base64.getEncoder().encodeToString(CertificateTestUtil.createHybridCertificate().getEncoded());
+        CertificateContent certificateContent = new CertificateContent();
+        certificateContent.setContent(content);
+        certificateContentRepository.save(certificateContent);
+        hybridCertificate.setHybridCertificate(true);
+        hybridCertificate.setCertificateContent(certificateContent);
+        certificateRepository.save(hybridCertificate);
+
         Certificate sourceCertificate = new Certificate();
-        sourceCertificate.setSubjectDnNormalized("subjectDn");
-        sourceCertificate.setIssuerDnNormalized("issuerDn");
-        sourceCertificate.setIssuerSerialNumber("sn");
-        sourceCertificate.setKeyUuid(cryptographicKey.getUuid());
+        sourceCertificate.setPublicKeyFingerprint("fp");
+        sourceCertificate.setAltKeyFingerprint("akfp");
         certificateRepository.save(sourceCertificate);
         Certificate certificate1 = new Certificate();
-        certificate1.setIssuerDnNormalized(sourceCertificate.getIssuerDnNormalized());
-        certificate1.setSubjectDnNormalized(sourceCertificate.getSubjectDnNormalized());
-        certificate1.setKeyUuid(sourceCertificate.getKeyUuid());
-        certificate1.setIssuerSerialNumber(sourceCertificate.getIssuerSerialNumber());
+        certificate1.setPublicKeyFingerprint(sourceCertificate.getPublicKeyFingerprint());
+        certificate1.setState(CertificateState.ISSUED);
+        certificate1.setAltKeyFingerprint(sourceCertificate.getAltKeyFingerprint());
         Certificate certificate2 = new Certificate();
-        certificate2.setIssuerDnNormalized(sourceCertificate.getIssuerDnNormalized());
-        certificate2.setSubjectDnNormalized(sourceCertificate.getSubjectDnNormalized());
-        certificate2.setIssuerSerialNumber(sourceCertificate.getIssuerSerialNumber());
+        certificate2.setState(CertificateState.ISSUED);
+        certificate2.setPublicKeyFingerprint("fp2");
+        certificate2.setAltKeyFingerprint(sourceCertificate.getAltKeyFingerprint());
         Certificate certificate3 = new Certificate();
-        certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3));
+        certificate3.setState(CertificateState.FAILED);
+        Certificate certificate4 = new Certificate();
+        certificate4.setState(CertificateState.PENDING_APPROVAL);
+        certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3, certificate4));
 
         Context context = Mockito.mock(Context.class);
         when(context.getConnection()).thenReturn(dataSource.getConnection());
 
         try (Statement alterStatement = context.getConnection().createStatement();
              Statement insertStatement = context.getConnection().createStatement()) {
+            alterStatement.execute("ALTER TABLE certificate DROP COLUMN alt_key_fingerprint");
             alterStatement.execute("DROP TABLE certificate_relation;");
             alterStatement.execute("""
                     ALTER TABLE certificate
@@ -79,6 +91,9 @@ class CertificateRelationsTest extends BaseSpringBootTest {
             insertStatement.execute("""
                     UPDATE certificate SET source_certificate_uuid='%s' WHERE uuid='%s'
                     """.formatted(sourceCertificate.getUuid(), certificate3.getUuid()));
+            insertStatement.execute("""
+                    UPDATE certificate SET source_certificate_uuid='%s' WHERE uuid='%s'
+                    """.formatted(sourceCertificate.getUuid(), certificate4.getUuid()));
         }
 
         V202508130940__CertificateRelations certificateRelationsMigration = new V202508130940__CertificateRelations();
@@ -89,7 +104,11 @@ class CertificateRelationsTest extends BaseSpringBootTest {
         Assertions.assertEquals(CertificateRelationType.RENEWAL, relation1.getRelationType());
         CertificateRelation relation2 = certificateRelationRepository.findById(new CertificateRelationId(certificate2.getUuid(), sourceCertificate.getUuid())).orElseThrow();
         Assertions.assertEquals(CertificateRelationType.REKEY, relation2.getRelationType());
-        CertificateRelation relation3 = certificateRelationRepository.findById(new CertificateRelationId(certificate3.getUuid(), sourceCertificate.getUuid())).orElseThrow();
-        Assertions.assertEquals(CertificateRelationType.REPLACEMENT, relation3.getRelationType());
+        Assertions.assertFalse(certificateRelationRepository.existsById(new CertificateRelationId(certificate3.getUuid(), sourceCertificate.getUuid())));
+        CertificateRelation relation4 = certificateRelationRepository.findById(new CertificateRelationId(certificate4.getUuid(), sourceCertificate.getUuid())).orElseThrow();
+        Assertions.assertEquals(CertificateRelationType.PENDING, relation4.getRelationType());
+
+        hybridCertificate = certificateRepository.findByUuid(hybridCertificate.getUuid()).orElseThrow();
+        Assertions.assertNotNull(hybridCertificate.getAltKeyFingerprint());
     }
 }
