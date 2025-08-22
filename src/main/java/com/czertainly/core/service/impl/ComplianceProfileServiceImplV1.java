@@ -1,4 +1,4 @@
-package com.czertainly.core.service.v2.impl;
+package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -24,10 +24,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.ComplianceProfileService;
-import com.czertainly.core.service.ComplianceService;
-import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
@@ -40,7 +37,7 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.COMPLIANCE_PROFILE)
 @Transactional
-public class ComplianceProfileServiceImpl implements ComplianceProfileService {
+public class ComplianceProfileServiceImplV1 implements ComplianceProfileServiceV1 {
 
     private static final Logger logger = LoggerFactory.getLogger(ComplianceProfileService.class);
 
@@ -566,7 +563,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         dto.setConnectorName(connector.getName());
         dto.setConnectorUuid(connector.getUuid().toString());
         dto.setKind(kind);
-        dto.setGroups(response.stream().map(ComplianceGroup::mapToGroupResponse).collect(Collectors.toList()));
+        dto.setGroups(response.stream().map(ComplianceGroup::mapToDtoV1).collect(Collectors.toList()));
         return dto;
     }
 

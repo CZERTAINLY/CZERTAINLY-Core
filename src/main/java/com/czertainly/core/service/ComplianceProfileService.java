@@ -1,19 +1,24 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.compliance.*;
-import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.exception.AlreadyExistException;
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.compliance.v2.ComplianceProfileGroupsPatchRequestDto;
+import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRequestDto;
+import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRulesPatchRequestDto;
+import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
-import com.czertainly.api.model.core.certificate.CertificateType;
-import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
-import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
-import com.czertainly.core.dao.entity.ComplianceProfile;
-import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.v2.ComplianceGroupListDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceProfileListDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
+import com.czertainly.api.model.core.other.ResourceObjectDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
-import java.util.Set;
+import java.util.UUID;
 
 public interface ComplianceProfileService extends ResourceExtensionService {
     /**
@@ -21,7 +26,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      *
      * @return List of compliance profiles
      */
-    List<ComplianceProfilesListDto> listComplianceProfiles(SecurityFilter filter);
+    List<ComplianceProfileListDto> listComplianceProfiles(SecurityFilter filter);
 
     /**
      * Get the details of a compliance profile
@@ -30,16 +35,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
      */
-    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException;
-
-    /**
-     * Get the details of a compliance profile
-     *
-     * @param uuid Uuid of the compliance profile
-     * @return Compliance Profile Entity
-     * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
-     */
-    ComplianceProfile getComplianceProfileEntity(SecuredUUID uuid) throws NotFoundException;
+    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid);
 
     /**
      * Create a new compliance profile
@@ -47,70 +43,27 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @param request Request containing the attributes to create a new compliance profile. See {@link ComplianceProfileRequestDto}
      * @return DTO of the new compliance profile that was created
      * @throws AlreadyExistException Thrown when an existing compliance profile is found with the same name
-     * @throws NotFoundException     Thrown when a Rule or Group is not found
      * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
      */
-    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, AttributeException;
+    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request);
 
     /**
-     * Add a rule to a compliance profile
+     * Update compliance profile
      *
-     * @param uuid    Uuid of the compliance provider
-     * @param request Parameters for adding a new rule to the compliance profile. See {@link ComplianceRuleAdditionRequestDto}
-     * @return Compliance Profile Dto
-     * @throws AlreadyExistException Thrown when the rule is already tagged with the Compliance Profile
-     * @throws NotFoundException     Thrown when unable to find the rule with the provided details
-     * @throws ValidationException   Thrown when the attribute validation fails for the given rule
+     * @param request Request containing the attributes to update compliance profile. See {@link ComplianceProfileUpdateRequestDto}
+     * @return DTO of compliance profile that was updated
+     * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
+     * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
      */
-    ComplianceProfileRuleDto addRule(SecuredUUID uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
-
-    /**
-     * Remove a rule from a compliance profile
-     *
-     * @param uuid    Uuid of the compliance provider
-     * @param request Parameters required to remove a specific rule from the compliance profile
-     * @return Compliance Profile DTO
-     * @throws NotFoundException Thrown when the rule is not found with the profile
-     */
-    ComplianceProfileRuleDto removeRule(SecuredUUID uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
-
-    /**
-     * Add a group to a compliance profile
-     *
-     * @param uuid    Uuid of the compliance provider
-     * @param request Parameters for adding a new group to the compliance profile. See {@link ComplianceGroupRequestDto}
-     * @return
-     * @throws AlreadyExistException Thrown when the selected group is already associated
-     */
-    ComplianceProfileDto addGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException;
-
-    /**
-     * Delete a group from a compliance profile
-     *
-     * @param uuid    Uuid of the compliance provider
-     * @param request Parameters for deleting group to the compliance profile. See {@link ComplianceGroupRequestDto}
-     * @return Compliance Profile DTO
-     * @throws NotFoundException Thrown when the selected group is not found associated with the compliance profile
-     */
-    ComplianceProfileDto removeGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws NotFoundException;
-
-    /**
-     * Get the list of associated RA Profile to the compliance profile
-     *
-     * @param uuid Uuid of the compliance profile
-     * @return List of RA Profiles associated with the compliance profile. {@link SimplifiedRaProfileDto}
-     * @throws NotFoundException * @throws NotFoundException Thrown when a Rule or Group is not found
-     */
-    List<SimplifiedRaProfileDto> getAssociatedRAProfiles(SecuredUUID uuid) throws NotFoundException;
+    ComplianceProfileDto updateComplianceProfile(SecuredUUID uuid, ComplianceProfileUpdateRequestDto request);
 
     /**
      * Delete a compliance profile
      *
      * @param uuid UUID of the compliance profile
      * @throws NotFoundException   Thrown when the system is not able to find the compliance profile for the given UUID
-     * @throws ValidationException Thrown when there are any RA Profile association for the selected compliance profile
      */
-    void deleteComplianceProfile(SecuredUUID uuid) throws NotFoundException, ValidationException;
+    void deleteComplianceProfile(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * Remove multiple compliance profiles
@@ -120,7 +73,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @throws ValidationException Thrown when the profiles are dependencies for other objects
      * @throws NotFoundException   Thrown when a Rule or Group is not found
      */
-    List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<SecuredUUID> uuids) throws NotFoundException, ValidationException;
+    List<BulkActionMessageDto> bulkDeleteComplianceProfiles(List<SecuredUUID> uuids);
 
     /**
      * Remove compliance profiles forcefully. This methods makes removes the object dependencies and set them null.
@@ -131,69 +84,91 @@ public interface ComplianceProfileService extends ResourceExtensionService {
     List<BulkActionMessageDto> forceDeleteComplianceProfiles(List<SecuredUUID> uuids);
 
     /**
-     * List of all compliance rules for User Interface
+     * List compliance rules by specified criteria
      *
-     * @param complianceProviderUuid - UUID of the compliance provider
-     * @param kind                   Kind of the compliance provider
-     * @param certificateType        Type of the certificate for which the rules has to be fetched
-     * @return List of the rules for given connector and its kind
-     * @throws ConnectorException Thrown when there are issues related to connector communication
+     * @param resource resource of the rule
+     * @param connectorUuid connector UUID. When not provided, internal (workflow rules are listed)
+     * @param kind
+     * @param type
+     * @param format
+     * @return
+     * @throws NotFoundException
      */
-    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException;
+    List<ComplianceRuleListDto> getComplianceRules(Resource resource, UUID connectorUuid, String kind, String type, String format);
 
     /**
-     * List of all compliance groups from the compliance providers
+     * List compliance groups by specified criteria
      *
-     * @param complianceProviderUuid Uuid of the compliance provider
-     * @param kind                   Kind of the compliance provider
-     * @return List of compliance groups
-     * @throws ConnectorException Thrown when there are issues with the connector communication and operations
+     * @param resource resource of the group
+     * @param connectorUuid
+     * @param kind
+     * @return
+     * @throws NotFoundException
      */
-    List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException;
+    List<ComplianceGroupListDto> getComplianceGroups(Resource resource, UUID connectorUuid, String kind);
 
     /**
-     * Associate a compliance profile to an RA Profile
-     *
-     * @param uuid       Uuid of the compliance profile
-     * @param raProfiles Uuid of the RA Profile. See {{@link RaProfileAssociationRequestDto}}
-     * @throws NotFoundException Thrown when either of the profiles are not found
+     * @param uuid
+     * @param request
      */
-    void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
+    void patchComplianceProfileRule(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request);
 
     /**
-     * Check the compliance for all the certificates associated with the compliance profiles
+     * @param uuid
+     * @param request
+     */
+    void patchComplianceProfileGroup(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request);
+
+    /**
+     * Get the list of associated resource objects to the compliance profile
+     *
+     * @param uuid Uuid of the compliance profile
+     * @return List of resource objects associated with the compliance profile. {@link ResourceObjectDto}
+     * @throws NotFoundException * @throws NotFoundException Thrown when compliance profile is not found
+     */
+    List<ResourceObjectDto> getAssociations(SecuredUUID uuid);
+
+
+    /**
+     * Associate a compliance profile to resource object
+     *
+     * @param uuid uuid of compliance profile
+     * @param resource
+     * @param associationObjectUuid
+     * @throws NotFoundException
+     */
+    void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid);
+
+    /**
+     * Disassociate a compliance profile from resource object
+     *
+     * @param uuid uuid of compliance profile
+     * @param resource
+     * @param associationObjectUuid
+     * @throws NotFoundException
+     */
+    void disassociateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid);
+
+    /**
+     * List compliance profiles associated with resource object
+     *
+     * @param resource
+     * @param associationObjectUuid
+     * @return
+     * @throws NotFoundException
+     */
+    List<ComplianceProfileListDto> getAssociatedComplianceProfiles(Resource resource, UUID associationObjectUuid);
+
+    /**
+     * Check the compliance for all objects associated with the compliance profiles
      *
      * @param uuids List of UUIDs of the compliance profiles
      */
     void checkCompliance(List<SecuredUUID> uuids);
 
     /**
-     * Disassociate Compliance Profiles from RA Profiles
-     *
-     * @param uuid       Compliance Profile UUID
-     * @param raProfiles List of RA Profile UUIDs
+     * @param resource
+     * @param objectUuid
      */
-    void disassociateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
-
-    /**
-     * Check if the compliance provider is associated with any compliance profiles
-     *
-     * @param connector Connector Entity
-     * @return Is the connector tagged with any compliance profiles
-     */
-    Set<String> isComplianceProviderAssociated(Connector connector);
-
-    /**
-     * Remove all the association from the connector to Compliance Group and Rule
-     *
-     * @param connector Connector Entity
-     */
-    void nullifyComplianceProviderAssociation(Connector connector);
-
-    /**
-     * Removes the rules and groups tagged with a compliance connector
-     *
-     * @param connector Connector Entity
-     */
-    void removeRulesAndGroupForEmptyConnector(Connector connector);
+    void checkResourceObjectCompliance(Resource resource, UUID objectUuid);
 }

@@ -1,4 +1,4 @@
-package com.czertainly.core.service.v2;
+package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.*;
@@ -11,12 +11,11 @@ import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.ResourceExtensionService;
 
 import java.util.List;
 import java.util.Set;
 
-public interface ComplianceProfileService extends ResourceExtensionService {
+public interface ComplianceProfileServiceV1 extends ResourceExtensionService {
     /**
      * List of all Compliance Profiles available in the system
      *

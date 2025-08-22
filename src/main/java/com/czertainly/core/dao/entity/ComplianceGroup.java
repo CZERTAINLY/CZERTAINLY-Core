@@ -3,7 +3,6 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.connector.compliance.ComplianceGroupsResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.czertainly.api.model.core.compliance.v2.BaseComplianceRuleDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -79,7 +78,7 @@ public class ComplianceGroup extends UniquelyIdentified implements Serializable 
         return dto;
     }
 
-    public ComplianceGroupsResponseDto mapToGroupResponse() {
+    public ComplianceGroupsResponseDto mapToDtoV1() {
         ComplianceGroupsResponseDto dto = new ComplianceGroupsResponseDto();
         dto.setUuid(uuid.toString());
         dto.setName(name);
