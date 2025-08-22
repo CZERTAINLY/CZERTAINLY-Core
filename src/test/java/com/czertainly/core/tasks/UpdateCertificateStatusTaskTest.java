@@ -227,15 +227,15 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         // Certificate is expiring and is renewed by some certificate
         Certificate expiringRenewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, null);
         // Certificate is expiring, but is not renewed by any certificate -> this is the only certificate that should be returned
-        createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, expiringRenewedCert.getUuid());
+        createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, expiringRenewedCert);
         // Not expiring and is renewed by some certificate
         Certificate renewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, null);
         // Not expiring and is not renewed by some certificate and is renewing previous cert
-        createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedCert.getUuid());
+        createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedCert);
         // Expiring and is renewed by not yet issued certificate
         Certificate renewedByNotIssuedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, null);
         // certificate not issued renewing previous cert
-        Certificate notIssued = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedByNotIssuedCert.getUuid());
+        Certificate notIssued = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedByNotIssuedCert);
         notIssued.setState(CertificateState.PENDING_ISSUE);
         certificateRepository.save(notIssued);
 
@@ -246,7 +246,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         Assertions.assertTrue(result.getResultMessage().contains("Handled 2 expiring "));
     }
 
-    private Certificate createCertificateForExpiringEventTest(CertificateValidationStatus status, UUID sourceUuid) {
+    private Certificate createCertificateForExpiringEventTest(CertificateValidationStatus status, Certificate predecessorCertificate) {
         Certificate certificateEntity = new Certificate();
         CertificateContent content = new CertificateContent();
         content.setContent(String.valueOf(Math.random()));
@@ -255,9 +255,10 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateEntity.setValidationStatus(status);
         certificateEntity.setState(CertificateState.ISSUED);
         certificateRepository.save(certificateEntity);
-        if (sourceUuid != null) {
+        if (predecessorCertificate != null) {
             CertificateRelation certificateRelation = new CertificateRelation();
-            certificateRelation.setId(new CertificateRelationId(certificateEntity.getUuid(), sourceUuid));
+            certificateRelation.setPredecessorCertificate(predecessorCertificate);
+            certificateRelation.setSuccessorCertificate(certificateEntity);
             certificateRelation.setRelationType(CertificateRelationType.REPLACEMENT);
             certificateRelationRepository.save(certificateRelation);
         }
