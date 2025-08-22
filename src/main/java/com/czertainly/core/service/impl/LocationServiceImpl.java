@@ -422,7 +422,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException {
+    public void removeRejectedOrFailedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException {
         CertificateLocation certificateLocation = certificateLocationRepository.findById(certificateLocationId).orElseThrow(() -> new NotFoundException(CertificateLocation.class, certificateLocationId));
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();
@@ -444,7 +444,7 @@ public class LocationServiceImpl implements LocationService {
         location.getCertificates().remove(certificateLocation);
 
         locationRepository.save(location);
-        logger.debug("Removed rejected certificate {} from location {}", certificate, location.getName());
+        logger.debug("Removed rejected or failed certificate {} from location {}", certificate, location.getName());
     }
 
     @Override
