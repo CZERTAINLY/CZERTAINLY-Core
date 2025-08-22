@@ -82,7 +82,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private ActionProducer actionProducer;
     private EventProducer eventProducer;
-    private ApplicationEventPublisher applicationEventPublisher;
 
     @Autowired
     public void setTransactionManager(PlatformTransactionManager transactionManager) {
@@ -97,11 +96,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     public void setEventProducer(EventProducer eventProducer) {
         this.eventProducer = eventProducer;
-    }
-
-    @Autowired
-    public void setApplicationEventPublisher(ApplicationEventPublisher applicationEventPublisher) {
-        this.applicationEventPublisher = applicationEventPublisher;
     }
 
     @Autowired
@@ -173,7 +167,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.CREATE)
-    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo, CertificateRelationType relationType) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
+    public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
         // validate custom Attributes
         boolean createCustomAttributes = !AuthHelper.isLoggedProtocolUser();
         if (createCustomAttributes) {
@@ -224,7 +218,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto certificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo, null);
+            certificate = submitCertificateRequest(certificateRequestDto, protocolInfo);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -396,7 +390,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null, CertificateRelationType.RENEWAL);
+            newCertificate = submitCertificateRequest(certificateRequestDto, null);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);
@@ -535,7 +529,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         CertificateDetailDto newCertificate;
         TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
         try {
-            newCertificate = submitCertificateRequest(certificateRequestDto, null, CertificateRelationType.REKEY);
+            newCertificate = submitCertificateRequest(certificateRequestDto, null);
             transactionManager.commit(status);
         } catch (Exception e) {
             transactionManager.rollback(status);

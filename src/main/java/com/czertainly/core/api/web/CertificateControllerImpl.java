@@ -172,7 +172,7 @@ public class CertificateControllerImpl implements CertificateController {
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.REQUEST)
     public CertificateDetailDto submitCertificateRequest(ClientCertificateRequestDto request) throws ValidationException, ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException {
-        return clientOperationService.submitCertificateRequest(request, null, null);
+        return clientOperationService.submitCertificateRequest(request, null);
     }
 
     @Override

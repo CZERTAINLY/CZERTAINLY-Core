@@ -31,7 +31,7 @@ public interface ClientOperationService {
     ) throws ConnectorException, ValidationException, NotFoundException;
 
     CertificateDetailDto submitCertificateRequest(
-            ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo, CertificateRelationType relationType
+            ClientCertificateRequestDto request, CertificateProtocolInfo protocolInfo
     ) throws ConnectorException, CertificateException, NoSuchAlgorithmException, AttributeException, CertificateRequestException, NotFoundException;
 
     ClientCertificateDataResponseDto issueRequestedCertificate(
