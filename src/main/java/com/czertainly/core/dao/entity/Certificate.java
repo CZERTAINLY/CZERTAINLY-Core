@@ -218,21 +218,15 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private CertificateProtocolAssociation protocolAssociation;
 
-    @ManyToMany
-    @JoinTable(
-            name = "certificate_relation",
-            joinColumns = @JoinColumn(name = "predecessor_certificate_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "successor_certificate_uuid")
-    )
-    private Set<Certificate> successorCertificates = new HashSet<>();
+    @OneToMany(mappedBy = "predecessorCertificate", fetch = FetchType.LAZY)
+    @JsonBackReference
+    @ToString.Exclude
+    private Set<CertificateRelation> successorRelations = new HashSet<>();
 
-    @ManyToMany
-    @JoinTable(
-            name = "certificate_relation",
-            joinColumns = @JoinColumn(name = "successor_certificate_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "predecessor_certificate_uuid")
-    )
-    private Set<Certificate> predecessorCertificates = new HashSet<>();
+    @OneToMany(mappedBy = "successorCertificate", fetch = FetchType.LAZY)
+    @JsonBackReference
+    @ToString.Exclude
+    private Set<CertificateRelation> predecessorRelations = new HashSet<>();
 
     @Override
     public CertificateDetailDto mapToDto() {
@@ -274,7 +268,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setTrustedCa(trustedCa);
         dto.setHybridCertificate(hybridCertificate);
         dto.setArchived(archived);
-        if (!predecessorCertificates.isEmpty()) dto.setSourceCertificateUuid(predecessorCertificates.stream().toList().getFirst().getUuid());
+        if (!predecessorRelations.isEmpty()) dto.setSourceCertificateUuid(predecessorRelations.stream().toList().getFirst().getPredecessorCertificate().getUuid());
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());

@@ -24,7 +24,6 @@ import com.czertainly.core.dao.repository.CertificateRelationRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
 import com.czertainly.core.events.handlers.CertificateActionPerformedEventHandler;
-import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.producers.ActionProducer;
 import com.czertainly.core.messaging.producers.EventProducer;
@@ -325,9 +324,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificate.setState(state);
         certificateRepository.save(certificate);
 
-        for (Certificate predecessorCertificate : certificate.getPredecessorCertificates()) {
-            certificateRelationRepository.deleteById(new CertificateRelationId(certificate.getUuid(), predecessorCertificate.getUuid()));
-        }
+        certificateRelationRepository.deleteAll(certificate.getPredecessorRelations());
 
         if (state == CertificateState.FAILED) {
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
