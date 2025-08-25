@@ -67,7 +67,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     public void setUsage(List<KeyUsage> usage) {
         this.usage = usage.stream().map(
                 i -> String.valueOf(
-                        i.getBitmask()
+                        i.getBit()
                 )
         ).collect(
                 Collectors.joining(",")

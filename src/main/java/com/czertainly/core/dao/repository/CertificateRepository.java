@@ -56,9 +56,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT DISTINCT altKeySize FROM Certificate")
     List<Integer> findDistinctAltKeySize();
 
-    @Query("SELECT DISTINCT keyUsage FROM Certificate")
-    List<String> findDistinctKeyUsage();
-
     @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
     List<String> findDistinctPublicKeyAlgorithm();
 

@@ -19,7 +19,6 @@ import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import org.hibernate.query.criteria.JpaExpression;
-import org.springframework.security.core.parameters.P;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -339,7 +338,7 @@ public class FilterPredicatesBuilder {
                 if (filterField.getEnumClass().equals(KeyUsage.class)) {
                     final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(value, filterField.getEnumClass());
                     if (keyUsage != null) {
-                        preparedFilterValue = keyUsage.getBitmask();
+                        preparedFilterValue = keyUsage.getBit();
                     }
                 } else {
                     preparedFilterValue = findEnumByCustomValue(value, filterField.getEnumClass());

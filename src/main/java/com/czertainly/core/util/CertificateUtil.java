@@ -424,7 +424,7 @@ public class CertificateUtil {
         }
         if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
         modal.setKeyUsage(
-                MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
+               CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()).stream().map(CertificateKeyUsage::fromCode).toList());
         modal.setSubjectType(subjectType);
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)
