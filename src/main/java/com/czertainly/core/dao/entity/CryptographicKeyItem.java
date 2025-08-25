@@ -70,7 +70,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     private KeyState state;
 
     @Column(name = "usage")
-    private String usage;
+    private int usage;
 
     @Column(name = "enabled")
     private boolean enabled;
@@ -105,29 +105,11 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public List<KeyUsage> getUsage() {
-        if (usage == null) return new ArrayList<>();
-        return Arrays.stream(
-                usage.split(",")
-        ).map(
-                i -> KeyUsage.valueOf(
-                        Integer.parseInt(i)
-                )
-        ).collect(Collectors.toList());
+        return KeyUsage.convertBitMaskToList(usage).stream().toList();
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        if (usage == null || usage.isEmpty()) {
-            this.usage = null;
-            return;
-        }
-
-        this.usage = usage.stream().map(
-                i -> String.valueOf(
-                        i.getBitmask()
-                )
-        ).collect(
-                Collectors.joining(",")
-        );
+        this.usage = KeyUsage.convertListToBitMask(new HashSet<>(usage));
     }
 
 

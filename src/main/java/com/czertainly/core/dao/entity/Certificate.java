@@ -1,10 +1,12 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DtoMapper;
@@ -83,7 +85,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     private String extendedKeyUsage;
 
     @Column(name = "key_usage")
-    private String keyUsage;
+    private int keyUsage;
 
     @Column(name = "subject_type", nullable = false)
     @Enumerated(EnumType.STRING)
@@ -230,15 +232,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setNotAfter(notAfter);
             dto.setSubjectType(subjectType);
             dto.setExtendedKeyUsage(MetaDefinitions.deserializeArrayString(extendedKeyUsage));
-            dto.setKeyUsage(MetaDefinitions.deserializeArrayString(keyUsage).stream().map(code -> {
-                CertificateKeyUsage certificateKeyUsage;
-                try {
-                    certificateKeyUsage = CertificateKeyUsage.fromCode(code);
-                } catch (IllegalArgumentException e) {
-                    certificateKeyUsage = null;
-                }
-                return certificateKeyUsage;
-            }).filter(Objects::nonNull).toList());
+            dto.setKeyUsage(getKeyUsage().stream().toList());
             dto.setFingerprint(fingerprint);
             dto.setSubjectAlternativeNames(CertificateUtil.deserializeSans(subjectAlternativeNames));
             dto.setIssuerSerialNumber(issuerSerialNumber);
@@ -457,6 +451,14 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setTrustedCa(boolean trustedCa) {
         this.trustedCa = trustedCa;
+    }
+
+    public Set<CertificateKeyUsage> getKeyUsage() {
+        return CertificateKeyUsage.convertBitMaskToList(keyUsage);
+    }
+
+    public void setUsage(List<CertificateKeyUsage> usage) {
+        this.keyUsage = BitMaskEnum.convertListToBitMask(new HashSet<>(usage));
     }
 
     @Override

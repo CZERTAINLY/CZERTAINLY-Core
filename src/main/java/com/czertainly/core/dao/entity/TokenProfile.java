@@ -46,7 +46,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     private Boolean enabled;
 
     @Column(name = "usage")
-    private String usage;
+    private int usage;
 
     public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
         this.tokenInstanceReference = tokenInstanceReference;
@@ -54,24 +54,11 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     }
 
     public List<KeyUsage> getUsage() {
-        if(usage == null) return new ArrayList<>();
-        return Arrays.stream(
-                usage.split(",")
-        ).map(
-                i -> KeyUsage.valueOf(
-                        Integer.parseInt(i)
-                )
-        ).collect(Collectors.toList());
+        return KeyUsage.convertBitMaskToList(usage).stream().toList();
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = usage.stream().map(
-                i -> String.valueOf(
-                        i.getBit()
-                )
-        ).collect(
-                Collectors.joining(",")
-        );
+        this.usage = KeyUsage.convertListToBitMask(new HashSet<>(usage));
     }
 
     @Override

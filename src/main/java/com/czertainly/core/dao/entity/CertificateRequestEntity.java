@@ -57,7 +57,7 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
     private String subjectAlternativeNames;
 
     @Column(name = "key_usage")
-    private String keyUsage;
+    private int keyUsage;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "key_uuid", insertable = false, updatable = false)

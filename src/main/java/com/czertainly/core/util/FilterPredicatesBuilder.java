@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
@@ -79,6 +80,8 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.name), attributeName));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
+
+        criteriaBuilder.function()
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
@@ -335,10 +338,10 @@ public class FilterPredicatesBuilder {
         for (Object value : filterValues) {
             Object preparedFilterValue = null;
             if (filterField.getEnumClass() != null) {
-                if (filterField.getEnumClass().equals(KeyUsage.class)) {
-                    final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(value, filterField.getEnumClass());
-                    if (keyUsage != null) {
-                        preparedFilterValue = keyUsage.getBit();
+                if (BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass())) {
+                    final BitMaskEnum enumValue = (BitMaskEnum) findEnumByCustomValue(value, filterField.getEnumClass());
+                    if (enumValue != null) {
+                        preparedFilterValue = enumValue.getBit();
                     }
                 } else {
                     preparedFilterValue = findEnumByCustomValue(value, filterField.getEnumClass());
