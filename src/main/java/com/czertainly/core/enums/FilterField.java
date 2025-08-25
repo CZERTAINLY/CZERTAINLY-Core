@@ -63,8 +63,8 @@ public enum FilterField {
     CERTIFICATE_PROTOCOL(Resource.CERTIFICATE, null, List.of(Certificate_.protocolAssociation), CertificateProtocolAssociation_.protocol, "Certificate Protocol", SearchFieldTypeEnum.LIST, CertificateProtocol.class),
     HYBRID_CERTIFICATE(Resource.CERTIFICATE, null, null, Certificate_.hybridCertificate, "Hybrid Certificate", SearchFieldTypeEnum.BOOLEAN),
     ARCHIVED(Resource.CERTIFICATE, null, null, Certificate_.archived, "Archived", SearchFieldTypeEnum.BOOLEAN),
-    SUCCESSOR_RELATION_TYPE(Resource.CERTIFICATE, null, List.of(Certificate_.successorRelations), CertificateRelation_.relationType, "Successor Certificate Relation Type", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
-    PREDECESSOR_RELATION_TYPE(Resource.CERTIFICATE, null, List.of(Certificate_.predecessorRelations), CertificateRelation_.relationType, "Predecessor Certificate Relation Type", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
+    SUCCEEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.successorRelations), CertificateRelation_.relationType, "Succeeding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
+    PRECEDING_RELATION_TYPE(Resource.CERTIFICATE, null, List.of(Certificate_.predecessorRelations), CertificateRelation_.relationType, "Preceding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),
