@@ -126,7 +126,7 @@ public class FilterPredicatesBuilder {
                 Duration duration = (Duration) filterValues.getFirst();
                 yield criteriaBuilder.between(expression,
                         nowDateTime.minus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds()),
-                       nowDateTime);
+                        nowDateTime);
             }
             case IN_NEXT -> {
                 Duration duration = (Duration) filterValues.getFirst();
@@ -292,10 +292,12 @@ public class FilterPredicatesBuilder {
                 predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
             }
             case COUNT_EQUAL -> predicate = criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst());
-            case COUNT_NOT_EQUAL -> predicate = criteriaBuilder.not(criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst()));
-            case COUNT_GREATER_THAN -> predicate = criteriaBuilder.greaterThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
-            case COUNT_LESS_THAN -> predicate = criteriaBuilder.lessThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
-
+            case COUNT_NOT_EQUAL ->
+                    predicate = criteriaBuilder.not(criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst()));
+            case COUNT_GREATER_THAN ->
+                    predicate = criteriaBuilder.greaterThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+            case COUNT_LESS_THAN ->
+                    predicate = criteriaBuilder.lessThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
 
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
@@ -316,8 +318,25 @@ public class FilterPredicatesBuilder {
         From from = root;
         From joinedAssociation;
         String associationFullPath = null;
-        for (Attribute joinAttribute : filterField.getJoinAttributes()) {
-            associationFullPath = associationFullPath == null ? joinAttribute.getName() : associationFullPath + "." + joinAttribute.getName();
+        List<Attribute> joinAttributes = filterField.getJoinAttributes();
+        int lastIndex = joinAttributes.size();
+
+        // If count operator, find last collection attribute index
+        if (isCountOperator(condition)) {
+            for (int i = 0; i < joinAttributes.size(); i++) {
+                if (joinAttributes.get(i).isCollection()) {
+                    lastIndex = i + 1;
+                }
+            }
+        }
+
+        for (int i = 0; i < lastIndex; i++) {
+            Attribute joinAttribute = joinAttributes.get(i);
+
+            associationFullPath = associationFullPath == null
+                    ? joinAttribute.getName()
+                    : associationFullPath + "." + joinAttribute.getName();
+
             joinedAssociation = joinedAssociations.get(associationFullPath);
 
             if (joinedAssociation != null) {
@@ -326,8 +345,6 @@ public class FilterPredicatesBuilder {
                 from = from.join(joinAttribute.getName(), JoinType.LEFT);
                 joinedAssociations.put(associationFullPath, from);
             }
-            if (isCountOperator(condition) && joinAttribute.isCollection())
-                break;
         }
         return from;
     }
