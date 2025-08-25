@@ -347,7 +347,7 @@ public class FilterPredicatesBuilder {
         List<Object> filterValues = filterValue instanceof List<?> ? (List<Object>) filterValue : List.of(filterValue);
         for (Object value : filterValues) {
             Object preparedFilterValue = null;
-            if (filterField.getEnumClass() != null) {
+            if (filterField.getEnumClass() != null && !isCountOperator(filterDto.getCondition())) {
                 if (filterField.getEnumClass().equals(KeyUsage.class)) {
                     final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(value, filterField.getEnumClass());
                     if (keyUsage != null) {
