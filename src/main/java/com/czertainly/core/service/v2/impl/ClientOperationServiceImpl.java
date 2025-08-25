@@ -311,7 +311,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.debug("Certificate issued: {}", certificate);
     }
 
-    private void handleFailedOrRejectedEvent(Exception e, Certificate certificate, UUID oldCertificateUud, CertificateState state, CertificateEvent event, Map<String, Object> additionalInformation) {
+    private void handleFailedOrRejectedEvent(Exception e, Certificate certificate, UUID oldCertificateUuid, CertificateState state, CertificateEvent event, Map<String, Object> additionalInformation) {
         for (CertificateLocation location : certificate.getLocations()) {
             try {
                 locationService.removeRejectedOrFailedCertificateFromLocationAction(location.getId());
@@ -328,9 +328,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         if (state == CertificateState.FAILED) {
             certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             if (event == CertificateEvent.RENEW)
-                certificateEventHistoryService.addEventHistory(oldCertificateUud, CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+                certificateEventHistoryService.addEventHistory(oldCertificateUuid, CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
             if (event == CertificateEvent.REKEY)
-                certificateEventHistoryService.addEventHistory(oldCertificateUud, CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+                certificateEventHistoryService.addEventHistory(oldCertificateUuid, CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
         }
 
         if (state == CertificateState.REJECTED) {
