@@ -570,7 +570,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.HYBRID_CERTIFICATE),
                 SearchHelper.prepareSearch(FilterField.ARCHIVED),
                 SearchHelper.prepareSearch(FilterField.CERTIFICATE_PROTOCOL),
-                SearchHelper.prepareSearch(FilterField.PREDECESSOR_RELATION_TYPE, Arrays.stream(CertificateRelationType.values()).map(CertificateRelationType::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.PRECEDING_RELATION_TYPE, Arrays.stream(CertificateRelationType.values()).map(CertificateRelationType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.SUCCEEDING_CERTIFICATES, Arrays.stream(CertificateRelationType.values()).map(CertificateRelationType::getCode).toList())
 
                 );
