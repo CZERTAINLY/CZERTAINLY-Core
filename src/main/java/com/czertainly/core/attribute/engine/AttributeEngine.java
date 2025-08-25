@@ -974,7 +974,7 @@ public class AttributeEngine {
         // validate read only content to equal to definition content
         if (Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
             Object definitionContent = attributeDefinition.getDefinition().getContent();
-            if (definitionContent == null || !definitionContent.equals(attributeContent)) {
+            if (attributeContent == null || !attributeContent.equals(definitionContent)) {
                 throw new AttributeException("Wrong value of read only attribute " + attributeDefinition.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }

@@ -27,7 +27,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
@@ -67,6 +66,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     private UUID authorityDiscoveryUuid;
     private UUID networkDiscoveryUuid;
 
+    CustomAttribute orderNoCustomAttribute;
     CustomAttribute departmentCustomAttribute;
     CustomAttribute expirationDateCustomAttribute;
     private MetadataAttribute networkDiscoveryMeta;
@@ -197,6 +197,32 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testDeleteObjectCustomAttributesContent() throws NotFoundException, CertificateException, IOException, AttributeException {
+        RequestAttributeDto departmentAttributeDto = new RequestAttributeDto();
+        departmentAttributeDto.setUuid(departmentCustomAttribute.getUuid());
+        departmentAttributeDto.setName(departmentCustomAttribute.getName());
+        departmentAttributeDto.setContent(List.of(new StringAttributeContent("Sales")));
+
+        RequestAttributeDto orderNoAttributeDto = new RequestAttributeDto();
+        orderNoAttributeDto.setUuid(orderNoCustomAttribute.getUuid());
+        orderNoAttributeDto.setName(orderNoCustomAttribute.getName());
+        orderNoAttributeDto.setContent(List.of(new FloatAttributeContent(555f)));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto, orderNoAttributeDto));
+
+        SecurityResourceFilter filter = new SecurityResourceFilter(List.of(departmentCustomAttribute.getUuid()), List.of(), true);
+        attributeEngine.deleteObjectAllowedCustomAttributeContent(filter, Resource.CERTIFICATE, certificate.getUuid());
+        CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
+        Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
+        Assertions.assertEquals(orderNoCustomAttribute.getUuid(), certificateDetailDto.getCustomAttributes().getFirst().getUuid());
+
+        filter = new SecurityResourceFilter(List.of(), List.of(expirationDateCustomAttribute.getUuid(), orderNoCustomAttribute.getUuid()),  false);
+        attributeEngine.deleteObjectAllowedCustomAttributeContent(filter, Resource.CERTIFICATE, certificate.getUuid());
+        certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
+        Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
+        Assertions.assertEquals(orderNoCustomAttribute.getUuid(), certificateDetailDto.getCustomAttributes().getFirst().getUuid());
+    }
+
+    @Test
     void testDeleteDefinitionAttributeContent() throws NotFoundException, CertificateException, IOException {
         attributeEngine.deleteAttributeDefinition(AttributeType.CUSTOM, UUID.fromString(departmentCustomAttribute.getUuid()));
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
@@ -226,6 +252,16 @@ class AttributeEngineTest extends BaseSpringBootTest {
         customProps1.setRequired(true);
         departmentCustomAttribute.setProperties(customProps1);
 
+        orderNoCustomAttribute = new CustomAttribute();
+        orderNoCustomAttribute.setUuid(UUID.randomUUID().toString());
+        orderNoCustomAttribute.setName("order_no");
+        orderNoCustomAttribute.setType(AttributeType.CUSTOM);
+        orderNoCustomAttribute.setContentType(AttributeContentType.FLOAT);
+
+        CustomAttributeProperties customProps2 = new CustomAttributeProperties();
+        customProps2.setLabel("Order number");
+        orderNoCustomAttribute.setProperties(customProps2);
+
         expirationDateCustomAttribute = new CustomAttribute();
         expirationDateCustomAttribute.setUuid(UUID.randomUUID().toString());
         expirationDateCustomAttribute.setName("expiration_date");
@@ -233,11 +269,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         expirationDateCustomAttribute.setContentType(AttributeContentType.DATE);
         expirationDateCustomAttribute.setContent(List.of(new DateAttributeContent(LocalDate.EPOCH)));
 
-        CustomAttributeProperties customProps2 = new CustomAttributeProperties();
-        customProps2.setLabel("Expiration date");
-        customProps2.setReadOnly(true);
-        expirationDateCustomAttribute.setProperties(customProps2);
+        CustomAttributeProperties customProps3 = new CustomAttributeProperties();
+        customProps3.setLabel("Expiration date");
+        customProps3.setReadOnly(true);
+        expirationDateCustomAttribute.setProperties(customProps3);
 
+        attributeEngine.updateCustomAttributeDefinition(orderNoCustomAttribute, List.of(Resource.CERTIFICATE));
         attributeEngine.updateCustomAttributeDefinition(departmentCustomAttribute, List.of(Resource.CERTIFICATE, Resource.AUTHORITY));
         attributeEngine.updateCustomAttributeDefinition(expirationDateCustomAttribute, List.of(Resource.CERTIFICATE));
 
