@@ -9,24 +9,18 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.certificate.CertificateResponseDto;
 import com.czertainly.api.model.client.certificate.CertificateSearchRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateRelationType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CryptographicKey;
-import com.czertainly.core.dao.entity.CryptographicKeyItem;
-import com.czertainly.core.dao.entity.Group;
-import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
-import com.czertainly.core.dao.repository.CryptographicKeyRepository;
-import com.czertainly.core.dao.repository.GroupRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
@@ -56,7 +50,6 @@ import java.text.SimpleDateFormat;
 import java.time.*;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
@@ -88,6 +81,9 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     @Autowired
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
+
+    @Autowired
+    private CertificateRelationRepository certificateRelationRepository;
 
     private CriteriaBuilder criteriaBuilder;
 
@@ -826,6 +822,21 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.TRUSTED_CA.name(), FilterConditionOperator.NOT_EMPTY, null)));
         Assertions.assertEquals(Set.of(certificate2.getUuid(), certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+
+    }
+
+    @Test
+    void testCertificateRelationsFilter() {
+        CertificateRelation certificateRelation = new CertificateRelation();
+        certificateRelation.setSuccessorCertificate(certificate1);
+        certificateRelation.setPredecessorCertificate(certificate2);
+        certificateRelation.setRelationType(CertificateRelationType.RENEWAL);
+        certificateRelationRepository.save(certificateRelation);
+        CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.PRECEDING_CERTIFICATES.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateRelationType.RENEWAL.getCode()))));
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SUCCEEDING_CERTIFICATES.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateRelationType.RENEWAL.getCode()))));
+        Assertions.assertEquals(Set.of(certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
     }
 

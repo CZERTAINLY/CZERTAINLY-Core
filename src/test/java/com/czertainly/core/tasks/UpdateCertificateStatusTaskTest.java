@@ -1,5 +1,7 @@
 package com.czertainly.core.tasks;
 
+import com.czertainly.api.model.core.certificate.CertificateRelationType;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
@@ -40,6 +42,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     private RaProfileRepository raProfileRepository;
     @Autowired
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
+    private CertificateRelationRepository certificateRelationRepository;
 
     @Autowired
     private SettingsCache settingsCache;
@@ -223,27 +227,41 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         // Certificate is expiring and is renewed by some certificate
         Certificate expiringRenewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, null);
         // Certificate is expiring, but is not renewed by any certificate -> this is the only certificate that should be returned
-        createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, expiringRenewedCert.getUuid());
+        createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, expiringRenewedCert);
         // Not expiring and is renewed by some certificate
         Certificate renewedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, null);
-        // Not expiring and is not renewed by some certificate
-        createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedCert.getUuid());
+        // Not expiring and is not renewed by some certificate and is renewing previous cert
+        createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedCert);
+        // Expiring and is renewed by not yet issued certificate
+        Certificate renewedByNotIssuedCert = createCertificateForExpiringEventTest(CertificateValidationStatus.EXPIRING, null);
+        // certificate not issued renewing previous cert
+        Certificate notIssued = createCertificateForExpiringEventTest(CertificateValidationStatus.VALID, renewedByNotIssuedCert);
+        notIssued.setState(CertificateState.PENDING_ISSUE);
+        certificateRepository.save(notIssued);
+
 
         ScheduledTaskResult result = updateCertificateStatusTask.performJob(null, null);
 
         Assertions.assertEquals(SchedulerJobExecutionStatus.SUCCESS, result.getStatus());
-        Assertions.assertTrue(result.getResultMessage().contains("Handled 1 expiring "));
+        Assertions.assertTrue(result.getResultMessage().contains("Handled 2 expiring "));
     }
 
-    private Certificate createCertificateForExpiringEventTest(CertificateValidationStatus status, UUID sourceUuid) {
+    private Certificate createCertificateForExpiringEventTest(CertificateValidationStatus status, Certificate predecessorCertificate) {
         Certificate certificateEntity = new Certificate();
         CertificateContent content = new CertificateContent();
         content.setContent(String.valueOf(Math.random()));
         certificateContentRepository.save(content);
         certificateEntity.setCertificateContent(content);
         certificateEntity.setValidationStatus(status);
-        certificateEntity.setSourceCertificateUuid(sourceUuid);
+        certificateEntity.setState(CertificateState.ISSUED);
         certificateRepository.save(certificateEntity);
+        if (predecessorCertificate != null) {
+            CertificateRelation certificateRelation = new CertificateRelation();
+            certificateRelation.setPredecessorCertificate(predecessorCertificate);
+            certificateRelation.setSuccessorCertificate(certificateEntity);
+            certificateRelation.setRelationType(CertificateRelationType.REPLACEMENT);
+            certificateRelationRepository.save(certificateRelation);
+        }
         return certificateEntity;
     }
 

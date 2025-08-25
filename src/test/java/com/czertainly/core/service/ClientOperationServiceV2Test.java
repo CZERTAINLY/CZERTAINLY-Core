@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProp
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateRelationType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -102,6 +103,10 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
     @Autowired
     private TokenProfileRepository tokenProfileRepository;
+    @Autowired
+    private CertificateRelationRepository certificateRelationRepository;
+    @Autowired
+    private CertificateRequestRepository certificateRequestRepository;
 
     private RaProfile raProfile;
     private AuthorityInstanceReference authorityInstanceReference;
@@ -891,6 +896,53 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.issueCertificateAction(certificateUuid, true));
         ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
         Assertions.assertThrows(ValidationException.class, () -> clientOperationService.renewCertificateAction(certificateUuid, renewRequest, true));
+
+    }
+
+    @Test
+    void testHandleFailedOrRejectedEvent() throws NotFoundException, NoSuchAlgorithmException {
+        CertificateRelation relation = new CertificateRelation();
+        relation.setSuccessorCertificate(certificate);
+        Certificate predCert = new Certificate();
+        predCert.setCertificateContent(certificateContent);
+        certificateRepository.save(predCert);
+        relation.setPredecessorCertificate(predCert);
+        relation.setRelationType(CertificateRelationType.PENDING);
+        certificateRelationRepository.save(relation);
+        UUID certificateUuid = certificate.getUuid();
+        clientOperationService.issueCertificateRejectedAction(certificateUuid);
+        Assertions.assertFalse(certificateRelationRepository.existsById(relation.getId()));
+        certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
+        Assertions.assertEquals(CertificateState.REJECTED, certificate.getState());
+
+        certificateRelationRepository.save(relation);
+        certificate.setState(CertificateState.REQUESTED);
+        CertificateRequestEntity certificateRequest = new CertificateRequestEntity();
+        certificateRequest.setContent("content");
+        certificateRequestRepository.save(certificateRequest);
+        certificate.setCertificateRequest(certificateRequest);
+        certificate.setCertificateRequestUuid(certificateRequest.getUuid());
+        certificateRepository.save(certificate);
+        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationService.issueCertificateAction(certificateUuid, true));
+        Assertions.assertFalse(certificateRelationRepository.existsById(relation.getId()));
+        certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow();
+        Assertions.assertEquals(CertificateState.FAILED, certificate.getState());
+
+        stubAuthorityProviderAttributesEndpoints();
+        certificateRelationRepository.save(relation);
+        certificate.setState(CertificateState.REQUESTED);
+        certificateRepository.save(certificate);
+        ClientCertificateRekeyRequestDto rekeyRequest = new ClientCertificateRekeyRequestDto();
+        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationService.rekeyCertificateAction(certificateUuid, rekeyRequest, true));
+
+        stubAuthorityProviderAttributesEndpoints();
+        certificateRelationRepository.save(relation);
+        certificate.setState(CertificateState.REQUESTED);
+        certificateRepository.save(certificate);
+        ClientCertificateRenewRequestDto renewRequest = new ClientCertificateRenewRequestDto();
+        Assertions.assertThrows(CertificateOperationException.class, () -> clientOperationService.renewCertificateAction(certificateUuid, renewRequest, true));
+
+
 
     }
 }

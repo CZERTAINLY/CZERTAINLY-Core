@@ -42,8 +42,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByAltKeyUuid(UUID altKeyUuid);
 
-    List<Certificate> findBySourceCertificateUuid(UUID sourceCertificateUuid);
-
     @Query("SELECT DISTINCT signatureAlgorithm FROM Certificate")
     List<String> findDistinctSignatureAlgorithm();
 
@@ -127,23 +125,23 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query(value = """
             INSERT INTO {h-schema}certificate (
             uuid, i_author, i_cre, i_upd, ra_profile_uuid,certificate_content_id,
-            certificate_request_uuid,source_certificate_uuid,issuer_certificate_uuid,certificate_type,
+            certificate_request_uuid,issuer_certificate_uuid,certificate_type,
             state,validation_status,certificate_validation_result,status_validation_timestamp,
             compliance_status,compliance_result,common_name,not_after,not_before,
             extended_key_usage,fingerprint,issuer_common_name,issuer_dn,issuer_dn_normalized,
             issuer_serial_number,key_size,key_usage,key_uuid,public_key_algorithm,
             public_key_fingerprint,serial_number,signature_algorithm,subject_alternative_names,
-            subject_dn,subject_dn_normalized,subject_type,trusted_ca,user_uuid,hybrid_certificate,alt_signature_algorithm,archived)
+            subject_dn,subject_dn_normalized,subject_type,trusted_ca,user_uuid,hybrid_certificate,alt_signature_algorithm,archived,alt_key_fingerprint)
             VALUES (
             :#{#cert.uuid}, :#{#cert.author}, :#{#cert.created}, :#{#cert.updated}, :#{#cert.raProfileUuid}, :#{#cert.certificateContentId},
-            :#{#cert.certificateRequestUuid}, :#{#cert.sourceCertificateUuid}, :#{#cert.issuerCertificateUuid}, :#{#cert.certificateType.name()},
+            :#{#cert.certificateRequestUuid}, :#{#cert.issuerCertificateUuid}, :#{#cert.certificateType.name()},
             :#{#cert.state.name()}, :#{#cert.validationStatus.name()}, :#{#cert.certificateValidationResult}, :#{#cert.statusValidationTimestamp},
             :#{#cert.complianceStatus.name()}, :#{#cert.complianceResult}, :#{#cert.commonName}, :#{#cert.notAfter}, :#{#cert.notBefore},
             :#{#cert.extendedKeyUsage}, :#{#cert.fingerprint}, :#{#cert.issuerCommonName}, :#{#cert.issuerDn}, :#{#cert.issuerDnNormalized},
             :#{#cert.issuerSerialNumber}, :#{#cert.keySize}, :#{#cert.keyUsage}, :#{#cert.keyUuid}, :#{#cert.publicKeyAlgorithm},
             :#{#cert.publicKeyFingerprint}, :#{#cert.serialNumber}, :#{#cert.signatureAlgorithm}, :#{#cert.subjectAlternativeNames},
             :#{#cert.subjectDn}, :#{#cert.subjectDnNormalized}, :#{#cert.subjectType.name()}, :#{#cert.trustedCa}, :#{#cert.userUuid},
-            :#{#cert.hybridCertificate}, :#{#cert.altSignatureAlgorithm}, :#{#cert.archived}
+            :#{#cert.hybridCertificate}, :#{#cert.altSignatureAlgorithm}, :#{#cert.archived}, :#{#cert.altKeyFingerprint}
             )
             ON CONFLICT (fingerprint)
             DO NOTHING
@@ -151,9 +149,22 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     int insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
 
     @Query("""
-            SELECT uuid FROM Certificate WHERE validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING} 
-            AND uuid NOT IN (SELECT sourceCertificateUuid FROM Certificate WHERE sourceCertificateUuid IS NOT NULL)
-            AND archived = false
+             SELECT c.uuid
+                FROM Certificate c
+                LEFT JOIN CertificateRelation cr
+                    ON cr.id.predecessorCertificateUuid = c.uuid
+                WHERE c.validationStatus = ?#{T(com.czertainly.api.model.core.certificate.CertificateValidationStatus).EXPIRING}
+                  AND c.archived = false
+                  AND (
+                      cr.id.predecessorCertificateUuid IS NULL
+                              OR NOT EXISTS (
+                                    SELECT 1
+                                    FROM CertificateRelation scr
+                                    JOIN Certificate sc ON sc.uuid = scr.id.successorCertificateUuid
+                                    WHERE scr.id.predecessorCertificateUuid = c.uuid
+                                        AND sc.state = ?#{T(com.czertainly.api.model.core.certificate.CertificateState).ISSUED}
+                              )
+                  )
             """)
     List<UUID> findExpiringCertificatesWithoutRenewal();
 

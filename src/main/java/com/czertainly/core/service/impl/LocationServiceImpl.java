@@ -17,10 +17,7 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.entity.*;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateEvent;
-import com.czertainly.api.model.core.certificate.CertificateEventStatus;
-import com.czertainly.api.model.core.certificate.CertificateState;
-import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
@@ -35,10 +32,7 @@ import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.CertificateLocationRepository;
-import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
-import com.czertainly.core.dao.repository.LocationRepository;
-import com.czertainly.core.dao.repository.RaProfileRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -84,6 +78,7 @@ public class LocationServiceImpl implements LocationService {
     private LocationRepository locationRepository;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
     private CertificateLocationRepository certificateLocationRepository;
+    private CertificateRelationRepository certificateRelationRepository;
     private RaProfileRepository raProfileRepository;
     private EntityInstanceApiClient entityInstanceApiClient;
     private LocationApiClient locationApiClient;
@@ -427,7 +422,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
-    public void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException {
+    public void removeRejectedOrFailedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException {
         CertificateLocation certificateLocation = certificateLocationRepository.findById(certificateLocationId).orElseThrow(() -> new NotFoundException(CertificateLocation.class, certificateLocationId));
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();
@@ -449,7 +444,7 @@ public class LocationServiceImpl implements LocationService {
         location.getCertificates().remove(certificateLocation);
 
         locationRepository.save(location);
-        logger.debug("Removed rejected certificate {} from location {}", certificate, location.getName());
+        logger.debug("Removed rejected or failed certificate {} from location {}", certificate, location.getName());
     }
 
     @Override
@@ -559,14 +554,18 @@ public class LocationServiceImpl implements LocationService {
 
         if (isRenewal) {
             //Delete current certificate in location table
-            CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificate.getSourceCertificateUuid());
-            CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
+            CertificateRelation certificateRelation = certificateRelationRepository.findFirstByIdSuccessorCertificateUuidAndRelationTypeOrderByCreatedAtAsc(certificate.getUuid(), CertificateRelationType.RENEWAL)
                     .orElse(null);
+            if (certificateRelation != null) {
+                CertificateLocationId clId = new CertificateLocationId(location.getUuid(), certificateRelation.getId().getPredecessorCertificateUuid());
+                CertificateLocation certificateInLocation = certificateLocationRepository.findById(clId)
+                        .orElse(null);
 
-            if (certificateInLocation != null) {
-                certificateLocationRepository.delete(certificateInLocation);
-                location.getCertificates().remove(certificateInLocation);
-                locationRepository.save(location);
+                if (certificateInLocation != null) {
+                    certificateLocationRepository.delete(certificateInLocation);
+                    location.getCertificates().remove(certificateInLocation);
+                    locationRepository.save(location);
+                }
             }
         }
     }
