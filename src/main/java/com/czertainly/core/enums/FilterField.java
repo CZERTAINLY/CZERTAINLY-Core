@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateRelationType;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -64,6 +65,8 @@ public enum FilterField {
     CERTIFICATE_PROTOCOL(Resource.CERTIFICATE, null, List.of(Certificate_.protocolAssociation), CertificateProtocolAssociation_.protocol, "Certificate Protocol", SearchFieldTypeEnum.LIST, CertificateProtocol.class),
     HYBRID_CERTIFICATE(Resource.CERTIFICATE, null, null, Certificate_.hybridCertificate, "Hybrid Certificate", SearchFieldTypeEnum.BOOLEAN),
     ARCHIVED(Resource.CERTIFICATE, null, null, Certificate_.archived, "Archived", SearchFieldTypeEnum.BOOLEAN),
+    SUCCEEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.successorRelations), CertificateRelation_.relationType, "Succeeding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
+    PRECEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.predecessorRelations), CertificateRelation_.relationType, "Preceding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),

@@ -185,9 +185,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_request_uuid")
     private UUID certificateRequestUuid;
 
-    @Column(name = "source_certificate_uuid")
-    private UUID sourceCertificateUuid;
-
     @Column(name = "trusted_ca")
     private Boolean trustedCa;
 
@@ -205,6 +202,9 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "alt_key_uuid")
     private UUID altKeyUuid;
 
+    @Column(name = "alt_key_fingerprint")
+    private String altKeyFingerprint;
+
     @Column(name = "alt_signature_algorithm")
     private String altSignatureAlgorithm;
 
@@ -217,6 +217,16 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @OneToOne(fetch = FetchType.LAZY, mappedBy = "certificate", cascade = CascadeType.ALL)
     @ToString.Exclude
     private CertificateProtocolAssociation protocolAssociation;
+
+    @OneToMany(mappedBy = "predecessorCertificate", fetch = FetchType.LAZY)
+    @JsonBackReference
+    @ToString.Exclude
+    private Set<CertificateRelation> successorRelations = new HashSet<>();
+
+    @OneToMany(mappedBy = "successorCertificate", fetch = FetchType.LAZY)
+    @JsonBackReference
+    @ToString.Exclude
+    private Set<CertificateRelation> predecessorRelations = new HashSet<>();
 
     @Override
     public CertificateDetailDto mapToDto() {
@@ -244,7 +254,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
             dto.setIssuerSerialNumber(issuerSerialNumber);
             dto.setSerialNumber(serialNumber);
         }
-        dto.setSourceCertificateUuid(sourceCertificateUuid);
         dto.setSubjectDn(subjectDn);
         dto.setPublicKeyAlgorithm(publicKeyAlgorithm);
         dto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
@@ -259,6 +268,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         dto.setTrustedCa(trustedCa);
         dto.setHybridCertificate(hybridCertificate);
         dto.setArchived(archived);
+        if (!predecessorRelations.isEmpty()) dto.setSourceCertificateUuid(predecessorRelations.stream().toList().getFirst().getPredecessorCertificate().getUuid());
         if (issuerCertificateUuid != null) dto.setIssuerCertificateUuid(issuerCertificateUuid.toString());
         if (owner != null) {
             dto.setOwnerUuid(owner.getOwnerUuid().toString());
@@ -388,6 +398,28 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
         return dto;
     }
+
+    public CertificateSimpleDto mapToSimpleDto(CertificateRelationType relationType) {
+        CertificateSimpleDto simpleDto = new CertificateSimpleDto();
+        simpleDto.setUuid(uuid);
+        simpleDto.setCertificateType(certificateType);
+        simpleDto.setState(state);
+        simpleDto.setRelationType(relationType);
+        simpleDto.setCommonName(commonName);
+        simpleDto.setSubjectDn(subjectDn);
+        simpleDto.setIssuerCommonName(issuerCommonName);
+        simpleDto.setIssuerDn(issuerDn);
+        simpleDto.setSerialNumber(serialNumber);
+        simpleDto.setFingerprint(fingerprint);
+        simpleDto.setPublicKeyAlgorithm(publicKeyAlgorithm);
+        simpleDto.setAltPublicKeyAlgorithm(altPublicKeyAlgorithm);
+        simpleDto.setSignatureAlgorithm(signatureAlgorithm);
+        simpleDto.setAltSignatureAlgorithm(altSignatureAlgorithm);
+        simpleDto.setNotBefore(notBefore);
+        simpleDto.setNotAfter(notAfter);
+        return simpleDto;
+    }
+
 
     public CertificateRequestEntity prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
         final CertificateRequestEntity newCertificateRequestEntity = new CertificateRequestEntity();

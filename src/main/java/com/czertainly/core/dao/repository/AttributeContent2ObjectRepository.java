@@ -113,12 +113,23 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     void removeConnectorByConnectorUuid(UUID connectorUuid);
 
     long deleteByObjectTypeAndObjectUuid(Resource objectType, UUID objectUuid);
+
     long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
+
     long deleteByAttributeContentItemAttributeDefinitionTypeAndObjectTypeAndObjectUuid(AttributeType attributeType, Resource objectType, UUID objectUuid);
+
+    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidInAndObjectTypeAndObjectUuid(AttributeType attributeType, List<UUID> allowedDefinitionUuids, Resource objectType, UUID objectUuid);
+
+    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidNotInAndObjectTypeAndObjectUuid(AttributeType attributeType, List<UUID> forbiddenDefinitionUuids, Resource objectType, UUID objectUuid);
+
     long deleteByAttributeContentItemAttributeDefinitionUuid(UUID definitionUuid);
+
     long deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(Resource objectType, UUID objectUuid, UUID definitionUuid);
+
     long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+
     long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+
     long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, String purpose, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
 
 }
