@@ -33,7 +33,7 @@ public class CertificateEventHistory extends UniquelyIdentifiedAndAudited implem
     @Column(name = "status")
     private CertificateEventStatus status;
 
-    @Column(name="message")
+    @Column(name="message", columnDefinition = "TEXT")
     private String message;
 
     @Column(name="additional_information", columnDefinition = "TEXT")
