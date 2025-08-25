@@ -3,18 +3,14 @@ package com.czertainly.core.util;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
-import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.SearchFieldObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.springframework.context.annotation.Lazy;
 
-import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.logging.Filter;
 
 class SearchHelperTest extends BaseSpringBootTest {
 
