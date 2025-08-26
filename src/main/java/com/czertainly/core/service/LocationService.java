@@ -132,7 +132,7 @@ public interface LocationService extends ResourceExtensionService {
      * @param certificateLocationId    ID of CertificateLocation entity
      * @throws NotFoundException when the CertificateLocation with the given Id is not found.
      */
-    void removeRejectedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException;
+    void removeRejectedOrFailedCertificateFromLocationAction(CertificateLocationId certificateLocationId) throws ConnectorException, NotFoundException;
 
     /**
      * Push existing Certificate to the given Location.
