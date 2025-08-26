@@ -178,10 +178,10 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             int lastCollectionAttributeIndex = FilterPredicatesBuilder.getLastCollectionIndex(
                     joinAttributes, joinAttributes.size()
             );
-                    // If the object is already nested, the path to the property in that object is needed
-                    nestedJoinAttributes =  new ArrayList<>(joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()));
-                    // Otherwise the path to the nested object is needed
-                    nonNestedJoinAttributes = new ArrayList<>(joinAttributes.subList(0, lastCollectionAttributeIndex));
+            // If the object is already nested, the path to the property in that object is needed
+            nestedJoinAttributes = new ArrayList<>(joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()));
+            // Otherwise the path to the nested object is needed
+            nonNestedJoinAttributes = new ArrayList<>(joinAttributes.subList(0, lastCollectionAttributeIndex));
         }
 
         try {
@@ -238,7 +238,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
         ResponseAttributeDto attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
         if (attributeToCompare == null) return false;
-        // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
+        // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
         return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
     }
 
@@ -365,12 +365,12 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
     private static final Map<FilterConditionOperator, BiFunction<Collection<?>, Object, Boolean>> listSpecificOperatorsFunctionMap =
             Map.of(
-                    FilterConditionOperator.EMPTY,          (list, value) -> list.isEmpty(),
-                    FilterConditionOperator.NOT_EMPTY,      (list, value) -> !list.isEmpty(),
-                    FilterConditionOperator.COUNT_EQUAL,    (list, value) -> list.size() == (int) value,
-                    FilterConditionOperator.COUNT_NOT_EQUAL,(list, value) -> list.size() != (int) value,
+                    FilterConditionOperator.EMPTY, (list, value) -> list.isEmpty(),
+                    FilterConditionOperator.NOT_EMPTY, (list, value) -> !list.isEmpty(),
+                    FilterConditionOperator.COUNT_EQUAL, (list, value) -> list.size() == (int) value,
+                    FilterConditionOperator.COUNT_NOT_EQUAL, (list, value) -> list.size() != (int) value,
                     FilterConditionOperator.COUNT_GREATER_THAN, (list, value) -> list.size() > (int) value,
-                    FilterConditionOperator.COUNT_LESS_THAN,    (list, value) -> list.size() < (int) value
+                    FilterConditionOperator.COUNT_LESS_THAN, (list, value) -> list.size() < (int) value
             );
 
 
@@ -389,8 +389,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         stringOperatorFunctionMap.put(FilterConditionOperator.NOT_CONTAINS, (o, c) -> !o.toString().contains(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.STARTS_WITH, (o, c) -> o.toString().startsWith(c.toString()));
         stringOperatorFunctionMap.put(FilterConditionOperator.ENDS_WITH, (o, c) -> o.toString().endsWith(c.toString()));
-        stringOperatorFunctionMap.put(FilterConditionOperator.MATCHES, (o,c) -> o.toString().matches(c.toString()));
-        stringOperatorFunctionMap.put(FilterConditionOperator.NOT_MATCHES, (o,c) -> !o.toString().matches(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.MATCHES, (o, c) -> o.toString().matches(c.toString()));
+        stringOperatorFunctionMap.put(FilterConditionOperator.NOT_MATCHES, (o, c) -> !o.toString().matches(c.toString()));
 
         fieldTypeToOperatorActionMap.put(FilterFieldType.STRING, stringOperatorFunctionMap);
 
@@ -480,7 +480,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         if (conditionNumber instanceof String) {
             conditionNumber = Float.parseFloat(conditionNumber.toString());
         } else if (!(conditionNumber instanceof Number)) {
-            throw new ValidationException("Invalid type for conditionNumber. Expected String or Number, but got: " 
+            throw new ValidationException("Invalid type for conditionNumber. Expected String or Number, but got: "
                     + (conditionNumber == null ? "null" : conditionNumber.getClass().getSimpleName()));
         }
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
