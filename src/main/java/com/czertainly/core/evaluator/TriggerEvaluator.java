@@ -135,43 +135,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
         // First, check where from to get object value based on Field Source
         if (fieldSource == FilterFieldSource.PROPERTY) {
-            Object objectValue;
-            FilterField field;
-            try {
-                field = Enum.valueOf(FilterField.class, fieldIdentifier);
-            } catch (IllegalArgumentException e) {
-                throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
-            }
-            // Get value of property from the object
-            try {
-                objectValue = getPropertyValue(object, field, false);
-            } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-                throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
-            }
-
-            FilterFieldType fieldType = field.getType().getFieldType();
-            // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
-            try {
-                if (!(objectValue instanceof Collection<?> objectValues)) {
-                    return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
-                }
-                if (operator == FilterConditionOperator.EMPTY) return objectValues.isEmpty();
-                if (operator == FilterConditionOperator.NOT_EMPTY) return !objectValues.isEmpty();
-                if (operator == FilterConditionOperator.COUNT_EQUAL) return objectValues.size() == (int) conditionValue;
-                if (operator == FilterConditionOperator.COUNT_NOT_EQUAL) return objectValues.size() != (int) conditionValue;
-                if (operator == FilterConditionOperator.COUNT_GREATER_THAN) return objectValues.size() > (int) conditionValue;
-                if (operator == FilterConditionOperator.COUNT_LESS_THAN) return objectValues.size() < (int) conditionValue;
-
-                for (Object item : objectValues) {
-                    Object o = getPropertyValue(item, field, true);
-                    if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
-                        return false;
-                    }
-                }
-                return true;
-            } catch (Exception e) {
-                throw new RuleException("Condition is not set properly: " + e.getMessage());
-            }
+            return evaluatePropertyConditionItem(object, resource, fieldIdentifier, operator, conditionValue);
         }
 
         // Check for UUID in the object, if there is no UUID, it means that the object is not yet in database and therefore won't have any attributes linked to it
@@ -179,42 +143,103 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         try {
             objectUuid = (UUID) PropertyUtils.getProperty(object, "uuid");
         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
-            throw new RuleException("Cannot get uuid from resource " + resource + ".");
+            throw new RuleException("Cannot get UUID from resource " + resource + ".");
         }
 
         if (objectUuid != null) {
             if (fieldSource == FilterFieldSource.CUSTOM) {
-                // If source is Custom Attribute, retrieve custom attributes of this object and find the attribute which has Name equal to Field Identifier
-                List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
-                ResponseAttributeDto attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
-                if (attributeToCompare == null) return false;
-                // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
-                return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
+                return evaluateCustomAttributeConditionItem(resource, objectUuid, fieldIdentifier, conditionValue, operator);
             }
 
             if (fieldSource == FilterFieldSource.META) {
-                // If the Field Source is Meta Attribute, we expect Field Identifier to be formatted as follows 'name|contentType', since there can be multiple Meta Attributes with the same name, the Content Type must be specified
-                String[] split = fieldIdentifier.split("\\|");
-                if (split.length < 2) throw new RuleException("Field identifier is not in correct format.");
-                AttributeContentType fieldAttributeContentType = AttributeContentType.valueOf(split[1]);
-                String fieldIdentifierName = split[0];
-                // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying attribute, otherwise continue wit next
-                List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(resource, objectUuid));
-                for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
-                    for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
-                        if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) && fieldAttributeContentType == responseAttributeDto.getContentType()) {
-                            // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
-                            if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
-                                return true;
-                        }
-                    }
-                }
-                // If no attribute has been evaluated as satisfying, the condition is not satisfied as whole
-                return false;
+                return evaluateMetaAttributeConditionItem(resource, fieldIdentifier, objectUuid, conditionValue, operator);
             }
         }
         // Field source is not Property and object is not database, therefore attributes can not be evaluated and condition is not satisfied
         return false;
+    }
+
+    private boolean evaluatePropertyConditionItem(T object, Resource resource, String fieldIdentifier, FilterConditionOperator operator, Object conditionValue) throws RuleException {
+        Object objectValue;
+        FilterField filterField;
+        try {
+            filterField = Enum.valueOf(FilterField.class, fieldIdentifier);
+        } catch (IllegalArgumentException e) {
+            throw new RuleException("Field identifier '" + fieldIdentifier + "' is not supported.");
+        }
+
+        List<Attribute> nestedJoinAttributes = null;
+        List<Attribute> nonNestedJoinAttributes = null;
+
+        boolean isNested = filterField.getJoinAttributes() != null && !filterField.getJoinAttributes().isEmpty();
+        if (isNested) {
+            List<Attribute> joinAttributes = new ArrayList<>(filterField.getJoinAttributes());
+            // Find index which separates path to object holding property to check against and path to the property in that object
+            int lastCollectionAttributeIndex = FilterPredicatesBuilder.getLastCollectionIndex(
+                    joinAttributes, joinAttributes.size()
+            );
+                    // If the object is already nested, the path to the property in that object is needed
+                    nestedJoinAttributes =  new ArrayList<>(joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()));
+                    // Otherwise the path to the nested object is needed
+                    nonNestedJoinAttributes = new ArrayList<>(joinAttributes.subList(0, lastCollectionAttributeIndex));
+        }
+
+        try {
+            objectValue = getPropertyValue(object, nonNestedJoinAttributes, isNested ? null : filterField.getFieldAttribute());
+        } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
+            throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
+        }
+
+        FilterFieldType fieldType = filterField.getType().getFieldType();
+        // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
+        try {
+            if (!(objectValue instanceof Collection<?> objectValues)) {
+                return fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(objectValue, conditionValue);
+            }
+
+            if (listSpecificOperatorsFunctionMap.get(operator) != null)
+                return listSpecificOperatorsFunctionMap.get(operator).apply(objectValues, conditionValue);
+
+            for (Object item : objectValues) {
+                Object o = getPropertyValue(item, nestedJoinAttributes, filterField.getFieldAttribute());
+                if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
+                    return false;
+                }
+            }
+            return true;
+        } catch (Exception e) {
+            throw new RuleException("Condition is not set properly: " + e.getMessage());
+        }
+    }
+
+    private boolean evaluateMetaAttributeConditionItem(Resource resource, String fieldIdentifier, UUID objectUuid, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+        // If the Field Source is Meta Attribute, we expect Field Identifier to be formatted as follows 'name|contentType', since there can be multiple Meta Attributes with the same name, the Content Type must be specified
+        String[] split = fieldIdentifier.split("\\|");
+        if (split.length < 2) throw new RuleException("Field identifier is not in correct format.");
+        AttributeContentType fieldAttributeContentType = AttributeContentType.valueOf(split[1]);
+        String fieldIdentifierName = split[0];
+        // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying attribute, otherwise continue wit next
+        List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(resource, objectUuid));
+        for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
+            for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
+                if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) && fieldAttributeContentType == responseAttributeDto.getContentType()) {
+                    // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
+                    if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
+                        return true;
+                }
+            }
+        }
+        // If no attribute has been evaluated as satisfying, the condition is not satisfied as whole
+        return false;
+    }
+
+    private boolean evaluateCustomAttributeConditionItem(Resource resource, UUID objectUuid, String fieldIdentifier, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+        // If source is Custom Attribute, retrieve custom attributes of this object and find the attribute which has Name equal to Field Identifier
+        List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
+        ResponseAttributeDto attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
+        if (attributeToCompare == null) return false;
+        // Evaluate condition on each attribute content of the attribute, if at least teh condition is evaluated as satisfied at least once, the condition is satisfied for the object
+        return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
     }
 
     @Override
@@ -308,27 +333,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         notificationProducer.produceMessage(message);
     }
 
-    private Object getPropertyValue(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        List<Attribute> joinAttributes = null;
-
-        boolean isNested = filterField.getJoinAttributes() != null && !filterField.getJoinAttributes().isEmpty();
-        if (isNested) {
-            joinAttributes = new ArrayList<>(filterField.getJoinAttributes());
-            // Find index which separates path to object holding property to check against and path to the property in that object
-            int lastCollectionAttributeIndex = FilterPredicatesBuilder.getLastCollectionIndex(
-                    joinAttributes, joinAttributes.size()
-            );
-
-            joinAttributes = alreadyNested
-                    // If the object is already nested, the path to the property in that object is needed
-                    ? new ArrayList<>(joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()))
-                    // Otherwise the path to the nested object is needed
-                    : new ArrayList<>(joinAttributes.subList(0, lastCollectionAttributeIndex));
-        }
-
-        Attribute fieldAttribute = alreadyNested || !isNested ? filterField.getFieldAttribute() : null;
+    private Object getPropertyValue(Object object, List<Attribute> joinAttributes, Attribute fieldAttribute) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
         String pathToProperty = FilterPredicatesBuilder.buildPathToProperty(joinAttributes, fieldAttribute);
-
         return PropertyUtils.getProperty(object, pathToProperty);
     }
 
@@ -356,6 +362,16 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> listOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> dateOperatorFunctionMap;
     private static final Map<FilterConditionOperator, BiFunction<Object, Object, Boolean>> datetimeOperatorFunctionMap;
+
+    private static final Map<FilterConditionOperator, BiFunction<Collection<?>, Object, Boolean>> listSpecificOperatorsFunctionMap =
+            Map.of(
+                    FilterConditionOperator.EMPTY,          (list, value) -> list.isEmpty(),
+                    FilterConditionOperator.NOT_EMPTY,      (list, value) -> !list.isEmpty(),
+                    FilterConditionOperator.COUNT_EQUAL,    (list, value) -> list.size() == (int) value,
+                    FilterConditionOperator.COUNT_NOT_EQUAL,(list, value) -> list.size() != (int) value,
+                    FilterConditionOperator.COUNT_GREATER_THAN, (list, value) -> list.size() > (int) value,
+                    FilterConditionOperator.COUNT_LESS_THAN,    (list, value) -> list.size() < (int) value
+            );
 
 
     static {
