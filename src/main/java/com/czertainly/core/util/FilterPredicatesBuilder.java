@@ -81,7 +81,6 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
 
-        criteriaBuilder.function()
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
@@ -243,8 +242,10 @@ public class FilterPredicatesBuilder {
             }
         }
         final LocalDateTime now = LocalDateTime.now();
+        boolean bitEnumProperty = BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
         switch (conditionOperator) {
             case EQUALS ->
+                    if (bitEnumProperty) predicate = criteriaBuilder.function()
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
             case NOT_EQUALS -> {
                 // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
