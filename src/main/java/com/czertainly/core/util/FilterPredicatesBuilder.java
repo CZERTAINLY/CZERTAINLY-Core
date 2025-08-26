@@ -128,7 +128,7 @@ public class FilterPredicatesBuilder {
                 Duration duration = (Duration) filterValues.getFirst();
                 yield criteriaBuilder.between(expression,
                         nowDateTime.minus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds()),
-                       nowDateTime);
+                        nowDateTime);
             }
             case IN_NEXT -> {
                 Duration duration = (Duration) filterValues.getFirst();
@@ -244,17 +244,24 @@ public class FilterPredicatesBuilder {
         final LocalDateTime now = LocalDateTime.now();
         boolean bitEnumProperty = BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
         switch (conditionOperator) {
-            case EQUALS ->
-                    if (bitEnumProperty) predicate = criteriaBuilder.function()
+            case EQUALS -> {
+                if (bitEnumProperty)
+                    predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
+            }
             case NOT_EQUALS -> {
-                // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
-                if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
-                    predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, filterValues.getFirst()), criteriaBuilder.equal(expression, filterValues.getFirst())), criteriaBuilder.isNull(expression));
-                } else {
-                    predicate = filterField.getFieldResource() == Resource.GROUP
-                            ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
-                            : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                if (bitEnumProperty)
+                    predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else {
+                    // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
+                    if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
+                        predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, filterValues.getFirst()), criteriaBuilder.equal(expression, filterValues.getFirst())), criteriaBuilder.isNull(expression));
+                    } else {
+                        predicate = filterField.getFieldResource() == Resource.GROUP
+                                ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
+                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                    }
                 }
             }
             case STARTS_WITH -> predicate = criteriaBuilder.like(expression, filterValues.getFirst() + "%");
@@ -298,6 +305,10 @@ public class FilterPredicatesBuilder {
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
+    }
+
+    private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression, CriteriaBuilder criteriaBuilder) {
+        return criteriaBuilder.function(BitwiseFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression, criteriaBuilder.literal(bit));
     }
 
     private static void validateRegexForDbQuery(String regex) {

@@ -10,6 +10,7 @@ import com.czertainly.api.model.client.certificate.CertificateResponseDto;
 import com.czertainly.api.model.client.certificate.CertificateSearchRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.*;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
@@ -807,13 +808,13 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     @Test
     void testListOfEnums() {
-        certificate1.setKeyUsage(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_CERT_SIGN));
-        certificate2.setKeyUsage(List.of(CertificateKeyUsage.NON_REPUDIATION, CertificateKeyUsage.KEY_CERT_SIGN));
+        certificate1.setKeyUsage(BitMaskEnum.convertListToBitMask(Set.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_CERT_SIGN)));
+        certificate2.setKeyUsage(BitMaskEnum.convertListToBitMask(Set.of(CertificateKeyUsage.NON_REPUDIATION, CertificateKeyUsage.KEY_CERT_SIGN)));
         certificateRepository.save(certificate1);
         certificateRepository.save(certificate2);
         CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_USAGE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateKeyUsage.KEY_CERT_SIGN.getCode(), CertificateKeyUsage.NON_REPUDIATION.getCode()))));
-        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()),getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_USAGE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateKeyUsage.KEY_CERT_SIGN.getCode()))));
+        Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
     }
 
