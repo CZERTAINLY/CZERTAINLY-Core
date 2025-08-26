@@ -322,9 +322,10 @@ public class FilterPredicatesBuilder {
 
         // If count operator, find last collection attribute index
         if (isCountOperator(condition)) {
-            for (int i = 0; i < joinAttributes.size(); i++) {
+            for (int i = joinAttributes.size() - 1; i >= 0; i--) {
                 if (joinAttributes.get(i).isCollection()) {
                     lastIndex = i + 1;
+                    break;
                 }
             }
         }
