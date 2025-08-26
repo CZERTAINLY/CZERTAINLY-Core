@@ -23,10 +23,12 @@ import com.czertainly.core.dao.entity.oid.CustomOidEntry_;
 import com.czertainly.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry_;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.metamodel.Attribute;
+import lombok.Getter;
 
 import java.util.Arrays;
 import java.util.List;
 
+@Getter
 public enum FilterField {
 
     // Certificate
@@ -175,46 +177,6 @@ public enum FilterField {
         this.enumClass = enumClass;
         this.settable = settable;
         this.expectedValue = expectedValue;
-    }
-
-    public Resource getRootResource() {
-        return rootResource;
-    }
-
-    public Resource getFieldResource() {
-        return fieldResource;
-    }
-
-    public List<Attribute> getJoinAttributes() {
-        return joinAttributes;
-    }
-
-    public Attribute getFieldAttribute() {
-        return fieldAttribute;
-    }
-
-    public SearchFieldTypeEnum getType() {
-        return type;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public String[] getJsonPath() {
-        return jsonPath;
-    }
-
-    public Class<? extends IPlatformEnum> getEnumClass() {
-        return enumClass;
-    }
-
-    public Object getExpectedValue() {
-        return expectedValue;
-    }
-
-    public boolean isSettable() {
-        return settable;
     }
 
     public static List<FilterField> getEnumsForResource(Resource resource) {
