@@ -19,6 +19,7 @@ import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import org.hibernate.query.criteria.JpaExpression;
+
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
 import javax.xml.datatype.Duration;
@@ -28,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 public class FilterPredicatesBuilder {
 
@@ -322,12 +324,7 @@ public class FilterPredicatesBuilder {
 
         // If count operator, find last collection attribute index
         if (isCountOperator(condition)) {
-            for (int i = joinAttributes.size() - 1; i >= 0; i--) {
-                if (joinAttributes.get(i).isCollection()) {
-                    lastIndex = i + 1;
-                    break;
-                }
-            }
+            lastIndex = getLastCollectionIndex(joinAttributes, lastIndex);
         }
 
         for (int i = 0; i < lastIndex; i++) {
@@ -347,6 +344,16 @@ public class FilterPredicatesBuilder {
             }
         }
         return from;
+    }
+
+    public static int getLastCollectionIndex(List<Attribute> joinAttributes, int lastIndex) {
+        for (int i = joinAttributes.size() - 1; i >= 0; i--) {
+            if (joinAttributes.get(i).isCollection()) {
+                lastIndex = i + 1;
+                break;
+            }
+        }
+        return lastIndex;
     }
 
     private static boolean isCountOperator(FilterConditionOperator condition) {
@@ -470,18 +477,24 @@ public class FilterPredicatesBuilder {
         return cb.equal(expressionPath, scheduledJobUuid);
     }
 
-    public static String buildPathToProperty(FilterField filterField, boolean alreadyNested) {
+    public static String buildPathToProperty(List<Attribute> joinAttributes, Attribute fieldAttribute) {
         StringBuilder pathToPropertyBuilder = new StringBuilder();
-        if (filterField.getJoinAttributes() != null) {
-            List<String> joinAttributes = new ArrayList<>(filterField.getJoinAttributes().stream().map(Attribute::getName).toList());
-            if (alreadyNested) joinAttributes.removeFirst();
-            if (!joinAttributes.isEmpty()) {
-                for (String property : joinAttributes) {
-                    pathToPropertyBuilder.append(property).append(".");
-                }
-            }
+
+        if (joinAttributes != null && !joinAttributes.isEmpty()) {
+            // join attribute names with a dot
+            pathToPropertyBuilder.append(
+                    joinAttributes.stream()
+                            .map(Attribute::getName)
+                            .collect(Collectors.joining("."))
+            );
         }
-        pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
+
+        if (fieldAttribute != null) {
+            if (!pathToPropertyBuilder.isEmpty()) {
+                pathToPropertyBuilder.append(".");
+            }
+            pathToPropertyBuilder.append(fieldAttribute.getName());
+        }
         return pathToPropertyBuilder.toString();
     }
 }

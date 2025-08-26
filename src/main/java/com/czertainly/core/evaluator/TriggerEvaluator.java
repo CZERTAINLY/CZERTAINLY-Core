@@ -23,7 +23,7 @@ import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.service.TriggerService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import jakarta.persistence.metamodel.Attribute;
 import org.apache.commons.beanutils.PropertyUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -49,16 +49,10 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     protected static final Logger logger = LoggerFactory.getLogger(TriggerEvaluator.class);
     private static final String DATETIME_FORMAT = "yyyy-MM-dd'T'HH:mm:ss.SSSXXX";
 
-    private ObjectMapper objectMapper;
     private AttributeEngine attributeEngine;
 
     private TriggerService triggerService;
     private NotificationProducer notificationProducer;
-
-    @Autowired
-    public void setObjectMapper(ObjectMapper objectMapper) {
-        this.objectMapper = objectMapper;
-    }
 
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
@@ -315,25 +309,27 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
     }
 
     private Object getPropertyValue(Object object, FilterField filterField, boolean alreadyNested) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
-        boolean isNested = filterField.getJoinAttributes() != null;
-        String pathToProperty = FilterPredicatesBuilder.buildPathToProperty(filterField, alreadyNested);
+        List<Attribute> joinAttributes = null;
 
-        try {
-            if (alreadyNested) {
-                return PropertyUtils.getProperty(object, pathToProperty);
-            }
-            return PropertyUtils.getProperty(object, pathToProperty);
-        } catch (NoSuchMethodException e) {
-            if (!isNested || alreadyNested) {
-                throw e;
-            }
+        boolean isNested = filterField.getJoinAttributes() != null && !filterField.getJoinAttributes().isEmpty();
+        if (isNested) {
+            joinAttributes = new ArrayList<>(filterField.getJoinAttributes());
+            // Find index which separates path to object holding property to check against and path to the property in that object
+            int lastCollectionAttributeIndex = FilterPredicatesBuilder.getLastCollectionIndex(
+                    joinAttributes, joinAttributes.size()
+            );
 
-            Object tmpValue = PropertyUtils.getProperty(object, filterField.getJoinAttributes().getFirst().getName());
-            if (tmpValue instanceof Collection<?>) {
-                return tmpValue;
-            }
-            throw e;
+            joinAttributes = alreadyNested
+                    // If the object is already nested, the path to the property in that object is needed
+                    ? new ArrayList<>(joinAttributes.subList(lastCollectionAttributeIndex, joinAttributes.size()))
+                    // Otherwise the path to the nested object is needed
+                    : new ArrayList<>(joinAttributes.subList(0, lastCollectionAttributeIndex));
         }
+
+        Attribute fieldAttribute = alreadyNested || !isNested ? filterField.getFieldAttribute() : null;
+        String pathToProperty = FilterPredicatesBuilder.buildPathToProperty(joinAttributes, fieldAttribute);
+
+        return PropertyUtils.getProperty(object, pathToProperty);
     }
 
     private boolean getConditionEvaluationResult(ConditionItem conditionItem, T object, TriggerHistory triggerHistory, Rule rule) {

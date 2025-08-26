@@ -465,6 +465,30 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         newCondition.setValue("257.4");
         Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+
+    }
+
+    @Test
+    void testKeyCountCondition() throws RuleException {
+        Group group = new Group();
+        group.setName("group");
+        group = groupRepository.save(group);
+
+        Group group2 = new Group();
+        group2.setName("group2");
+        group2 = groupRepository.save(group2);
+
+        CryptographicKey parentKey = new CryptographicKey();
+        parentKey.setGroups(Set.of(group, group2));
+        CryptographicKeyItem cryptographicKey = new CryptographicKeyItem();
+        cryptographicKey.setName("Key");
+        ConditionItem newCondition = new ConditionItem();
+        newCondition.setFieldSource(FilterFieldSource.PROPERTY);
+        cryptographicKey.setKey(parentKey);
+        newCondition.setFieldIdentifier(FilterField.CK_GROUP.name());
+        newCondition.setOperator(FilterConditionOperator.COUNT_EQUAL);
+        newCondition.setValue(2);
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
     }
 
     @Test
