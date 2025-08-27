@@ -7,7 +7,6 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.*;
@@ -30,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 public class FilterPredicatesBuilder {
 
@@ -195,12 +195,13 @@ public class FilterPredicatesBuilder {
 
     private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
         final FilterField filterField = FilterField.valueOf(filterDto.getFieldIdentifier());
-
-        From from = getJoinedAssociation(root, joinedAssociations, filterField);
+        From from = getJoinedAssociation(root, joinedAssociations, filterField, filterDto.getCondition());
 
         // prepare filter values, expression and set filter characteristics
         List<Object> filterValues = preparePropertyFilterValues(filterDto, filterField);
-        Expression expression = from.get(filterField.getFieldAttribute().getName());
+        Expression expression = null;
+        if (filterField.getFieldAttribute() != null && !isCountOperator(filterDto.getCondition()))
+            expression = from.get(filterField.getFieldAttribute().getName());
 
         if (filterField.getJsonPath() != null) {
             expression = switch (filterField.getJsonPath().length) {
@@ -301,6 +302,14 @@ public class FilterPredicatesBuilder {
                 validateRegexForDbQuery(filterValues.getFirst().toString());
                 predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
             }
+            case COUNT_EQUAL -> predicate = criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst());
+            case COUNT_NOT_EQUAL ->
+                    predicate = criteriaBuilder.not(criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst()));
+            case COUNT_GREATER_THAN ->
+                    predicate = criteriaBuilder.greaterThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+            case COUNT_LESS_THAN ->
+                    predicate = criteriaBuilder.lessThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
@@ -320,12 +329,25 @@ public class FilterPredicatesBuilder {
     }
 
 
-    private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField) {
+    private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField, FilterConditionOperator condition) {
         From from = root;
         From joinedAssociation;
         String associationFullPath = null;
-        for (Attribute joinAttribute : filterField.getJoinAttributes()) {
-            associationFullPath = associationFullPath == null ? joinAttribute.getName() : associationFullPath + "." + joinAttribute.getName();
+        List<Attribute> joinAttributes = filterField.getJoinAttributes();
+        int lastIndex = joinAttributes.size();
+
+        // If count operator, find last collection attribute index
+        if (isCountOperator(condition)) {
+            lastIndex = getLastCollectionIndex(joinAttributes, lastIndex);
+        }
+
+        for (int i = 0; i < lastIndex; i++) {
+            Attribute joinAttribute = joinAttributes.get(i);
+
+            associationFullPath = associationFullPath == null
+                    ? joinAttribute.getName()
+                    : associationFullPath + "." + joinAttribute.getName();
+
             joinedAssociation = joinedAssociations.get(associationFullPath);
 
             if (joinedAssociation != null) {
@@ -336,6 +358,20 @@ public class FilterPredicatesBuilder {
             }
         }
         return from;
+    }
+
+    public static int getLastCollectionIndex(List<Attribute> joinAttributes, int lastIndex) {
+        for (int i = joinAttributes.size() - 1; i >= 0; i--) {
+            if (joinAttributes.get(i).isCollection()) {
+                lastIndex = i + 1;
+                break;
+            }
+        }
+        return lastIndex;
+    }
+
+    private static boolean isCountOperator(FilterConditionOperator condition) {
+        return condition == FilterConditionOperator.COUNT_EQUAL || condition == FilterConditionOperator.COUNT_NOT_EQUAL || condition == FilterConditionOperator.COUNT_GREATER_THAN || condition == FilterConditionOperator.COUNT_LESS_THAN;
     }
 
     private static List<Object> preparePropertyFilterValues(final SearchFilterRequestDto filterDto, final FilterField filterField) {
@@ -349,7 +385,7 @@ public class FilterPredicatesBuilder {
         List<Object> filterValues = filterValue instanceof List<?> ? (List<Object>) filterValue : List.of(filterValue);
         for (Object value : filterValues) {
             Object preparedFilterValue = null;
-            if (filterField.getEnumClass() != null) {
+            if (filterField.getEnumClass() != null && !isCountOperator(filterDto.getCondition())) {
                 if (BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass())) {
                     final BitMaskEnum enumValue = (BitMaskEnum) findEnumByCustomValue(value, filterField.getEnumClass());
                     if (enumValue != null) {
@@ -455,18 +491,24 @@ public class FilterPredicatesBuilder {
         return cb.equal(expressionPath, scheduledJobUuid);
     }
 
-    public static String buildPathToProperty(FilterField filterField, boolean alreadyNested) {
+    public static String buildPathToProperty(List<Attribute> joinAttributes, Attribute fieldAttribute) {
         StringBuilder pathToPropertyBuilder = new StringBuilder();
-        if (filterField.getJoinAttributes() != null) {
-            List<String> joinAttributes = new ArrayList<>(filterField.getJoinAttributes().stream().map(Attribute::getName).toList());
-            if (alreadyNested) joinAttributes.removeFirst();
-            if (!joinAttributes.isEmpty()) {
-                for (String property : joinAttributes) {
-                    pathToPropertyBuilder.append(property).append(".");
-                }
-            }
+
+        if (joinAttributes != null && !joinAttributes.isEmpty()) {
+            // join attribute names with a dot
+            pathToPropertyBuilder.append(
+                    joinAttributes.stream()
+                            .map(Attribute::getName)
+                            .collect(Collectors.joining("."))
+            );
         }
-        pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
+
+        if (fieldAttribute != null) {
+            if (!pathToPropertyBuilder.isEmpty()) {
+                pathToPropertyBuilder.append(".");
+            }
+            pathToPropertyBuilder.append(fieldAttribute.getName());
+        }
         return pathToPropertyBuilder.toString();
     }
 }
