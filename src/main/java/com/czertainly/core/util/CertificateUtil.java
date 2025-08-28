@@ -124,9 +124,11 @@ public class CertificateUtil {
 
     public static int keyUsageExtractor(boolean[] keyUsage) {
         int result = 0;
-        for (int i = 0; i < keyUsage.length; i++) {
-            if (keyUsage[i]) {
-                result |= (1 << i);  // set bit i
+        if (keyUsage != null) {
+            for (int i = 0; i < keyUsage.length; i++) {
+                if (keyUsage[i]) {
+                    result |= (1 << i);  // set bit i
+                }
             }
         }
         return result;

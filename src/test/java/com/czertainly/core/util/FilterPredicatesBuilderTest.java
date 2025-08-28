@@ -911,8 +911,10 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         certificateRepository.save(certificate1);
         certificateRepository.save(certificate2);
         CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_USAGE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateKeyUsage.KEY_CERT_SIGN.getCode()))));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_USAGE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(CertificateKeyUsage.KEY_CERT_SIGN.getCode(), CertificateKeyUsage.NON_REPUDIATION.getCode()))));
         Assertions.assertEquals(Set.of(certificate1.getUuid(), certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.KEY_USAGE.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(CertificateKeyUsage.KEY_CERT_SIGN.getCode(), CertificateKeyUsage.NON_REPUDIATION.getCode()))));
+        Assertions.assertEquals(Set.of(certificate3.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
 
     }
 

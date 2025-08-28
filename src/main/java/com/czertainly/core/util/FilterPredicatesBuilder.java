@@ -243,7 +243,7 @@ public class FilterPredicatesBuilder {
             }
         }
         final LocalDateTime now = LocalDateTime.now();
-        boolean bitEnumProperty = BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
+        boolean bitEnumProperty = filterField.getEnumClass() != null && BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
         switch (conditionOperator) {
             case EQUALS -> {
                 if (bitEnumProperty)

@@ -447,6 +447,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         fieldTypeToOperatorActionMap.put(FilterFieldType.DATETIME, datetimeOperatorFunctionMap);
 
         listOperatorFunctionMap = new EnumMap<>(FilterConditionOperator.class);
+        listOperatorFunctionMap.putAll(commonOperatorFunctionMap);
         listOperatorFunctionMap.put(FilterConditionOperator.EQUALS, (o, c) -> ((Collection<?>) c).contains(o));
         listOperatorFunctionMap.put(FilterConditionOperator.NOT_EQUALS, (o, c) -> !((Collection<?>) c).contains(o));
         fieldTypeToOperatorActionMap.put(FilterFieldType.LIST, listOperatorFunctionMap);

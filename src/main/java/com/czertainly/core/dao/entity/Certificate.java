@@ -489,6 +489,10 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         return CertificateKeyUsage.convertBitMaskToList(keyUsage);
     }
 
+    public int getKeyUsageBitMask() {
+        return keyUsage;
+    }
+
     public void setUsage(List<CertificateKeyUsage> usage) {
         this.keyUsage = BitMaskEnum.convertListToBitMask(new HashSet<>(usage));
     }

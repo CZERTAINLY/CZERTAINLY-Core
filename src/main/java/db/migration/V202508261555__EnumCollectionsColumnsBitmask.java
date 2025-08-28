@@ -3,6 +3,7 @@ package db.migration;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.certificate.CertificateKeyUsage;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
+import com.czertainly.core.util.DatabaseMigration;
 import com.czertainly.core.util.MetaDefinitions;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
@@ -23,6 +24,11 @@ public class V202508261555__EnumCollectionsColumnsBitmask extends BaseJavaMigrat
             10, KeyUsage.WRAP,
             20, KeyUsage.UNWRAP
     );
+
+    @Override
+    public Integer getChecksum() {
+        return DatabaseMigration.JavaMigrationChecksums.V202508261555__EnumCollectionsColumnsBitmask.getChecksum();
+    }
 
     @Override
     public void migrate(Context context) throws Exception {
