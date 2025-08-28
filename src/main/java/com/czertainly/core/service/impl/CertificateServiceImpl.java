@@ -1825,15 +1825,6 @@ public class CertificateServiceImpl implements CertificateService {
         return new CertificateRelationId(successorUuid, predecessorUuid);
     }
 
-
-    private List<Object> serializedListOfStringToListOfObject(List<String> serializedData) {
-        Set<String> serSet = new LinkedHashSet<>();
-        for (String obj : serializedData) {
-            serSet.addAll(MetaDefinitions.deserializeArrayString(obj));
-        }
-        return new ArrayList<>(serSet);
-    }
-
     private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {
         logger.debug("Framing Compliance Result from stored data: {}", storageDto);
         List<CertificateComplianceResultDto> result = new ArrayList<>();
