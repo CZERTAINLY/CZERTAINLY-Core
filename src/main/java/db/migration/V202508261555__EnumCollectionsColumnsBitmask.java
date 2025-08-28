@@ -78,7 +78,7 @@ public class V202508261555__EnumCollectionsColumnsBitmask extends BaseJavaMigrat
                 if (rawValue == null || rawValue.isEmpty()) bitmask = 0;
                 else {
                     Set<E> values = parser.apply(rawValue);
-                    bitmask = BitMaskEnum.convertListToBitMask(values);
+                    bitmask = BitMaskEnum.convertSetToBitMask(values);
                 }
                 updates.put((UUID) rs.getObject("uuid"), bitmask);
 

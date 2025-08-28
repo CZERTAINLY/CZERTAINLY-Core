@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
@@ -14,7 +15,6 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -54,11 +54,11 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     }
 
     public List<KeyUsage> getUsage() {
-        return KeyUsage.convertBitMaskToList(usage).stream().toList();
+        return KeyUsage.convertBitMaskToSet(usage).stream().toList();
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = KeyUsage.convertListToBitMask(new HashSet<>(usage));
+        this.usage = BitMaskEnum.convertSetToBitMask(new HashSet<>(usage));
     }
 
     @Override

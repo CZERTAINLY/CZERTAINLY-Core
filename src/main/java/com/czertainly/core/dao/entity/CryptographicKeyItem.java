@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.cryptography.key.KeyCompromiseReason;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -22,7 +23,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -105,11 +105,11 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public List<KeyUsage> getUsage() {
-        return KeyUsage.convertBitMaskToList(usage).stream().toList();
+        return KeyUsage.convertBitMaskToSet(usage).stream().toList();
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = KeyUsage.convertListToBitMask(new HashSet<>(usage));
+        this.usage = BitMaskEnum.convertSetToBitMask(new HashSet<>(usage));
     }
 
 

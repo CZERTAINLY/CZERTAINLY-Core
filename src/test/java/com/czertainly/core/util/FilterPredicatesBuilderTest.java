@@ -46,7 +46,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.security.core.parameters.P;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -906,8 +905,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     @Test
     void testListOfEnums() {
-        certificate1.setKeyUsage(BitMaskEnum.convertListToBitMask(Set.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_CERT_SIGN)));
-        certificate2.setKeyUsage(BitMaskEnum.convertListToBitMask(Set.of(CertificateKeyUsage.NON_REPUDIATION, CertificateKeyUsage.KEY_CERT_SIGN)));
+        certificate1.setKeyUsage(BitMaskEnum.convertSetToBitMask(Set.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_CERT_SIGN)));
+        certificate2.setKeyUsage(BitMaskEnum.convertSetToBitMask(Set.of(CertificateKeyUsage.NON_REPUDIATION, CertificateKeyUsage.KEY_CERT_SIGN)));
         certificateRepository.save(certificate1);
         certificateRepository.save(certificate2);
         CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
