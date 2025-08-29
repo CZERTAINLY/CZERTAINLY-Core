@@ -860,6 +860,14 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         keyItem.setType(keyData.getType());
         keyItem.setKeyAlgorithm(keyData.getAlgorithm());
         keyItem.setKeyData(keyData.getFormat(), keyData.getValue());
+        try {
+            String fingerprint = CertificateUtil.getThumbprint(keyItem.getKeyData().getBytes(StandardCharsets.UTF_8));
+            UUID sameKeyUuid = findKeyByFingerprint(fingerprint);
+            if (sameKeyUuid != null) throw new ValidationException("Key with the same fingerprint as key item of key %s already exists. Existing key UUID: %s".formatted(cryptographicKey.getUuid(), sameKeyUuid));
+            keyItem.setFingerprint(fingerprint);
+        } catch (NoSuchAlgorithmException e) {
+            throw new ValidationException("Failed to calculate fingerprint from key content: " + keyItem.getKeyData());
+        }
         keyItem.setFormat(keyData.getFormat());
         keyItem.setLength(keyData.getLength());
         keyItem.setKeyReferenceUuid(UUID.fromString(referenceUuid));
@@ -876,11 +884,6 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                             )
                             .toList()
             );
-        }
-        try {
-            keyItem.setFingerprint(CertificateUtil.getThumbprint(keyItem.getKeyData().getBytes(StandardCharsets.UTF_8)));
-        } catch (NoSuchAlgorithmException | NullPointerException e) {
-            logger.error("Failed to calculate the fingerprint {}", e.getMessage());
         }
         cryptographicKeyItemRepository.save(keyItem);
         String message;
