@@ -905,8 +905,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     @Test
     void testListOfEnums() {
-        certificate1.setKeyUsage(BitMaskEnum.convertSetToBitMask(Set.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_CERT_SIGN)));
-        certificate2.setKeyUsage(BitMaskEnum.convertSetToBitMask(Set.of(CertificateKeyUsage.NON_REPUDIATION, CertificateKeyUsage.KEY_CERT_SIGN)));
+        certificate1.setKeyUsage(BitMaskEnum.convertSetToBitMask(EnumSet.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_CERT_SIGN)));
+        certificate2.setKeyUsage(BitMaskEnum.convertSetToBitMask(EnumSet.of(CertificateKeyUsage.NON_REPUDIATION, CertificateKeyUsage.KEY_CERT_SIGN)));
         certificateRepository.save(certificate1);
         certificateRepository.save(certificate2);
         CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();

@@ -493,7 +493,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     }
 
     public void setUsage(List<CertificateKeyUsage> usage) {
-        this.keyUsage = BitMaskEnum.convertSetToBitMask(new HashSet<>(usage));
+        this.keyUsage = BitMaskEnum.convertSetToBitMask(EnumSet.copyOf(usage));
     }
 
     @Override

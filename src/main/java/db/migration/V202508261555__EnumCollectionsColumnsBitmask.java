@@ -35,7 +35,7 @@ public class V202508261555__EnumCollectionsColumnsBitmask extends BaseJavaMigrat
         migrateColumnToBitmask(context, "certificate", "key_usage",
                 raw -> MetaDefinitions.deserializeArrayString(raw).stream()
                 .map(CertificateKeyUsage::fromCode)
-                .collect(Collectors.toSet())
+                        .collect(Collectors.toCollection(() -> EnumSet.noneOf(CertificateKeyUsage.class)))
                );
         migrateColumnToBitmask(
                 context,
@@ -51,19 +51,19 @@ public class V202508261555__EnumCollectionsColumnsBitmask extends BaseJavaMigrat
         );
     }
 
-    private static Set<KeyUsage> listOfIntEnumRepresentationToBitMask(String raw) {
+    private static EnumSet<KeyUsage> listOfIntEnumRepresentationToBitMask(String raw) {
         return Arrays.stream(raw.split(","))
                 .map(Integer::parseInt)
                 .map(oldBitToKeyUsage::get)
                 .filter(Objects::nonNull)
-                .collect(Collectors.toSet());
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(KeyUsage.class)));
     }
 
     private <E extends Enum<E> & BitMaskEnum> void migrateColumnToBitmask(
             Context context,
             String tableName,
             String columnName,
-            Function<String, Set<E>> parser
+            Function<String, EnumSet<E>> parser
     ) throws SQLException {
 
         Map<UUID, Integer> updates = new HashMap<>();
@@ -77,7 +77,7 @@ public class V202508261555__EnumCollectionsColumnsBitmask extends BaseJavaMigrat
                 int bitmask;
                 if (rawValue == null || rawValue.isEmpty()) bitmask = 0;
                 else {
-                    Set<E> values = parser.apply(rawValue);
+                    EnumSet<E> values = parser.apply(rawValue);
                     bitmask = BitMaskEnum.convertSetToBitMask(values);
                 }
                 updates.put((UUID) rs.getObject("uuid"), bitmask);

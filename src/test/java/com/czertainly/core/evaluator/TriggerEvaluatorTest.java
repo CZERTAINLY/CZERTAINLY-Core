@@ -311,7 +311,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
     @Test
     void testCertificateEvaluatorOnEnumListBitmask() throws RuleException {
-        certificate.setKeyUsage(BitMaskEnum.convertSetToBitMask(Set.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT, CertificateKeyUsage.KEY_AGREEMENT)));
+        certificate.setKeyUsage(BitMaskEnum.convertSetToBitMask(EnumSet.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT, CertificateKeyUsage.KEY_AGREEMENT)));
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier(FilterField.KEY_USAGE.name());
         condition.setOperator(FilterConditionOperator.EQUALS);
