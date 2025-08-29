@@ -19,6 +19,8 @@ public interface ComplianceProfileRuleRepository extends SecurityFilterRepositor
 
     List<ComplianceProfileRule> findByUuidIn(List<UUID> uuid);
 
-    long countByComplianceProfileUuidAndInternalRuleUuidNotNull(UUID complianceProfileUuid);
+    List<ComplianceProfileRule> findByComplianceProfileUuidAndConnectorUuidAndKindAndInternalRuleUuidNull(UUID complianceProfileUuid, UUID connectorUuid, String kind);
+
+    long deleteByComplianceProfileUuidAndInternalRuleUuidNotNull(UUID complianceProfileUuid);
 
 }

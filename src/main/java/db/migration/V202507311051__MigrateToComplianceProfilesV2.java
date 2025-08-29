@@ -46,43 +46,14 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
 
     private void prepareDBStructure(Context context) throws SQLException {
         String sqlCommands = """
-                ALTER TABLE compliance_rule
-                    ADD COLUMN rule_uuid UUID NULL,
-                    ADD COLUMN resource TEXT NULL,
-                    ADD COLUMN type TEXT NULL,
-                    --ADD COLUMN availability_status TEXT NULL,
-                    ALTER COLUMN attributes TYPE JSONB USING attributes::jsonb,
-                    ALTER COLUMN name TYPE TEXT,
-                    ALTER COLUMN kind TYPE TEXT,
-                    ALTER COLUMN description TYPE TEXT,
-                    DROP COLUMN decommissioned,
-                    DROP COLUMN certificate_type,
-                    DROP CONSTRAINT "compliance_rule_to_compliance_group_key";
-                
-                UPDATE compliance_rule SET resource = 'CERTIFICATE', rule_uuid = uuid;
-                --UPDATE compliance_rule SET availability_status = 'AVAILABLE';
-                ALTER TABLE compliance_rule
-                  --ALTER COLUMN availability_status SET NOT NULL,
-                    ALTER COLUMN resource SET NOT NULL,
-                    ALTER COLUMN rule_uuid SET NOT NULL;
-                
-                ALTER TABLE compliance_group
-                    ADD COLUMN group_uuid UUID NULL,
-                    ADD COLUMN resource TEXT NULL,
-                    ALTER COLUMN name TYPE TEXT,
-                    ALTER COLUMN kind TYPE TEXT,
-                    DROP COLUMN decommissioned,
-                    DROP CONSTRAINT "compliance_group_to_connector",
-                    ADD CONSTRAINT fk_compliance_group_to_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE NO ACTION;
-                
-                UPDATE compliance_group SET resource = 'CERTIFICATE', group_uuid = uuid;
-                ALTER TABLE compliance_group
-                    ALTER COLUMN group_uuid SET NOT NULL;
-                
                 ALTER TABLE compliance_profile_rule
+                    ADD COLUMN connector_uuid UUID NULL,
+                    ADD COLUMN kind TEXT NULL,
                     ADD COLUMN compliance_rule_uuid UUID NULL,
                     ADD COLUMN compliance_group_uuid UUID NULL,
                     ADD COLUMN internal_rule_uuid UUID NULL,
+                    ADD COLUMN resource TEXT NULL,
+                    ADD COLUMN type TEXT NULL,
                     ALTER COLUMN attributes TYPE JSONB USING attributes::jsonb,
                     ALTER COLUMN compliance_profile_uuid SET NOT NULL,
                     DROP COLUMN i_author,
@@ -90,8 +61,6 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     DROP COLUMN i_upd,
                     DROP CONSTRAINT "compliance_profile_rule_to_compliance_profile",
                     ADD CONSTRAINT fk_compliance_profile_rule_to_compliance_profile FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
-                    ADD CONSTRAINT fk_compliance_profile_rule_to_compliance_rule FOREIGN KEY (compliance_rule_uuid) REFERENCES compliance_rule(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
-                    ADD CONSTRAINT fk_compliance_profile_rule_to_compliance_group FOREIGN KEY (compliance_group_uuid) REFERENCES compliance_group(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
                     ADD CONSTRAINT fk_compliance_profile_rule_to_rule FOREIGN KEY (internal_rule_uuid) REFERENCES rule(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                 
                 UPDATE compliance_profile_rule SET compliance_rule_uuid = rule_uuid;
@@ -219,6 +188,8 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
         try (Statement statement = context.getConnection().createStatement()) {
             statement.addBatch("DROP TABLE compliance_profile_2_compliance_group;");
             statement.addBatch("DROP TABLE ra_profile_2_compliance_profile;");
+            statement.addBatch("DROP TABLE compliance_rule;");
+            statement.addBatch("DROP TABLE compliance_group;");
             statement.executeBatch();
 
         }

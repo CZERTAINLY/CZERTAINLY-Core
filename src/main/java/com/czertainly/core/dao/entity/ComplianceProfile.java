@@ -3,7 +3,6 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
-import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.v2.*;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
@@ -76,37 +75,6 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         complianceProfileDto.setUuid(uuid);
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
-
-        List<ComplianceRuleDto> internalRules = new ArrayList<>();
-        List<ProviderComplianceRulesDto> providersRules = new ArrayList<>();
-        Map<String, ProviderComplianceRulesDto> providerRulesMapping = new HashMap<>();
-        for (ComplianceProfileRule rule : complianceRules) {
-            BaseComplianceRuleDto ruleDto = rule.mapToDto(ComplianceRuleAvailabilityStatus.AVAILABLE);
-            if (rule.getInternalRuleUuid() != null) {
-                internalRules.add((ComplianceRuleDto) ruleDto);
-            } else {
-                String key = "%s|%s".formatted(ruleDto.getConnectorUuid(), ruleDto.getKind());
-                ProviderComplianceRulesDto providerRules = providerRulesMapping.get(key);
-                if (providerRules == null) {
-                    providerRules = new ProviderComplianceRulesDto();
-                    providerRules.setConnectorUuid(ruleDto.getConnectorUuid());
-                    providerRules.setConnectorName(ruleDto.getConnectorName());
-                    providerRules.setKind(ruleDto.getKind());
-
-                    providersRules.add(providerRules);
-                    providerRulesMapping.put(key, providerRules);
-                }
-
-                if (rule.getComplianceRuleUuid() != null) {
-                    providerRules.getRules().add((ComplianceRuleDto) ruleDto);
-                } else {
-                    providerRules.getGroups().add((ComplianceGroupDto) ruleDto);
-                }
-            }
-        }
-
-        complianceProfileDto.setInternalRules(internalRules);
-        complianceProfileDto.setProviderRules(providersRules);
 
         return complianceProfileDto;
     }

@@ -8,16 +8,18 @@ import jakarta.persistence.metamodel.SingularAttribute;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 @NoRepositoryBean
 public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
+
+    Optional<T> findByUuid(UUID uuid);
 
     Optional<T> findByUuid(SecuredUUID uuid);
 

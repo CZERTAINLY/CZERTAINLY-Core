@@ -67,12 +67,12 @@ public class Rule extends UniquelyIdentified {
         return ruleDetailDto;
     }
 
-    public ComplianceRuleDto mapToComplianceRuleDto(ComplianceRuleAvailabilityStatus availabilityStatus) {
+    public ComplianceRuleDto mapToComplianceRuleDto() {
         ComplianceRuleDto dto = new ComplianceRuleDto();
         dto.setUuid(uuid);
         dto.setName(name);
         dto.setDescription(description);
-        dto.setAvailabilityStatus(availabilityStatus);
+        dto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         dto.setResource(resource);
 
         return dto;

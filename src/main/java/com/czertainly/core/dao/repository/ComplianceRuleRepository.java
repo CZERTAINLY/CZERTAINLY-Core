@@ -20,6 +20,10 @@ public interface ComplianceRuleRepository extends SecurityFilterRepository<Compl
 
     List<ComplianceRule> findByConnectorAndKind(Connector connector, String kind);
 
+    List<ComplianceRule> findByConnectorUuidAndKind(UUID connectorUuid, String kind);
+
+    List<ComplianceRule> findByConnectorUuidAndKindAndRuleUuidIn(UUID connectorUuid, String kind, List<UUID> ruleUuids);
+
     List<ComplianceRule> findByConnectorAndKindAndCertificateTypeIn(Connector connector, String kind, List<CertificateType> certificateTypes);
 
     Optional<ComplianceRule> findByUuidAndConnectorAndKind(UUID uuid, Connector connector, String kind);

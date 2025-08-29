@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
 import com.czertainly.api.model.core.compliance.v2.BaseComplianceRuleDto;
@@ -39,21 +40,17 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
     @ToString.Exclude
     private ComplianceProfile complianceProfile;
 
+    @Column(name = "connector_uuid")
+    private UUID connectorUuid;
+
+    @Column(name = "kind")
+    private String kind;
+
     @Column(name = "compliance_profile_uuid", nullable = false)
     private UUID complianceProfileUuid;
 
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "compliance_rule_uuid", insertable = false, updatable = false)
-    @ToString.Exclude
-    private ComplianceRule complianceRule;
-
     @Column(name = "compliance_rule_uuid")
     private UUID complianceRuleUuid;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "compliance_group_uuid", insertable = false, updatable = false)
-    @ToString.Exclude
-    private ComplianceGroup complianceGroup;
 
     @Column(name = "compliance_group_uuid")
     private UUID complianceGroupUuid;
@@ -66,18 +63,28 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
     @Column(name = "internal_rule_uuid")
     private UUID internalRuleUuid;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "resource", nullable = false)
+    private Resource resource;
+
+    @Column(name = "type")
+    private String type;
+
     @Column(name = "attributes", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
     private List<RequestAttributeDto> attributes;
 
-    public BaseComplianceRuleDto mapToDto(ComplianceRuleAvailabilityStatus availabilityStatus) {
+    @Transient
+    private ComplianceRuleAvailabilityStatus availabilityStatus;
+
+    public BaseComplianceRuleDto mapToDto() {
         if (complianceGroupUuid != null) {
             return complianceGroup.mapToDto(availabilityStatus);
         } else if (complianceRuleUuid != null) {
             return complianceRule.mapToDto(availabilityStatus);
         }
 
-        return internalRule.mapToComplianceRuleDto(availabilityStatus);
+        return internalRule.mapToComplianceRuleDto();
     }
 
     public ComplianceRulesDto mapToDtoForProfile() {

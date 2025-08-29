@@ -1,8 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileGroupsPatchRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRulesPatchRequestDto;
@@ -45,7 +43,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @throws AlreadyExistException Thrown when an existing compliance profile is found with the same name
      * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
      */
-    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request);
+    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException, NotFoundException, AttributeException;
 
     /**
      * Update compliance profile
