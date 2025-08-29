@@ -75,7 +75,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Column(name = "enabled")
     private boolean enabled;
 
-    @Column(name = "fingerprint")
+    @Column(name = "fingerprint", unique = true)
     private String fingerprint;
 
     @Enumerated(EnumType.STRING)
@@ -101,7 +101,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public void setKeyData(KeyFormat keyFormat, KeyValue value) {
-        this.keyData = CryptographicHelper.serializeKeyValue(keyFormat, value);
+        this.keyData = CryptographicHelper.serializeKeyValue(keyFormat, value, uuid);
     }
 
     public List<KeyUsage> getUsage() {
