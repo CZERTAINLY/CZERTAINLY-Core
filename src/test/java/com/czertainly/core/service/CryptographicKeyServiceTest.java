@@ -492,7 +492,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                                     "type":"Secret",
                                     "algorithm":"RSA",
                                     "format":"Raw",
-                                    "value":{"value":"sampleKeyValue"},
+                                    "value":{"value":"sampleKeyValue1"},
                                     "length":1024
                                 }
                             },
@@ -504,7 +504,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                                     "type":"Private",
                                     "algorithm":"RSA",
                                     "format":"Raw",
-                                    "value":{"value":"sampleKeyValue"},
+                                    "value":{"value":"sampleKeyValue2"},
                                     "length":1024
                                 }
                             },
@@ -516,7 +516,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                                     "type":"Public",
                                     "algorithm":"RSA",
                                     "format":"Raw",
-                                    "value":{"value":"sampleKeyValue"},
+                                    "value":{"value":"sampleKeyValue3"},
                                     "length":1024
                                 }
                             },
@@ -528,7 +528,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                                     "type":"Private",
                                     "algorithm":"RSA",
                                     "format":"Raw",
-                                    "value":{"value":"sampleKeyValue"},
+                                    "value":{"value":"sampleKeyValue4"},
                                     "length":1024
                                 }
                             },
@@ -540,7 +540,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                                     "type":"Public",
                                     "algorithm":"RSA",
                                     "format":"Raw",
-                                    "value":{"value":"sampleKeyValue"},
+                                    "value":{"value":"sampleKeyValue5"},
                                     "length":1024
                                 }
                             }
@@ -565,7 +565,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "            \"type\":\"Secret\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
+                        "            \"value\":{\"value\":\"sampleKeyValue1\"},\n" +
                         "            \"length\":1024\n" +
                         "        }\n" +
                         "    },\n" +
@@ -577,7 +577,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "            \"type\":\"Private\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
+                        "            \"value\":{\"value\":\"sampleKeyValue2\"},\n" +
                         "            \"length\":1024\n" +
                         "        }\n" +
                         "    },\n" +
@@ -589,7 +589,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "            \"type\":\"Public\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
+                        "            \"value\":{\"value\":\"sampleKeyValue3\"},\n" +
                         "            \"length\":1024\n" +
                         "        }\n" +
                         "    },\n" +
@@ -601,7 +601,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "            \"type\":\"Private\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
+                        "            \"value\":{\"value\":\"sampleKeyValue4\"},\n" +
                         "            \"length\":1024\n" +
                         "        }\n" +
                         "    },\n" +
@@ -613,7 +613,7 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
                         "            \"type\":\"Public\",\n" +
                         "            \"algorithm\":\"RSA\",\n" +
                         "            \"format\":\"Raw\",\n" +
-                        "            \"value\":{\"value\":\"sampleKeyValue\"},\n" +
+                        "            \"value\":{\"value\":\"sampleKeyValue5\"},\n" +
                         "            \"length\":1024\n" +
                         "        }\n" +
                         "    }\n" +
