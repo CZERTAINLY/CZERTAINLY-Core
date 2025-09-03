@@ -15,7 +15,7 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
 
     @Override
     public Integer getChecksum() {
-        return DatabaseMigration.JavaMigrationChecksums.V202508130940__CertificateRelations.getChecksum();
+        return DatabaseMigration.JavaMigrationChecksums.V202508281320__UniqueCryptographicKeyItemFingerprint.getChecksum();
     }
 
     @Override
