@@ -8,10 +8,7 @@ import org.flywaydb.core.api.migration.Context;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.sql.*;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @SuppressWarnings("java:S101")
 public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJavaMigration {
@@ -60,8 +57,8 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                             "GROUP BY fingerprint HAVING COUNT(uuid) > 1"
             );
 
-            List<String> ckiUuidToDelete = new ArrayList<>();
-            List<String> ckUuidToDelete = new ArrayList<>();
+            Set<String> ckiUuidToDelete = new HashSet<>();
+            Set<String> ckUuidToDelete = new HashSet<>();
 
             while (duplicateKeysNotCustom.next()) {
                 String duplicateKeysNotCustomString = duplicateKeysNotCustom.getString("uuids");
@@ -69,8 +66,8 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                         new ArrayList<>(Arrays.asList(duplicateKeysNotCustomString.split(",")));
 
                 // ---- fetch key UUIDs
-                Array sqlArray = context.getConnection().createArrayOf("UUID", duplicateCertificateContentsIds.toArray());
-                selectKey.setArray(1, sqlArray);
+                Array sqlArrayCkiUuids = context.getConnection().createArrayOf("UUID", duplicateCertificateContentsIds.toArray());
+                selectKey.setArray(1, sqlArrayCkiUuids);
                 ResultSet keys = selectKey.executeQuery();
 
                 List<String> keyUuids = new ArrayList<>();
@@ -108,13 +105,13 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                     // fetch all cki linked to the duplicate keys
                     selectKeyItemsFromPair.setArray(1, sqlKeyArray);
                     ResultSet keysFromPair = selectKeyItemsFromPair.executeQuery();
+                    ckiUuidToDelete.addAll(duplicateCertificateContentsIds);
                     while (keysFromPair.next()) {
-                        duplicateCertificateContentsIds.add(keysFromPair.getString("uuid"));
+                        ckiUuidToDelete.add(keysFromPair.getString("uuid"));
                     }
 
 
                     // mark duplicates for deletion
-                    ckiUuidToDelete.addAll(duplicateCertificateContentsIds.subList(1, duplicateCertificateContentsIds.size()));
                     ckUuidToDelete.addAll(keyUuids);
                 }
             }
