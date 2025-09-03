@@ -3,6 +3,7 @@ package com.czertainly.core.security.authn.client;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.service.impl.AuditLogServiceImpl;
+import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
@@ -23,7 +24,7 @@ import java.util.stream.Collectors;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-class CzertainlyAuthenticationClientTest {
+class CzertainlyAuthenticationClientTest extends BaseSpringBootTest {
     private static MockWebServer authServiceMock;
 
     private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
