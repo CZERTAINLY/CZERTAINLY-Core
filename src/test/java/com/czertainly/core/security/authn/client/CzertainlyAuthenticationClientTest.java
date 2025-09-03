@@ -2,6 +2,7 @@ package com.czertainly.core.security.authn.client;
 
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.impl.AuditLogServiceImpl;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -9,11 +10,9 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.mockwebserver.MockResponse;
 import okhttp3.mockwebserver.MockWebServer;
 import okhttp3.mockwebserver.RecordedRequest;
-import org.junit.jupiter.api.AfterAll;
-import org.junit.jupiter.api.AfterEach;
-import org.junit.jupiter.api.BeforeAll;
-import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.*;
 import org.junit.jupiter.api.function.Executable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.io.IOException;
@@ -27,7 +26,11 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 class CzertainlyAuthenticationClientTest extends BaseSpringBootTest {
     private static MockWebServer authServiceMock;
 
-    private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+    private CzertainlyAuthenticationClient czertainlyAuthenticationClient;
+
+    @Autowired
+    private AuditLogService auditLogService;
+
     // @formatter:off
     String RAW_DATA = "{" +
             "\"authenticated\": true," +
@@ -43,15 +46,15 @@ class CzertainlyAuthenticationClientTest extends BaseSpringBootTest {
             "}" +
             "}";
 
-    @BeforeAll
-    static void setup() throws IOException {
+    @BeforeEach
+    void setup() throws IOException {
         authServiceMock = new MockWebServer();
         authServiceMock.start();
 
         String authServiceBaseUrl = "http://%s:%d".formatted(authServiceMock.getHostName(), authServiceMock.getPort());
         ObjectMapper objectMapper = new ObjectMapper();
         objectMapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        czertainlyAuthenticationClient = new CzertainlyAuthenticationClient(new AuditLogServiceImpl(), objectMapper, authServiceBaseUrl);
+        czertainlyAuthenticationClient = new CzertainlyAuthenticationClient(auditLogService, objectMapper, authServiceBaseUrl);
     }
 
     @AfterAll
