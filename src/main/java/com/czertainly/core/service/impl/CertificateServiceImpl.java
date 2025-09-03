@@ -563,7 +563,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.ALT_PUBLIC_KEY_ALGORITHM, new ArrayList<>(certificateRepository.findDistinctAltPublicKeyAlgorithm())),
                 SearchHelper.prepareSearch(FilterField.KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctKeySize())),
                 SearchHelper.prepareSearch(FilterField.ALT_KEY_SIZE, new ArrayList<>(certificateRepository.findDistinctAltKeySize())),
-                SearchHelper.prepareSearch(FilterField.KEY_USAGE, serializedListOfStringToListOfObject(certificateRepository.findDistinctKeyUsage())),
+                SearchHelper.prepareSearch(FilterField.KEY_USAGE, Arrays.stream((CertificateKeyUsage.values())).map(CertificateKeyUsage::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.PRIVATE_KEY),
                 SearchHelper.prepareSearch(FilterField.SUBJECT_TYPE, Arrays.stream(CertificateSubjectType.values()).map(CertificateSubjectType::getCode).toList()),
                 SearchHelper.prepareSearch(FilterField.TRUSTED_CA),
@@ -1823,15 +1823,6 @@ public class CertificateServiceImpl implements CertificateService {
             successorUuid = associatedCertificate.getUuid();
         }
         return new CertificateRelationId(successorUuid, predecessorUuid);
-    }
-
-
-    private List<Object> serializedListOfStringToListOfObject(List<String> serializedData) {
-        Set<String> serSet = new LinkedHashSet<>();
-        for (String obj : serializedData) {
-            serSet.addAll(MetaDefinitions.deserializeArrayString(obj));
-        }
-        return new ArrayList<>(serSet);
     }
 
     private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {

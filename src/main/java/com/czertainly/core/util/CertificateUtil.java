@@ -122,18 +122,16 @@ public class CertificateUtil {
         return Base64.getEncoder().encodeToString(certificate.getEncoded());
     }
 
-    public static List<String> keyUsageExtractor(boolean[] keyUsage) {
-        List<String> keyUsageNames = new ArrayList<>();
-        if (keyUsage == null) {
-            return keyUsageNames;
-        }
-
-        for (int i = 0; i < keyUsage.length; i++) {
-            if (Boolean.TRUE.equals(keyUsage[i])) {
-                keyUsageNames.add(CertificateKeyUsage.fromIndex(i).getCode());
+    public static int keyUsageExtractor(boolean[] keyUsage) {
+        int result = 0;
+        if (keyUsage != null) {
+            for (int i = 0; i < keyUsage.length; i++) {
+                if (keyUsage[i]) {
+                    result |= (1 << i);  // set bit i
+                }
             }
         }
-        return keyUsageNames;
+        return result;
     }
 
     public static boolean isKeyUsagePresent(boolean[] keyUsage, CertificateKeyUsage keyUsageName) {
@@ -424,7 +422,7 @@ public class CertificateUtil {
         }
         if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
         modal.setKeyUsage(
-                MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
+               CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
         modal.setSubjectType(subjectType);
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)

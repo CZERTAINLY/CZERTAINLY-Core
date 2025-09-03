@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -191,6 +192,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
 
         FilterFieldType fieldType = filterField.getType().getFieldType();
+
         // Apply comparing function on value in object and value in condition, based on operator and field type, return whether the condition is satisfied
         try {
             if (!(objectValue instanceof Collection<?> objectValues)) {
@@ -200,16 +202,34 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             if (listSpecificOperatorsFunctionMap.get(operator) != null)
                 return listSpecificOperatorsFunctionMap.get(operator).apply(objectValues, conditionValue);
 
-            for (Object item : objectValues) {
-                Object o = getPropertyValue(item, nestedJoinAttributes, filterField.getFieldAttribute());
-                if (Boolean.FALSE.equals(fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(o, conditionValue))) {
-                    return false;
-                }
-            }
-            return true;
+            return evaluateItemsInCollection(operator, conditionValue, objectValues, nestedJoinAttributes, filterField, fieldType);
         } catch (Exception e) {
             throw new RuleException("Condition is not set properly: " + e.getMessage());
         }
+    }
+
+    private boolean evaluateItemsInCollection(FilterConditionOperator operator, Object conditionValue, Collection<?> objectValues, List<Attribute> nestedJoinAttributes, FilterField filterField, FilterFieldType fieldType) throws InvocationTargetException, IllegalAccessException, NoSuchMethodException {
+        // For EQUALS, if no true evaluation during loop, result stays false, for NOT_EQUALS, if there is no false evaluation during loop, result stays true
+        boolean result = (operator == FilterConditionOperator.NOT_EQUALS);
+        for (Object item : objectValues) {
+            if (nestedJoinAttributes != null) {
+                item = getPropertyValue(item, nestedJoinAttributes, filterField.getFieldAttribute());
+            }
+
+            boolean eval = Boolean.TRUE.equals(
+                    fieldTypeToOperatorActionMap.get(fieldType).get(operator).apply(item, conditionValue)
+            );
+
+            // For EQUALS: succeed if any true
+            // For NOT_EQUALS: fail if any false
+            if ((operator == FilterConditionOperator.EQUALS && eval) ||
+                    (operator == FilterConditionOperator.NOT_EQUALS && !eval)) {
+                result = (operator == FilterConditionOperator.EQUALS);
+                break;
+            }
+        }
+
+        return result;
     }
 
     private boolean evaluateMetaAttributeConditionItem(Resource resource, String fieldIdentifier, UUID objectUuid, Object conditionValue, FilterConditionOperator operator) throws RuleException {
