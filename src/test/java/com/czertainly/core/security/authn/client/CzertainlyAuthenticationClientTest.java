@@ -2,7 +2,6 @@ package com.czertainly.core.security.authn.client;
 
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
-import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.impl.AuditLogServiceImpl;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -14,7 +13,6 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.function.Executable;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.GrantedAuthority;
 
 import java.io.IOException;
@@ -27,9 +25,6 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class CzertainlyAuthenticationClientTest {
     private static MockWebServer authServiceMock;
-
-    @Autowired
-    private static AuditLogService auditLogService;
 
     private static CzertainlyAuthenticationClient czertainlyAuthenticationClient;
     // @formatter:off
