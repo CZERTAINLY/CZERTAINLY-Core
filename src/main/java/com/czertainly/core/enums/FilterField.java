@@ -6,10 +6,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateRelationType;
-import com.czertainly.api.model.core.certificate.CertificateState;
-import com.czertainly.api.model.core.certificate.CertificateSubjectType;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
@@ -51,7 +48,7 @@ public enum FilterField {
     ALT_PUBLIC_KEY_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.altPublicKeyAlgorithm, "Alternative Public Key Algorithm", SearchFieldTypeEnum.LIST),
     KEY_SIZE(Resource.CERTIFICATE, null, null, Certificate_.keySize, "Key Size", SearchFieldTypeEnum.LIST),
     ALT_KEY_SIZE(Resource.CERTIFICATE, null, null, Certificate_.altKeySize, "Alternative Key Size", SearchFieldTypeEnum.LIST),
-    KEY_USAGE(Resource.CERTIFICATE, null, null, Certificate_.keyUsage, "Key Usage", SearchFieldTypeEnum.LIST),
+    KEY_USAGE(Resource.CERTIFICATE, null, null, Certificate_.keyUsage, "Key Usage", SearchFieldTypeEnum.LIST, CertificateKeyUsage.class),
     SUBJECT_TYPE(Resource.CERTIFICATE, null, null, Certificate_.subjectType, "Subject Type", SearchFieldTypeEnum.LIST, CertificateSubjectType.class),
     SUBJECT_ALTERNATIVE_NAMES(Resource.CERTIFICATE, null, null, Certificate_.subjectAlternativeNames, "Subject Alternative Name", SearchFieldTypeEnum.STRING),
     SUBJECTDN(Resource.CERTIFICATE, null, null, Certificate_.subjectDn, "Subject DN", SearchFieldTypeEnum.STRING),

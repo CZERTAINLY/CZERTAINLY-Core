@@ -54,9 +54,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @Query("SELECT DISTINCT altKeySize FROM Certificate")
     List<Integer> findDistinctAltKeySize();
 
-    @Query("SELECT DISTINCT keyUsage FROM Certificate")
-    List<String> findDistinctKeyUsage();
-
     @Query("SELECT DISTINCT publicKeyAlgorithm FROM Certificate")
     List<String> findDistinctPublicKeyAlgorithm();
 
@@ -138,7 +135,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             :#{#cert.state.name()}, :#{#cert.validationStatus.name()}, :#{#cert.certificateValidationResult}, :#{#cert.statusValidationTimestamp},
             :#{#cert.complianceStatus.name()}, :#{#cert.complianceResult}, :#{#cert.commonName}, :#{#cert.notAfter}, :#{#cert.notBefore},
             :#{#cert.extendedKeyUsage}, :#{#cert.fingerprint}, :#{#cert.issuerCommonName}, :#{#cert.issuerDn}, :#{#cert.issuerDnNormalized},
-            :#{#cert.issuerSerialNumber}, :#{#cert.keySize}, :#{#cert.keyUsage}, :#{#cert.keyUuid}, :#{#cert.publicKeyAlgorithm},
+            :#{#cert.issuerSerialNumber}, :#{#cert.keySize}, :#{#cert.keyUsageBitMask}, :#{#cert.keyUuid}, :#{#cert.publicKeyAlgorithm},
             :#{#cert.publicKeyFingerprint}, :#{#cert.serialNumber}, :#{#cert.signatureAlgorithm}, :#{#cert.subjectAlternativeNames},
             :#{#cert.subjectDn}, :#{#cert.subjectDnNormalized}, :#{#cert.subjectType.name()}, :#{#cert.trustedCa}, :#{#cert.userUuid},
             :#{#cert.hybridCertificate}, :#{#cert.altSignatureAlgorithm}, :#{#cert.archived}, :#{#cert.altKeyFingerprint}

@@ -4,9 +4,9 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.*;
@@ -80,6 +80,7 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(joinDefinition.get(AttributeDefinition_.name), attributeName));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
+
 
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
@@ -242,17 +243,26 @@ public class FilterPredicatesBuilder {
             }
         }
         final LocalDateTime now = LocalDateTime.now();
+        boolean bitEnumProperty = filterField.getEnumClass() != null && BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
         switch (conditionOperator) {
-            case EQUALS ->
+            case EQUALS -> {
+                if (bitEnumProperty)
+                    predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
+            }
             case NOT_EQUALS -> {
-                // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
-                if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
-                    predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, filterValues.getFirst()), criteriaBuilder.equal(expression, filterValues.getFirst())), criteriaBuilder.isNull(expression));
-                } else {
-                    predicate = filterField.getFieldResource() == Resource.GROUP
-                            ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
-                            : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                if (bitEnumProperty)
+                    predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else {
+                    // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
+                    if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
+                        predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, filterValues.getFirst()), criteriaBuilder.equal(expression, filterValues.getFirst())), criteriaBuilder.isNull(expression));
+                    } else {
+                        predicate = filterField.getFieldResource() == Resource.GROUP
+                                ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
+                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                    }
                 }
             }
             case STARTS_WITH -> predicate = criteriaBuilder.like(expression, filterValues.getFirst() + "%");
@@ -304,6 +314,10 @@ public class FilterPredicatesBuilder {
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
+    }
+
+    private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression, CriteriaBuilder criteriaBuilder) {
+        return criteriaBuilder.function(BitwiseFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression, criteriaBuilder.literal(bit));
     }
 
     private static void validateRegexForDbQuery(String regex) {
@@ -372,10 +386,10 @@ public class FilterPredicatesBuilder {
         for (Object value : filterValues) {
             Object preparedFilterValue = null;
             if (filterField.getEnumClass() != null && !isCountOperator(filterDto.getCondition())) {
-                if (filterField.getEnumClass().equals(KeyUsage.class)) {
-                    final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(value, filterField.getEnumClass());
-                    if (keyUsage != null) {
-                        preparedFilterValue = keyUsage.getBitmask();
+                if (BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass())) {
+                    final BitMaskEnum enumValue = (BitMaskEnum) findEnumByCustomValue(value, filterField.getEnumClass());
+                    if (enumValue != null) {
+                        preparedFilterValue = enumValue.getBit();
                     }
                 } else {
                     preparedFilterValue = findEnumByCustomValue(value, filterField.getEnumClass());
