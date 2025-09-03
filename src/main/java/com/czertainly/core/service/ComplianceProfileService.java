@@ -33,7 +33,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
      */
-    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid);
+    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
     /**
      * Create a new compliance profile
@@ -53,7 +53,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
      * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
      */
-    ComplianceProfileDto updateComplianceProfile(SecuredUUID uuid, ComplianceProfileUpdateRequestDto request);
+    ComplianceProfileDto updateComplianceProfile(SecuredUUID uuid, ComplianceProfileUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException;
 
     /**
      * Delete a compliance profile
@@ -84,26 +84,26 @@ public interface ComplianceProfileService extends ResourceExtensionService {
     /**
      * List compliance rules by specified criteria
      *
-     * @param resource resource of the rule
      * @param connectorUuid connector UUID. When not provided, internal (workflow rules are listed)
      * @param kind
+     * @param resource resource of the rule
      * @param type
      * @param format
      * @return
      * @throws NotFoundException
      */
-    List<ComplianceRuleListDto> getComplianceRules(Resource resource, UUID connectorUuid, String kind, String type, String format);
+    List<ComplianceRuleListDto> getComplianceRules(UUID connectorUuid, String kind, Resource resource, String type, String format) throws NotFoundException;
 
     /**
      * List compliance groups by specified criteria
      *
-     * @param resource resource of the group
      * @param connectorUuid
      * @param kind
+     * @param resource resource of the group
      * @return
      * @throws NotFoundException
      */
-    List<ComplianceGroupListDto> getComplianceGroups(Resource resource, UUID connectorUuid, String kind);
+    List<ComplianceGroupListDto> getComplianceGroups(UUID connectorUuid, String kind, Resource resource) throws NotFoundException, ConnectorException;
 
     /**
      * @param uuid

@@ -81,13 +81,13 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, operation = Operation.LIST)
-    public List<ComplianceRuleListDto> getComplianceRules(@LogResource(resource = true, affiliated = true) Resource resource, UUID connectorUuid, String kind, String type, String format) {
+    public List<ComplianceRuleListDto> getComplianceRules(UUID connectorUuid, String kind, @LogResource(resource = true, affiliated = true) Resource resource, String type, String format) {
         return List.of();
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_GROUP, operation = Operation.LIST)
-    public List<ComplianceGroupListDto> getComplianceGroups(@LogResource(resource = true, affiliated = true) Resource resource, UUID connectorUuid, String kind) {
+    public List<ComplianceGroupListDto> getComplianceGroups(UUID connectorUuid, String kind, @LogResource(resource = true, affiliated = true) Resource resource) {
         return List.of();
     }
 
