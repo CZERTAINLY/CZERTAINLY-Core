@@ -58,7 +58,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = BitMaskEnum.convertSetToBitMask(EnumSet.copyOf(usage));
+        this.usage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
     }
 
     @Override

@@ -6,6 +6,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DtoMapper;
@@ -493,7 +494,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     }
 
     public void setUsage(List<CertificateKeyUsage> usage) {
-        this.keyUsage = BitMaskEnum.convertSetToBitMask(EnumSet.copyOf(usage));
+        this.keyUsage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(CertificateKeyUsage.class) : EnumSet.copyOf(usage));
     }
 
     @Override

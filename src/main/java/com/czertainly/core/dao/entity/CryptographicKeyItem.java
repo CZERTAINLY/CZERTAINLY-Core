@@ -109,7 +109,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = BitMaskEnum.convertSetToBitMask(EnumSet.copyOf(usage));
+        this.usage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
     }
 
 
