@@ -241,9 +241,11 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         request.setAttributes(List.of());
         request.setGroupUuids(List.of(group.getUuid().toString()));
 
+        UUID tokenInstanceReferenceUuid = tokenInstanceReference.getUuid();
+        SecuredParentUUID tokenProfileUuid = tokenProfile.getSecuredParentUuid();
         KeyDetailDto dto = cryptographicKeyService.createKey(
-                tokenInstanceReference.getUuid(),
-                tokenProfile.getSecuredParentUuid(),
+                tokenInstanceReferenceUuid,
+                tokenProfileUuid,
                 KeyRequestType.KEY_PAIR,
                 request
         );
@@ -253,12 +255,21 @@ class CryptographicKeyServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, dto.getGroups().size());
         Assertions.assertEquals(group.getUuid().toString(), dto.getGroups().getFirst().getUuid());
 
+        request.setName("newName");
+        // create key with same fingerprint
+        Assertions.assertThrows(ValidationException.class, () -> cryptographicKeyService.createKey(
+                tokenInstanceReferenceUuid,
+                tokenProfileUuid,
+                KeyRequestType.KEY_PAIR,
+                request
+        ));
+
         // create secret key type
         request.setName("testSecretKey");
         request.setGroupUuids(null);
         dto = cryptographicKeyService.createKey(
-                tokenInstanceReference.getUuid(),
-                tokenProfile.getSecuredParentUuid(),
+                tokenInstanceReferenceUuid,
+                tokenProfileUuid,
                 KeyRequestType.SECRET,
                 request
         );
