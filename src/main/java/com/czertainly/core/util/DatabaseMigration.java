@@ -68,7 +68,7 @@ public class DatabaseMigration {
         V202506131400__NotificationSettingsToEventSettings(1970609093),
         V202508130940__CertificateRelations(-1359523966),
         V202508261555__EnumCollectionsColumnsBitmask(-1617046736),
-        V202508281320__UniqueCryptographicKeyItemFingerprint(-1974842594)
+        V202508281320__UniqueCryptographicKeyItemFingerprint(136479491)
         ;
 
         private final int checksum;

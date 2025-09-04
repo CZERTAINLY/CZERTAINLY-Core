@@ -132,27 +132,13 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                 deleteCk.executeUpdate();
             }
 
-            makeCustomCkFingerprintsUnique(selectKeyItems, updateCustomCki, updateCustomCkiFingerprint);
 
             updateCustomCki.executeBatch();
             updateCustomCkiFingerprint.executeBatch();
 
+            selectKeyItems.execute("UPDATE cryptographic_key_item SET fingerprint = NULL WHERE format = 'CUSTOM'");
             selectKeyItems.execute("ALTER TABLE cryptographic_key_item ADD UNIQUE (fingerprint);");
         }
     }
 
-    private static void makeCustomCkFingerprintsUnique(Statement selectKeyItems, PreparedStatement updateCustomCki, PreparedStatement updateCustomCkiFingerprint) throws SQLException, NoSuchAlgorithmException {
-        ResultSet ckiCustom = selectKeyItems.executeQuery("SELECT uuid, key_data FROM cryptographic_key_item WHERE format = 'CUSTOM'");
-        while (ckiCustom.next()) {
-            String keyData = ckiCustom.getString("key_data");
-            String newKeyData = keyData + "|" + ckiCustom.getString("uuid");
-            updateCustomCki.setString(1, newKeyData);
-            updateCustomCki.setObject(2, UUID.fromString(ckiCustom.getString("uuid")), Types.OTHER);
-            updateCustomCki.addBatch();
-
-            updateCustomCkiFingerprint.setString(1, CertificateUtil.getThumbprint(newKeyData.getBytes(StandardCharsets.UTF_8)));
-            updateCustomCkiFingerprint.setObject(2, UUID.fromString(ckiCustom.getString("uuid")), Types.OTHER);
-            updateCustomCkiFingerprint.addBatch();
-        }
-    }
 }

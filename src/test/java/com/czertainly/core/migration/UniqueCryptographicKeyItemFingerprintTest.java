@@ -5,7 +5,6 @@ import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.dao.repository.CertificateRequestRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyItemRepository;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -32,8 +31,6 @@ class UniqueCryptographicKeyItemFingerprintTest extends BaseSpringBootTest {
 
     @Autowired
     CertificateRepository certificateRepository;
-    @Autowired
-    CertificateRequestRepository certificateRequestRepository;
     @Autowired
     CryptographicKeyRepository cryptographicKeyRepository;
     @Autowired
@@ -131,13 +128,13 @@ class UniqueCryptographicKeyItemFingerprintTest extends BaseSpringBootTest {
         Assertions.assertEquals(keyWithPair1.getUuid(), certificate2.getAltKeyUuid());
 
         privateKey1 = cryptographicKeyItemRepository.findByUuid(privateKey1.getUuid()).orElseThrow();
-        Assertions.assertEquals("data1" + "|" + privateKey1.getUuid().toString(), privateKey1.getKeyData());
+        Assertions.assertNull(privateKey1.getFingerprint());
 
         secretKeyItem = cryptographicKeyItemRepository.findByUuid(secretKeyItem.getUuid()).orElseThrow();
-        Assertions.assertEquals(duplicateKeyData + "|" + secretKeyItem.getUuid().toString(), secretKeyItem.getKeyData());
+        Assertions.assertNull(secretKeyItem.getFingerprint());
 
         secretKeyItem2 = cryptographicKeyItemRepository.findByUuid(secretKeyItem2.getUuid()).orElseThrow();
-        Assertions.assertEquals(duplicateKeyData + "|" + secretKeyItem2.getUuid().toString(), secretKeyItem2.getKeyData());
+        Assertions.assertNull(secretKeyItem2.getFingerprint());
 
     }
 }
