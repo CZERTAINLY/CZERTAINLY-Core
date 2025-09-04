@@ -1755,6 +1755,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.UPDATE)
     public void associateCertificates(UUID uuid, UUID certificateUuid) throws NotFoundException {
+        if (uuid.equals(certificateUuid)) throw new ValidationException("Cannot associate certificate to itself.");
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
 
@@ -1773,7 +1774,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateState successorCertificateState = successorCertificate.getState();
         if (successorCertificateState == CertificateState.FAILED || successorCertificateState == CertificateState.REJECTED)
             throw new ValidationException("Certificate %s state is failed or rejected and cannot be a successor certificate for certificate %s".formatted(id.getSuccessorCertificateUuid(), id.getPredecessorCertificateUuid()));
-        if (successorCertificateState != CertificateState.ISSUED)
+        if (successorCertificateState != CertificateState.ISSUED && successorCertificateState != CertificateState.REVOKED)
             certificateRelation.setRelationType(CertificateRelationType.PENDING);
         else
             certificateRelation.setRelationType(determineRelationType(certificate, associatedCertificate));
