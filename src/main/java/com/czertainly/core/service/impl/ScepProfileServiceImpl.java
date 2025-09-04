@@ -155,7 +155,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
         scepProfile.setIntuneApplicationKey(request.getIntuneApplicationKey());
         scepProfile.setRaProfile(raProfile);
 
-        if (request.getCertificateAssociations() != null) {
+        if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             ProtocolCertificateAssociations certificateAssociation = new ProtocolCertificateAssociations();
             certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
             certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
@@ -225,7 +225,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
 
         UUID certificateAssociationUuid = null;
         ProtocolCertificateAssociations certificateAssociation = null;
-        if (request.getCertificateAssociations() != null) {
+        if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             certificateAssociation = getCertificateAssociation(request, scepProfile);
             certificateAssociationRepository.save(certificateAssociation);
             certificateAssociationUuid = certificateAssociation.getUuid();
