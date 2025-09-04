@@ -47,9 +47,7 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
              );
              PreparedStatement deleteCk = context.getConnection().prepareStatement(
                      "DELETE FROM cryptographic_key WHERE uuid = ANY (?)"
-             );
-             PreparedStatement updateCustomCki = context.getConnection().prepareStatement("UPDATE cryptographic_key_item SET key_data = ? WHERE uuid = ?");
-             PreparedStatement updateCustomCkiFingerprint = context.getConnection().prepareStatement("UPDATE cryptographic_key_item SET fingerprint = ? WHERE uuid = ?");
+             )
         ) {
             ResultSet duplicateKeysNotCustom = selectKeyItems.executeQuery(
                     "SELECT STRING_AGG(uuid::text, ',' ORDER BY created_at) AS uuids " +
@@ -132,9 +130,6 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                 deleteCk.executeUpdate();
             }
 
-
-            updateCustomCki.executeBatch();
-            updateCustomCkiFingerprint.executeBatch();
 
             selectKeyItems.execute("UPDATE cryptographic_key_item SET fingerprint = NULL WHERE format = 'CUSTOM'");
             selectKeyItems.execute("ALTER TABLE cryptographic_key_item ADD UNIQUE (fingerprint);");
