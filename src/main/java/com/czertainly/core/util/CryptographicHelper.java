@@ -21,7 +21,7 @@ public class CryptographicHelper {
             .configure(SerializationFeature.FAIL_ON_EMPTY_BEANS, false);
 
 
-    public static String serializeKeyValue(KeyFormat keyFormat, KeyValue value, UUID keyUuid) {
+    public static String serializeKeyValue(KeyFormat keyFormat, KeyValue value) {
         if (value == null || keyFormat == null) return null;
         switch (keyFormat) {
             case RAW:
@@ -34,7 +34,7 @@ public class CryptographicHelper {
                 return OBJECT_MAPPER.convertValue(value, EprkiKeyValue.class).getValue();
             case CUSTOM:
                 try {
-                    return serializeCustomKeyValue(OBJECT_MAPPER.convertValue(value, CustomKeyValue.class).getValues(), keyUuid);
+                    return serializeCustomKeyValue(OBJECT_MAPPER.convertValue(value, CustomKeyValue.class).getValues());
                 } catch (JsonProcessingException e) {
                     throw new ValidationException(
                             ValidationError.create(
@@ -51,7 +51,7 @@ public class CryptographicHelper {
         }
     }
 
-    public static String serializeCustomKeyValue(Map<String, String> customKeyValue, UUID keyUuid) throws JsonProcessingException {
-        return OBJECT_MAPPER.writeValueAsString(customKeyValue) + "|" + keyUuid.toString();
+    public static String serializeCustomKeyValue(Map<String, String> customKeyValue) throws JsonProcessingException {
+        return OBJECT_MAPPER.writeValueAsString(customKeyValue);
     }
 }

@@ -101,7 +101,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public void setKeyData(KeyFormat keyFormat, KeyValue value) {
-        this.keyData = CryptographicHelper.serializeKeyValue(keyFormat, value, uuid);
+        this.keyData = CryptographicHelper.serializeKeyValue(keyFormat, value);
     }
 
     public List<KeyUsage> getUsage() {
