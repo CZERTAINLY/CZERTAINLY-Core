@@ -143,7 +143,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
         acmeProfile.setRequireTermsOfService(request.isRequireTermsOfService());
         acmeProfile.setDisableNewOrders(false);
         acmeProfile.setRaProfile(raProfile);
-        if (request.getCertificateAssociations() != null) {
+        if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             ProtocolCertificateAssociations certificateAssociation = new ProtocolCertificateAssociations();
             certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
             certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
@@ -227,7 +227,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
         UUID certificateAssociationUuid = null;
         ProtocolCertificateAssociations certificateAssociation = null;
-        if (request.getCertificateAssociations() != null) {
+        if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             certificateAssociation = getCertificateAssociation(request, acmeProfile);
             certificateAssociationRepository.save(certificateAssociation);
             certificateAssociationUuid = certificateAssociation.getUuid();
