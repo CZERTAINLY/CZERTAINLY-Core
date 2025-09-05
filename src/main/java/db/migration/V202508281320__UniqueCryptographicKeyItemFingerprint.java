@@ -1,17 +1,18 @@
 package db.migration;
 
-import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.nio.charset.StandardCharsets;
-import java.security.NoSuchAlgorithmException;
 import java.sql.*;
 import java.util.*;
 
 @SuppressWarnings("java:S101")
 public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJavaMigration {
+
+    private static final Logger logger = LoggerFactory.getLogger(V202508281320__UniqueCryptographicKeyItemFingerprint.class);
 
     @Override
     public Integer getChecksum() {
@@ -58,7 +59,10 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
             Set<String> ckiUuidToDelete = new HashSet<>();
             Set<String> ckUuidToDelete = new HashSet<>();
 
+            int duplicatesCount = 0;
+
             while (duplicateKeysNotCustom.next()) {
+                duplicatesCount++;
                 String duplicateKeysNotCustomString = duplicateKeysNotCustom.getString("uuids");
                 List<String> duplicateCertificateContentsIds =
                         new ArrayList<>(Arrays.asList(duplicateKeysNotCustomString.split(",")));
@@ -114,6 +118,8 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                 }
             }
 
+            logger.debug("Processed {} duplicate cryptographic key fingerprints.", duplicatesCount);
+
             // execute batched updates
             updateCertKeys.executeBatch();
             updateCertAltKeys.executeBatch();
@@ -125,11 +131,13 @@ public class V202508281320__UniqueCryptographicKeyItemFingerprint extends BaseJa
                 deleteCki.setArray(1, context.getConnection().createArrayOf("UUID", ckiUuidToDelete.toArray()));
                 deleteCki.executeUpdate();
             }
+            logger.debug("Deleted {} cryptographic key items having duplicate fingerprints.", ckiUuidToDelete.size());
+
             if (!ckUuidToDelete.isEmpty()) {
                 deleteCk.setArray(1, context.getConnection().createArrayOf("UUID", ckUuidToDelete.toArray()));
                 deleteCk.executeUpdate();
             }
-
+            logger.debug("Deleted {} cryptographic keys with key items having duplicate fingerprints.", ckUuidToDelete.size());
 
             selectKeyItems.execute("UPDATE cryptographic_key_item SET fingerprint = NULL WHERE format = 'CUSTOM'");
             selectKeyItems.execute("ALTER TABLE cryptographic_key_item ADD UNIQUE (fingerprint);");
