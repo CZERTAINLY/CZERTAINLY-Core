@@ -261,7 +261,7 @@ public class FilterPredicatesBuilder {
                     } else {
                         predicate = filterField.getFieldResource() == Resource.GROUP
                                 ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
-                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
                     }
                 }
             }
@@ -269,12 +269,12 @@ public class FilterPredicatesBuilder {
             case ENDS_WITH -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst());
             case CONTAINS -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst() + "%");
             case NOT_CONTAINS ->
-                    predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection),
+                    predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false),
                             criteriaBuilder.notLike(expression, "%" + filterValues.getFirst() + "%"));
             case EMPTY ->
-                    predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection);
+                    predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty);
             case NOT_EMPTY ->
-                    predicate = criteriaBuilder.not(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection));
+                    predicate = criteriaBuilder.not(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty));
             case GREATER ->
                     predicate = criteriaBuilder.greaterThan(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
             case GREATER_OR_EQUAL ->
@@ -447,7 +447,10 @@ public class FilterPredicatesBuilder {
         return criteriaBuilder.not(criteriaBuilder.exists(subquery));
     }
 
-    private static Predicate getNotPresentPredicate(final CriteriaBuilder criteriaBuilder, From from, Expression expression, boolean hasParent, boolean isParentCollection) {
+    private static Predicate getNotPresentPredicate(final CriteriaBuilder criteriaBuilder, From from, Expression expression, boolean hasParent, boolean isParentCollection, boolean isEnumList) {
+        if (isEnumList) {
+            return criteriaBuilder.equal(expression, 0);
+        }
         if (!hasParent) {
             return criteriaBuilder.isNull(expression);
         }
