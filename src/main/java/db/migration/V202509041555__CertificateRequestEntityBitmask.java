@@ -28,7 +28,7 @@ public class V202509041555__CertificateRequestEntityBitmask extends BaseJavaMigr
         migrateColumnToBitmask(context,
                 raw -> MetaDefinitions.deserializeArrayString(raw).stream()
                 .map(CertificateKeyUsage::fromCode)
-                        .collect(Collectors.toCollection(() -> EnumSet.noneOf(CertificateKeyUsage.class)))
+                .collect(Collectors.toCollection(() -> EnumSet.noneOf(CertificateKeyUsage.class)))
                );
     }
 
