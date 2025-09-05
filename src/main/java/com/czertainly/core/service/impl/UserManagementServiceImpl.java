@@ -31,6 +31,8 @@ import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
@@ -54,6 +56,14 @@ public class UserManagementServiceImpl implements UserManagementService {
     private ResourceObjectAssociationService objectAssociationService;
 
     private AttributeEngine attributeEngine;
+
+
+    private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+
+    @Autowired
+    public void setSessionRepository(FindByIndexNameSessionRepository<? extends Session> sessionRepository) {
+        this.sessionRepository = sessionRepository;
+    }
 
     @Autowired
     public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
@@ -157,6 +167,16 @@ public class UserManagementServiceImpl implements UserManagementService {
         certificateService.removeCertificateUser(uuid);
         objectAssociationService.removeOwnerAssociations(uuid);
         attributeEngine.deleteAllObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
+        clearAuthenticationData(userUuid);
+    }
+
+    private void clearAuthenticationData(String userUuid) {
+        Map<String, ? extends Session> userSessions =
+                sessionRepository.findByPrincipalName(userUuid);
+
+        for (String sessionId : userSessions.keySet()) {
+            sessionRepository.deleteById(sessionId);
+        }
     }
 
     @Override
@@ -186,6 +206,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
+        clearAuthenticationData(userUuid);
         return userManagementApiClient.disableUser(userUuid);
     }
 
