@@ -147,7 +147,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
         cmpProfile.setRequestProtectionMethod(request.getRequestProtectionMethod());
         cmpProfile.setResponseProtectionMethod(request.getResponseProtectionMethod());
 
-        if (request.getCertificateAssociations() != null) {
+        if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             ProtocolCertificateAssociations certificateAssociation = new ProtocolCertificateAssociations();
             certificateAssociation.setOwnerUuid(request.getCertificateAssociations().getOwnerUuid());
             certificateAssociation.setGroupUuids(request.getCertificateAssociations().getGroupUuids());
@@ -212,7 +212,7 @@ public class CmpProfileServiceImpl implements CmpProfileService {
 
         UUID certificateAssociationUuid = null;
         ProtocolCertificateAssociations certificateAssociation = null;
-        if (request.getCertificateAssociations() != null) {
+        if (request.getCertificateAssociations() != null && !request.getCertificateAssociations().isEmpty()) {
             certificateAssociation = getCertificateAssociation(request, cmpProfile);
             certificateAssociationRepository.save(certificateAssociation);
             certificateAssociationUuid = certificateAssociation.getUuid();
