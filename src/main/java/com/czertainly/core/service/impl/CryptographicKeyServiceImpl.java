@@ -53,6 +53,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.nio.charset.StandardCharsets;
 import java.security.NoSuchAlgorithmException;
 import java.security.PublicKey;
+import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -749,10 +750,12 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     public UUID uploadCertificatePublicKey(String name, PublicKey publicKey, int keyLength, String fingerprint) {
+        LocalDateTime now = LocalDateTime.now();
         CryptographicKey cryptographicKey = new CryptographicKey();
         cryptographicKey.setName(name);
         cryptographicKeyRepository.save(cryptographicKey);
         CryptographicKeyItem cryptographicKeyItem = new CryptographicKeyItem();
+        cryptographicKeyItem.setUuid(UUID.randomUUID());
         cryptographicKeyItem.setName(name);
         cryptographicKeyItem.setType(KeyType.PUBLIC_KEY);
         cryptographicKeyItem.setKey(cryptographicKey);
@@ -769,7 +772,9 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         cryptographicKeyItem.setFingerprint(fingerprint);
         cryptographicKeyItem.setState(KeyState.ACTIVE);
         cryptographicKeyItem.setEnabled(true);
-        cryptographicKeyItemRepository.save(cryptographicKeyItem);
+        cryptographicKeyItem.setCreatedAt(now);
+        cryptographicKeyItem.setUpdatedAt(now);
+        cryptographicKeyItemRepository.insertWithFingerprintConflictResolve(cryptographicKeyItem);
         return cryptographicKey.getUuid();
     }
 
