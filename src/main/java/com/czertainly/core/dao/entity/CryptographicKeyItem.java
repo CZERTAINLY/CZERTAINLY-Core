@@ -75,7 +75,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Column(name = "enabled")
     private boolean enabled;
 
-    @Column(name = "fingerprint")
+    @Column(name = "fingerprint", unique = true)
     private String fingerprint;
 
     @Enumerated(EnumType.STRING)
@@ -106,6 +106,10 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
 
     public List<KeyUsage> getUsage() {
         return KeyUsage.convertBitMaskToSet(usage).stream().toList();
+    }
+
+    public int getUsageBitmask() {
+        return usage;
     }
 
     public void setUsage(List<KeyUsage> usage) {
