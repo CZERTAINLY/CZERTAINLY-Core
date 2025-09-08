@@ -20,7 +20,7 @@ import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.ComplianceProfileService;
+import com.czertainly.core.service.v2.ComplianceProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -124,25 +124,13 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.ASSOCIATE)
-    public void associateComplianceProfile(UUID uuid, @LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) {
+    public void associateComplianceProfile(UUID uuid, @LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) throws NotFoundException {
         complianceProfileService.associateComplianceProfile(SecuredUUID.fromUUID(uuid), resource, associationObjectUuid);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.DISASSOCIATE)
-    public void disassociateComplianceProfile(UUID uuid, @LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) {
+    public void disassociateComplianceProfile(UUID uuid, @LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) throws NotFoundException {
         complianceProfileService.disassociateComplianceProfile(SecuredUUID.fromUUID(uuid), resource, associationObjectUuid);
-    }
-
-    @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkCompliance(List<UUID> uuids) {
-        ????
-    }
-
-    @Override
-    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkResourceObjectCompliance(@LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID objectUuid) {
-        ????
     }
 }

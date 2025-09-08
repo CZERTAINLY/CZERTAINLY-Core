@@ -13,7 +13,6 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Compliance Profile entity storing the details of rules and groups associated with the compliance profile.
@@ -105,59 +104,6 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         }
 
         complianceProfileDto.setRules(providersMapping.values().stream().toList());
-        return complianceProfileDto;
-    }
-
-    public com.czertainly.api.model.core.compliance.ComplianceProfileDto mapToDtoV1() {
-        var complianceProfileDto = new com.czertainly.api.model.core.compliance.ComplianceProfileDto();
-        complianceProfileDto.setName(name);
-        complianceProfileDto.setDescription(description);
-        complianceProfileDto.setUuid(uuid.toString());
-        complianceProfileDto.setRaProfiles(associations.stream().map(RaProfile::mapToDtoSimplified).collect(Collectors.toList()));
-
-        List<com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto> rulesDtos = new ArrayList<>();
-        List<com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto> groupsDtos = new ArrayList<>();
-        Map<String, List<com.czertainly.api.model.core.compliance.ComplianceRulesDto>> rulesMapping = new HashMap<>();
-        Map<String, List<com.czertainly.api.model.core.compliance.ComplianceGroupsDto>> groupsMapping = new HashMap<>();
-        //Frame a map with the Unique ID as Connector UUID, Name and Kind. This will later than be used to group the response
-        for (ComplianceProfileRule complianceRule : complianceRules) {
-            if (complianceRule.getComplianceRuleUuid() != null) {
-                ComplianceRule rul = complianceRule.getComplianceRule();
-                String ruleKey = rul.getConnector().getUuid() + ":" + rul.getConnector().getName() + ":" + rul.getKind();
-                rulesMapping.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDtoForProfile());
-            } else if (complianceRule.getComplianceGroupUuid() != null) {
-                ComplianceGroup group = complianceRule.getComplianceGroup();
-                String groupKey = group.getConnector().getUuid() + ":" + group.getConnector().getName() + ":" + group.getKind();
-                var groupDto = new com.czertainly.api.model.core.compliance.ComplianceGroupsDto();
-                groupDto.setUuid(group.getUuid().toString());
-                groupDto.setName(group.getName());
-                groupDto.setDescription(group.getDescription());
-                groupsMapping.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(groupDto);
-            }
-        }
-
-        for (Map.Entry<String, List<com.czertainly.api.model.core.compliance.ComplianceRulesDto>> entry : rulesMapping.entrySet()) {
-            var complianceConnectorAndRulesDto = new com.czertainly.api.model.core.compliance.ComplianceConnectorAndRulesDto();
-            String[] nameSplits = entry.getKey().split(":");
-            complianceConnectorAndRulesDto.setConnectorName(nameSplits[1]);
-            complianceConnectorAndRulesDto.setKind(nameSplits[2]);
-            complianceConnectorAndRulesDto.setConnectorUuid(nameSplits[0]);
-            complianceConnectorAndRulesDto.setRules(entry.getValue());
-            rulesDtos.add(complianceConnectorAndRulesDto);
-        }
-        complianceProfileDto.setRules(rulesDtos);
-
-        for (Map.Entry<String, List<com.czertainly.api.model.core.compliance.ComplianceGroupsDto>> entry : groupsMapping.entrySet()) {
-            var grps = new com.czertainly.api.model.core.compliance.ComplianceConnectorAndGroupsDto();
-            String[] nameSplits = entry.getKey().split(":");
-            grps.setConnectorName(nameSplits[1]);
-            grps.setKind(nameSplits[2]);
-            grps.setConnectorUuid(nameSplits[0]);
-            grps.setGroups(entry.getValue());
-            groupsDtos.add(grps);
-        }
-        complianceProfileDto.setGroups(groupsDtos);
-
         return complianceProfileDto;
     }
 

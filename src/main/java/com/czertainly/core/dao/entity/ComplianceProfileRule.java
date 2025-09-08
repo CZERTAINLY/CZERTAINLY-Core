@@ -3,13 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.czertainly.api.model.core.compliance.ComplianceRulesDto;
-import com.czertainly.api.model.core.compliance.v2.BaseComplianceRuleDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
 import com.czertainly.core.dao.entity.workflows.Rule;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -81,36 +75,6 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
 
     @Transient
     private ComplianceRuleAvailabilityStatus availabilityStatus;
-
-    public BaseComplianceRuleDto mapToDto() {
-        if (complianceGroupUuid != null) {
-            return complianceGroup.mapToDto(availabilityStatus);
-        } else if (complianceRuleUuid != null) {
-            return complianceRule.mapToDto(availabilityStatus);
-        }
-
-        return internalRule.mapToComplianceRuleDto();
-    }
-
-    public ComplianceRulesDto mapToDtoForProfile() {
-        ComplianceRulesDto dto = new ComplianceRulesDto();
-        dto.setName(complianceRule.getName());
-        dto.setUuid(complianceRule.getUuid().toString());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(getFullAttributes()));
-        dto.setDescription(complianceRule.getDescription());
-        return dto;
-    }
-
-    public void setComplianceRule(ComplianceRule complianceRule) {
-        this.complianceRule = complianceRule;
-        if (complianceRule != null) this.complianceRuleUuid = complianceRule.getUuid();
-        else this.complianceRuleUuid = null;
-    }
-
-//    public List<DataAttribute> getFullAttributes() {
-//        List<BaseAttribute> fullAttribute = complianceRule.getAttributes();
-//        return AttributeDefinitionUtils.mergeAttributes(fullAttribute, AttributeDefinitionUtils.deserializeRequestAttributes(attributes));
-//    }
 
     @Override
     public final boolean equals(Object o) {

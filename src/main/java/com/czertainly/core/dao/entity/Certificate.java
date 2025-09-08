@@ -10,7 +10,6 @@ import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -267,8 +266,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
          * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
          */
         dto.setComplianceStatus(complianceStatus);
-        dto.setComplianceResult(complianceResult);
-
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
@@ -408,17 +405,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfile = raProfile;
         if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
-    }
-
-    public CertificateComplianceStorageDto getComplianceResult() {
-        if (complianceResult == null) {
-            return null;
-        }
-        return (CertificateComplianceStorageDto) SerializationUtil.deserialize(complianceResult, CertificateComplianceStorageDto.class);
-    }
-
-    public void setComplianceResult(CertificateComplianceStorageDto complianceResult) {
-        this.complianceResult = SerializationUtil.serialize(complianceResult);
     }
 
     public void setKey(CryptographicKey key) {
