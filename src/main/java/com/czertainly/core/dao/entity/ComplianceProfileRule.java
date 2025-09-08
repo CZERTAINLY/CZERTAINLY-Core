@@ -40,14 +40,19 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
     @ToString.Exclude
     private ComplianceProfile complianceProfile;
 
+    @Column(name = "compliance_profile_uuid", nullable = false)
+    private UUID complianceProfileUuid;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "connector_uuid", insertable = false, updatable = false)
+    @ToString.Exclude
+    private Connector connector;
+
     @Column(name = "connector_uuid")
     private UUID connectorUuid;
 
     @Column(name = "kind")
     private String kind;
-
-    @Column(name = "compliance_profile_uuid", nullable = false)
-    private UUID complianceProfileUuid;
 
     @Column(name = "compliance_rule_uuid")
     private UUID complianceRuleUuid;

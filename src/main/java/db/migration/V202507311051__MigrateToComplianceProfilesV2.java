@@ -61,6 +61,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     DROP COLUMN i_upd,
                     DROP CONSTRAINT "compliance_profile_rule_to_compliance_profile",
                     ADD CONSTRAINT fk_compliance_profile_rule_to_compliance_profile FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile(uuid) ON UPDATE CASCADE ON DELETE CASCADE,
+                    ADD CONSTRAINT fk_compliance_profile_rule_to_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
                     ADD CONSTRAINT fk_compliance_profile_rule_to_rule FOREIGN KEY (internal_rule_uuid) REFERENCES rule(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                 
                 UPDATE compliance_profile_rule SET compliance_rule_uuid = rule_uuid;

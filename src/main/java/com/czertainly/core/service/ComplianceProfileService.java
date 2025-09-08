@@ -92,7 +92,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return
      * @throws NotFoundException
      */
-    List<ComplianceRuleListDto> getComplianceRules(UUID connectorUuid, String kind, Resource resource, String type, String format) throws NotFoundException;
+    List<ComplianceRuleListDto> getComplianceRules(UUID connectorUuid, String kind, Resource resource, String type, String format) throws NotFoundException, ConnectorException;
 
     /**
      * List compliance groups by specified criteria
@@ -106,16 +106,26 @@ public interface ComplianceProfileService extends ResourceExtensionService {
     List<ComplianceGroupListDto> getComplianceGroups(UUID connectorUuid, String kind, Resource resource) throws NotFoundException, ConnectorException;
 
     /**
-     * @param uuid
-     * @param request
+     * @param groupUuid
+     * @param connectorUuid
+     * @param kind
+     * @return
+     * @throws NotFoundException
+     * @throws ConnectorException
      */
-    void patchComplianceProfileRule(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request);
+    List<ComplianceRuleListDto> getComplianceGroupRules(UUID groupUuid, UUID connectorUuid, String kind) throws NotFoundException, ConnectorException;
 
     /**
      * @param uuid
      * @param request
      */
-    void patchComplianceProfileGroup(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request);
+    void patchComplianceProfileRule(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request) throws NotFoundException, ConnectorException;
+
+    /**
+     * @param uuid
+     * @param request
+     */
+    void patchComplianceProfileGroup(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException;
 
     /**
      * Get the list of associated resource objects to the compliance profile
@@ -124,28 +134,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return List of resource objects associated with the compliance profile. {@link ResourceObjectDto}
      * @throws NotFoundException * @throws NotFoundException Thrown when compliance profile is not found
      */
-    List<ResourceObjectDto> getAssociations(SecuredUUID uuid);
-
-
-    /**
-     * Associate a compliance profile to resource object
-     *
-     * @param uuid uuid of compliance profile
-     * @param resource
-     * @param associationObjectUuid
-     * @throws NotFoundException
-     */
-    void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid);
-
-    /**
-     * Disassociate a compliance profile from resource object
-     *
-     * @param uuid uuid of compliance profile
-     * @param resource
-     * @param associationObjectUuid
-     * @throws NotFoundException
-     */
-    void disassociateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid);
+    List<ResourceObjectDto> getAssociations(SecuredUUID uuid) throws NotFoundException;
 
     /**
      * List compliance profiles associated with resource object
@@ -156,6 +145,26 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @throws NotFoundException
      */
     List<ComplianceProfileListDto> getAssociatedComplianceProfiles(Resource resource, UUID associationObjectUuid);
+
+    /**
+     * Associate a compliance profile to resource object
+     *
+     * @param uuid uuid of compliance profile
+     * @param resource
+     * @param associationObjectUuid
+     * @throws NotFoundException
+     */
+    void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException;
+
+    /**
+     * Disassociate a compliance profile from resource object
+     *
+     * @param uuid uuid of compliance profile
+     * @param resource
+     * @param associationObjectUuid
+     * @throws NotFoundException
+     */
+    void disassociateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException;
 
     /**
      * Check the compliance for all objects associated with the compliance profiles

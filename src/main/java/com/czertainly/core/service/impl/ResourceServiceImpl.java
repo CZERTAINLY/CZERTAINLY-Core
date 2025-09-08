@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
+import com.czertainly.api.model.core.other.ResourceObjectDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -79,11 +80,23 @@ public class ResourceServiceImpl implements ResourceService {
         return resources;
     }
 
+    // used only internally, not directly through API
     @Override
-    public List<NameAndUuidDto> getObjectsForResource(Resource resource) throws NotSupportedException {
+    public ResourceObjectDto getResourceObject(Resource resource, UUID objectUuid) throws NotFoundException {
+        ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
+        if (resourceExtensionService == null) {
+            throw new NotSupportedException("Cannot retrieve object for requested resource: " + resource.getLabel());
+        }
+
+        NameAndUuidDto nameAndUuidDto = resourceExtensionService.getResourceObject(objectUuid);
+        return new ResourceObjectDto(resource, objectUuid, nameAndUuidDto.getName());
+    }
+
+    @Override
+    public List<NameAndUuidDto> getResourceObjects(Resource resource) throws NotSupportedException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null)
-            throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getCode());
+            throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getLabel());
         return resourceExtensionService.listResourceObjects(SecurityFilter.create());
     }
 
@@ -91,7 +104,8 @@ public class ResourceServiceImpl implements ResourceService {
     public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resource, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
         logger.info("Updating the attribute {} for resource {} with value {}", attributeUuid, resource, attributeUuid);
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
-        if (!resource.hasCustomAttributes() || resourceExtensionService == null) throw new NotSupportedException("Cannot update custom attribute for requested resource: " + resource.getCode());
+        if (!resource.hasCustomAttributes() || resourceExtensionService == null)
+            throw new NotSupportedException("Cannot update custom attribute for requested resource: " + resource.getCode());
         resourceExtensionService.evaluatePermissionChain(objectUuid);
 
         attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid.getValue(), attributeUuid, null, attributeContentItems);
@@ -120,7 +134,7 @@ public class ResourceServiceImpl implements ResourceService {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
                 else if (filterField.getFieldResource() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getObjectsForResource(filterField.getFieldResource())));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource())));
                     // Filter field has values of all possible values of a property
                 else {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(filterField, false), resource, entityManager).getResultList()));
@@ -128,7 +142,8 @@ public class ResourceServiceImpl implements ResourceService {
             }
         }
 
-        if (!fieldDataDtos.isEmpty()) searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
+        if (!fieldDataDtos.isEmpty())
+            searchFieldDataByGroupDtos.add(new SearchFieldDataByGroupDto(fieldDataDtos, FilterFieldSource.PROPERTY));
 
         return searchFieldDataByGroupDtos;
     }

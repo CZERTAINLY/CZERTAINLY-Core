@@ -79,6 +79,35 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         return complianceProfileDto;
     }
 
+    /**
+     * MapToDto function concentrating on providing the values that are required only for the List API
+     *
+     * @return ComplianceProfilesListDto with the response for listing operation
+     */
+    public com.czertainly.api.model.core.compliance.ComplianceProfilesListDto mapToListDtoV1() {
+        var complianceProfileDto = new com.czertainly.api.model.core.compliance.ComplianceProfilesListDto();
+        complianceProfileDto.setName(name);
+        complianceProfileDto.setUuid(uuid.toString());
+        complianceProfileDto.setDescription(description);
+
+        Map<String, com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto> providersMapping = new TreeMap<>();
+        for (ComplianceProfileRule complianceRule : complianceRules) {
+            if (complianceRule.getComplianceRuleUuid() != null) {
+                String connectorName = complianceRule.getConnector().getName();
+                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
+                providerSummary.setNumberOfRules(providerSummary.getNumberOfRules() + 1);
+            } else if (complianceRule.getComplianceGroupUuid() != null) {
+                // ??? should we count also rules from groups ???
+                String connectorName = complianceRule.getConnector().getName();
+                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
+                providerSummary.setNumberOfGroups(providerSummary.getNumberOfGroups() + 1);
+            }
+        }
+
+        complianceProfileDto.setRules(providersMapping.values().stream().toList());
+        return complianceProfileDto;
+    }
+
     public com.czertainly.api.model.core.compliance.ComplianceProfileDto mapToDtoV1() {
         var complianceProfileDto = new com.czertainly.api.model.core.compliance.ComplianceProfileDto();
         complianceProfileDto.setName(name);
@@ -143,35 +172,6 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
         complianceProfileDto.setUuid(uuid.toString());
-        return complianceProfileDto;
-    }
-
-    /**
-     * MapToDto function concentrating on providing the values that are required only for the List API
-     *
-     * @return ComplianceProfilesListDto with the response for listing operation
-     */
-    public com.czertainly.api.model.core.compliance.ComplianceProfilesListDto mapToListDtoV1() {
-        var complianceProfileDto = new com.czertainly.api.model.core.compliance.ComplianceProfilesListDto();
-        complianceProfileDto.setName(name);
-        complianceProfileDto.setUuid(uuid.toString());
-        complianceProfileDto.setDescription(description);
-
-        Map<String, com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto> providersMapping = new TreeMap<>();
-        for (ComplianceProfileRule complianceRule : complianceRules) {
-            if (complianceRule.getComplianceRuleUuid() != null) {
-                String connectorName = complianceRule.getComplianceRule().getConnector().getName();
-                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
-                providerSummary.setNumberOfRules(providerSummary.getNumberOfRules());
-            } else if (complianceRule.getComplianceGroupUuid() != null) {
-                // ??? should we count also rules from groups ???
-                String connectorName = complianceRule.getComplianceGroup().getConnector().getName();
-                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
-                providerSummary.setNumberOfGroups(providerSummary.getNumberOfGroups());
-            }
-        }
-
-        complianceProfileDto.setRules(providersMapping.values().stream().toList());
         return complianceProfileDto;
     }
 

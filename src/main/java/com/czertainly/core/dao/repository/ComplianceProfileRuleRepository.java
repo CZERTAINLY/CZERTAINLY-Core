@@ -1,6 +1,5 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceRule;
@@ -19,10 +18,14 @@ public interface ComplianceProfileRuleRepository extends SecurityFilterRepositor
 
     List<ComplianceProfileRule> findByUuidIn(List<UUID> uuid);
 
-    List<ComplianceProfileRule> findByComplianceProfileUuidAndConnectorUuidAndKindAndInternalRuleUuidNull(UUID complianceProfileUuid, UUID connectorUuid, String kind);
+    Optional<ComplianceProfileRule> findByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(UUID complianceProfileUuid, UUID connectorUuid, String kind, UUID providerRuleUuid);
 
     long deleteByComplianceProfileUuid(UUID complianceProfileUuid);
 
-    long deleteByComplianceProfileUuidAndInternalRuleUuidNotNull(UUID complianceProfileUuid);
+    long deleteByComplianceProfileUuidAndInternalRuleUuid(UUID complianceProfileUuid, UUID internalRuleUuid);
+
+    long deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(UUID complianceProfileUuid, UUID connectorUuid, String kind, UUID providerRuleUuid);
+
+    long deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(UUID complianceProfileUuid, UUID connectorUuid, String kind, UUID providerGroupUuid);
 
 }
