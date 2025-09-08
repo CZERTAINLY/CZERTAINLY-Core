@@ -57,7 +57,6 @@ public class UserManagementServiceImpl implements UserManagementService {
 
     private AttributeEngine attributeEngine;
 
-
     private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
 
     @Autowired

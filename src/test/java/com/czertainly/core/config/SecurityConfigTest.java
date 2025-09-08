@@ -19,6 +19,8 @@ import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.OAuth2RefreshToken;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
@@ -51,6 +53,10 @@ class SecurityConfigTest extends BaseSpringBootTestNoAuth {
 
     @Autowired
     SettingsCache settingsCache;
+
+    // Since Session Config is excluded, this repository has to mocked, otherwise it will not get injected
+    @MockitoBean
+    private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
 
 
     @DynamicPropertySource
