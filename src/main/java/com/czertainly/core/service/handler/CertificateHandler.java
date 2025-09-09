@@ -107,9 +107,9 @@ public class CertificateHandler {
 
         try {
             if (certificate.getRaProfileUuid() != null) {
-                complianceService.checkComplianceOfCertificate(certificate);
+                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
             }
-        } catch (ConnectorException | NotFoundException e) {
+        } catch (Exception e) {
             logger.error("Error when checking compliance of certificate {}: {}", certificate.toStringShort(), e.getMessage());
         }
     }

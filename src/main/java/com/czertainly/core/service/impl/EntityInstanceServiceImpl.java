@@ -18,8 +18,10 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
+import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
+import com.czertainly.core.dao.entity.EntityInstanceReference_;
 import com.czertainly.core.dao.repository.EntityInstanceReferenceRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -48,6 +50,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Service(Resource.Codes.ENTITY)
 @Transactional
@@ -257,11 +260,14 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return entityInstanceReferenceRepository.findResourceObject(objectUuid, EntityInstanceReference_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return entityInstanceReferenceRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(EntityInstanceReference::mapToAccessControlObjects).toList();
+        return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name);
     }
 
     @Override

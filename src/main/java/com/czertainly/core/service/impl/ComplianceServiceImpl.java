@@ -34,7 +34,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkResourceObjectsCompliance(Resource resource, UUID objectUuid) {
+    public void checkResourceObjectCompliance(Resource resource, UUID objectUuid) {
 
     }
 

@@ -28,11 +28,13 @@ import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
+@Service("ComplianceProfileServiceV1")
 @Transactional
 public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
@@ -102,21 +104,23 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         requestV2.setName(request.getName());
         requestV2.setDescription(request.getDescription());
         requestV2.setCustomAttributes(request.getCustomAttributes());
-        for (ComplianceProfileRulesRequestDto providerRequest : request.getRules()) {
-            // validate connectors
-            UUID connectorUuid = UUID.fromString(providerRequest.getConnectorUuid());
-            getValidatedComplianceProvider(connectorUuid, providerRequest.getKind());
+        if (request.getRules() != null) {
+            for (ComplianceProfileRulesRequestDto providerRequest : request.getRules()) {
+                // validate connectors
+                UUID connectorUuid = UUID.fromString(providerRequest.getConnectorUuid());
+                getValidatedComplianceProvider(connectorUuid, providerRequest.getKind());
 
-            var providerRequestV2 = new com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto();
-            providerRequestV2.setConnectorUuid(connectorUuid);
-            providerRequestV2.setKind(providerRequest.getKind());
-            for (var providerRule : providerRequest.getRules()) {
-                providerRequestV2.getRules().add(new ComplianceRuleRequestDto(UUID.fromString(providerRule.getUuid()), providerRule.getAttributes()));
+                var providerRequestV2 = new com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto();
+                providerRequestV2.setConnectorUuid(connectorUuid);
+                providerRequestV2.setKind(providerRequest.getKind());
+                for (var providerRule : providerRequest.getRules()) {
+                    providerRequestV2.getRules().add(new ComplianceRuleRequestDto(UUID.fromString(providerRule.getUuid()), providerRule.getAttributes()));
+                }
+                for (var providerGroupUuid : providerRequest.getGroups()) {
+                    providerRequestV2.getGroups().add(UUID.fromString(providerGroupUuid));
+                }
+                requestV2.getProviderRules().add(providerRequestV2);
             }
-            for (var providerGroupUuid : providerRequest.getGroups()) {
-                providerRequestV2.getGroups().add(UUID.fromString(providerGroupUuid));
-            }
-            requestV2.getProviderRules().add(providerRequestV2);
         }
 
         var dtoV2 = complianceProfileServiceV2.createComplianceProfile(requestV2);

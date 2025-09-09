@@ -379,7 +379,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DETAIL)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<ComplianceProfileListDto> getAssociatedComplianceProfiles(Resource resource, UUID associationObjectUuid) {
         List<ComplianceProfileAssociation> associations = complianceProfileAssociationRepository.findByResourceAndObjectUuid(resource, associationObjectUuid);
 
@@ -414,16 +414,13 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
-        ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, objectUuid));
-        return new NameAndUuidDto(complianceProfile.getUuid().toString(), complianceProfile.getName());
+        return complianceProfileRepository.findResourceObject(objectUuid, ComplianceProfile_.name);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return complianceProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(ComplianceProfile::mapToAccessControlObjects).toList();
+        return complianceProfileRepository.listResourceObjects(filter, ComplianceProfile_.name);
     }
 
     @Override

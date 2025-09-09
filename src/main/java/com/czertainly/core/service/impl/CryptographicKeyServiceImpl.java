@@ -779,6 +779,11 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return cryptographicKeyRepository.findResourceObject(objectUuid, CryptographicKey_.name);
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource cryptographic keys.");
     }

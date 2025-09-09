@@ -23,6 +23,7 @@ import com.czertainly.core.dao.entity.workflows.Rule;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.RuleRepository;
 import com.czertainly.core.model.compliance.ComplianceRulesGroupsBatchDto;
+import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.NullUtil;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -229,7 +230,7 @@ public class ComplianceProfileRuleHandler {
     }
 
     public ComplianceProfileRule createComplianceProfileInternalRuleAssoc(UUID complianceProfileUuid, UUID internalRuleUuid) throws NotFoundException {
-        Rule internalRule = ruleRepository.findByUuid(internalRuleUuid).orElseThrow(() -> new NotFoundException("Internal rule", internalRuleUuid));
+        Rule internalRule = ruleRepository.findByUuid(SecuredUUID.fromUUID(internalRuleUuid)).orElseThrow(() -> new NotFoundException("Internal rule", internalRuleUuid));
         if (internalRule.getResource() == Resource.ANY) {
             throw new ValidationException("Internal rule '%s' with ANY resource cannot be associated with compliance profile".formatted(internalRule.getName()));
         }

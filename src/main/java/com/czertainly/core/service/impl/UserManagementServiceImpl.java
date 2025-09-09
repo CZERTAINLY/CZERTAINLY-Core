@@ -227,6 +227,12 @@ public class UserManagementServiceImpl implements UserManagementService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        UserDetailDto dto = userManagementApiClient.getUserDetail(objectUuid.toString());
+        return new NameAndUuidDto(dto.getUuid(), dto.getUsername());
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         return listUsers().stream().map(u -> new NameAndUuidDto(u.getUuid(), u.getUsername())).toList();
     }

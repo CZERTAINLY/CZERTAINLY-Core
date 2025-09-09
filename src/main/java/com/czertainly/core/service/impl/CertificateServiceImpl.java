@@ -1358,8 +1358,8 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public NameAndUuidDto getResourceObject(UUID objectUuid) {
-        throw new NotSupportedException("Getting resource object is not supported for resource Certificate.");
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return certificateRepository.findResourceObject(objectUuid, Certificate_.serialNumber);
     }
 
     @Override

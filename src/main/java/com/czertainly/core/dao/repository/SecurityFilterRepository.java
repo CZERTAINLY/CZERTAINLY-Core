@@ -1,5 +1,7 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import jakarta.persistence.criteria.*;
@@ -18,8 +20,6 @@ import java.util.function.BiFunction;
 
 @NoRepositoryBean
 public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
-
-    Optional<T> findByUuid(UUID uuid);
 
     Optional<T> findByUuid(SecuredUUID uuid);
 
@@ -41,4 +41,7 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     int deleteUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete<T>, Predicate> additionalWhereClause);
 
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute);
+
+    NameAndUuidDto findResourceObject(UUID uuid, SingularAttribute<T, String> nameAttribute) throws NotFoundException;
 }

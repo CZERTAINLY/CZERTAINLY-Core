@@ -27,7 +27,7 @@ public interface ComplianceService {
      * @param resource Resource of objects checked by compliance
      * @param objectUuid UUID of object to be checked
      */
-    void checkResourceObjectsCompliance(Resource resource, UUID objectUuid);
+    void checkResourceObjectCompliance(Resource resource, UUID objectUuid);
 
     /**
      * Check compliance on specified resource objects

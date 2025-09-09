@@ -6,7 +6,9 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.Group;
+import com.czertainly.core.dao.entity.Group_;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -22,6 +24,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.GROUP)
@@ -136,12 +139,14 @@ public class GroupServiceImpl implements GroupService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return groupRepository.findResourceObject(objectUuid, Group_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return groupRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(Group::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return groupRepository.listResourceObjects(filter, Group_.name);
     }
 
     @Override

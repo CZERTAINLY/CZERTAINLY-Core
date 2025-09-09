@@ -19,7 +19,9 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.Credential;
+import com.czertainly.core.dao.entity.Credential_;
 import com.czertainly.core.dao.repository.CredentialRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -270,12 +272,14 @@ public class CredentialServiceImpl implements CredentialService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return credentialRepository.findResourceObject(objectUuid, Credential_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return credentialRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(Credential::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return credentialRepository.listResourceObjects(filter, Credential_.name);
     }
 
     @Override
