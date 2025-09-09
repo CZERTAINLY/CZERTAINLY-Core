@@ -6,9 +6,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateState;
-import com.czertainly.api.model.core.certificate.CertificateSubjectType;
-import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
@@ -22,10 +20,12 @@ import com.czertainly.core.dao.entity.oid.CustomOidEntry_;
 import com.czertainly.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry_;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.metamodel.Attribute;
+import lombok.Getter;
 
 import java.util.Arrays;
 import java.util.List;
 
+@Getter
 public enum FilterField {
 
     // Certificate
@@ -48,7 +48,7 @@ public enum FilterField {
     ALT_PUBLIC_KEY_ALGORITHM(Resource.CERTIFICATE, null, null, Certificate_.altPublicKeyAlgorithm, "Alternative Public Key Algorithm", SearchFieldTypeEnum.LIST),
     KEY_SIZE(Resource.CERTIFICATE, null, null, Certificate_.keySize, "Key Size", SearchFieldTypeEnum.LIST),
     ALT_KEY_SIZE(Resource.CERTIFICATE, null, null, Certificate_.altKeySize, "Alternative Key Size", SearchFieldTypeEnum.LIST),
-    KEY_USAGE(Resource.CERTIFICATE, null, null, Certificate_.keyUsage, "Key Usage", SearchFieldTypeEnum.LIST),
+    KEY_USAGE(Resource.CERTIFICATE, null, null, Certificate_.keyUsage, "Key Usage", SearchFieldTypeEnum.LIST, CertificateKeyUsage.class),
     SUBJECT_TYPE(Resource.CERTIFICATE, null, null, Certificate_.subjectType, "Subject Type", SearchFieldTypeEnum.LIST, CertificateSubjectType.class),
     SUBJECT_ALTERNATIVE_NAMES(Resource.CERTIFICATE, null, null, Certificate_.subjectAlternativeNames, "Subject Alternative Name", SearchFieldTypeEnum.STRING),
     SUBJECTDN(Resource.CERTIFICATE, null, null, Certificate_.subjectDn, "Subject DN", SearchFieldTypeEnum.STRING),
@@ -62,6 +62,8 @@ public enum FilterField {
     CERTIFICATE_PROTOCOL(Resource.CERTIFICATE, null, List.of(Certificate_.protocolAssociation), CertificateProtocolAssociation_.protocol, "Certificate Protocol", SearchFieldTypeEnum.LIST, CertificateProtocol.class),
     HYBRID_CERTIFICATE(Resource.CERTIFICATE, null, null, Certificate_.hybridCertificate, "Hybrid Certificate", SearchFieldTypeEnum.BOOLEAN),
     ARCHIVED(Resource.CERTIFICATE, null, null, Certificate_.archived, "Archived", SearchFieldTypeEnum.BOOLEAN),
+    SUCCEEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.successorRelations), CertificateRelation_.relationType, "Succeeding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
+    PRECEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.predecessorRelations), CertificateRelation_.relationType, "Preceding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),
@@ -172,46 +174,6 @@ public enum FilterField {
         this.enumClass = enumClass;
         this.settable = settable;
         this.expectedValue = expectedValue;
-    }
-
-    public Resource getRootResource() {
-        return rootResource;
-    }
-
-    public Resource getFieldResource() {
-        return fieldResource;
-    }
-
-    public List<Attribute> getJoinAttributes() {
-        return joinAttributes;
-    }
-
-    public Attribute getFieldAttribute() {
-        return fieldAttribute;
-    }
-
-    public SearchFieldTypeEnum getType() {
-        return type;
-    }
-
-    public String getLabel() {
-        return label;
-    }
-
-    public String[] getJsonPath() {
-        return jsonPath;
-    }
-
-    public Class<? extends IPlatformEnum> getEnumClass() {
-        return enumClass;
-    }
-
-    public Object getExpectedValue() {
-        return expectedValue;
-    }
-
-    public boolean isSettable() {
-        return settable;
     }
 
     public static List<FilterField> getEnumsForResource(Resource resource) {

@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.cryptography.key.KeyCompromiseReason;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -22,7 +23,6 @@ import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -70,12 +70,12 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     private KeyState state;
 
     @Column(name = "usage")
-    private String usage;
+    private int usage;
 
     @Column(name = "enabled")
     private boolean enabled;
 
-    @Column(name = "fingerprint")
+    @Column(name = "fingerprint", unique = true)
     private String fingerprint;
 
     @Enumerated(EnumType.STRING)
@@ -105,29 +105,15 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     }
 
     public List<KeyUsage> getUsage() {
-        if (usage == null) return new ArrayList<>();
-        return Arrays.stream(
-                usage.split(",")
-        ).map(
-                i -> KeyUsage.valueOf(
-                        Integer.parseInt(i)
-                )
-        ).collect(Collectors.toList());
+        return KeyUsage.convertBitMaskToSet(usage).stream().toList();
+    }
+
+    public int getUsageBitmask() {
+        return usage;
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        if (usage == null || usage.isEmpty()) {
-            this.usage = null;
-            return;
-        }
-
-        this.usage = usage.stream().map(
-                i -> String.valueOf(
-                        i.getBitmask()
-                )
-        ).collect(
-                Collectors.joining(",")
-        );
+        this.usage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
     }
 
 

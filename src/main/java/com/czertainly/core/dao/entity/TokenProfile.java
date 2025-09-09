@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
@@ -14,7 +15,6 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -46,7 +46,7 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     private Boolean enabled;
 
     @Column(name = "usage")
-    private String usage;
+    private int usage;
 
     public void setTokenInstanceReference(TokenInstanceReference tokenInstanceReference) {
         this.tokenInstanceReference = tokenInstanceReference;
@@ -54,24 +54,11 @@ public class TokenProfile extends UniquelyIdentifiedAndAudited implements Serial
     }
 
     public List<KeyUsage> getUsage() {
-        if(usage == null) return new ArrayList<>();
-        return Arrays.stream(
-                usage.split(",")
-        ).map(
-                i -> KeyUsage.valueOf(
-                        Integer.parseInt(i)
-                )
-        ).collect(Collectors.toList());
+        return KeyUsage.convertBitMaskToSet(usage).stream().toList();
     }
 
     public void setUsage(List<KeyUsage> usage) {
-        this.usage = usage.stream().map(
-                i -> String.valueOf(
-                        i.getBitmask()
-                )
-        ).collect(
-                Collectors.joining(",")
-        );
+        this.usage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
     }
 
     @Override

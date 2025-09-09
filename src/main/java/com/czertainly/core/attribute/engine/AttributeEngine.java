@@ -492,6 +492,36 @@ public class AttributeEngine {
         }
     }
 
+    public List<ResponseAttributeDto> loadResponseAttributes(AttributeType attributeType, UUID connectorUuid, List<RequestAttributeDto> requestAttributes) {
+        List<UUID> attributeUuids = new ArrayList<>();
+        List<String> attributeNames = new ArrayList<>();
+        for (RequestAttributeDto requestAttribute : requestAttributes) {
+            attributeUuids.add(UUID.fromString(requestAttribute.getUuid()));
+            attributeNames.add(requestAttribute.getName());
+        }
+
+        Map<UUID, AttributeDefinition> definitionsMapping = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(attributeType, connectorUuid, attributeUuids, attributeNames).stream().collect(Collectors.toMap(AttributeDefinition::getAttributeUuid, d -> d));
+
+        List<ResponseAttributeDto> responseAttributes = new ArrayList<>();
+        for (RequestAttributeDto requestAttribute : requestAttributes) {
+            AttributeDefinition attributeDefinition = definitionsMapping.get(UUID.fromString(requestAttribute.getUuid()));
+            if (attributeDefinition == null) {
+                continue;
+            }
+
+            ResponseAttributeDto responseAttribute = new ResponseAttributeDto();
+            responseAttribute.setUuid(requestAttribute.getUuid());
+            responseAttribute.setName(requestAttribute.getName());
+            responseAttribute.setContentType(requestAttribute.getContentType());
+            responseAttribute.setContent(requestAttribute.getContent());
+            responseAttribute.setLabel(attributeDefinition.getLabel());
+            responseAttribute.setType(attributeType);
+            responseAttributes.add(responseAttribute);
+        }
+
+        return responseAttributes;
+    }
+
     public List<ResponseAttributeDto> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid) {
         logger.debug("Getting the custom attributes for {} with UUID: {}", objectType.getLabel(), objectUuid);
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
@@ -637,7 +667,8 @@ public class AttributeEngine {
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
         validateCustomAttributesContent(objectType, requestAttributes, securityResourceFilter);
 
-        if (securityResourceFilter == null) {
+        // if protocol user or has all permissions for attributes
+        if (securityResourceFilter == null || (!securityResourceFilter.areOnlySpecificObjectsAllowed() && securityResourceFilter.getForbiddenObjects().isEmpty())) {
             // custom attributes content is automatically replaced
             deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
             for (RequestAttributeDto requestAttribute : requestAttributes) {
@@ -645,6 +676,9 @@ public class AttributeEngine {
                 createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
             }
         } else {
+            // delete only content of allowed attributes
+            deleteObjectAllowedCustomAttributeContent(securityResourceFilter, objectType, objectUuid);
+
             for (RequestAttributeDto requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
@@ -657,7 +691,6 @@ public class AttributeEngine {
                     }
                 }
 
-                deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
                 createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
             }
         }
@@ -993,7 +1026,7 @@ public class AttributeEngine {
         // validate read only content to equal to definition content
         if (Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
             Object definitionContent = attributeDefinition.getDefinition().getContent();
-            if (definitionContent == null || !definitionContent.equals(attributeContent)) {
+            if (attributeContent == null || !attributeContent.equals(definitionContent)) {
                 throw new AttributeException("Wrong value of read only attribute " + attributeDefinition.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
             }
         }
@@ -1021,6 +1054,18 @@ public class AttributeEngine {
         logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
     }
 
+    public void deleteObjectAllowedCustomAttributeContent(SecurityResourceFilter securityResourceFilter, Resource objectType, UUID objectUuid) {
+        long deletedCount;
+        if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
+            logger.debug("Deleting allowed custom attributes content for {} with UUID: {}", objectType.getLabel(), objectUuid);
+            deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidInAndObjectTypeAndObjectUuid(AttributeType.CUSTOM, securityResourceFilter.getAllowedObjects(), objectType, objectUuid);
+        } else {
+            logger.debug("Deleting not forbidden custom attributes content for {} with UUID: {}", objectType.getLabel(), objectUuid);
+            deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidNotInAndObjectTypeAndObjectUuid(AttributeType.CUSTOM, securityResourceFilter.getForbiddenObjects(), objectType, objectUuid);
+        }
+        logger.debug("Deleted {} attribute content items for {} with UUID {}", deletedCount, objectType.getLabel(), objectUuid);
+    }
+
     private void deleteAllAttributeDefinitionContent(UUID definitionUuid) {
         long deletedCount = attributeContent2ObjectRepository.deleteByAttributeContentItemAttributeDefinitionUuid(definitionUuid);
         attributeRelationRepository.deleteByAttributeDefinitionUuid(definitionUuid);
@@ -1035,13 +1080,13 @@ public class AttributeEngine {
 
     private SecurityResourceFilter loadCustomAttributesSecurityResourceFilter() {
         // if user is anonymous or protocol user, allow all custom attribute content for sake of system processes and protocol operations
-        boolean loadAllContent = false;
+        boolean loadAllContent;
         try {
             loadAllContent = AuthHelper.isLoggedProtocolUser();
         } catch (ValidationException ex) {
             // anonymous user
-            // NOTE: subject to change in case of revealing custom attributes content unnecessarily
-            loadAllContent = true;
+            // NOTE: subject to change in case of anonymous user needs custom attributes content
+            loadAllContent = false;
         }
 
         return loadAllContent ? null : authHelper.loadObjectPermissions(Resource.ATTRIBUTE, ResourceAction.MEMBERS);

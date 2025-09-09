@@ -12,8 +12,10 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
+import com.czertainly.api.model.core.certificate.CertificateKeyUsage;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.workflows.ExecutionType;
@@ -170,7 +172,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testCertificateEvaluatorOnProperties() throws RuleException {
+    void testCertificateRuleEvaluatorOnStringProperty() throws RuleException {
         certificate.setCommonName("Common Name");
         condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setFieldIdentifier(FilterField.COMMON_NAME.toString());
@@ -207,7 +209,11 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         certificate.setCommonName(null);
         condition.setOperator(FilterConditionOperator.EMPTY);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
 
+    @Test
+    void testCertificateRuleEvaluatorOnEnumProperty() throws RuleException {
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
         certificate.setPublicKeyAlgorithm("RSA");
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setFieldIdentifier(FilterField.PUBLIC_KEY_ALGORITHM.name());
@@ -225,7 +231,20 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
 
+    @Test
+    void testCertificateRuleEvaluatorOnBooleanProperty() throws RuleException {
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        certificate.setTrustedCa(true);
+        condition.setFieldIdentifier(FilterField.TRUSTED_CA.toString());
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue(true);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
+
+    @Test
+    void testCertificateRuleEvaluatorOnListProperty() throws RuleException {
         Group group = new Group();
         group.setName("group");
         group = groupRepository.save(group);
@@ -237,6 +256,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         certificate.setGroups(new HashSet<>(List.of(group, group2)));
         certificate = certificateRepository.save(certificate);
 
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setFieldIdentifier(FilterField.GROUP_NAME.toString());
         condition.setValue(List.of(group.getName(), group2.getName()));
@@ -244,6 +264,23 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.NOT_EQUALS);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setValue(List.of("group3"));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+        condition.setOperator(FilterConditionOperator.COUNT_EQUAL);
+        condition.setValue(2);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(1);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.COUNT_NOT_EQUAL);
+        condition.setValue(1);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(2);
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.COUNT_GREATER_THAN);
+        condition.setValue(1);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.COUNT_LESS_THAN);
+        condition.setValue(5);
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
@@ -254,12 +291,6 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setOperator(FilterConditionOperator.NOT_EMPTY);
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
-
-        certificate.setTrustedCa(true);
-        condition.setFieldIdentifier(FilterField.TRUSTED_CA.toString());
-        condition.setOperator(FilterConditionOperator.EQUALS);
-        condition.setValue(true);
-        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
 
         Location location = new Location();
         location.setName("loc");
@@ -273,6 +304,33 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         condition.setOperator(FilterConditionOperator.EQUALS);
         condition.setValue(List.of("loc"));
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.COUNT_EQUAL);
+        condition.setValue(1);
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
+
+    @Test
+    void testCertificateEvaluatorOnEnumListBitmask() throws RuleException {
+        certificate.setKeyUsage(BitMaskEnum.convertSetToBitMask(EnumSet.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT, CertificateKeyUsage.KEY_AGREEMENT)));
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setFieldIdentifier(FilterField.KEY_USAGE.name());
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT, CertificateKeyUsage.KEY_AGREEMENT));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT, CertificateKeyUsage.KEY_CERT_SIGN));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(List.of(CertificateKeyUsage.KEY_CERT_SIGN));
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setOperator(FilterConditionOperator.NOT_EQUALS);
+        condition.setValue(List.of(CertificateKeyUsage.KEY_CERT_SIGN));
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+        condition.setValue(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT));
+        Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+
+
+
     }
 
     @Test
@@ -432,6 +490,30 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         newCondition.setValue("257");
         Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
         newCondition.setValue("257.4");
+        Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
+
+    }
+
+    @Test
+    void testKeyCountCondition() throws RuleException {
+        Group group = new Group();
+        group.setName("group");
+        group = groupRepository.save(group);
+
+        Group group2 = new Group();
+        group2.setName("group2");
+        group2 = groupRepository.save(group2);
+
+        CryptographicKey parentKey = new CryptographicKey();
+        parentKey.setGroups(Set.of(group, group2));
+        CryptographicKeyItem cryptographicKey = new CryptographicKeyItem();
+        cryptographicKey.setName("Key");
+        ConditionItem newCondition = new ConditionItem();
+        newCondition.setFieldSource(FilterFieldSource.PROPERTY);
+        cryptographicKey.setKey(parentKey);
+        newCondition.setFieldIdentifier(FilterField.CK_GROUP.name());
+        newCondition.setOperator(FilterConditionOperator.COUNT_EQUAL);
+        newCondition.setValue(2);
         Assertions.assertTrue(cryptographicKeyTriggerEvaluator.evaluateConditionItem(newCondition, cryptographicKey, Resource.CRYPTOGRAPHIC_KEY));
     }
 

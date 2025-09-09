@@ -8,10 +8,10 @@ import java.io.IOException;
 /**
  * Simple tests for calculating checksums and validating the migration scripts integrity.
  */
-public class DatabaseMigrationTest {
+class DatabaseMigrationTest {
 
     @Test
-    public void testJavaMigrationsChecksums() {
+    void testJavaMigrationsChecksums() {
         for (DatabaseMigration.JavaMigrationChecksums migrationChecksum : DatabaseMigration.JavaMigrationChecksums.values()) {
             if(migrationChecksum.isAltered()) {
                 continue;

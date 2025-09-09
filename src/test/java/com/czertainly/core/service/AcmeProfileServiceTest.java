@@ -5,9 +5,16 @@ import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
-import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
@@ -26,6 +33,9 @@ import java.util.UUID;
 class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
+    private AttributeEngine attributeEngine;
+
+    @Autowired
     private AcmeProfileService acmeProfileService;
 
     @Autowired
@@ -35,9 +45,28 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private AcmeProfile acmeProfile;
+    private CustomAttribute domainAttr;
+    private RequestAttributeDto domainAttrRequestAttribute;
 
     @BeforeEach
-    public void setUp() {
+    public void setUp() throws AttributeException {
+        domainAttr = new CustomAttribute();
+        domainAttr.setUuid(UUID.randomUUID().toString());
+        domainAttr.setName("domain");
+        domainAttr.setType(AttributeType.CUSTOM);
+        domainAttr.setContentType(AttributeContentType.STRING);
+        CustomAttributeProperties customProps = new CustomAttributeProperties();
+        customProps.setLabel("Domain of resource");
+        domainAttr.setProperties(customProps);
+        attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
+
+        domainAttrRequestAttribute = new RequestAttributeDto();
+        domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
+        domainAttrRequestAttribute.setName(domainAttr.getName());
+        domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContent("test")));
+
+
         acmeProfile = new AcmeProfile();
         acmeProfile.setWebsite("sample website");
         acmeProfile.setTermsOfServiceUrl("sample terms");
@@ -52,7 +81,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         ProtocolCertificateAssociations protocolCertificateAssociations = new ProtocolCertificateAssociations();
         protocolCertificateAssociations.setOwnerUuid(UUID.randomUUID());
         protocolCertificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
-        protocolCertificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        protocolCertificateAssociations.setCustomAttributes(List.of(domainAttrRequestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociations(protocolCertificateAssociations);
         acmeProfile.setCertificateAssociationsUuid(protocolCertificateAssociations.getUuid());
@@ -103,10 +132,10 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDescription(), dto.getDescription());
 
         request.setName("Test2");
-        ProtocolCertificateAssociationsDto certificateAssociations = new ProtocolCertificateAssociationsDto();
+        ProtocolCertificateAssociationsRequestDto certificateAssociations = new ProtocolCertificateAssociationsRequestDto();
         certificateAssociations.setOwnerUuid(UUID.randomUUID());
         certificateAssociations.setGroupUuids(List.of(UUID.randomUUID()));
-        certificateAssociations.setCustomAttributes(List.of(new RequestAttributeDto()));
+        certificateAssociations.setCustomAttributes(List.of(domainAttrRequestAttribute));
         request.setCertificateAssociations(certificateAssociations);
         dto = acmeProfileService.createAcmeProfile(request);
         AcmeProfile acmeProfileNew = acmeProfileRepository.findByUuid(UUID.fromString(dto.getUuid())).orElse(null);
@@ -146,7 +175,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDnsResolverIp(), dto.getDnsResolverIp());
         Assertions.assertNull(dto.getCertificateAssociations());
 
-        ProtocolCertificateAssociationsDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsDto();
+        ProtocolCertificateAssociationsRequestDto protocolCertificateAssociationsDto = new ProtocolCertificateAssociationsRequestDto();
         protocolCertificateAssociationsDto.setOwnerUuid(UUID.randomUUID());
         request.setCertificateAssociations(protocolCertificateAssociationsDto);
         dto = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);

@@ -73,9 +73,6 @@ public class CertificateUtil {
     private static final Logger logger = LoggerFactory.getLogger(CertificateUtil.class);
     private static final Map<Integer, String> SAN_TYPE_MAP = new HashMap<>();
 
-    public static final String KEY_USAGE_KEY_CERT_SIGN = "keyCertSign";
-    private static final List<String> KEY_USAGE_LIST = Arrays.asList("digitalSignature", "nonRepudiation", "keyEncipherment", "dataEncipherment", "keyAgreement", KEY_USAGE_KEY_CERT_SIGN, "cRLSign", "encipherOnly", "decipherOnly");
-
     static {
         SAN_TYPE_MAP.put(GeneralName.otherName, "otherName");
         SAN_TYPE_MAP.put(GeneralName.rfc822Name, "rfc822Name");
@@ -125,27 +122,25 @@ public class CertificateUtil {
         return Base64.getEncoder().encodeToString(certificate.getEncoded());
     }
 
-    public static List<String> keyUsageExtractor(boolean[] keyUsage) {
-        List<String> keyUsageNames = new ArrayList<>();
-        if (keyUsage == null) {
-            return keyUsageNames;
-        }
-
-        for (int i = 0; i < keyUsage.length; i++) {
-            if (Boolean.TRUE.equals(keyUsage[i])) {
-                keyUsageNames.add(KEY_USAGE_LIST.get(i));
+    public static int keyUsageExtractor(boolean[] keyUsage) {
+        int result = 0;
+        if (keyUsage != null) {
+            for (int i = 0; i < keyUsage.length; i++) {
+                if (keyUsage[i]) {
+                    result |= (1 << i);  // set bit i
+                }
             }
         }
-        return keyUsageNames;
+        return result;
     }
 
-    public static boolean isKeyUsagePresent(boolean[] keyUsage, String keyUsageName) {
+    public static boolean isKeyUsagePresent(boolean[] keyUsage, CertificateKeyUsage keyUsageName) {
         if (keyUsage == null) {
             return false;
         }
 
-        int keyUsageIndex = KEY_USAGE_LIST.indexOf(keyUsageName);
-        return keyUsageIndex != -1 && keyUsage[keyUsageIndex];
+        int keyUsageIndex = keyUsageName.getIndex();
+        return keyUsageIndex >= 0 && keyUsageIndex < keyUsage.length && keyUsage[keyUsageIndex];
     }
 
     public static CertificateSubjectType getCertificateSubjectType(X509Certificate certificate, boolean subjectDnEqualsIssuerDn) {
@@ -427,7 +422,7 @@ public class CertificateUtil {
         }
         if (extendedKeyUsage != null) modal.setExtendedKeyUsage(MetaDefinitions.serializeArrayString(extendedKeyUsage));
         modal.setKeyUsage(
-                MetaDefinitions.serializeArrayString(CertificateUtil.keyUsageExtractor(certificate.getKeyUsage())));
+               CertificateUtil.keyUsageExtractor(certificate.getKeyUsage()));
         modal.setSubjectType(subjectType);
         // Set trusted certificate mark either for CA or for self-signed certificate
         if (subjectType != CertificateSubjectType.END_ENTITY)

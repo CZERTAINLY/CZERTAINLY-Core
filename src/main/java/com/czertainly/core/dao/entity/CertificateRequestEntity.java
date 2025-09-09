@@ -61,7 +61,7 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
     private String subjectAlternativeNames;
 
     @Column(name = "key_usage")
-    private String keyUsage;
+    private int keyUsage;
 
     @Column(name = "compliance_result", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

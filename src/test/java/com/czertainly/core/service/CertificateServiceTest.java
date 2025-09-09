@@ -40,7 +40,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
-import org.testcontainers.shaded.org.bouncycastle.util.encoders.Base64Encoder;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -48,6 +47,8 @@ import java.security.*;
 import java.security.cert.CertificateEncodingException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 class CertificateServiceTest extends BaseSpringBootTest {
@@ -482,7 +483,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         dto.setOwnerUuid("testOwner");
         Assertions.assertThrows(NotFoundException.class, () -> certificateService.updateCertificateObjects(SecuredUUID.fromString("abfbc322-29e1-11ed-a261-0242ac120002"), dto));
     }
-    
+
     @Test
     void testUpdateCertificateUserArchived() {
         certificate.setArchived(true);
@@ -630,7 +631,39 @@ class CertificateServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testSetProtocolCertificateAssociations() throws AlreadyExistException, AttributeException, NotFoundException, CertificateException, NoSuchAlgorithmException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException, ConnectorException, CertificateRequestException {
+    void testUpdateDns() {
+        String oid = "1.2.3";
+        String oldCode = "OU";
+        String newCode = "OO";
+        certificate.setSubjectDn("%s=org, %sA=cn".formatted(oldCode, oldCode));
+        certificate.setSubjectDnNormalized("%s=org".formatted(oid));
+        certificate.setIssuerDn("CN=cn, %s=org".formatted(oldCode));
+        certificate.setIssuerDnNormalized("1.2.3.4=a, %s=f".formatted(oid));
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, newCode, oldCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, %sA=cn".formatted(newCode, oldCode), certificate.getSubjectDn());
+        Assertions.assertEquals("CN=cn, %s=org".formatted(newCode), certificate.getIssuerDn());
+
+        certificate.setIssuerDn("%s=org, CN=cn".formatted(oldCode));
+        certificate.setSubjectDn("CN=cn, %s=org".formatted(oldCode));
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, newCode, oldCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, CN=cn".formatted(newCode), certificate.getIssuerDn());
+        Assertions.assertEquals("CN=cn, %s=org".formatted(newCode), certificate.getSubjectDn());
+
+        certificate.setIssuerDnNormalized("1.2.3.4=a, 1a2x3=f");
+        certificateRepository.save(certificate);
+        certificateService.updateCertificateDNs(oid, "new", newCode);
+        certificate = certificateRepository.findByUuid(certificate.getUuid()).orElseThrow();
+        Assertions.assertEquals("%s=org, CN=cn".formatted(newCode), certificate.getIssuerDn());
+
+
+    }
+
+    @Test
+    void testSetProtocolCertificateAssociations() throws AlreadyExistException, AttributeException, NotFoundException, NoSuchAlgorithmException, ConnectorException, CertificateRequestException {
         WireMockServer mockServerUpdateUser = mockUpdateUser();
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
@@ -652,6 +685,90 @@ class CertificateServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificateToBeIssued.getUuid()));
         mockServer.stop();
         mockServerUpdateUser.stop();
+    }
+
+    @Test
+    void testCertificateRelations() throws NotFoundException {
+        certificate.setIssuerDnNormalized("issuerDn");
+        certificate.setSubjectDnNormalized("subjectDn");
+        certificate.setIssuerSerialNumber("serialNumber");
+        CryptographicKey key = new CryptographicKey();
+        cryptographicKeyRepository.save(key);
+        certificate.setPublicKeyFingerprint("finger");
+        Certificate sourceCertificate1 = new Certificate();
+        sourceCertificate1.setIssuerDnNormalized(certificate.getIssuerDnNormalized());
+        sourceCertificate1.setSubjectDnNormalized(certificate.getSubjectDnNormalized());
+        sourceCertificate1.setIssuerSerialNumber(certificate.getIssuerSerialNumber());
+        sourceCertificate1.setPublicKeyFingerprint(certificate.getPublicKeyFingerprint());
+        Certificate sourceCertificate2 = new Certificate();
+        sourceCertificate2.setIssuerDnNormalized(certificate.getIssuerDnNormalized());
+        sourceCertificate2.setSubjectDnNormalized(certificate.getSubjectDnNormalized());
+        sourceCertificate2.setIssuerSerialNumber(certificate.getIssuerSerialNumber());
+        Certificate sourceCertificate3 = new Certificate();
+        certificateRepository.saveAll(List.of(sourceCertificate1, sourceCertificate2, sourceCertificate3, certificate));
+        UUID certificateUuid = certificate.getUuid();
+        UUID certificateUuid1 = sourceCertificate1.getUuid();
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateCertificates(certificateUuid, certificateUuid1));
+        sourceCertificate1.setState(CertificateState.ISSUED);
+        sourceCertificate2.setState(CertificateState.ISSUED);
+        sourceCertificate3.setState(CertificateState.REVOKED);
+        certificateRepository.saveAll(List.of(sourceCertificate1, sourceCertificate2, sourceCertificate3, certificate));
+
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateCertificates(certificateUuid, certificateUuid));
+        certificateService.associateCertificates(certificateUuid, certificateUuid1);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateCertificates(certificateUuid, certificateUuid1));
+        certificateService.associateCertificates(certificateUuid, sourceCertificate2.getUuid());
+        UUID certificate3Uuid = sourceCertificate3.getUuid();
+        certificate.setState(CertificateState.REVOKED);
+        certificateRepository.save(certificate);
+        certificateService.associateCertificates(certificateUuid, certificate3Uuid);
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateCertificates(certificate3Uuid, certificateUuid));
+
+
+        CertificateRelationsDto relations = certificateService.getCertificateRelations(certificateUuid);
+        Assertions.assertEquals(certificateUuid, relations.getCertificateUuid());
+        Assertions.assertEquals(3, relations.getPredecessorCertificates().size());
+        CertificateSimpleDto certificateSimpleDto1 = relations.getPredecessorCertificates().stream().filter(dto -> dto.getUuid().equals(certificateUuid1)).findFirst().orElseThrow();
+        Assertions.assertEquals(CertificateRelationType.RENEWAL, certificateSimpleDto1.getRelationType());
+        CertificateSimpleDto certificateSimpleDto2 = relations.getPredecessorCertificates().stream().filter(dto -> dto.getUuid().equals(sourceCertificate2.getUuid())).findFirst().orElseThrow();
+        Assertions.assertEquals(CertificateRelationType.REKEY, certificateSimpleDto2.getRelationType());
+        CertificateSimpleDto certificateSimpleDto3 = relations.getPredecessorCertificates().stream().filter(dto -> dto.getUuid().equals(certificate3Uuid)).findFirst().orElseThrow();
+        Assertions.assertEquals(CertificateRelationType.REPLACEMENT, certificateSimpleDto3.getRelationType());
+
+        relations = certificateService.getCertificateRelations(certificateUuid1);
+        Assertions.assertEquals(1, relations.getSuccessorCertificates().size());
+        CertificateSimpleDto certificateSimpleDto = relations.getSuccessorCertificates().stream().filter(dto -> dto.getUuid().equals(certificateUuid)).findFirst().orElseThrow();
+        Assertions.assertEquals(CertificateRelationType.RENEWAL, certificateSimpleDto.getRelationType());
+
+        certificateService.removeCertificateAssociation(certificateUuid, sourceCertificate2.getUuid());
+        relations = certificateService.getCertificateRelations(certificateUuid);
+        Assertions.assertEquals(2, relations.getPredecessorCertificates().size());
+        Assertions.assertTrue(relations.getPredecessorCertificates().stream().filter(dto -> dto.getUuid().equals(sourceCertificate2.getUuid())).findFirst().isEmpty());
+        relations = certificateService.getCertificateRelations(sourceCertificate2.getUuid());
+        Assertions.assertTrue(relations.getSuccessorCertificates().isEmpty());
+        Assertions.assertThrows(NotFoundException.class, () -> certificateService.removeCertificateAssociation(certificateUuid, sourceCertificate2.getUuid()));
+
+        sourceCertificate2.setNotBefore(new Date());
+        certificate.setNotBefore(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)));
+        certificateRepository.save(sourceCertificate2);
+        certificateRepository.save(certificate);
+        certificateService.associateCertificates(certificateUuid, sourceCertificate2.getUuid());
+        relations = certificateService.getCertificateRelations(certificateUuid);
+        Assertions.assertEquals(2, relations.getPredecessorCertificates().size());
+        Assertions.assertEquals(1, relations.getSuccessorCertificates().size());
+        Assertions.assertTrue(relations.getSuccessorCertificates().stream().anyMatch(dto -> dto.getUuid().equals(sourceCertificate2.getUuid())));
+
+        certificate.setState(CertificateState.FAILED);
+        certificateRepository.save(certificate);
+        certificateService.removeCertificateAssociation(certificateUuid, sourceCertificate1.getUuid());
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.associateCertificates(certificateUuid, certificateUuid1));
+        certificate.setState(CertificateState.PENDING_APPROVAL);
+        certificateRepository.save(certificate);
+        certificateService.associateCertificates(certificateUuid, certificateUuid1);
+        relations = certificateService.getCertificateRelations(certificateUuid);
+        certificateSimpleDto = relations.getPredecessorCertificates().stream().filter(dto -> dto.getUuid().equals(certificateUuid1)).findFirst().orElseThrow();
+        Assertions.assertEquals(CertificateRelationType.PENDING, certificateSimpleDto.getRelationType());
+
     }
 
     @NotNull

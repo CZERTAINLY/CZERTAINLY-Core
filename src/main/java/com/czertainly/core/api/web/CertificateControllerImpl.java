@@ -217,6 +217,24 @@ public class CertificateControllerImpl implements CertificateController {
         certificateService.bulkUnarchiveCertificates(uuids);
     }
 
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.GET_ASSOCIATIONS)
+    public CertificateRelationsDto getCertificateRelations(@LogResource(uuid = true) UUID uuid) throws NotFoundException {
+        return certificateService.getCertificateRelations(uuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.ASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    public void associateCertificates(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+        certificateService.associateCertificates(uuid, certificateUuid);
+    }
+
+    @Override
+    @AuditLogged(module = Module.CERTIFICATES, resource = Resource.CERTIFICATE, operation = Operation.DISASSOCIATE, affiliatedResource = Resource.CERTIFICATE)
+    public void removeCertificateAssociation(@LogResource(uuid = true) UUID uuid, @LogResource(uuid = true, affiliated = true) UUID certificateUuid) throws NotFoundException {
+        certificateService.removeCertificateAssociation(uuid, certificateUuid);
+    }
+
     // SETTERs
 
     @Autowired

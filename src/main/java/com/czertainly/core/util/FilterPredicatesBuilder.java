@@ -4,9 +4,9 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.dao.entity.*;
@@ -19,7 +19,6 @@ import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.PluralAttribute;
 import org.hibernate.query.criteria.JpaExpression;
-import org.springframework.security.core.parameters.P;
 
 import javax.xml.datatype.DatatypeConfigurationException;
 import javax.xml.datatype.DatatypeFactory;
@@ -30,6 +29,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import java.util.stream.Collectors;
 
 public class FilterPredicatesBuilder {
 
@@ -81,6 +81,7 @@ public class FilterPredicatesBuilder {
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectType), resource));
         predicates.add(criteriaBuilder.equal(subqueryRoot.get(AttributeContent2Object_.objectUuid), root.get(objectUuidPath)));
 
+
         if (filterDto.getCondition() != FilterConditionOperator.EMPTY && filterDto.getCondition() != FilterConditionOperator.NOT_EMPTY) {
             Expression<String> attributeContentExpression = criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, joinContentItem.get(AttributeContentItem_.json), criteriaBuilder.literal(contentType.isFilterByData() ? "data" : "reference"));
             CriteriaBuilder.SimpleCase<AttributeContentType, Object> contentTypeCaseExpression = criteriaBuilder.selectCase(joinDefinition.get(AttributeDefinition_.contentType));
@@ -127,7 +128,7 @@ public class FilterPredicatesBuilder {
                 Duration duration = (Duration) filterValues.getFirst();
                 yield criteriaBuilder.between(expression,
                         nowDateTime.minus(Period.of(duration.getYears(), duration.getMonths(), duration.getDays())).minusHours(duration.getHours()).minusMinutes(duration.getMinutes()).minusSeconds(duration.getSeconds()),
-                       nowDateTime);
+                        nowDateTime);
             }
             case IN_NEXT -> {
                 Duration duration = (Duration) filterValues.getFirst();
@@ -194,12 +195,13 @@ public class FilterPredicatesBuilder {
 
     private static <T> Predicate getPropertyFilterPredicate(final CriteriaBuilder criteriaBuilder, final CommonAbstractCriteria query, final Root<T> root, SearchFilterRequestDto filterDto, Map<String, From> joinedAssociations) {
         final FilterField filterField = FilterField.valueOf(filterDto.getFieldIdentifier());
-
-        From from = getJoinedAssociation(root, joinedAssociations, filterField);
+        From from = getJoinedAssociation(root, joinedAssociations, filterField, filterDto.getCondition());
 
         // prepare filter values, expression and set filter characteristics
         List<Object> filterValues = preparePropertyFilterValues(filterDto, filterField);
-        Expression expression = from.get(filterField.getFieldAttribute().getName());
+        Expression expression = null;
+        if (filterField.getFieldAttribute() != null && !isCountOperator(filterDto.getCondition()))
+            expression = from.get(filterField.getFieldAttribute().getName());
 
         if (filterField.getJsonPath() != null) {
             expression = switch (filterField.getJsonPath().length) {
@@ -241,29 +243,38 @@ public class FilterPredicatesBuilder {
             }
         }
         final LocalDateTime now = LocalDateTime.now();
+        boolean bitEnumProperty = filterField.getEnumClass() != null && BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass());
         switch (conditionOperator) {
-            case EQUALS ->
+            case EQUALS -> {
+                if (bitEnumProperty)
+                    predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
+            }
             case NOT_EQUALS -> {
-                // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
-                if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
-                    predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, filterValues.getFirst()), criteriaBuilder.equal(expression, filterValues.getFirst())), criteriaBuilder.isNull(expression));
-                } else {
-                    predicate = filterField.getFieldResource() == Resource.GROUP
-                            ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
-                            : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                if (bitEnumProperty)
+                    predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else {
+                    // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
+                    if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
+                        predicate = criteriaBuilder.or(criteriaBuilder.and(criteriaBuilder.notEqual(expression, filterValues.getFirst()), criteriaBuilder.equal(expression, filterValues.getFirst())), criteriaBuilder.isNull(expression));
+                    } else {
+                        predicate = filterField.getFieldResource() == Resource.GROUP
+                                ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
+                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                    }
                 }
             }
             case STARTS_WITH -> predicate = criteriaBuilder.like(expression, filterValues.getFirst() + "%");
             case ENDS_WITH -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst());
             case CONTAINS -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst() + "%");
             case NOT_CONTAINS ->
-                    predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection),
+                    predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false),
                             criteriaBuilder.notLike(expression, "%" + filterValues.getFirst() + "%"));
             case EMPTY ->
-                    predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection);
+                    predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty);
             case NOT_EMPTY ->
-                    predicate = criteriaBuilder.not(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection));
+                    predicate = criteriaBuilder.not(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty));
             case GREATER ->
                     predicate = criteriaBuilder.greaterThan(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
             case GREATER_OR_EQUAL ->
@@ -291,10 +302,22 @@ public class FilterPredicatesBuilder {
                 validateRegexForDbQuery(filterValues.getFirst().toString());
                 predicate = criteriaBuilder.equal(criteriaBuilder.function(TEXTREGEXEQ_FUNCTION_NAME, Boolean.class, expression, criteriaBuilder.literal(filterValues.getFirst())), false);
             }
+            case COUNT_EQUAL -> predicate = criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst());
+            case COUNT_NOT_EQUAL ->
+                    predicate = criteriaBuilder.not(criteriaBuilder.equal(criteriaBuilder.size(from), filterValues.getFirst()));
+            case COUNT_GREATER_THAN ->
+                    predicate = criteriaBuilder.greaterThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+            case COUNT_LESS_THAN ->
+                    predicate = criteriaBuilder.lessThan(criteriaBuilder.size(from), (Expression) criteriaBuilder.literal(Integer.parseInt(filterValues.getFirst().toString())));
+
 
             default -> throw new ValidationException("Unexpected value: " + conditionOperator);
         }
         return predicate;
+    }
+
+    private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression, CriteriaBuilder criteriaBuilder) {
+        return criteriaBuilder.function(BitwiseFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression, criteriaBuilder.literal(bit));
     }
 
     private static void validateRegexForDbQuery(String regex) {
@@ -306,12 +329,25 @@ public class FilterPredicatesBuilder {
     }
 
 
-    private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField) {
+    private static <T> From getJoinedAssociation(Root<T> root, Map<String, From> joinedAssociations, FilterField filterField, FilterConditionOperator condition) {
         From from = root;
         From joinedAssociation;
         String associationFullPath = null;
-        for (Attribute joinAttribute : filterField.getJoinAttributes()) {
-            associationFullPath = associationFullPath == null ? joinAttribute.getName() : associationFullPath + "." + joinAttribute.getName();
+        List<Attribute> joinAttributes = filterField.getJoinAttributes();
+        int lastIndex = joinAttributes.size();
+
+        // If count operator, find last collection attribute index
+        if (isCountOperator(condition)) {
+            lastIndex = getLastCollectionIndex(joinAttributes, lastIndex);
+        }
+
+        for (int i = 0; i < lastIndex; i++) {
+            Attribute joinAttribute = joinAttributes.get(i);
+
+            associationFullPath = associationFullPath == null
+                    ? joinAttribute.getName()
+                    : associationFullPath + "." + joinAttribute.getName();
+
             joinedAssociation = joinedAssociations.get(associationFullPath);
 
             if (joinedAssociation != null) {
@@ -322,6 +358,20 @@ public class FilterPredicatesBuilder {
             }
         }
         return from;
+    }
+
+    public static int getLastCollectionIndex(List<Attribute> joinAttributes, int lastIndex) {
+        for (int i = joinAttributes.size() - 1; i >= 0; i--) {
+            if (joinAttributes.get(i).isCollection()) {
+                lastIndex = i + 1;
+                break;
+            }
+        }
+        return lastIndex;
+    }
+
+    private static boolean isCountOperator(FilterConditionOperator condition) {
+        return condition == FilterConditionOperator.COUNT_EQUAL || condition == FilterConditionOperator.COUNT_NOT_EQUAL || condition == FilterConditionOperator.COUNT_GREATER_THAN || condition == FilterConditionOperator.COUNT_LESS_THAN;
     }
 
     private static List<Object> preparePropertyFilterValues(final SearchFilterRequestDto filterDto, final FilterField filterField) {
@@ -335,11 +385,11 @@ public class FilterPredicatesBuilder {
         List<Object> filterValues = filterValue instanceof List<?> ? (List<Object>) filterValue : List.of(filterValue);
         for (Object value : filterValues) {
             Object preparedFilterValue = null;
-            if (filterField.getEnumClass() != null) {
-                if (filterField.getEnumClass().equals(KeyUsage.class)) {
-                    final KeyUsage keyUsage = (KeyUsage) findEnumByCustomValue(value, filterField.getEnumClass());
-                    if (keyUsage != null) {
-                        preparedFilterValue = keyUsage.getBitmask();
+            if (filterField.getEnumClass() != null && !isCountOperator(filterDto.getCondition())) {
+                if (BitMaskEnum.class.isAssignableFrom(filterField.getEnumClass())) {
+                    final BitMaskEnum enumValue = (BitMaskEnum) findEnumByCustomValue(value, filterField.getEnumClass());
+                    if (enumValue != null) {
+                        preparedFilterValue = enumValue.getBit();
                     }
                 } else {
                     preparedFilterValue = findEnumByCustomValue(value, filterField.getEnumClass());
@@ -397,7 +447,10 @@ public class FilterPredicatesBuilder {
         return criteriaBuilder.not(criteriaBuilder.exists(subquery));
     }
 
-    private static Predicate getNotPresentPredicate(final CriteriaBuilder criteriaBuilder, From from, Expression expression, boolean hasParent, boolean isParentCollection) {
+    private static Predicate getNotPresentPredicate(final CriteriaBuilder criteriaBuilder, From from, Expression expression, boolean hasParent, boolean isParentCollection, boolean isEnumList) {
+        if (isEnumList) {
+            return criteriaBuilder.equal(expression, 0);
+        }
         if (!hasParent) {
             return criteriaBuilder.isNull(expression);
         }
@@ -441,18 +494,24 @@ public class FilterPredicatesBuilder {
         return cb.equal(expressionPath, scheduledJobUuid);
     }
 
-    public static String buildPathToProperty(FilterField filterField, boolean alreadyNested) {
+    public static String buildPathToProperty(List<Attribute> joinAttributes, Attribute fieldAttribute) {
         StringBuilder pathToPropertyBuilder = new StringBuilder();
-        if (filterField.getJoinAttributes() != null) {
-            List<String> joinAttributes = new ArrayList<>(filterField.getJoinAttributes().stream().map(Attribute::getName).toList());
-            if (alreadyNested) joinAttributes.removeFirst();
-            if (!joinAttributes.isEmpty()) {
-                for (String property : joinAttributes) {
-                    pathToPropertyBuilder.append(property).append(".");
-                }
-            }
+
+        if (joinAttributes != null && !joinAttributes.isEmpty()) {
+            // join attribute names with a dot
+            pathToPropertyBuilder.append(
+                    joinAttributes.stream()
+                            .map(Attribute::getName)
+                            .collect(Collectors.joining("."))
+            );
         }
-        pathToPropertyBuilder.append(filterField.getFieldAttribute().getName());
+
+        if (fieldAttribute != null) {
+            if (!pathToPropertyBuilder.isEmpty()) {
+                pathToPropertyBuilder.append(".");
+            }
+            pathToPropertyBuilder.append(fieldAttribute.getName());
+        }
         return pathToPropertyBuilder.toString();
     }
 }
