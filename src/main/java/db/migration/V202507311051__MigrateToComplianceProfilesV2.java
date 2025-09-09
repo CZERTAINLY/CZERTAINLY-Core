@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceResultRulesDto;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.util.DatabaseMigration;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -39,9 +40,43 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
 
     @Override
     public void migrate(Context context) throws Exception {
+        handleNewFunctionGroupEndpoints(context);
         prepareDBStructure(context);
         migrateData(context);
         cleanDbStructureAndData(context);
+    }
+
+    private void handleNewFunctionGroupEndpoints(Context context) throws SQLException {
+        Map<String, String> endpoints = new HashMap<>();
+        endpoints.put("listRules", "GET /v2/complianceProvider/{kind}/rules");
+        endpoints.put("getRulesBatch", "POST /v2/complianceProvider/{kind}/rules");
+        endpoints.put("getRule", "GET /v2/complianceProvider/{kind}/rules/{ruleUuid}");
+        endpoints.put("listGroups", "GET /v2/complianceProvider/{kind}/groups");
+        endpoints.put("getGroup", "GET /v2/complianceProvider/{kind}/groups/{groupUuid}");
+        endpoints.put("getGroupRules", "GET /v2/complianceProvider/{kind}/groups/{groupUuid}/rules");
+        endpoints.put("checkCompliance", "POST /v2/complianceProvider/{kind}/compliance");
+
+        try (final PreparedStatement insertFunctionGroupStatement = context.getConnection().prepareStatement("INSERT INTO function_group (uuid, code, name) VALUES (?,?,?)");
+             final PreparedStatement insertEndpointStatement = context.getConnection().prepareStatement("INSERT INTO endpoint (uuid, context, \"method\", name, required, function_group_uuid) VALUES (?,?,?,?,?,?)")) {
+            UUID functionGroupUuid = UUID.randomUUID();
+            insertFunctionGroupStatement.setObject(1, functionGroupUuid);
+            insertFunctionGroupStatement.setString(2, FunctionGroupCode.COMPLIANCE_PROVIDER_V2.name());
+            insertFunctionGroupStatement.setString(3, FunctionGroupCode.COMPLIANCE_PROVIDER_V2.getCode());
+            insertFunctionGroupStatement.executeUpdate();
+
+            insertEndpointStatement.setBoolean(5, true);
+            insertEndpointStatement.setObject(6, functionGroupUuid);
+            for (var endpoint : endpoints.entrySet()) {
+                String[] endpointContext = endpoint.getValue().split(" ");
+                insertEndpointStatement.setObject(1, UUID.randomUUID());
+                insertEndpointStatement.setString(2, endpointContext[1]);
+                insertEndpointStatement.setString(3, endpointContext[0]);
+                insertEndpointStatement.setString(4, endpoint.getKey());
+                insertEndpointStatement.addBatch();
+            }
+            logger.debug("Executing batch insert with {} compliance provider v2 endpoints.", endpoints.size());
+            insertEndpointStatement.executeBatch();
+        }
     }
 
     private void prepareDBStructure(Context context) throws SQLException {
@@ -87,17 +122,24 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 ALTER TABLE certificate_request
                     ADD COLUMN compliance_status TEXT NULL,
                     ADD COLUMN compliance_result JSONB NULL;
-
+                
                 UPDATE certificate_request SET compliance_status = 'NOT_CHECKED';
                 ALTER TABLE certificate_request
                     ALTER COLUMN compliance_status SET NOT NULL;
-
+                
                 ALTER TABLE cryptographic_key
-                    ADD COLUMN compliance_status TEXT NULL,
-                    ADD COLUMN compliance_result JSONB NULL;
+                    ADD COLUMN compliance_status TEXT NULL;
                 
                 UPDATE cryptographic_key SET compliance_status = 'NOT_CHECKED';
                 ALTER TABLE cryptographic_key
+                    ALTER COLUMN compliance_status SET NOT NULL;
+                
+                ALTER TABLE cryptographic_key_item
+                    ADD COLUMN compliance_status TEXT NULL,
+                    ADD COLUMN compliance_result JSONB NULL;
+                
+                UPDATE cryptographic_key_item SET compliance_status = 'NOT_CHECKED';
+                ALTER TABLE cryptographic_key_item
                     ALTER COLUMN compliance_status SET NOT NULL;
                 """;
         try (final Statement statement = context.getConnection().createStatement()) {
