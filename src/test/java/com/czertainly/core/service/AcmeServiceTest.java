@@ -102,6 +102,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private String b64UrlCertificate;
     private String nonAcmeB64UrlCertificate;
     private Certificate certificate;
+    private AcmeOrder order1;
 
     @BeforeEach
     void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
@@ -218,10 +219,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
         acmeAccount.setPublicKey(Base64.getEncoder().encodeToString(rsa2048JWK.toPublicKey().getEncoded()));
         acmeAccountRepository.save(acmeAccount);
 
-        AcmeOrder order1 = new AcmeOrder();
+        order1 = new AcmeOrder();
         order1.setOrderId(ORDER_ID_VALID);
         order1.setStatus(OrderStatus.VALID);
         order1.setAcmeAccount(acmeAccount);
+        order1.setCertificateReference(certificate);
+        order1.setCertificateReferenceUuid(certificate.getUuid());
         acmeOrderRepository.save(order1);
 
         AcmeAuthorization authorization1 = new AcmeAuthorization();
@@ -552,9 +555,15 @@ class AcmeServiceTest extends BaseSpringBootTest {
     void testFinalize() throws URISyntaxException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
+        certificate.setState(CertificateState.FAILED);
+        certificateRepository.save(certificate);
+        order1.setStatus(OrderStatus.PENDING);
+        acmeOrderRepository.save(order1);
         Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
                 ACME_PROFILE_NAME, ORDER_ID_VALID,
                 buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
+        AcmeAccount acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
 
     @Test
