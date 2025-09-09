@@ -835,6 +835,7 @@ public class AcmeServiceImpl implements AcmeService {
     private void deactivateOrders(Set<AcmeOrder> orders) {
         for (AcmeOrder order : orders) {
             order.setStatus(OrderStatus.INVALID);
+            updateFailedOrdersCount(order);
             deactivateAuthorizations(order.getAuthorizations());
             acmeOrderRepository.save(order);
         }
@@ -948,9 +949,15 @@ public class AcmeServiceImpl implements AcmeService {
         for (AcmeOrder order : orders) {
             if (!order.getStatus().equals(OrderStatus.VALID)) {
                 order.setStatus(OrderStatus.INVALID);
+                updateFailedOrdersCount(order);
                 acmeOrderRepository.save(order);
             }
         }
+    }
+
+    private void updateFailedOrdersCount(AcmeOrder order) {
+        order.getAcmeAccount().setFailedOrders(order.getAcmeAccount().getFailedOrders() + 1);
+        acmeAccountRepository.save(order.getAcmeAccount());
     }
 
     private boolean validateHttpChallenge(AcmeChallenge challenge) throws AcmeProblemDocumentException {
@@ -1176,6 +1183,7 @@ public class AcmeServiceImpl implements AcmeService {
             } catch (Exception e) {
                 logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
                 order.setStatus(OrderStatus.INVALID);
+                updateFailedOrdersCount(order);
             }
             acmeOrderRepository.save(order);
         } else {
@@ -1183,6 +1191,7 @@ public class AcmeServiceImpl implements AcmeService {
             logger.debug("Calling finalize of Order but certificate is already requested. Current status: {}", newStatus);
             if (!newStatus.equals(order.getStatus())) {
                 order.setStatus(newStatus);
+                updateOrderCounts(newStatus, order);
                 acmeOrderRepository.save(order);
             }
         }
@@ -1385,11 +1394,22 @@ public class AcmeServiceImpl implements AcmeService {
             if (!newStatus.equals(order.getStatus())) {
                 logger.info("ACME Order status changed from {} to {}.", order.getStatus(), newStatus);
                 order.setStatus(newStatus);
+                updateOrderCounts(newStatus, order);
                 acmeOrderRepository.save(order);
             }
         }
 
         return order;
+    }
+
+    private void updateOrderCounts(OrderStatus newStatus, AcmeOrder order) {
+        if (newStatus == OrderStatus.INVALID) {
+            updateFailedOrdersCount(order);
+        }
+        if (newStatus == OrderStatus.VALID) {
+            order.getAcmeAccount().setValidOrders(order.getAcmeAccount().getValidOrders() + 1);
+            acmeAccountRepository.save(order.getAcmeAccount());
+        }
     }
 
     private AcmeAuthorization validateAuthorization(String authorizationId) throws AcmeProblemDocumentException {

@@ -136,11 +136,17 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
         for (AcmeOrder order : orders) {
             if (!order.getStatus().equals(OrderStatus.VALID)) {
                 order.setStatus(OrderStatus.INVALID);
+                updateFailedOrdersCount(order);
                 acmeOrderRepository.save(order);
             }
         }
 
         return getAcmeAccountEntity(uuid).mapToDtoForUi();
+    }
+
+    private void updateFailedOrdersCount(AcmeOrder order) {
+        order.getAcmeAccount().setFailedOrders(order.getAcmeAccount().getFailedOrders() + 1);
+        acmeAccountRepository.save(order.getAcmeAccount());
     }
 
     private AcmeAccount getAcmeAccountEntity(SecuredUUID uuid) throws NotFoundException {

@@ -56,6 +56,12 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private Set<AcmeOrder> orders = new HashSet<>();
 
+    @Column
+    private int validOrders = 0;
+
+    @Column
+    private int failedOrders = 0;
+
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ra_profile_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
@@ -87,33 +93,33 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
         account.setAccountId(accountId);
         account.setEnabled(isEnabled);
         account.setContact(MetaDefinitions.deserializeArrayString(contact));
-        if(acmeProfile != null) {
+        if (acmeProfile != null) {
             account.setAcmeProfileName(acmeProfile.getName());
             account.setAcmeProfileUuid(acmeProfile.getUuid().toString());
         }
-        if(raProfile != null) {
+        if (raProfile != null) {
             account.setRaProfile(raProfile.mapToDtoSimplified());
         }
-        account.setSuccessfulOrders(orders.stream()
-                .filter(acmeOrder -> acmeOrder.getStatus()
-                        .equals(OrderStatus.READY))
-                .toList().size());
-        account.setPendingOrders(orders.stream()
-                .filter(acmeOrder -> acmeOrder.getStatus()
-                        .equals(OrderStatus.PENDING))
-                .toList().size());
-        account.setFailedOrders(orders.stream()
-                .filter(acmeOrder -> acmeOrder.getStatus()
-                        .equals(OrderStatus.INVALID))
-                .toList().size());
-        account.setProcessingOrders(orders.stream()
-                .filter(acmeOrder -> acmeOrder.getStatus()
-                        .equals(OrderStatus.PROCESSING))
-                .toList().size());
-        account.setValidOrders(orders.stream()
-                .filter(acmeOrder -> acmeOrder.getStatus()
-                        .equals(OrderStatus.VALID))
-                .toList().size());
+
+        int successful = 0;
+        int pending = 0;
+        int processing = 0;
+        for (AcmeOrder order : orders) {
+            switch (order.getStatus()) {
+                case READY -> successful++;
+                case PENDING -> pending++;
+                case PROCESSING -> processing++;
+                default -> {
+                    // ignore
+                }
+            }
+        }
+
+        account.setSuccessfulOrders(successful);
+        account.setPendingOrders(pending);
+        account.setProcessingOrders(processing);
+        account.setFailedOrders(failedOrders);
+        account.setValidOrders(validOrders);
 
         account.setStatus(status);
         account.setTermsOfServiceAgreed(termsOfServiceAgreed);
