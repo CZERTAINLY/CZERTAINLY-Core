@@ -170,10 +170,10 @@ public class UserManagementServiceImpl implements UserManagementService {
         certificateService.removeCertificateUser(uuid);
         objectAssociationService.removeOwnerAssociations(uuid);
         attributeEngine.deleteAllObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
-        clearAuthenticationData(userUuid);
+        clearAuthenticationData(userUuid, "deleted");
     }
 
-    private void clearAuthenticationData(String userUuid) {
+    private void clearAuthenticationData(String userUuid, String actionName) {
         Map<String, ? extends Session> userSessions =
                 sessionRepository.findByPrincipalName(userUuid);
 
@@ -190,6 +190,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .actor(LoggingHelper.getActorInfo())
                     .source(LoggingHelper.getSourceInfo())
                     .resource(ResourceRecord.builder().type(Resource.USER).uuids(List.of(UUID.fromString(userUuid))).build())
+                    .message("User with UUID %s has been %s".formatted(userUuid, actionName))
                     .build());
         }
     }
@@ -221,7 +222,7 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
-        clearAuthenticationData(userUuid);
+        clearAuthenticationData(userUuid, "disabled");
         return userManagementApiClient.disableUser(userUuid);
     }
 
