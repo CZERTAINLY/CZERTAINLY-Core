@@ -1,25 +1,29 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.authentication.AuthenticationSettingsDto;
 import com.czertainly.api.model.core.settings.authentication.OAuth2ProviderSettingsDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
+import com.czertainly.core.settings.SettingsCache;
 import com.nimbusds.jwt.SignedJWT;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.*;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.security.oauth2.core.oidc.OidcIdToken;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
+import org.springframework.session.Session;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.net.URI;
 import java.text.ParseException;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 public class OAuth2Util {
 
@@ -45,6 +49,31 @@ public class OAuth2Util {
             throw new CzertainlyAuthenticationException(errorMessage);
         }
 
+    }
+
+    public static void endUserSession(Session session) {
+        SecurityContext securityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
+        if (securityContext != null) {
+            OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) securityContext.getAuthentication();
+            AuthenticationSettingsDto authenticationSettingsDto = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+            String authorizedClientRegistrationId = authenticationToken.getAuthorizedClientRegistrationId();
+            OAuth2ProviderSettingsDto provider = authenticationSettingsDto.getOAuth2Providers().get(authorizedClientRegistrationId);
+            if (provider == null) {
+                logger.warn("Provider with client ID {} has not been found. User {} will not be logged out on provider side.", authorizedClientRegistrationId, authenticationToken.getName());
+                return;
+            }
+            DefaultOidcUser oidcUser = (DefaultOidcUser) authenticationToken.getPrincipal();
+            String idToken = oidcUser.getIdToken().getTokenValue();
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+            String endSessionEndpoint = provider.getLogoutUrl();
+            URI uri = UriComponentsBuilder
+                    .fromUriString(endSessionEndpoint)
+                    .queryParam("id_token_hint", idToken)
+                    .build()
+                    .toUri();
+            restTemplate.getForEntity(uri, Void.class);
+        }
     }
 
     private static Map<String, Object> getUserInfo(String userInfoUrl, String accessToken) {
