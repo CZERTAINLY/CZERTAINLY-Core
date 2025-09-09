@@ -134,7 +134,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
         List<AcmeOrder> orders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(acmeAccount, new Date());
         for (AcmeOrder order : orders) {
-            if (!order.getStatus().equals(OrderStatus.VALID)) {
+            if (!order.getStatus().equals(OrderStatus.VALID) && !order.getStatus().equals(OrderStatus.INVALID)) {
                 order.setStatus(OrderStatus.INVALID);
                 updateFailedOrdersCount(order);
                 acmeOrderRepository.save(order);
