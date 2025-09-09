@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.auth.oauth2.CzertainlyClientRegistrationRepository;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
@@ -27,22 +28,30 @@ import com.czertainly.core.service.GroupService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.czertainly.core.service.UserManagementService;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.OAuth2Constants;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
+import jakarta.validation.groups.Default;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.*;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
+import org.springframework.security.oauth2.client.http.OAuth2ErrorResponseErrorHandler;
+import org.springframework.security.oauth2.core.oidc.user.DefaultOidcUser;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import org.springframework.web.util.UriComponentsBuilder;
 
+import java.net.URI;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.*;
 import java.security.cert.CertificateException;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service(Resource.Codes.USER)
 @Transactional
@@ -58,6 +67,13 @@ public class UserManagementServiceImpl implements UserManagementService {
     private AttributeEngine attributeEngine;
 
     private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+
+    private CzertainlyClientRegistrationRepository clientRegistrationRepository;
+
+    @Autowired
+    public void setClientRegistrationRepository(CzertainlyClientRegistrationRepository clientRegistrationRepository) {
+        this.clientRegistrationRepository = clientRegistrationRepository;
+    }
 
     @Autowired
     public void setSessionRepository(FindByIndexNameSessionRepository<? extends Session> sessionRepository) {
@@ -173,8 +189,27 @@ public class UserManagementServiceImpl implements UserManagementService {
         Map<String, ? extends Session> userSessions =
                 sessionRepository.findByPrincipalName(userUuid);
 
-        for (String sessionId : userSessions.keySet()) {
-            sessionRepository.deleteById(sessionId);
+        for (Map.Entry<String, ? extends Session> entry : userSessions.entrySet()) {
+            endUserSession(entry.getValue());
+            sessionRepository.deleteById(entry.getKey());
+        }
+    }
+
+    private void endUserSession(Session session) {
+        SecurityContext securityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
+        if (securityContext != null) {
+            OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) securityContext.getAuthentication();
+            DefaultOidcUser oidcUser = (DefaultOidcUser) authenticationToken.getPrincipal();
+            String idToken = oidcUser.getIdToken().getTokenValue();
+            RestTemplate restTemplate = new RestTemplate();
+            restTemplate.setErrorHandler(new OAuth2ErrorResponseErrorHandler());
+            String endSessionEndpoint = clientRegistrationRepository.findByRegistrationId(authenticationToken.getAuthorizedClientRegistrationId()).getProviderDetails().getConfigurationMetadata().get("end_session_endpoint").toString();
+            URI uri = UriComponentsBuilder
+                    .fromUriString(endSessionEndpoint)
+                    .queryParam("id_token_hint", idToken)
+                    .build()
+                    .toUri();
+            restTemplate.getForEntity(uri, Void.class);
         }
     }
 
