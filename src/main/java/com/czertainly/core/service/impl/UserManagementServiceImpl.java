@@ -13,20 +13,19 @@ import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
+import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.auth.oauth2.CzertainlyClientRegistrationRepository;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.GroupService;
-import com.czertainly.core.service.ResourceObjectAssociationService;
-import com.czertainly.core.service.UserManagementService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.OAuth2Util;
 import com.nimbusds.jwt.SignedJWT;
@@ -53,10 +52,16 @@ public class UserManagementServiceImpl implements UserManagementService {
     private CertificateService certificateService;
     private GroupService groupService;
     private ResourceObjectAssociationService objectAssociationService;
+    private AuditLogService auditLogService;
 
     private AttributeEngine attributeEngine;
 
     private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+
+    @Autowired
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
 
     @Autowired
     public void setSessionRepository(FindByIndexNameSessionRepository<? extends Session> sessionRepository) {
@@ -176,6 +181,17 @@ public class UserManagementServiceImpl implements UserManagementService {
             OAuth2Util.endUserSession(entry.getValue());
             sessionRepository.deleteById(entry.getKey());
         }
+        if (!userSessions.isEmpty()) {
+            auditLogService.log(LogRecord.builder()
+                    .version("1.0")
+                    .operation(Operation.LOGOUT)
+                    .operationResult(OperationResult.SUCCESS)
+                    .module(Module.AUTH)
+                    .actor(LoggingHelper.getActorInfo())
+                    .source(LoggingHelper.getSourceInfo())
+                    .resource(ResourceRecord.builder().type(Resource.USER).uuids(List.of(UUID.fromString(userUuid))).build())
+                    .build());
+        }
     }
 
     @Override
@@ -289,7 +305,8 @@ public class UserManagementServiceImpl implements UserManagementService {
                 throw new CertificateException("Cannot upload certificate that should be assigned to the user: " + e.getMessage());
             }
         } else {
-            if (certificate.isArchived()) throw new ValidationException("Cannot assign archived certificate to the user.");
+            if (certificate.isArchived())
+                throw new ValidationException("Cannot assign archived certificate to the user.");
             if (!certificate.getState().equals(CertificateState.ISSUED)) {
                 throw new ValidationException(ValidationError.create("Cannot assign certificate with state %s to the user".formatted(certificate.getState().getLabel())));
             }
