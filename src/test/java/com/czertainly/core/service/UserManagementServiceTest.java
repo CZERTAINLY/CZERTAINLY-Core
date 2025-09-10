@@ -78,7 +78,7 @@ class UserManagementServiceTest extends BaseSpringBootTest {
         sessionRepository.save(s);
     }
 
-    void setupSessionTables() {
+    private void setupSessionTables() {
         // Create spring_session table
         jdbcTemplate.execute("""
                     CREATE TABLE IF NOT EXISTS spring_session (

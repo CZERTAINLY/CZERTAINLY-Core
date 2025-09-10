@@ -54,6 +54,10 @@ public class OAuth2Util {
     public static void endUserSession(Session session) {
         SecurityContext securityContext = session.getAttribute("SPRING_SECURITY_CONTEXT");
         if (securityContext != null) {
+            if (securityContext.getAuthentication() == null) {
+                logger.warn("No authentication found in security context. User session cannot be ended.");
+                return;
+            }
             OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) securityContext.getAuthentication();
             AuthenticationSettingsDto authenticationSettingsDto = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
             String authorizedClientRegistrationId = authenticationToken.getAuthorizedClientRegistrationId();
@@ -72,7 +76,11 @@ public class OAuth2Util {
                     .queryParam("id_token_hint", idToken)
                     .build()
                     .toUri();
-            restTemplate.getForEntity(uri, Void.class);
+            try {
+                restTemplate.getForEntity(uri, Void.class);
+            } catch (Exception e) {
+                logger.error("Failed to log out user {} from OAuth2 provider {} at endpoint {}: {}", authenticationToken.getName(), provider.getName(), endSessionEndpoint, e.getMessage(), e);
+            }
         }
     }
 
