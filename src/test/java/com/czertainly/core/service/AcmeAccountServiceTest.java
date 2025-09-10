@@ -126,17 +126,27 @@ class AcmeAccountServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetAccountById() throws NotFoundException {
-        AcmeOrder acmeOrder = new AcmeOrder();
-        acmeOrder.setAcmeAccount(acmeAccount);
-        acmeOrder.setAcmeAccountUuid(acmeAccount.getUuid());
-        acmeOrder.setStatus(OrderStatus.PENDING);
-        acmeOrder.setExpires(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)));
-        acmeOrderRepository.save(acmeOrder);
+        createExpiredOrder(OrderStatus.PENDING);
+        createExpiredOrder(OrderStatus.VALID);
+        acmeAccount.setValidOrders(1);
+        acmeAccountRepository.save(acmeAccount);
+        createExpiredOrder(OrderStatus.INVALID);
         AcmeAccountResponseDto dto = acmeAccountService.getAcmeAccount(acmeAccount.getAcmeProfile().getSecuredParentUuid(), acmeAccount.getSecuredUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(acmeAccount.getAccountId(), dto.getAccountId());
         Assertions.assertNotNull(acmeAccount.getUuid());
         Assertions.assertEquals(1, dto.getFailedOrders());
+        Assertions.assertEquals(1, dto.getValidOrders());
+
+    }
+
+    private void createExpiredOrder(OrderStatus status) {
+        AcmeOrder acmeOrder = new AcmeOrder();
+        acmeOrder.setAcmeAccount(acmeAccount);
+        acmeOrder.setAcmeAccountUuid(acmeAccount.getUuid());
+        acmeOrder.setStatus(status);
+        acmeOrder.setExpires(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)));
+        acmeOrderRepository.save(acmeOrder);
     }
 
     @Test
