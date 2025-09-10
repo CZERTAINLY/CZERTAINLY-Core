@@ -20,10 +20,12 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -46,6 +48,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.security.core.parameters.P;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
@@ -98,6 +101,10 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
 
     @Autowired
     private CertificateRelationRepository certificateRelationRepository;
+    @Autowired
+    private AcmeProfileRepository acmeProfileRepository;
+    @Autowired
+    private CertificateProtocolAssociationRepository protocolAssociationRepository;
 
     private CriteriaBuilder criteriaBuilder;
 
@@ -956,8 +963,24 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         Assertions.assertEquals(Set.of(certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.SUCCEEDING_CERTIFICATES.name(), FilterConditionOperator.COUNT_EQUAL, 1)));
         Assertions.assertEquals(Set.of(certificate2.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+    }
 
-
+    @Test
+    void testProtocolProfilesFilter() {
+        AcmeProfile acmeProfile = new AcmeProfile();
+        acmeProfile.setName("profile");
+        acmeProfileRepository.save(acmeProfile);
+        CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+        protocolAssociation.setProtocol(CertificateProtocol.ACME);
+        protocolAssociation.setProtocolProfileUuid(acmeProfile.getUuid());
+        protocolAssociation.setAcmeProfile(acmeProfile);
+        protocolAssociation.setCertificateUuid(certificate1.getUuid());
+        protocolAssociationRepository.save(protocolAssociation);
+        certificate1.setProtocolAssociation(protocolAssociation);
+        certificateRepository.save(certificate1);
+        CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.ACME_PROFILE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(acmeProfile.getName()))));
+        Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
     }
 
 
