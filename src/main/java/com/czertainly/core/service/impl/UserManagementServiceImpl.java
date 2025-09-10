@@ -222,8 +222,9 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
+        UserDetailDto result = userManagementApiClient.disableUser(userUuid);
         clearAuthenticationData(userUuid, "disabled");
-        return userManagementApiClient.disableUser(userUuid);
+        return result;
     }
 
     @Override
