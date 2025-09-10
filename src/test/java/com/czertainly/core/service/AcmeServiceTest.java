@@ -38,6 +38,8 @@ import java.net.URISyntaxException;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -564,6 +566,15 @@ class AcmeServiceTest extends BaseSpringBootTest {
                 buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
         AcmeAccount acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getFailedOrders());
+        certificate.setState(CertificateState.ISSUED);
+        certificateRepository.save(certificate);
+        order1.setStatus(OrderStatus.PENDING);
+        acmeOrderRepository.save(order1);
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
+                ACME_PROFILE_NAME, ORDER_ID_VALID,
+                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
+        acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getValidOrders());
     }
 
     @Test
@@ -733,6 +744,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
         ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
         assertGetOrderList(orders);
+        order1.setStatus(OrderStatus.READY);
+        order1.setExpires(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)));
+        acmeOrderRepository.save(order1);
+        acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
+        AcmeAccount acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
 
     @Test

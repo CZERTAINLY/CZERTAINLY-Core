@@ -834,8 +834,8 @@ public class AcmeServiceImpl implements AcmeService {
 
     private void deactivateOrders(Set<AcmeOrder> orders) {
         for (AcmeOrder order : orders) {
+            if (order.getStatus() != OrderStatus.INVALID) updateFailedOrdersCount(order);
             order.setStatus(OrderStatus.INVALID);
-            updateFailedOrdersCount(order);
             deactivateAuthorizations(order.getAuthorizations());
             acmeOrderRepository.save(order);
         }
@@ -945,9 +945,9 @@ public class AcmeServiceImpl implements AcmeService {
     }
 
     private void updateOrderStatusForAccount(AcmeAccount account) {
-        List<AcmeOrder> orders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(account, new Date());
-        for (AcmeOrder order : orders) {
-            if (!order.getStatus().equals(OrderStatus.VALID)) {
+        List<AcmeOrder> expiredOrders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(account, new Date());
+        for (AcmeOrder order : expiredOrders) {
+            if (!order.getStatus().equals(OrderStatus.VALID) && !order.getStatus().equals(OrderStatus.INVALID)) {
                 order.setStatus(OrderStatus.INVALID);
                 updateFailedOrdersCount(order);
                 acmeOrderRepository.save(order);
