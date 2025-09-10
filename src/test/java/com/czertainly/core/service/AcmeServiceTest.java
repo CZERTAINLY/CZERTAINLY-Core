@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
@@ -18,6 +19,7 @@ import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.*;
@@ -31,7 +33,6 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.net.URI;
 import java.net.URISyntaxException;
@@ -554,7 +555,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testFinalize() throws URISyntaxException {
+    void testFinalize() throws URISyntaxException, ConnectorException, CertificateException, AlreadyExistException, JOSEException, AcmeProblemDocumentException, JsonProcessingException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
         certificate.setState(CertificateState.FAILED);
@@ -575,6 +576,16 @@ class AcmeServiceTest extends BaseSpringBootTest {
                 buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
         acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(1, acmeAccount.getValidOrders());
+
+        order1.setCertificateReference(null);
+        order1.setCertificateReferenceUuid(null);
+        order1.setStatus(OrderStatus.READY);
+        acmeOrderRepository.save(order1);
+        acmeService.finalizeOrder(
+                ACME_PROFILE_NAME, ORDER_ID_VALID,
+                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false);
+        acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(2, acmeAccount.getFailedOrders());
     }
 
     @Test
