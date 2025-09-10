@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.api.model.core.auth.Resource;
@@ -29,7 +30,7 @@ import java.util.Date;
 import java.util.List;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.ACME_ACCOUNT)
 @Transactional
 public class AcmeAccountServiceImpl implements AcmeAccountService {
 
@@ -156,5 +157,16 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
         account.setStatus(AccountStatus.REVOKED);
         account.setEnabled(false);
         acmeAccountRepository.save(account);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return acmeAccountRepository.findAll().stream().map(acmeAccount ->
+            new NameAndUuidDto(acmeAccount.getAccountId(), acmeAccount.getUuid().toString())).toList();
+    }
+
+    @Override
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+
     }
 }
