@@ -300,7 +300,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
         if (request.getStatus() != null && request.getStatus().equals(AccountStatus.DEACTIVATED)) {
             logger.info("Deactivating Account with ID: {}", accountId);
-            deactivateOrders(account.getOrders());
+            deactivateOrders(account.getOrders(), account);
             account.setStatus(AccountStatus.DEACTIVATED);
         }
         acmeAccountRepository.save(account);
@@ -832,13 +832,15 @@ public class AcmeServiceImpl implements AcmeService {
         }
     }
 
-    private void deactivateOrders(Set<AcmeOrder> orders) {
+    private void deactivateOrders(Set<AcmeOrder> orders, AcmeAccount acmeAccount) {
+        int failedOrdersCount = 0;
         for (AcmeOrder order : orders) {
-            if (order.getStatus() != OrderStatus.INVALID) updateFailedOrdersCount(order);
+            if (order.getStatus() != OrderStatus.INVALID) failedOrdersCount++;
             order.setStatus(OrderStatus.INVALID);
             deactivateAuthorizations(order.getAuthorizations());
             acmeOrderRepository.save(order);
         }
+        acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + failedOrdersCount);
     }
 
     private void deactivateAuthorizations(Set<AcmeAuthorization> authorizations) {
@@ -946,13 +948,16 @@ public class AcmeServiceImpl implements AcmeService {
 
     private void updateOrderStatusForAccount(AcmeAccount account) {
         List<AcmeOrder> expiredOrders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(account, new Date());
+        int failedOrdersIncrement = 0;
         for (AcmeOrder order : expiredOrders) {
             if (!order.getStatus().equals(OrderStatus.VALID) && !order.getStatus().equals(OrderStatus.INVALID)) {
                 order.setStatus(OrderStatus.INVALID);
-                updateFailedOrdersCount(order);
+                failedOrdersIncrement++;
                 acmeOrderRepository.save(order);
             }
         }
+        account.setFailedOrders(account.getFailedOrders() + failedOrdersIncrement);
+        acmeAccountRepository.save(account);
     }
 
     private void updateFailedOrdersCount(AcmeOrder order) {

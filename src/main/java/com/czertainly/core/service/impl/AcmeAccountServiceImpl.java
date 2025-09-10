@@ -132,21 +132,20 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
 
-        List<AcmeOrder> orders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(acmeAccount, new Date());
-        for (AcmeOrder order : orders) {
+        List<AcmeOrder> expiredOrders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(acmeAccount, new Date());
+        int failedOrdersCount = 0;
+        for (AcmeOrder order : expiredOrders) {
             if (!order.getStatus().equals(OrderStatus.VALID) && !order.getStatus().equals(OrderStatus.INVALID)) {
                 order.setStatus(OrderStatus.INVALID);
-                updateFailedOrdersCount(order);
+                failedOrdersCount++;
                 acmeOrderRepository.save(order);
             }
         }
 
-        return getAcmeAccountEntity(uuid).mapToDtoForUi();
-    }
+        acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + failedOrdersCount);
+        acmeAccountRepository.save(acmeAccount);
 
-    private void updateFailedOrdersCount(AcmeOrder order) {
-        order.getAcmeAccount().setFailedOrders(order.getAcmeAccount().getFailedOrders() + 1);
-        acmeAccountRepository.save(order.getAcmeAccount());
+        return getAcmeAccountEntity(uuid).mapToDtoForUi();
     }
 
     private AcmeAccount getAcmeAccountEntity(SecuredUUID uuid) throws NotFoundException {
