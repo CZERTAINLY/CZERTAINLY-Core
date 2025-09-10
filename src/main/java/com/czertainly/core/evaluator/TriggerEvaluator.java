@@ -6,7 +6,6 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -186,7 +185,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
 
         try {
-            objectValue = getPropertyValue(object, nonNestedJoinAttributes, isNested ? null : filterField.getFieldAttribute());
+            boolean anyCollection = nonNestedJoinAttributes != null && !nonNestedJoinAttributes.isEmpty() && nonNestedJoinAttributes.getLast().isCollection();
+            Attribute fieldAttribute = isNested && anyCollection ? null : filterField.getFieldAttribute();
+            objectValue = getPropertyValue(object, nonNestedJoinAttributes, fieldAttribute);
         } catch (IllegalAccessException | InvocationTargetException | NoSuchMethodException e) {
             throw new RuleException("Cannot get property " + fieldIdentifier + " from resource " + resource + ".");
         }
