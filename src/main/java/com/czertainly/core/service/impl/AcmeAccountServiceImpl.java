@@ -167,6 +167,6 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
 
     @Override
     public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
-
+        // Permission evaluation logic not required
     }
 }
