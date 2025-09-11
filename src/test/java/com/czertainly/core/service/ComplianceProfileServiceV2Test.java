@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.v2.*;
+import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceRuleRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -9,6 +10,7 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileListDto;
+import com.czertainly.api.model.core.compliance.v2.ProviderComplianceRulesDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -33,7 +35,8 @@ import java.util.UUID;
 
 class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
-    private static final String KIND = "default";
+    private static final String KIND_V1 = "kindV1";
+    private static final String KIND_V2 = "kindV2";
 
     @Autowired
     private ComplianceProfileRepository complianceProfileRepository;
@@ -70,19 +73,24 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
 
-    private Connector connector;
+    private Connector connectorV1;
+    private Connector connectorV2;
     private WireMockServer mockServer;
     private ComplianceProfile complianceProfile;
 
     private UUID associatedRaProfileUuid;
     private UUID unassociatedRaProfileUuid;
 
+
     private UUID internalRuleUuid;
     private UUID internalRule2Uuid;
-    private final UUID complianceRuleUuid = UUID.randomUUID();
-    private final UUID complianceRule2Uuid = UUID.randomUUID();
-    private final UUID complianceGroupUuid = UUID.randomUUID();
-    private final UUID complianceGroup2Uuid = UUID.randomUUID();
+    private final UUID complianceV1RuleUuid = UUID.randomUUID();
+    private final UUID complianceV1Rule2Uuid = UUID.randomUUID();
+    private final UUID complianceV1GroupUuid = UUID.randomUUID();
+    private final UUID complianceV2RuleUuid = UUID.randomUUID();
+    private final UUID complianceV2Rule2Uuid = UUID.randomUUID();
+    private final UUID complianceV2GroupUuid = UUID.randomUUID();
+    private final UUID complianceV2Group2Uuid = UUID.randomUUID();
 
     @BeforeEach
     void setUp() throws NotFoundException, AlreadyExistException {
@@ -90,27 +98,10 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         mockServer.start();
 
         mockComplianceProviderResponses(true);
+        mockComplianceProviderV1Responses();
 
-        connector = new Connector();
-        connector.setName("Sample Connector");
-        connector.setUrl("http://localhost:" + mockServer.port());
-        connector.setStatus(ConnectorStatus.CONNECTED);
-        connector = connectorRepository.save(connector);
-
-        FunctionGroup functionGroup = new FunctionGroup();
-        functionGroup.setCode(FunctionGroupCode.COMPLIANCE_PROVIDER_V2);
-        functionGroup.setName(FunctionGroupCode.COMPLIANCE_PROVIDER_V2.getCode());
-        functionGroupRepository.save(functionGroup);
-
-        Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
-        c2fg.setConnector(connector);
-        c2fg.setConnectorUuid(connector.getUuid());
-        c2fg.setFunctionGroup(functionGroup);
-        c2fg.setFunctionGroupUuid(functionGroup.getUuid());
-        c2fg.setKinds(MetaDefinitions.serializeArrayString(List.of(KIND)));
-        connector2FunctionGroupRepository.save(c2fg);
-        connector.getFunctionGroups().add(c2fg);
-        connectorRepository.save(connector);
+        connectorV1 = createConnector("TestConnectorV1", FunctionGroupCode.COMPLIANCE_PROVIDER);
+        connectorV2 = createConnector("TestConnectorV2", FunctionGroupCode.COMPLIANCE_PROVIDER_V2);
 
         complianceProfile = new ComplianceProfile();
         complianceProfile.setName("TestProfile");
@@ -122,7 +113,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setAuthorityInstanceUuid("1l");
-        authorityInstanceReference.setConnector(connector);
+        authorityInstanceReference.setConnector(connectorV2);
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         RaProfile raProfile = new RaProfile();
@@ -146,6 +137,31 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(complianceProfile.getUuid()).orElseThrow();
         Assertions.assertFalse(complianceProfile.getComplianceRules().isEmpty(), "Compliance rules should be loaded");
         Assertions.assertFalse(complianceProfile.getAssociations().isEmpty(), "Compliance associations should be loaded");
+    }
+
+    private Connector createConnector(String name, FunctionGroupCode functionGroupCode) {
+        Connector connector = new Connector();
+        connector.setName(name);
+        connector.setUrl("http://localhost:" + mockServer.port());
+        connector.setStatus(ConnectorStatus.CONNECTED);
+        connector = connectorRepository.save(connector);
+
+        FunctionGroup functionGroup = new FunctionGroup();
+        functionGroup.setCode(functionGroupCode);
+        functionGroup.setName(functionGroupCode.getCode());
+        functionGroupRepository.save(functionGroup);
+
+        Connector2FunctionGroup c2fg = new Connector2FunctionGroup();
+        c2fg.setConnector(connector);
+        c2fg.setConnectorUuid(connector.getUuid());
+        c2fg.setFunctionGroup(functionGroup);
+        c2fg.setFunctionGroupUuid(functionGroup.getUuid());
+        c2fg.setKinds(MetaDefinitions.serializeArrayString(List.of(functionGroupCode == FunctionGroupCode.COMPLIANCE_PROVIDER ? KIND_V1 : KIND_V2)));
+        connector2FunctionGroupRepository.save(c2fg);
+        connector.getFunctionGroups().add(c2fg);
+        connectorRepository.save(connector);
+
+        return connector;
     }
 
     private void createInternalRule() throws NotFoundException, AlreadyExistException {
@@ -182,18 +198,18 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         complianceProfileRule.setComplianceProfile(complianceProfile);
         complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule.setResource(Resource.CERTIFICATE);
-        complianceProfileRule.setConnectorUuid(connector.getUuid());
-        complianceProfileRule.setKind(KIND);
-        complianceProfileRule.setComplianceRuleUuid(complianceRuleUuid);
+        complianceProfileRule.setConnectorUuid(connectorV2.getUuid());
+        complianceProfileRule.setKind(KIND_V2);
+        complianceProfileRule.setComplianceRuleUuid(complianceV2RuleUuid);
         complianceProfileRuleRepository.save(complianceProfileRule);
 
         ComplianceProfileRule complianceProfileRule2 = new ComplianceProfileRule();
         complianceProfileRule2.setComplianceProfile(complianceProfile);
         complianceProfileRule2.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule2.setResource(Resource.CERTIFICATE);
-        complianceProfileRule2.setConnectorUuid(connector.getUuid());
-        complianceProfileRule2.setKind(KIND);
-        complianceProfileRule2.setComplianceGroupUuid(complianceGroupUuid);
+        complianceProfileRule2.setConnectorUuid(connectorV2.getUuid());
+        complianceProfileRule2.setKind(KIND_V2);
+        complianceProfileRule2.setComplianceGroupUuid(complianceV2GroupUuid);
         complianceProfileRuleRepository.save(complianceProfileRule2);
 
         ComplianceProfileRule complianceProfileRule3 = new ComplianceProfileRule();
@@ -213,7 +229,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                   "resource": "certificates",
                   "type": "X.509"
                 }
-                """.formatted(complianceRuleUuid);
+                """.formatted(complianceV2RuleUuid);
 
         String complianceRule2Response = """
                 {
@@ -225,7 +241,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                   "type": "%s",
                   "attributes": []
                 }
-                """.formatted(complianceRule2Uuid, complianceGroup2Uuid, defaultResponses ? CertificateType.X509.getCode() : CertificateType.SSH.getCode());
+                """.formatted(complianceV2Rule2Uuid, complianceV2Group2Uuid, defaultResponses ? CertificateType.X509.getCode() : CertificateType.SSH.getCode());
 
         String complianceGroupResponse = """
                 {
@@ -233,7 +249,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                   "name": "Group1",
                   "description": "Sample description"
                 }
-                """.formatted(complianceGroupUuid);
+                """.formatted(complianceV2GroupUuid);
 
         String complianceGroup2Response = """
                 {
@@ -242,17 +258,17 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                   "description": "Sample description",
                   "resource": "%s"
                 }
-                """.formatted(complianceGroup2Uuid, defaultResponses ? Resource.CERTIFICATE.getCode() : Resource.CRYPTOGRAPHIC_KEY.getCode());
+                """.formatted(complianceV2Group2Uuid, defaultResponses ? Resource.CERTIFICATE.getCode() : Resource.CRYPTOGRAPHIC_KEY.getCode());
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v2/complianceProvider/%s/rules/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".formatted(KIND)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v2/complianceProvider/%s/rules/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".formatted(KIND_V2)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(new NotFoundException("Rule", "<UUID>").getMessage())
                         .withStatus(404)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND_V2)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(
@@ -271,7 +287,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                                                 """.formatted(complianceRule2Response))
                         .withStatus(200)));
 
-        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND)))
+        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND_V2)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(
@@ -302,32 +318,32 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                         .withStatus(200)));
 
         if (defaultResponses) {
-            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRuleUuid)))
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND_V2, complianceV2RuleUuid)))
                     .willReturn(WireMock.aResponse()
                             .withHeader("Content-Type", "application/json")
                             .withBody(complianceRuleResponse)
                             .withStatus(200)));
         } else {
-            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRuleUuid)))
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND_V2, complianceV2RuleUuid)))
                     .willReturn(WireMock.aResponse()
                             .withHeader("Content-Type", "application/json")
                             .withBody(new NotFoundException("Rule", "<UUID>").getMessage())
                             .withStatus(404)));
         }
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRule2Uuid)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND_V2, complianceV2Rule2Uuid)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(complianceRule2Response)
                         .withStatus(200)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v2/complianceProvider/%s/groups/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".formatted(KIND)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v2/complianceProvider/%s/groups/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".formatted(KIND_V2)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(new NotFoundException("Group", "<UUID>").getMessage())
                         .withStatus(404)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups".formatted(KIND)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups".formatted(KIND_V2)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -339,37 +355,75 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                         .withStatus(200)));
 
         if (defaultResponses) {
-            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroupUuid)))
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND_V2, complianceV2GroupUuid)))
                     .willReturn(WireMock.aResponse()
                             .withHeader("Content-Type", "application/json")
                             .withBody(complianceGroupResponse)
                             .withStatus(200)));
         } else {
-            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroupUuid)))
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND_V2, complianceV2GroupUuid)))
                     .willReturn(WireMock.aResponse()
                             .withHeader("Content-Type", "application/json")
                             .withBody(new NotFoundException("Group", "<UUID>").getMessage())
                             .withStatus(404)));
         }
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroup2Uuid)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND_V2, complianceV2Group2Uuid)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(complianceGroup2Response)
                         .withStatus(200)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s/rules".formatted(KIND, complianceGroupUuid)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s/rules".formatted(KIND_V2, complianceV2GroupUuid)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("[]")
                         .withStatus(200)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s/rules".formatted(KIND, complianceGroup2Uuid)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s/rules".formatted(KIND_V2, complianceV2Group2Uuid)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(complianceGroup2Response)
                         .withStatus(200)));
 
+    }
+
+    private void mockComplianceProviderV1Responses() {
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/complianceProvider/%s/rules".formatted(KIND_V1)))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                [
+                                  {
+                                    "uuid": "%s",
+                                    "name": "Rule1-V1",
+                                    "description": "Description",
+                                    "certificateType": "X.509"
+                                  },
+                                  {
+                                    "uuid": "%s",
+                                    "name": "Rule2-V1",
+                                    "description": "Description2",
+                                    "groupUuid": "%s",
+                                    "certificateType": "X.509",
+                                    "attributes": []
+                                  }
+                                ]
+                                """.formatted(complianceV1RuleUuid, complianceV1Rule2Uuid, complianceV1GroupUuid))
+                        .withStatus(200)));
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/complianceProvider/%s/groups".formatted(KIND_V1)))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                [
+                                  {
+                                    "uuid": "%s",
+                                    "name": "Group1-V1",
+                                    "description": "Sample description"
+                                  }
+                                ]
+                                """.formatted(complianceV1GroupUuid))
+                        .withStatus(200)));
     }
 
     @AfterEach
@@ -450,50 +504,66 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         requestDto.setDescription("sampleDescription2");
         requestDto.setInternalRules(Set.of(internalRuleUuid, internalRule2Uuid));
 
-        ComplianceRuleRequestDto ruleRequestDto = new ComplianceRuleRequestDto();
-        ruleRequestDto.setUuid(complianceRuleUuid);
-        ComplianceRuleRequestDto ruleRequestDto2 = new ComplianceRuleRequestDto();
-        ruleRequestDto2.setUuid(complianceRule2Uuid);
+        ComplianceRuleRequestDto ruleRequestV1Dto = new ComplianceRuleRequestDto();
+        ruleRequestV1Dto.setUuid(complianceV1RuleUuid);
+        ComplianceRuleRequestDto ruleRequestV1Dto2 = new ComplianceRuleRequestDto();
+        ruleRequestV1Dto2.setUuid(complianceV1Rule2Uuid);
+        ComplianceRuleRequestDto ruleRequestV2Dto = new ComplianceRuleRequestDto();
+        ruleRequestV2Dto.setUuid(complianceV2RuleUuid);
+        ComplianceRuleRequestDto ruleRequestV2Dto2 = new ComplianceRuleRequestDto();
+        ruleRequestV2Dto2.setUuid(complianceV2Rule2Uuid);
 
-        ProviderComplianceRulesRequestDto providerRequestDto = new ProviderComplianceRulesRequestDto();
-        providerRequestDto.setConnectorUuid(connector.getUuid());
-        providerRequestDto.setKind(KIND);
-        providerRequestDto.setRules(Set.of(ruleRequestDto, ruleRequestDto2));
-        providerRequestDto.setGroups(Set.of(complianceGroupUuid, complianceGroup2Uuid));
-        requestDto.getProviderRules().add(providerRequestDto);
+        ProviderComplianceRulesRequestDto providerRequestV1Dto = new ProviderComplianceRulesRequestDto();
+        providerRequestV1Dto.setConnectorUuid(connectorV1.getUuid());
+        providerRequestV1Dto.setKind(KIND_V1);
+        providerRequestV1Dto.setRules(Set.of(ruleRequestV1Dto, ruleRequestV1Dto2));
+        providerRequestV1Dto.setGroups(Set.of(complianceV1GroupUuid));
+        requestDto.getProviderRules().add(providerRequestV1Dto);
+
+        ProviderComplianceRulesRequestDto providerRequestV2Dto = new ProviderComplianceRulesRequestDto();
+        providerRequestV2Dto.setConnectorUuid(connectorV2.getUuid());
+        providerRequestV2Dto.setKind(KIND_V2);
+        providerRequestV2Dto.setRules(Set.of(ruleRequestV2Dto, ruleRequestV2Dto2));
+        providerRequestV2Dto.setGroups(Set.of(complianceV2GroupUuid, complianceV2Group2Uuid));
+        requestDto.getProviderRules().add(providerRequestV2Dto);
 
         ComplianceProfileDto dto = complianceProfileService.updateComplianceProfile(complianceProfile.getSecuredUuid(), requestDto);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(2, dto.getInternalRules().size());
-        Assertions.assertEquals(1, dto.getProviderRules().size());
-        Assertions.assertEquals(2, dto.getProviderRules().getFirst().getRules().size());
-        Assertions.assertEquals(2, dto.getProviderRules().getFirst().getGroups().size());
         Assertions.assertEquals("sampleDescription2", dto.getDescription());
+        Assertions.assertEquals(2, dto.getInternalRules().size());
+        Assertions.assertEquals(2, dto.getProviderRules().size());
+
+        ProviderComplianceRulesDto providerRulesDtoV1 = dto.getProviderRules().stream().filter(p -> p.getKind().equals(KIND_V1)).findFirst().orElseThrow();
+        ProviderComplianceRulesDto providerRulesDtoV2 = dto.getProviderRules().stream().filter(p -> p.getKind().equals(KIND_V2)).findFirst().orElseThrow();
+        Assertions.assertEquals(2, providerRulesDtoV1.getRules().size());
+        Assertions.assertEquals(1, providerRulesDtoV1.getGroups().size());
+        Assertions.assertEquals(2, providerRulesDtoV2.getRules().size());
+        Assertions.assertEquals(2, providerRulesDtoV2.getGroups().size());
 
         // test availability status, remove group and rule from the provider
         mockComplianceProviderResponses(false);
 
         dto = complianceProfileService.getComplianceProfile(complianceProfile.getSecuredUuid());
-        Assertions.assertEquals(1, dto.getProviderRules().size());
+        Assertions.assertEquals(2, dto.getProviderRules().size());
 
-        var providerRules = dto.getProviderRules().getFirst();
+        var providerRules = dto.getProviderRules().stream().filter(p -> p.getKind().equals(KIND_V2)).findFirst().orElseThrow();
         Assertions.assertEquals(2, providerRules.getRules().size());
         Assertions.assertEquals(2, providerRules.getGroups().size());
-        Assertions.assertTrue(providerRules.getRules().stream().anyMatch(r -> r.getUuid().equals(complianceRuleUuid)));
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceRuleUuid)).findFirst().orElseThrow().getAvailabilityStatus());
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceRule2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
-        Assertions.assertTrue(providerRules.getGroups().stream().anyMatch(r -> r.getUuid().equals(complianceGroupUuid)));
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceGroupUuid)).findFirst().orElseThrow().getAvailabilityStatus());
-        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceGroup2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertTrue(providerRules.getRules().stream().anyMatch(r -> r.getUuid().equals(complianceV2RuleUuid)));
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceV2RuleUuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceV2Rule2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertTrue(providerRules.getGroups().stream().anyMatch(r -> r.getUuid().equals(complianceV2GroupUuid)));
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceV2GroupUuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceV2Group2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
     }
 
     @Test
     void addRuleTest() throws NotFoundException, ConnectorException {
         ComplianceProfileRulesPatchRequestDto dto = new ComplianceProfileRulesPatchRequestDto();
         dto.setRemoval(false);
-        dto.setRuleUuid(complianceRuleUuid);
-        dto.setConnectorUuid(connector.getUuid());
-        dto.setKind(KIND);
+        dto.setRuleUuid(complianceV2RuleUuid);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
 
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
@@ -501,12 +571,22 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().getFirst().getRules().size());
 
         // add new rule
-        dto.setRuleUuid(complianceRule2Uuid);
+        dto.setRuleUuid(complianceV2Rule2Uuid);
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
 
         complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(2, complianceProfileDto.getProviderRules().getFirst().getRules().size());
+
+        // add new rule V1
+        dto.setRuleUuid(complianceV1RuleUuid);
+        dto.setConnectorUuid(connectorV1.getUuid());
+        dto.setKind(KIND_V1);
+        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+
+        complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        Assertions.assertEquals(2, complianceProfileDto.getProviderRules().size());
+        Assertions.assertEquals(1, complianceProfileDto.getProviderRules().stream().filter(r -> r.getKind().equals(KIND_V1)).findFirst().orElseThrow().getRules().size());
     }
 
     @Test
@@ -514,8 +594,8 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         ComplianceProfileRulesPatchRequestDto dto = new ComplianceProfileRulesPatchRequestDto();
         dto.setRemoval(false);
         dto.setRuleUuid(UUID.randomUUID());
-        dto.setConnectorUuid(connector.getUuid());
-        dto.setKind(KIND);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
 
         Assertions.assertThrows(ConnectorEntityNotFoundException.class, () -> complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
@@ -545,9 +625,9 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         // add group which is already in the profile
         ComplianceProfileGroupsPatchRequestDto dto = new ComplianceProfileGroupsPatchRequestDto();
         dto.setRemoval(false);
-        dto.setGroupUuid(complianceGroupUuid);
-        dto.setConnectorUuid(connector.getUuid());
-        dto.setKind(KIND);
+        dto.setGroupUuid(complianceV2GroupUuid);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
 
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
@@ -555,12 +635,22 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().getFirst().getGroups().size());
 
         // add new group
-        dto.setGroupUuid(complianceGroup2Uuid);
+        dto.setGroupUuid(complianceV2Group2Uuid);
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
 
         complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
         Assertions.assertEquals(1, complianceProfileDto.getProviderRules().size());
         Assertions.assertEquals(2, complianceProfileDto.getProviderRules().getFirst().getGroups().size());
+
+        // add new rule V1
+        dto.setGroupUuid(complianceV1GroupUuid);
+        dto.setConnectorUuid(connectorV1.getUuid());
+        dto.setKind(KIND_V1);
+        complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
+
+        complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
+        Assertions.assertEquals(2, complianceProfileDto.getProviderRules().size());
+        Assertions.assertEquals(1, complianceProfileDto.getProviderRules().stream().filter(r -> r.getKind().equals(KIND_V1)).findFirst().orElseThrow().getGroups().size());
     }
 
     @Test
@@ -568,8 +658,8 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         ComplianceProfileGroupsPatchRequestDto dto = new ComplianceProfileGroupsPatchRequestDto();
         dto.setRemoval(false);
         dto.setGroupUuid(UUID.randomUUID());
-        dto.setConnectorUuid(connector.getUuid());
-        dto.setKind(KIND);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
 
         Assertions.assertThrows(ConnectorEntityNotFoundException.class, () -> complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
@@ -578,9 +668,9 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     void deleteGroupTest() throws NotFoundException, ConnectorException {
         ComplianceProfileGroupsPatchRequestDto dto = new ComplianceProfileGroupsPatchRequestDto();
         dto.setRemoval(true);
-        dto.setGroupUuid(complianceGroupUuid);
-        dto.setConnectorUuid(connector.getUuid());
-        dto.setKind(KIND);
+        dto.setGroupUuid(complianceV2GroupUuid);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
 
         complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
@@ -593,8 +683,8 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         ComplianceProfileGroupsPatchRequestDto dto = new ComplianceProfileGroupsPatchRequestDto();
         dto.setRemoval(true);
         dto.setGroupUuid(UUID.randomUUID());
-        dto.setConnectorUuid(connector.getUuid());
-        dto.setKind(KIND);
+        dto.setConnectorUuid(connectorV2.getUuid());
+        dto.setKind(KIND_V2);
 
         Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto));
     }
@@ -603,6 +693,41 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     void removeComplianceProfileTest() {
         SecuredUUID complianceProfileUuid = complianceProfile.getSecuredUuid();
         Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceProfile(complianceProfileUuid));
+    }
+
+    @Test
+    void testBulkDeleteComplianceProfiles() {
+        // create profile that can be deleted
+        ComplianceProfile profile1 = new ComplianceProfile();
+        profile1.setName("BulkDeleteProfile1");
+        profile1.setDescription("desc1");
+        profile1 = complianceProfileRepository.save(profile1);
+
+        // create profile that has an association -> deletion without force should fail
+        ComplianceProfile profile2 = new ComplianceProfile();
+        profile2.setName("BulkDeleteProfile2");
+        profile2.setDescription("desc2");
+        profile2 = complianceProfileRepository.save(profile2);
+
+        ComplianceProfileAssociation assoc = new ComplianceProfileAssociation();
+        assoc.setComplianceProfileUuid(profile2.getUuid());
+        assoc.setResource(Resource.RA_PROFILE);
+        assoc.setObjectUuid(UUID.randomUUID());
+        complianceProfileAssociationRepository.save(assoc);
+
+        // perform bulk delete
+        List<SecuredUUID> uuids = List.of(SecuredUUID.fromUUID(profile1.getUuid()), SecuredUUID.fromUUID(profile2.getUuid()));
+        List<BulkActionMessageDto> messages = complianceProfileService.bulkDeleteComplianceProfiles(uuids);
+
+        // profile1 should be removed
+        Assertions.assertFalse(complianceProfileRepository.findById(profile1.getUuid()).isPresent(), "Profile without associations should be deleted");
+
+        // profile2 should remain and produce one failure message
+        Assertions.assertTrue(complianceProfileRepository.findById(profile2.getUuid()).isPresent(), "Profile with association should not be deleted");
+        Assertions.assertEquals(1, messages.size(), "One failure message expected for the profile that could not be deleted");
+        Assertions.assertEquals(profile2.getUuid().toString(), messages.getFirst().getUuid(), "Failure message should reference the failing profile UUID");
+        Assertions.assertNotNull(messages.getFirst().getMessage());
+        Assertions.assertFalse(messages.getFirst().getMessage().isBlank());
     }
 
     @Test
@@ -673,7 +798,10 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void getComplianceRulesTest() throws ConnectorException, NotFoundException {
-        var rules = complianceProfileService.getComplianceRules(connector.getUuid(), KIND, null, null, null);
+        var rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
+        Assertions.assertEquals(2, rules.size());
+
+        rules = complianceProfileService.getComplianceRules(connectorV2.getUuid(), KIND_V2, null, null, null);
         Assertions.assertEquals(2, rules.size());
     }
 
@@ -684,7 +812,16 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void getComplianceGroupsTest() throws ConnectorException, NotFoundException {
-        var groups = complianceProfileService.getComplianceGroups(connector.getUuid(), KIND, null);
+        var groups = complianceProfileService.getComplianceGroups(connectorV1.getUuid(), KIND_V1, null);
+        Assertions.assertEquals(1, groups.size());
+
+        groups = complianceProfileService.getComplianceGroups(connectorV2.getUuid(), KIND_V2, null);
         Assertions.assertEquals(2, groups.size());
+    }
+
+    @Test
+    void getComplianceGroupRulesTest() throws ConnectorException, NotFoundException {
+        var groups = complianceProfileService.getComplianceGroupRules(complianceV2Group2Uuid, connectorV2.getUuid(), KIND_V2);
+        Assertions.assertEquals(1, groups.size());
     }
 }

@@ -1,13 +1,9 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.compliance.ComplianceGroupRequestDto;
-import com.czertainly.api.model.client.compliance.ComplianceProfileRequestDto;
-import com.czertainly.api.model.client.compliance.ComplianceProfileRuleDto;
-import com.czertainly.api.model.client.compliance.ComplianceRuleAdditionRequestDto;
-import com.czertainly.api.model.client.compliance.ComplianceRuleDeletionRequestDto;
-import com.czertainly.api.model.client.compliance.RaProfileAssociationRequestDto;
+import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
+import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
@@ -225,8 +221,8 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
         List<ComplianceProfilesListDto> dtos = complianceProfileService.listComplianceProfiles(SecurityFilter.create());
         Assertions.assertNotNull(dtos);
         Assertions.assertEquals(1, dtos.size());
-        Assertions.assertEquals("TestProfile", dtos.get(0).getName());
-        Assertions.assertEquals(complianceProfile.getUuid().toString(), dtos.get(0).getUuid());
+        Assertions.assertEquals("TestProfile", dtos.getFirst().getName());
+        Assertions.assertEquals(complianceProfile.getUuid().toString(), dtos.getFirst().getUuid());
     }
 
     @Test
@@ -253,9 +249,27 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
 
         ComplianceProfileDto dto = complianceProfileService.createComplianceProfile(requestDto);
         Assertions.assertNotNull(dto);
-        Assertions.assertEquals(dto.getRules().size(), 0);
-        Assertions.assertEquals(dto.getName(), "sample2");
-        Assertions.assertEquals(dto.getDescription(), "sampleDescription");
+        Assertions.assertEquals(0, dto.getRules().size());
+        Assertions.assertEquals("sample2", dto.getName());
+        Assertions.assertEquals("sampleDescription", dto.getDescription());
+
+        ComplianceProfileRulesRequestDto rulesRequestDto = new ComplianceProfileRulesRequestDto();
+        rulesRequestDto.setConnectorUuid(connector.getUuid().toString());
+        rulesRequestDto.setKind(KIND);
+
+        ComplianceRequestRulesDto ruleRequesDto = new ComplianceRequestRulesDto();
+        ruleRequesDto.setUuid(complianceRuleUuid.toString());
+        rulesRequestDto.setRules(List.of(ruleRequesDto));
+        rulesRequestDto.setGroups(List.of(complianceGroupUuid.toString()));
+
+        requestDto.setName("SampleWithRules");
+        requestDto.setRules(List.of(rulesRequestDto));
+        dto = complianceProfileService.createComplianceProfile(requestDto);
+        Assertions.assertNotNull(dto);
+        Assertions.assertEquals(1, dto.getRules().size());
+        Assertions.assertEquals(1, dto.getGroups().size());
+        Assertions.assertEquals(1, dto.getRules().getFirst().getRules().size());
+        Assertions.assertEquals(1, dto.getGroups().getFirst().getGroups().size());
     }
 
     @Test
@@ -440,12 +454,6 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(0, complianceProfileDto.getRaProfiles().size());
 
         // later when compliance check is redone, the status will be set to NOT_CHECKED and assertion will pass
-
-        // archivedCertificate = certificateRepository.findWithAssociationsByUuid(archivedCertificate.getUuid()).get();
-        // notArchivedCertificate = certificateRepository.findWithAssociationsByUuid(notArchivedCertificate.getUuid()).get();
-        // Assertions.assertEquals(ComplianceStatus.OK, archivedCertificate.getComplianceStatus());
-        // Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, notArchivedCertificate.getComplianceStatus());
-
     }
 
     @Test

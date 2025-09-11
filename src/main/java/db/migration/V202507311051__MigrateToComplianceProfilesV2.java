@@ -3,7 +3,7 @@ package db.migration;
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceResultRulesDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.util.DatabaseMigration;
@@ -82,6 +82,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
 
     private void prepareDBStructure(Context context) throws SQLException {
         String sqlCommands = """
+                UPDATE compliance_profile_rule SET attributes = NULL WHERE lower("attributes") = 'null' OR attributes = '[]' OR attributes = '';
                 ALTER TABLE compliance_profile_rule
                     ADD COLUMN connector_uuid UUID NULL,
                     ADD COLUMN kind TEXT NULL,
@@ -116,7 +117,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 ALTER TABLE compliance_profile_association
                     ADD CONSTRAINT fk_compliance_profile_association_to_compliance_profile FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                 
-                UPDATE certificate SET compliance_result = NULL WHERE compliance_result = 'null' OR compliance_result = 'NULL';
+                UPDATE certificate SET compliance_result = NULL WHERE lower("compliance_result") = 'null' OR compliance_result = '{}' OR compliance_result = '';
                 ALTER TABLE certificate
                     ALTER COLUMN compliance_result TYPE JSONB USING compliance_result::jsonb;
                 

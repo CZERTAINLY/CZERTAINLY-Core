@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.api.model.core.workflows.RuleDetailDto;
 import com.czertainly.api.model.core.workflows.RuleDto;
-import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;

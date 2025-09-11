@@ -236,7 +236,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             if (resource != null && resource != Resource.CERTIFICATE) {
                 return List.of();
             }
-            List<ComplianceRulesResponseDto> providerRules = complianceApiClientV1.getComplianceRules(connectorDto, kind, List.of(type));
+            List<ComplianceRulesResponseDto> providerRules = complianceApiClientV1.getComplianceRules(connectorDto, kind, type == null ? null : List.of(type));
             for (ComplianceRulesResponseDto providerRule : providerRules) {
                 ComplianceRuleListDto dto = new ComplianceRuleListDto();
                 dto.setUuid(UUID.fromString(providerRule.getUuid()));
