@@ -2,7 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import jakarta.persistence.*;

@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 
 import java.util.List;

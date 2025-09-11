@@ -7,7 +7,7 @@ import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;

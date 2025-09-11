@@ -2,7 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
