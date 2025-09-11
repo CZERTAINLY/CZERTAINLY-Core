@@ -84,14 +84,14 @@ public class AuditLogAspect {
             logBuilder.message(message);
             throw e;
         } finally {
-            constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
+            constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result, loggingSettingsDto.getAuditLogs().isVerbose());
 
             LogRecord logRecord = logBuilder.build();
             auditLogService.log(logRecord);
         }
     }
 
-    private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, Object response) {
+    private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, Object response, boolean verbose) {
         Resource resource = null;
         String resourceName = null;
         List<UUID> resourceUuids = null;
@@ -122,7 +122,7 @@ public class AuditLogAspect {
                     if (paramResource != null) resource = paramResource;
                 }
 
-                if (logger.getLogger().isDebugEnabled() && !parameters[i].isAnnotationPresent(Sensitive.class)) {
+                if (verbose && !parameters[i].isAnnotationPresent(Sensitive.class)) {
                     if (parameterValue instanceof Optional<?> optional) {
                         parameterValue = optional.orElse(null);
                     }

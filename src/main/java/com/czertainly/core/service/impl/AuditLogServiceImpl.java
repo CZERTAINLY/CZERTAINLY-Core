@@ -192,7 +192,8 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
 
         Map<String, Object> additionalData = null;
-        if (logger.getLogger().isDebugEnabled()) {
+        LoggingSettingsDto loggingSettings = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettings.getAuditLogs().isVerbose()) {
             additionalData = new HashMap<>();
             additionalData.put("authData", authData);
         }
