@@ -6,6 +6,8 @@ import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.key.value.KeyValue;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDetailDto;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
@@ -15,7 +17,9 @@ import com.czertainly.core.util.DtoMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
@@ -81,6 +85,14 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     @Enumerated(EnumType.STRING)
     @Column(name = "reason")
     private KeyCompromiseReason reason;
+
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ComplianceResultDto complianceResult;
+
+    @Column(name = "compliance_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus = ComplianceStatus.NOT_CHECKED;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     @CreatedDate
@@ -173,8 +185,8 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
         CryptographicKeyItem that = (CryptographicKeyItem) o;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
@@ -182,6 +194,6 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

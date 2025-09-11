@@ -7,7 +7,6 @@ import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceResultDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DtoMapper;
@@ -164,7 +163,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     @Column(name = "compliance_status", nullable = false)
     @Enumerated(EnumType.STRING)
-    private ComplianceStatus complianceStatus;
+    private ComplianceStatus complianceStatus = ComplianceStatus.NOT_CHECKED;
 
     @JsonBackReference
     @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
@@ -420,6 +419,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public CertificateRequestEntity prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
         final CertificateRequestEntity newCertificateRequestEntity = new CertificateRequestEntity();
         newCertificateRequestEntity.setCertificateType(this.certificateType);
+        newCertificateRequestEntity.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         newCertificateRequestEntity.setKeyUsage(this.keyUsage);
         newCertificateRequestEntity.setCommonName(this.commonName);
         newCertificateRequestEntity.setPublicKeyAlgorithm(this.publicKeyAlgorithm);

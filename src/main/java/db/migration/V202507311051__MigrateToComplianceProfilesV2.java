@@ -127,13 +127,6 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 ALTER TABLE certificate_request
                     ALTER COLUMN compliance_status SET NOT NULL;
                 
-                ALTER TABLE cryptographic_key
-                    ADD COLUMN compliance_status TEXT NULL;
-                
-                UPDATE cryptographic_key SET compliance_status = 'NOT_CHECKED';
-                ALTER TABLE cryptographic_key
-                    ALTER COLUMN compliance_status SET NOT NULL;
-                
                 ALTER TABLE cryptographic_key_item
                     ADD COLUMN compliance_status TEXT NULL,
                     ADD COLUMN compliance_result JSONB NULL;

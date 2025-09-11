@@ -69,7 +69,7 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
 
     @Column(name = "compliance_status", nullable = false)
     @Enumerated(EnumType.STRING)
-    private ComplianceStatus complianceStatus;
+    private ComplianceStatus complianceStatus = ComplianceStatus.NOT_CHECKED;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "key_uuid", insertable = false, updatable = false)
