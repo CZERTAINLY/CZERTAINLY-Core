@@ -104,6 +104,22 @@ class OAuth2UtilTest {
             );
             // Mocked endpoint
             Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
+
+            mockServer.stubFor(
+                    WireMock.get(WireMock.urlPathEqualTo("/"))
+                            .withQueryParam("id_token_hint", WireMock.matching(".*"))
+                            .willReturn(WireMock.aResponse().withStatus(500))
+            );
+            // Mocked endpoint 500
+            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
+
+            mockServer.stubFor(
+                    WireMock.get(WireMock.urlPathEqualTo("/"))
+                            .withQueryParam("id_token_hint", WireMock.matching(".*"))
+                            .willReturn(WireMock.aResponse().withStatus(404))
+            );
+            // Mocked endpoint 404
+            Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
         }
     }
 
