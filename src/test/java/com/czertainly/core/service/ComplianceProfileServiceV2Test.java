@@ -4,6 +4,8 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.v2.*;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceRuleRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileListDto;
@@ -84,7 +86,10 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @BeforeEach
     void setUp() throws NotFoundException, AlreadyExistException {
-        mockComplianceProvider();
+        mockServer = new WireMockServer(0);
+        mockServer.start();
+
+        mockComplianceProviderResponses(true);
 
         connector = new Connector();
         connector.setName("Sample Connector");
@@ -199,10 +204,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         complianceProfileRuleRepository.save(complianceProfileRule3);
     }
 
-    private void mockComplianceProvider() {
-        mockServer = new WireMockServer(0);
-        mockServer.start();
-
+    private void mockComplianceProviderResponses(boolean defaultResponses) {
         String complianceRuleResponse = """
                 {
                   "uuid": "%s",
@@ -220,10 +222,10 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                   "description": "Description2",
                   "groupUuid": "%s",
                   "resource": "certificates",
-                  "type": "X.509",
+                  "type": "%s",
                   "attributes": []
                 }
-                """.formatted(complianceRule2Uuid, complianceGroup2Uuid);
+                """.formatted(complianceRule2Uuid, complianceGroup2Uuid, defaultResponses ? CertificateType.X509.getCode() : CertificateType.SSH.getCode());
 
         String complianceGroupResponse = """
                 {
@@ -238,51 +240,80 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                   "uuid": "%s",
                   "name": "Group2",
                   "description": "Sample description",
-                  "resource": "certificates"
+                  "resource": "%s"
                 }
-                """.formatted(complianceGroup2Uuid);
+                """.formatted(complianceGroup2Uuid, defaultResponses ? Resource.CERTIFICATE.getCode() : Resource.CRYPTOGRAPHIC_KEY.getCode());
 
         WireMock.configureFor("localhost", mockServer.port());
 
         WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v2/complianceProvider/%s/rules/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".formatted(KIND)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
-                        .withBody(new NotFoundException("Group", "<UUID>").getMessage())
+                        .withBody(new NotFoundException("Rule", "<UUID>").getMessage())
                         .withStatus(404)));
 
         WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                [
-                                  %s,
-                                  %s
-                                ]
-                                """.formatted(complianceRuleResponse, complianceRule2Response))
+                        .withBody(
+                                defaultResponses ?
+                                        """
+                                                [
+                                                  %s,
+                                                  %s
+                                                ]
+                                                """.formatted(complianceRuleResponse, complianceRule2Response)
+                                        :
+                                        """
+                                                [
+                                                  %s
+                                                ]
+                                                """.formatted(complianceRule2Response))
                         .withStatus(200)));
 
         WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules".formatted(KIND)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
-                        .withBody("""
-                                {
-                                  "rules": [
-                                    %s,
-                                    %s
-                                  ],
-                                  "groups": [
-                                    %s,
-                                    %s
-                                  ]
-                                }
-                                """.formatted(complianceRuleResponse, complianceRule2Response, complianceGroupResponse, complianceGroup2Response))
+                        .withBody(
+                                defaultResponses ?
+                                        """
+                                                {
+                                                  "rules": [
+                                                    %s,
+                                                    %s
+                                                  ],
+                                                  "groups": [
+                                                    %s,
+                                                    %s
+                                                  ]
+                                                }
+                                                """.formatted(complianceRuleResponse, complianceRule2Response, complianceGroupResponse, complianceGroup2Response)
+                                        :
+                                        """
+                                                {
+                                                  "rules": [
+                                                    %s
+                                                  ],
+                                                  "groups": [
+                                                    %s
+                                                  ]
+                                                }
+                                                """.formatted(complianceRule2Response, complianceGroup2Response))
                         .withStatus(200)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRuleUuid)))
-                .willReturn(WireMock.aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(complianceRuleResponse)
-                        .withStatus(200)));
+        if (defaultResponses) {
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRuleUuid)))
+                    .willReturn(WireMock.aResponse()
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(complianceRuleResponse)
+                            .withStatus(200)));
+        } else {
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRuleUuid)))
+                    .willReturn(WireMock.aResponse()
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(new NotFoundException("Rule", "<UUID>").getMessage())
+                            .withStatus(404)));
+        }
 
         WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND, complianceRule2Uuid)))
                 .willReturn(WireMock.aResponse()
@@ -307,11 +338,19 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                                 """.formatted(complianceGroupResponse, complianceGroup2Response))
                         .withStatus(200)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroupUuid)))
-                .willReturn(WireMock.aResponse()
-                        .withHeader("Content-Type", "application/json")
-                        .withBody(complianceGroupResponse)
-                        .withStatus(200)));
+        if (defaultResponses) {
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroupUuid)))
+                    .willReturn(WireMock.aResponse()
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(complianceGroupResponse)
+                            .withStatus(200)));
+        } else {
+            WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroupUuid)))
+                    .willReturn(WireMock.aResponse()
+                            .withHeader("Content-Type", "application/json")
+                            .withBody(new NotFoundException("Group", "<UUID>").getMessage())
+                            .withStatus(404)));
+        }
 
         WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups/%s".formatted(KIND, complianceGroup2Uuid)))
                 .willReturn(WireMock.aResponse()
@@ -430,6 +469,22 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         Assertions.assertEquals(2, dto.getProviderRules().getFirst().getRules().size());
         Assertions.assertEquals(2, dto.getProviderRules().getFirst().getGroups().size());
         Assertions.assertEquals("sampleDescription2", dto.getDescription());
+
+        // test availability status, remove group and rule from the provider
+        mockComplianceProviderResponses(false);
+
+        dto = complianceProfileService.getComplianceProfile(complianceProfile.getSecuredUuid());
+        Assertions.assertEquals(1, dto.getProviderRules().size());
+
+        var providerRules = dto.getProviderRules().getFirst();
+        Assertions.assertEquals(2, providerRules.getRules().size());
+        Assertions.assertEquals(2, providerRules.getGroups().size());
+        Assertions.assertTrue(providerRules.getRules().stream().anyMatch(r -> r.getUuid().equals(complianceRuleUuid)));
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceRuleUuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getRules().stream().filter(r -> r.getUuid().equals(complianceRule2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertTrue(providerRules.getGroups().stream().anyMatch(r -> r.getUuid().equals(complianceGroupUuid)));
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceGroupUuid)).findFirst().orElseThrow().getAvailabilityStatus());
+        Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceGroup2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
     }
 
     @Test
@@ -546,7 +601,8 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void removeComplianceProfileTest() {
-        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid())));
+        SecuredUUID complianceProfileUuid = complianceProfile.getSecuredUuid();
+        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceProfile(complianceProfileUuid));
     }
 
     @Test
@@ -608,12 +664,6 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         Assertions.assertEquals(0, associations.size());
 
         // later when compliance check is redone, the status will be set to NOT_CHECKED and assertion will pass
-
-        // archivedCertificate = certificateRepository.findWithAssociationsByUuid(archivedCertificate.getUuid()).get();
-        // notArchivedCertificate = certificateRepository.findWithAssociationsByUuid(notArchivedCertificate.getUuid()).get();
-        // Assertions.assertEquals(ComplianceStatus.OK, archivedCertificate.getComplianceStatus());
-        // Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, notArchivedCertificate.getComplianceStatus());
-
     }
 
     @Test

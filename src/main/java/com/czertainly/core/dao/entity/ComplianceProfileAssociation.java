@@ -44,7 +44,7 @@ public class ComplianceProfileAssociation extends UniquelyIdentified implements 
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        ComplianceProfileAssociation that = (ComplianceProfileAssociation) o;
+        if (!(o instanceof ComplianceProfileAssociation that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

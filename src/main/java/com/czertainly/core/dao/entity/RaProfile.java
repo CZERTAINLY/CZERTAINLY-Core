@@ -277,8 +277,8 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        RaProfile raProfile = (RaProfile) o;
-        return getUuid() != null && Objects.equals(getUuid(), raProfile.getUuid());
+        if (!(o instanceof RaProfile that)) return false;
+        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override

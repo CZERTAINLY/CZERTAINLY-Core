@@ -6,7 +6,6 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.Group_;
 import com.czertainly.core.dao.repository.GroupRepository;

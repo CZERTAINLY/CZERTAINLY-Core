@@ -106,7 +106,7 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        CertificateRequestEntity that = (CertificateRequestEntity) o;
+        if (!(o instanceof CertificateRequestEntity that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

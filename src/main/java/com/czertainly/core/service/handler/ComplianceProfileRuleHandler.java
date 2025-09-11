@@ -268,8 +268,8 @@ public class ComplianceProfileRuleHandler {
 
     public ComplianceProfileRule createComplianceProfileInternalRuleAssoc(UUID complianceProfileUuid, UUID internalRuleUuid) throws NotFoundException {
         Rule internalRule = ruleRepository.findByUuid(SecuredUUID.fromUUID(internalRuleUuid)).orElseThrow(() -> new NotFoundException("Internal rule", internalRuleUuid));
-        if (internalRule.getResource() == Resource.ANY) {
-            throw new ValidationException("Internal rule '%s' with ANY resource cannot be associated with compliance profile".formatted(internalRule.getName()));
+        if (!internalRule.getResource().complianceSubject()) {
+            throw new ValidationException("Internal rule '%s' with resource %s cannot be associated with compliance profile because resource does not support compliance check".formatted(internalRule.getName(), internalRule.getResource().getLabel()));
         }
 
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
@@ -283,6 +283,10 @@ public class ComplianceProfileRuleHandler {
     }
 
     public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceRuleResponseDto providerRule, List<RequestAttributeDto> requestAttributes) {
+        if (!providerRule.getResource().complianceSubject()) {
+            throw new ValidationException("Provider rule '%s' with resource %s cannot be associated with compliance profile because resource does not support compliance check".formatted(providerRule.getName(), providerRule.getResource().getLabel()));
+        }
+
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfileUuid(complianceProfileUuid);
         complianceProfileRule.setComplianceRuleUuid(providerRule.getUuid());
@@ -298,6 +302,10 @@ public class ComplianceProfileRuleHandler {
     }
 
     public ComplianceProfileRule createComplianceProfileProviderGroupAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceGroupResponseDto providerGroup) {
+        if (providerGroup.getResource() != null && !providerGroup.getResource().complianceSubject()) {
+            throw new ValidationException("Provider group '%s' with resource %s cannot be associated with compliance profile because resource does not support compliance check".formatted(providerGroup.getName(), providerGroup.getResource().getLabel()));
+        }
+
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfileUuid(complianceProfileUuid);
         complianceProfileRule.setComplianceGroupUuid(providerGroup.getUuid());
@@ -347,19 +355,17 @@ public class ComplianceProfileRuleHandler {
             ComplianceRuleResponseDto resultRule = null;
             var providerRules = complianceApiClientV1.getComplianceRules(connectorDto, kind, null);
             for (var providerRule : providerRules) {
-                if (!providerRule.getUuid().equals(ruleUuidStr)) {
-                    continue;
+                if (providerRule.getUuid().equals(ruleUuidStr)) {
+                    resultRule = new ComplianceRuleResponseDto();
+                    resultRule.setUuid(ruleUuid);
+                    resultRule.setGroupUuid(NullUtil.parseUuidOrNull(providerRule.getGroupUuid()));
+                    resultRule.setName(providerRule.getName());
+                    resultRule.setDescription(providerRule.getDescription());
+                    resultRule.setResource(Resource.CERTIFICATE);
+                    resultRule.setType(providerRule.getCertificateType() != null ? providerRule.getCertificateType().getCode() : null);
+                    resultRule.setAttributes(providerRule.getAttributes());
+                    break;
                 }
-
-                resultRule = new ComplianceRuleResponseDto();
-                resultRule.setUuid(ruleUuid);
-                resultRule.setGroupUuid(NullUtil.parseUuidOrNull(providerRule.getGroupUuid()));
-                resultRule.setName(providerRule.getName());
-                resultRule.setDescription(providerRule.getDescription());
-                resultRule.setResource(Resource.CERTIFICATE);
-                resultRule.setType(providerRule.getCertificateType() != null ? providerRule.getCertificateType().getCode() : null);
-                resultRule.setAttributes(providerRule.getAttributes());
-                break;
             }
             if (resultRule == null) {
                 throw new NotFoundException("Compliance rule with UUID %s not found in provider %s".formatted(ruleUuid, connectorDto.getName()));
@@ -380,16 +386,14 @@ public class ComplianceProfileRuleHandler {
             ComplianceGroupResponseDto resultGroup = null;
             var providerGroups = complianceApiClientV1.getComplianceGroups(connectorDto, kind);
             for (var providerGroup : providerGroups) {
-                if (!providerGroup.getUuid().equals(groupUuidStr)) {
-                    continue;
+                if (providerGroup.getUuid().equals(groupUuidStr)) {
+                    resultGroup = new ComplianceGroupResponseDto();
+                    resultGroup.setUuid(groupUuid);
+                    resultGroup.setName(providerGroup.getName());
+                    resultGroup.setDescription(providerGroup.getDescription());
+                    resultGroup.setResource(Resource.CERTIFICATE);
+                    break;
                 }
-
-                resultGroup = new ComplianceGroupResponseDto();
-                resultGroup.setUuid(groupUuid);
-                resultGroup.setName(providerGroup.getName());
-                resultGroup.setDescription(providerGroup.getDescription());
-                resultGroup.setResource(Resource.CERTIFICATE);
-                break;
             }
             if (resultGroup == null) {
                 throw new NotFoundException("Compliance group with UUID %s not found in provider %s".formatted(groupUuid, connectorDto.getName()));

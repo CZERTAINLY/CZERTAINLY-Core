@@ -125,7 +125,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        ComplianceProfile that = (ComplianceProfile) o;
+        if (!(o instanceof ComplianceProfile that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

@@ -19,7 +19,6 @@ import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.entity.Credential_;
 import com.czertainly.core.dao.repository.CredentialRepository;

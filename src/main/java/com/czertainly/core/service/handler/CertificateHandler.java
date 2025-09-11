@@ -1,8 +1,6 @@
 package com.czertainly.core.service.handler;
 
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;

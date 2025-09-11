@@ -188,7 +188,7 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        CryptographicKeyItem that = (CryptographicKeyItem) o;
+        if (!(o instanceof CryptographicKeyItem that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

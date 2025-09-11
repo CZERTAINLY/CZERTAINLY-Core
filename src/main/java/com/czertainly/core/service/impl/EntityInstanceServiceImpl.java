@@ -18,7 +18,6 @@ import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
-import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
 import com.czertainly.core.dao.entity.EntityInstanceReference_;

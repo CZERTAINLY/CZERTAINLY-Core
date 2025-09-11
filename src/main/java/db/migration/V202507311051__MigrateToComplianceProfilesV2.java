@@ -29,6 +29,7 @@ import java.util.*;
 /**
  * Migration script for the Json array migration to separate table
  */
+@SuppressWarnings("java:S101")
 public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(V202507311051__MigrateToComplianceProfilesV2.class);

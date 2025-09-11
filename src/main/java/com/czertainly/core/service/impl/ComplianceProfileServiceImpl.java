@@ -24,8 +24,6 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,11 +32,9 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-@Service("ComplianceProfileServiceV1")
+@Service("complianceProfileServiceV1")
 @Transactional
 public class ComplianceProfileServiceImpl implements ComplianceProfileService {
-
-    private static final Logger logger = LoggerFactory.getLogger(ComplianceProfileServiceImpl.class);
 
     private com.czertainly.core.service.v2.ComplianceProfileService complianceProfileServiceV2;
 
@@ -233,23 +229,21 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         ComplianceProfileRuleDto resultRule = null;
         var providerRules = complianceApiClientV1.getComplianceRules(connectorDto, kind, null);
         for (var providerRule : providerRules) {
-            if (!providerRule.getUuid().equals(ruleUuid)) {
-                continue;
+            if (providerRule.getUuid().equals(ruleUuid)) {
+                resultRule = new ComplianceProfileRuleDto();
+                resultRule.setUuid(ruleUuid);
+                resultRule.setName(providerRule.getName());
+                resultRule.setDescription(providerRule.getDescription());
+                resultRule.setConnectorUuid(connectorDto.getUuid());
+                resultRule.setConnectorName(connectorDto.getName());
+                resultRule.setKind(kind);
+                resultRule.setGroupUuid(providerRule.getGroupUuid());
+                resultRule.setCertificateType(providerRule.getCertificateType());
+                resultRule.setAttributes(AttributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), requestAttributes));
+                resultRule.setComplianceProfileUuid(complianceProfileUuid.toString());
+                resultRule.setComplianceProfileName(complianceProfileName);
+                break;
             }
-
-            resultRule = new ComplianceProfileRuleDto();
-            resultRule.setUuid(ruleUuid);
-            resultRule.setName(providerRule.getName());
-            resultRule.setDescription(providerRule.getDescription());
-            resultRule.setConnectorUuid(connectorDto.getUuid());
-            resultRule.setConnectorName(connectorDto.getName());
-            resultRule.setKind(kind);
-            resultRule.setGroupUuid(providerRule.getGroupUuid());
-            resultRule.setCertificateType(providerRule.getCertificateType());
-            resultRule.setAttributes(AttributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), requestAttributes));
-            resultRule.setComplianceProfileUuid(complianceProfileUuid.toString());
-            resultRule.setComplianceProfileName(complianceProfileName);
-            break;
         }
         if (resultRule == null) {
             throw new NotFoundException("Compliance rule with UUID %s not found in provider %s".formatted(ruleUuid, connectorDto.getName()));
@@ -415,7 +409,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     public void checkCompliance(List<SecuredUUID> uuids) {
-
+        // will be implemented in compliance check V2 rewrite
     }
 
     @Override

@@ -13,7 +13,6 @@ import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -26,7 +25,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 
-@RestController("ComplianceProfileControllerV1")
+@RestController("complianceProfileControllerV1")
 public class ComplianceProfileControllerImpl implements ComplianceProfileController {
 
     private ComplianceProfileService complianceProfileService;
