@@ -9,6 +9,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.transaction.annotation.Transactional;
 
 import static org.mockito.Mockito.when;
 
@@ -18,6 +19,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.UUID;
 
+@Transactional
 @ExtendWith(MockitoExtension.class)
 class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
 
@@ -25,6 +27,7 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
     DataSource dataSource;
 
     @Test
+    @Transactional
     void testMigration() throws Exception {
         Context context = Mockito.mock(Context.class);
         when(context.getConnection()).thenReturn(dataSource.getConnection());
