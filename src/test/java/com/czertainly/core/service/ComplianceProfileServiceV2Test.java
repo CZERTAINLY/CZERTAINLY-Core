@@ -327,7 +327,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
                         .withBody(new NotFoundException("Group", "<UUID>").getMessage())
                         .withStatus(404)));
 
-        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v1/complianceProvider/%s/groups".formatted(KIND)))
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/groups".formatted(KIND)))
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody("""
@@ -672,16 +672,19 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void getComplianceGroupsTest_Invalid() {
-        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups(UUID.randomUUID(), "random", null));
+    void getComplianceRulesTest() throws ConnectorException, NotFoundException {
+        var rules = complianceProfileService.getComplianceRules(connector.getUuid(), KIND, null, null, null);
+        Assertions.assertEquals(2, rules.size());
     }
 
     @Test
-    void getComplianceGroupRules() throws ConnectorException, NotFoundException {
-        var groupRules = complianceProfileService.getComplianceGroupRules(complianceGroupUuid, connector.getUuid(), KIND);
-        Assertions.assertEquals(0, groupRules.size());
+    void getComplianceGroupsTest_Invalid() {
+        Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups(UUID.randomUUID(), null, null));
+    }
 
-        groupRules = complianceProfileService.getComplianceGroupRules(complianceGroup2Uuid, connector.getUuid(), KIND);
-        Assertions.assertEquals(1, groupRules.size());
+    @Test
+    void getComplianceGroupsTest() throws ConnectorException, NotFoundException {
+        var groups = complianceProfileService.getComplianceGroups(connector.getUuid(), KIND, null);
+        Assertions.assertEquals(2, groups.size());
     }
 }

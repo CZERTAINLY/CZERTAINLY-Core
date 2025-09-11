@@ -454,7 +454,21 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
     }
 
     @Test
+    void getComplianceRulesTest() throws ConnectorException, NotFoundException {
+        var rules = complianceProfileService.getComplianceRules(connector.getUuid().toString(), KIND, null);
+        Assertions.assertEquals(1, rules.size());
+        Assertions.assertEquals(2, rules.getFirst().getRules().size());
+    }
+
+    @Test
     void getComplianceGroupsTest_Invalid() {
         Assertions.assertThrows(NotFoundException.class, () -> complianceProfileService.getComplianceGroups("abfbc322-29e1-11ed-a261-0242ac120002", null));
+    }
+
+    @Test
+    void getComplianceGroupsTest() throws ConnectorException, NotFoundException {
+        var groups = complianceProfileService.getComplianceGroups(connector.getUuid().toString(), KIND);
+        Assertions.assertEquals(1, groups.size());
+        Assertions.assertEquals(2, groups.getFirst().getGroups().size());
     }
 }
