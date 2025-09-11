@@ -6,7 +6,6 @@ import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
 import com.czertainly.api.model.core.compliance.v2.*;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
@@ -32,12 +31,10 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     @Column(name = "description")
     private String description;
 
-    @JsonBackReference
-    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.REMOVE, fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<ComplianceProfileRule> complianceRules = new HashSet<>();
 
-    @JsonBackReference
     @OneToMany(mappedBy = "complianceProfile", fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<ComplianceProfileAssociation> associations = new HashSet<>();

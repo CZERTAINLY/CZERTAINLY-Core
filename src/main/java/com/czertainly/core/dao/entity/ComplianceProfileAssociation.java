@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -23,6 +24,7 @@ public class ComplianceProfileAssociation extends UniquelyIdentified implements 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compliance_profile_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private ComplianceProfile complianceProfile;
 
     @Column(name = "compliance_profile_uuid", nullable = false)

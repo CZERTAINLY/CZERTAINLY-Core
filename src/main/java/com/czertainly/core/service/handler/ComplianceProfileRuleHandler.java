@@ -25,6 +25,7 @@ import com.czertainly.core.dao.repository.workflows.RuleRepository;
 import com.czertainly.core.model.compliance.ComplianceRulesGroupsBatchDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.NullUtil;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -45,8 +46,43 @@ public class ComplianceProfileRuleHandler {
 
     private AttributeEngine attributeEngine;
 
+    @Autowired
+    public void setComplianceApiClient(ComplianceApiClient complianceApiClient) {
+        this.complianceApiClient = complianceApiClient;
+    }
+
+    @Autowired
+    public void setComplianceApiClientV1(com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1) {
+        this.complianceApiClientV1 = complianceApiClientV1;
+    }
+
+    @Autowired
+    public void setConnectorRepository(ConnectorRepository connectorRepository) {
+        this.connectorRepository = connectorRepository;
+    }
+
+    @Autowired
+    public void setRuleRepository(RuleRepository ruleRepository) {
+        this.ruleRepository = ruleRepository;
+    }
+
+    @Autowired
+    public void setComplianceProfileRepository(ComplianceProfileRepository complianceProfileRepository) {
+        this.complianceProfileRepository = complianceProfileRepository;
+    }
+
+    @Autowired
+    public void setComplianceProfileRuleRepository(ComplianceProfileRuleRepository complianceProfileRuleRepository) {
+        this.complianceProfileRuleRepository = complianceProfileRuleRepository;
+    }
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
+
     public ComplianceProfileDto mapComplianceProfileDto(UUID complianceProfileUuid) throws NotFoundException, ConnectorException {
-        ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(complianceProfileUuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, complianceProfileUuid));
+        ComplianceProfile complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(complianceProfileUuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, complianceProfileUuid));
         ComplianceProfileDto dto = complianceProfile.mapToDto();
 
         Map<String, List<ComplianceProfileRule>> profileRulesMapping = new HashMap<>();
@@ -171,7 +207,7 @@ public class ComplianceProfileRuleHandler {
         if (complianceProfileRule.getAvailabilityStatus() == null) {
             if (complianceProfileRule.getResource() != providerGroup.getResource()) {
                 groupDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.UPDATED);
-                groupDto.setUpdatedReason("Resource changed from '%s' to '%s'".formatted(Objects.toString(complianceProfileRule.getResource().getLabel(), "NULL"), Objects.toString(providerGroup.getResource().getLabel(), "NULL")));
+                groupDto.setUpdatedReason("Resource changed from '%s' to '%s'".formatted(complianceProfileRule.getResource() == null ? "NULL" : complianceProfileRule.getResource().getLabel(), providerGroup.getResource() == null ? "NULL" : providerGroup.getResource().getLabel()));
             } else {
                 groupDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
             }
@@ -208,7 +244,7 @@ public class ComplianceProfileRuleHandler {
                 }
 
                 // associate provider rule with compliance profile
-                ComplianceProfileRule complianceProfileRule = createComplianceProfileProviderRuleAssoc(complianceProfile.getUuid(), providerRule, providerRuleRequest.getAttributes());
+                ComplianceProfileRule complianceProfileRule = createComplianceProfileProviderRuleAssoc(complianceProfile.getUuid(), providerRulesDto.getConnectorUuid(), providerRulesDto.getKind(), providerRule, providerRuleRequest.getAttributes());
                 ComplianceRuleDto ruleDto = mapProviderRuleDto(complianceProfileRule, providerRule);
                 providerComplianceRulesDto.getRules().add(ruleDto);
             }
@@ -220,7 +256,7 @@ public class ComplianceProfileRuleHandler {
                 }
 
                 // associate provider group with compliance profile
-                ComplianceProfileRule complianceProfileRule = createComplianceProfileProviderGroupAssoc(complianceProfile.getUuid(), providerGroup);
+                ComplianceProfileRule complianceProfileRule = createComplianceProfileProviderGroupAssoc(complianceProfile.getUuid(), providerRulesDto.getConnectorUuid(), providerRulesDto.getKind(), providerGroup);
                 ComplianceGroupDto groupDto = mapProviderGroupDto(complianceProfileRule, providerGroup);
                 providerComplianceRulesDto.getGroups().add(groupDto);
             }
@@ -245,10 +281,12 @@ public class ComplianceProfileRuleHandler {
         return complianceProfileRule;
     }
 
-    public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, ComplianceRuleResponseDto providerRule, List<RequestAttributeDto> requestAttributes) {
+    public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceRuleResponseDto providerRule, List<RequestAttributeDto> requestAttributes) {
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfileUuid(complianceProfileUuid);
         complianceProfileRule.setComplianceRuleUuid(providerRule.getUuid());
+        complianceProfileRule.setConnectorUuid(connectorUuid);
+        complianceProfileRule.setKind(kind);
         complianceProfileRule.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         complianceProfileRule.setResource(providerRule.getResource());
         complianceProfileRule.setType(providerRule.getType());
@@ -258,10 +296,12 @@ public class ComplianceProfileRuleHandler {
         return complianceProfileRule;
     }
 
-    public ComplianceProfileRule createComplianceProfileProviderGroupAssoc(UUID complianceProfileUuid, ComplianceGroupResponseDto providerGroup) {
+    public ComplianceProfileRule createComplianceProfileProviderGroupAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceGroupResponseDto providerGroup) {
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfileUuid(complianceProfileUuid);
         complianceProfileRule.setComplianceGroupUuid(providerGroup.getUuid());
+        complianceProfileRule.setConnectorUuid(connectorUuid);
+        complianceProfileRule.setKind(kind);
         complianceProfileRule.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         complianceProfileRule.setResource(providerGroup.getResource());
         complianceProfileRuleRepository.save(complianceProfileRule);

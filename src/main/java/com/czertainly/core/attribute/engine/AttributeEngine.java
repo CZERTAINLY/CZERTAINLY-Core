@@ -796,6 +796,13 @@ public class AttributeEngine {
     }
 
     public static void validateRequestDataAttributes(List<BaseAttribute> definitions, List<RequestAttributeDto> requestAttributes, boolean strict) throws ValidationException {
+        if (definitions == null) {
+            definitions = new ArrayList<>();
+        }
+        if (requestAttributes == null) {
+            requestAttributes = new ArrayList<>();
+        }
+
         Map<String, DataAttribute> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute) a));
         Map<String, RequestAttributeDto> mappedRequestAttributes = requestAttributes.stream().collect(Collectors.toMap(RequestAttributeDto::getUuid, a -> a));
 
@@ -827,6 +834,13 @@ public class AttributeEngine {
     }
 
     public static List<ResponseAttributeDto> getRequestDataAttributesContent(List<BaseAttribute> definitions, List<RequestAttributeDto> requestAttributes) throws ValidationException {
+        if (definitions == null) {
+            definitions = new ArrayList<>();
+        }
+        if (requestAttributes == null) {
+            requestAttributes = new ArrayList<>();
+        }
+
         List<ResponseAttributeDto> responseAttributes = new ArrayList<>();
         Map<String, DataAttribute> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute) a));
         for (RequestAttributeDto requestAttribute : requestAttributes) {

@@ -101,13 +101,13 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.UPDATE)
     public void patchComplianceProfileRule(UUID uuid, ComplianceProfileRulesPatchRequestDto request) throws ConnectorException, NotFoundException {
-        complianceProfileService.patchComplianceProfileRule(SecuredUUID.fromUUID(uuid), request);
+        complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.UPDATE)
     public void patchComplianceProfileGroup(UUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException {
-        complianceProfileService.patchComplianceProfileGroup(SecuredUUID.fromUUID(uuid), request);
+        complianceProfileService.patchComplianceProfileGroups(SecuredUUID.fromUUID(uuid), request);
     }
 
     @Override
@@ -124,7 +124,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.ASSOCIATE)
-    public void associateComplianceProfile(UUID uuid, @LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) throws NotFoundException {
+    public void associateComplianceProfile(UUID uuid, @LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) UUID associationObjectUuid) throws NotFoundException, AlreadyExistException {
         complianceProfileService.associateComplianceProfile(SecuredUUID.fromUUID(uuid), resource, associationObjectUuid);
     }
 

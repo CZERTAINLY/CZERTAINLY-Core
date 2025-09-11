@@ -120,13 +120,13 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @param uuid
      * @param request
      */
-    void patchComplianceProfileRule(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request) throws NotFoundException, ConnectorException;
+    void patchComplianceProfileRules(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request) throws NotFoundException, ConnectorException;
 
     /**
      * @param uuid
      * @param request
      */
-    void patchComplianceProfileGroup(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException;
+    void patchComplianceProfileGroups(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException;
 
     /**
      * Get the list of associated resource objects to the compliance profile
@@ -155,7 +155,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @param associationObjectUuid
      * @throws NotFoundException
      */
-    void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException;
+    void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException, AlreadyExistException;
 
     /**
      * Disassociate a compliance profile from resource object

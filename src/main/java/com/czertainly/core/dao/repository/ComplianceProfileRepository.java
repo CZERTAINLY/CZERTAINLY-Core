@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.ComplianceProfile;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -10,7 +11,8 @@ import java.util.UUID;
 @Repository
 public interface ComplianceProfileRepository extends SecurityFilterRepository<ComplianceProfile, UUID> {
 
-    Optional<ComplianceProfile> findByUuid(UUID uuid);
+    @EntityGraph(attributePaths = {"complianceRules", "associations"})
+    Optional<ComplianceProfile> findWithAssociationsByUuid(UUID uuid);
 
     Optional<ComplianceProfile> findByName(String name);
 

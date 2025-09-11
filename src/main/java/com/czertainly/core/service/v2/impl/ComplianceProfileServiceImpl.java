@@ -26,11 +26,11 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.v2.ComplianceProfileService;
 import com.czertainly.core.util.NullUtil;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.*;
 
@@ -154,7 +154,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.DELETE)
     public void deleteComplianceProfile(SecuredUUID uuid) throws NotFoundException {
-        ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+        ComplianceProfile complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         deleteComplianceProfile(complianceProfile, false);
     }
 
@@ -330,38 +330,49 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
-    public void patchComplianceProfileRule(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request) throws NotFoundException, ConnectorException {
+    public void patchComplianceProfileRules(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request) throws NotFoundException, ConnectorException {
         if (!complianceProfileRepository.existsById(uuid.getValue())) {
             throw new NotFoundException(ComplianceProfile.class, uuid.getValue());
         }
 
         if (request.getConnectorUuid() == null) {
             // internal rule
+            if (request.isRemoval() && !complianceProfileRuleRepository.existsByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid())) {
+                throw new NotFoundException("Compliance profile does not have assigned internal rule with UUID %s".formatted(request.getRuleUuid()));
+            }
+
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndInternalRuleUuid(uuid.getValue(), request.getRuleUuid());
             if (!request.isRemoval()) {
                 ruleHandler.createComplianceProfileInternalRuleAssoc(uuid.getValue(), request.getRuleUuid());
             }
         } else {
             // provider rule
+            if (request.isRemoval() && !complianceProfileRuleRepository.existsByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid())) {
+                throw new NotFoundException("Compliance profile does not have assigned rule with UUID %s from connector %s and kind %s".formatted(request.getRuleUuid(), request.getConnectorUuid(), request.getKind()));
+            }
+
             complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
             if (!request.isRemoval()) {
                 ComplianceRuleResponseDto providerRule = ruleHandler.getProviderRule(request.getConnectorUuid(), request.getKind(), request.getRuleUuid());
-                ruleHandler.createComplianceProfileProviderRuleAssoc(uuid.getValue(), providerRule, request.getAttributes());
+                ruleHandler.createComplianceProfileProviderRuleAssoc(uuid.getValue(), request.getConnectorUuid(), request.getKind(), providerRule, request.getAttributes());
             }
         }
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
-    public void patchComplianceProfileGroup(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException {
+    public void patchComplianceProfileGroups(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException {
         if (!complianceProfileRepository.existsById(uuid.getValue())) {
             throw new NotFoundException(ComplianceProfile.class, uuid.getValue());
+        }
+        if (request.isRemoval() && !complianceProfileRuleRepository.existsByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid())) {
+            throw new NotFoundException("Compliance profile does not have assigned group with UUID %s from connector %s and kind %s".formatted(request.getGroupUuid(), request.getConnectorUuid(), request.getKind()));
         }
 
         complianceProfileRuleRepository.deleteByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceGroupUuid(uuid.getValue(), request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
         if (!request.isRemoval()) {
             ComplianceGroupResponseDto providerGroup = ruleHandler.getProviderGroup(request.getConnectorUuid(), request.getKind(), request.getGroupUuid());
-            ruleHandler.createComplianceProfileProviderGroupAssoc(uuid.getValue(), providerGroup);
+            ruleHandler.createComplianceProfileProviderGroupAssoc(uuid.getValue(), request.getConnectorUuid(), request.getKind(), providerGroup);
         }
     }
 
@@ -388,18 +399,19 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
-    public void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException {
+    public void associateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException, AlreadyExistException {
         if (!complianceProfileRepository.existsById(uuid.getValue())) {
             throw new NotFoundException(ComplianceProfile.class, uuid.getValue());
         }
-
-        if (!complianceProfileAssociationRepository.existsByComplianceProfileUuidAndResourceAndObjectUuid(uuid.getValue(), resource, associationObjectUuid)) {
-            ComplianceProfileAssociation association = new ComplianceProfileAssociation();
-            association.setComplianceProfileUuid(uuid.getValue());
-            association.setResource(resource);
-            association.setObjectUuid(associationObjectUuid);
-            complianceProfileAssociationRepository.save(association);
+        if (complianceProfileAssociationRepository.existsByComplianceProfileUuidAndResourceAndObjectUuid(uuid.getValue(), resource, associationObjectUuid)) {
+            throw new AlreadyExistException("Compliance profile is already associated to %s with UUID %s".formatted(resource.getLabel(), associationObjectUuid));
         }
+
+        ComplianceProfileAssociation association = new ComplianceProfileAssociation();
+        association.setComplianceProfileUuid(uuid.getValue());
+        association.setResource(resource);
+        association.setObjectUuid(associationObjectUuid);
+        complianceProfileAssociationRepository.save(association);
     }
 
     @Override
@@ -407,6 +419,9 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void disassociateComplianceProfile(SecuredUUID uuid, Resource resource, UUID associationObjectUuid) throws NotFoundException {
         if (!complianceProfileRepository.existsById(uuid.getValue())) {
             throw new NotFoundException(ComplianceProfile.class, uuid.getValue());
+        }
+        if (!complianceProfileAssociationRepository.existsByComplianceProfileUuidAndResourceAndObjectUuid(uuid.getValue(), resource, associationObjectUuid)) {
+            throw new NotFoundException("Compliance profile is not associated to %s with UUID %s".formatted(resource.getLabel(), associationObjectUuid));
         }
 
         complianceProfileAssociationRepository.deleteByComplianceProfileUuidAndResourceAndObjectUuid(uuid.getValue(), resource, associationObjectUuid);

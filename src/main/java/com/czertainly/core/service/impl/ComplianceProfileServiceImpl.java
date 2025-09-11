@@ -24,11 +24,11 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
-import jakarta.transaction.Transactional;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -201,6 +201,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         ComplianceProfileRule complianceProfileRule = new ComplianceProfileRule();
         complianceProfileRule.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule.setComplianceRuleUuid(UUID.fromString(request.getRuleUuid()));
+        complianceProfileRule.setConnectorUuid(connectorUuid);
+        complianceProfileRule.setKind(request.getKind());
         complianceProfileRule.setResource(Resource.CERTIFICATE);
         complianceProfileRule.setType(providerRule.getCertificateType().getCode());
         complianceProfileRule.setAttributes(request.getAttributes());
@@ -262,7 +264,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         requestDto.setGroupUuid(UUID.fromString(request.getGroupUuid()));
         requestDto.setConnectorUuid(UUID.fromString(request.getConnectorUuid()));
         requestDto.setKind(request.getKind());
-        complianceProfileServiceV2.patchComplianceProfileGroup(uuid, requestDto);
+        complianceProfileServiceV2.patchComplianceProfileGroups(uuid, requestDto);
 
         return getComplianceProfile(uuid);
     }
@@ -274,7 +276,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         requestDto.setGroupUuid(UUID.fromString(request.getGroupUuid()));
         requestDto.setConnectorUuid(UUID.fromString(request.getConnectorUuid()));
         requestDto.setKind(request.getKind());
-        complianceProfileServiceV2.patchComplianceProfileGroup(uuid, requestDto);
+        complianceProfileServiceV2.patchComplianceProfileGroups(uuid, requestDto);
 
         return getComplianceProfile(uuid);
     }
@@ -398,7 +400,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    public void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException {
+    public void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, AlreadyExistException {
         for (String raProfileUuid : raProfiles.getRaProfileUuids()) {
             complianceProfileServiceV2.associateComplianceProfile(uuid, Resource.RA_PROFILE, UUID.fromString(raProfileUuid));
         }

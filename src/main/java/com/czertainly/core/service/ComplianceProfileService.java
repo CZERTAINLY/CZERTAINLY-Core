@@ -146,7 +146,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @param raProfiles Uuid of the RA Profile. See {{@link RaProfileAssociationRequestDto}}
      * @throws NotFoundException Thrown when either of the profiles are not found
      */
-    void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
+    void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, AlreadyExistException;
 
     /**
      * Check the compliance for all the certificates associated with the compliance profiles

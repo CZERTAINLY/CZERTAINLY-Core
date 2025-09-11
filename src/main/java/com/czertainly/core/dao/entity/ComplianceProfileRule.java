@@ -4,6 +4,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.core.dao.entity.workflows.Rule;
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -32,6 +33,7 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "compliance_profile_uuid", nullable = false, insertable = false, updatable = false)
     @ToString.Exclude
+    @JsonBackReference
     private ComplianceProfile complianceProfile;
 
     @Column(name = "compliance_profile_uuid", nullable = false)
@@ -63,7 +65,7 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
     private UUID internalRuleUuid;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "resource", nullable = false)
+    @Column(name = "resource")
     private Resource resource;
 
     @Column(name = "type")
