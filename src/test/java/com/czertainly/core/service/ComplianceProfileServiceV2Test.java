@@ -406,7 +406,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void updateComplianceProfileTest() throws AlreadyExistException, AttributeException, NotFoundException, ConnectorException {
+    void updateComplianceProfileTest() throws AttributeException, NotFoundException, ConnectorException {
         ComplianceProfileUpdateRequestDto requestDto = new ComplianceProfileUpdateRequestDto();
         requestDto.setDescription("sampleDescription2");
         requestDto.setInternalRules(Set.of(internalRuleUuid, internalRule2Uuid));
@@ -582,7 +582,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testDisassociateProfile() throws NotFoundException, ConnectorException {
+    void testDisassociateProfile() throws NotFoundException {
         Certificate archivedCertificate = new Certificate();
         archivedCertificate.setArchived(true);
         archivedCertificate.setRaProfileUuid(associatedRaProfileUuid);

@@ -260,6 +260,7 @@ public class ComplianceProfileRuleHandler {
                 ComplianceGroupDto groupDto = mapProviderGroupDto(complianceProfileRule, providerGroup);
                 providerComplianceRulesDto.getGroups().add(groupDto);
             }
+            complianceProfileDto.getProviderRules().add(providerComplianceRulesDto);
         }
 
         return complianceProfileDto;

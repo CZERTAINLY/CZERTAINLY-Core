@@ -138,7 +138,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
     public ComplianceProfileDto updateComplianceProfile(SecuredUUID uuid, ComplianceProfileUpdateRequestDto request) throws NotFoundException, ConnectorException, AttributeException {
-        ComplianceProfile complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+        ComplianceProfile complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
         attributeEngine.validateCustomAttributesContent(Resource.COMPLIANCE_PROFILE, request.getCustomAttributes());
         if (!Objects.equals(complianceProfile.getDescription(), request.getDescription())) {
             complianceProfile.setDescription(request.getDescription());
@@ -166,7 +166,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             logger.debug("Deleting compliance profile with UUID: {}", uuid);
             ComplianceProfile complianceProfile = null;
             try {
-                complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+                complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
                 deleteComplianceProfile(complianceProfile, false);
             } catch (Exception e) {
                 logger.warn("Unable to delete the Compliance Profile with UUID {}: {}", uuid, e.getMessage());
@@ -185,7 +185,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             logger.debug("Force deleting compliance profile with UUID: {}", uuid);
             ComplianceProfile complianceProfile = null;
             try {
-                complianceProfile = complianceProfileRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
+                complianceProfile = complianceProfileRepository.findWithAssociationsByUuid(uuid.getValue()).orElseThrow(() -> new NotFoundException(ComplianceProfile.class, uuid));
                 deleteComplianceProfile(complianceProfile, true);
             } catch (Exception e) {
                 logger.warn("Unable to force delete the Compliance Profile with UUID {}: {}", uuid, e.getMessage());
