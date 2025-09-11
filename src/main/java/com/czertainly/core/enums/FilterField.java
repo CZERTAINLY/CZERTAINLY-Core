@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.oid.CustomOidEntry_;
@@ -113,7 +114,7 @@ public enum FilterField {
     AUDIT_LOG_SOURCE_IP_ADDRESS(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "IP Address", SearchFieldTypeEnum.STRING, new String[]{"source", "ipAddress"}),
     AUDIT_LOG_SOURCE_PATH(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "API path", SearchFieldTypeEnum.STRING, new String[]{"source", "path"}),
     AUDIT_LOG_MESSAGE(Resource.AUDIT_LOG, null, null, AuditLog_.message, "Message", SearchFieldTypeEnum.STRING),
-
+    AUDIT_LOG_RESOURCE_UUID(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource UUIDs", SearchFieldTypeEnum.STRING, new String[]{"resource", "uuids"}),
     // Scheduled Job
     SCHEDULED_JOB_NAME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.jobName, "Job Name", SearchFieldTypeEnum.STRING),
     SCHEDULED_JOB_ONE_TIME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.oneTime, "One Time", SearchFieldTypeEnum.BOOLEAN),
