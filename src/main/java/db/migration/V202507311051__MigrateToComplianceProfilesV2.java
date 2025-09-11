@@ -199,9 +199,13 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     try {
                         HashMap<String, List<String>> complianceResultOld = mapper.readValue(complianceResult, HashMap.class);
                         ComplianceResultRulesDto providerRulesResult = new ComplianceResultRulesDto();
-                        providerRulesResult.getNotApplicable().addAll(complianceResultOld.get("na").stream().map(UUID::fromString).toList());
-                        providerRulesResult.getNotCompliant().addAll(complianceResultOld.get("nok").stream().map(UUID::fromString).toList());
 
+                        if (complianceResultOld.containsKey("na")) {
+                            providerRulesResult.getNotApplicable().addAll(complianceResultOld.get("na").stream().map(UUID::fromString).toList());
+                        }
+                        if (complianceResultOld.containsKey("nok")) {
+                            providerRulesResult.getNotCompliant().addAll(complianceResultOld.get("nok").stream().map(UUID::fromString).toList());
+                        }
                         ComplianceResultDto complianceResultDto = new ComplianceResultDto();
                         complianceResultDto.setTimestamp(complianceTimestamp);
                         complianceResultDto.setStatus(complianceStatus);
