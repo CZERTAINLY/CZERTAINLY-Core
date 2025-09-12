@@ -255,6 +255,11 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
             for (String uuid : notApplicable) {
                 UUID ruleUuid = UUID.fromString(uuid);
                 String connectorKind = ruleConnectorKindMap.get(ruleUuid);
+                if (connectorKind == null) {
+                    logger.warn("Cannot find connector and kind for not applicable compliance rule with UUID {}", ruleUuid);
+                    continue;
+                }
+
                 ComplianceResultProviderRulesDto providerRules = providerRulesMap.computeIfAbsent(connectorKind, k -> {
                     String[] parts = k.split("\\|");
                     ComplianceResultProviderRulesDto dto = new ComplianceResultProviderRulesDto();
@@ -262,12 +267,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     dto.setKind(parts[1]);
                     return dto;
                 });
-
-                if (connectorKind == null) {
-                    providerRules.getNotAvailable().add(ruleUuid);
-                } else {
-                    providerRules.getNotApplicable().add(ruleUuid);
-                }
+                providerRules.getNotApplicable().add(ruleUuid);
             }
         }
 
@@ -275,6 +275,11 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
             for (String uuid : notCompliant) {
                 UUID ruleUuid = UUID.fromString(uuid);
                 String connectorKind = ruleConnectorKindMap.get(ruleUuid);
+                if (connectorKind == null) {
+                    logger.warn("Cannot find connector and kind for not compliant compliance rule with UUID {}", ruleUuid);
+                    continue;
+                }
+
                 ComplianceResultProviderRulesDto providerRules = providerRulesMap.computeIfAbsent(connectorKind, k -> {
                     String[] parts = k.split("\\|");
                     ComplianceResultProviderRulesDto dto = new ComplianceResultProviderRulesDto();
@@ -282,12 +287,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     dto.setKind(parts[1]);
                     return dto;
                 });
-
-                if (connectorKind == null) {
-                    providerRules.getNotAvailable().add(ruleUuid);
-                } else {
-                    providerRules.getNotCompliant().add(ruleUuid);
-                }
+                providerRules.getNotCompliant().add(ruleUuid);
             }
         }
 
