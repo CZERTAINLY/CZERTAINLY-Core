@@ -1,6 +1,9 @@
 package com.czertainly.core.migration;
 
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import db.migration.V202507311051__MigrateToComplianceProfilesV2;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
@@ -26,6 +29,12 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
     @Autowired
     DataSource dataSource;
 
+    @Autowired
+    ObjectMapper objectMapper;
+
+    MigrateToComplianceProfilesV2Test() throws SQLException {
+    }
+
     @Test
     @Transactional
     void testMigration() throws Exception {
@@ -48,101 +57,108 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
 
     private void recreateOldTables(Context context) throws SQLException {
         String sqlStructure = """
-                DROP TABLE compliance_profile_association CASCADE;
-                DROP TABLE compliance_profile CASCADE;
-
-                ALTER TABLE certificate
-                    ALTER COLUMN compliance_result TYPE TEXT;
-
-                ALTER TABLE certificate_request
-                    DROP COLUMN compliance_status,
-                    DROP COLUMN compliance_result;
-
-                ALTER TABLE cryptographic_key_item
-                    DROP COLUMN compliance_status,
-                    DROP COLUMN compliance_result;
-
-                CREATE TABLE compliance_profile (
-                    "uuid" uuid NOT NULL,
-                    i_author varchar NOT NULL,
-                    i_cre timestamp(6) NOT NULL,
-                    i_upd timestamp(6) NOT NULL,
-                    "name" varchar NOT NULL,
-                    description varchar NULL,
-                    CONSTRAINT compliance_profile_pkey PRIMARY KEY (uuid)
-                );
-
-                CREATE TABLE compliance_group (
-                    "uuid" uuid NOT NULL,
-                    "name" varchar NOT NULL,
-                    kind varchar NOT NULL,
-                    description text NULL,
-                    decommissioned bool NULL,
-                    connector_uuid uuid NULL,
-                    CONSTRAINT compliance_group_pkey PRIMARY KEY (uuid),
-                    CONSTRAINT compliance_group_to_connector FOREIGN KEY (connector_uuid) REFERENCES connector("uuid") ON DELETE CASCADE
-                );
-
-                CREATE TABLE compliance_rule (
-                    "name" varchar NOT NULL,
-                    "uuid" uuid NOT NULL,
-                    kind varchar NOT NULL,
-                    decommissioned bool NULL,
-                    certificate_type varchar NOT NULL,
-                    "attributes" text NULL,
-                    description varchar NULL,
-                    group_uuid uuid NULL,
-                    connector_uuid uuid NULL,
-                    CONSTRAINT compliance_rule_pkey PRIMARY KEY (uuid),
-                    CONSTRAINT compliance_rule_to_compliance_group_key FOREIGN KEY (group_uuid) REFERENCES compliance_group("uuid"),
-                    CONSTRAINT compliance_rule_to_connector_key FOREIGN KEY (connector_uuid) REFERENCES connector("uuid")
-                );
-
-                DROP TABLE compliance_profile_rule;
-                CREATE TABLE compliance_profile_rule (
-                    "uuid" uuid NOT NULL,
-                    i_author varchar NOT NULL,
-                    i_cre timestamp(6) NOT NULL,
-                    i_upd timestamp(6) NOT NULL,
-                    "attributes" text NULL,
-                    compliance_profile_uuid uuid NULL,
-                    rule_uuid uuid NULL,
-                    CONSTRAINT compliance_profile_rule_pkey PRIMARY KEY (uuid),
-                    CONSTRAINT compliance_profile_rule_to_compliance_profile FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile("uuid"),
-                    CONSTRAINT compliance_profile_rule_to_compliance_rule FOREIGN KEY (rule_uuid) REFERENCES compliance_rule("uuid")
-                );
-
-                CREATE TABLE ra_profile_2_compliance_profile (
-                    ra_profile_uuid uuid NULL,
-                    compliance_profile_uuid uuid NULL,
-                    CONSTRAINT compliance_profile_to_mapping_key FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile("uuid") ON DELETE CASCADE
-                );
-
-                CREATE TABLE compliance_profile_2_compliance_group (
-                	profile_uuid uuid NULL,
-                	group_uuid uuid NULL,
-                	CONSTRAINT compliance_group_to_mapping_key FOREIGN KEY (group_uuid) REFERENCES compliance_group(uuid),
-                	CONSTRAINT compliance_profile_to_mapping_key FOREIGN KEY (profile_uuid) REFERENCES compliance_profile(uuid) ON DELETE CASCADE
-                );
-        """;
+                        DROP TABLE compliance_profile_association CASCADE;
+                        DROP TABLE compliance_profile CASCADE;
+                
+                        ALTER TABLE certificate
+                            ALTER COLUMN compliance_result TYPE TEXT;
+                
+                        ALTER TABLE certificate_request
+                            DROP COLUMN compliance_status,
+                            DROP COLUMN compliance_result;
+                
+                        ALTER TABLE cryptographic_key_item
+                            DROP COLUMN compliance_status,
+                            DROP COLUMN compliance_result;
+                
+                        CREATE TABLE compliance_profile (
+                            "uuid" uuid NOT NULL,
+                            i_author varchar NOT NULL,
+                            i_cre timestamp(6) NOT NULL,
+                            i_upd timestamp(6) NOT NULL,
+                            "name" varchar NOT NULL,
+                            description varchar NULL,
+                            CONSTRAINT compliance_profile_pkey PRIMARY KEY (uuid)
+                        );
+                
+                        CREATE TABLE compliance_group (
+                            "uuid" uuid NOT NULL,
+                            "name" varchar NOT NULL,
+                            kind varchar NOT NULL,
+                            description text NULL,
+                            decommissioned bool NULL,
+                            connector_uuid uuid NULL,
+                            CONSTRAINT compliance_group_pkey PRIMARY KEY (uuid),
+                            CONSTRAINT compliance_group_to_connector FOREIGN KEY (connector_uuid) REFERENCES connector("uuid") ON DELETE CASCADE
+                        );
+                
+                        CREATE TABLE compliance_rule (
+                            "name" varchar NOT NULL,
+                            "uuid" uuid NOT NULL,
+                            kind varchar NOT NULL,
+                            decommissioned bool NULL,
+                            certificate_type varchar NOT NULL,
+                            "attributes" text NULL,
+                            description varchar NULL,
+                            group_uuid uuid NULL,
+                            connector_uuid uuid NULL,
+                            CONSTRAINT compliance_rule_pkey PRIMARY KEY (uuid),
+                            CONSTRAINT compliance_rule_to_compliance_group_key FOREIGN KEY (group_uuid) REFERENCES compliance_group("uuid"),
+                            CONSTRAINT compliance_rule_to_connector_key FOREIGN KEY (connector_uuid) REFERENCES connector("uuid")
+                        );
+                
+                        DROP TABLE compliance_profile_rule;
+                        CREATE TABLE compliance_profile_rule (
+                            "uuid" uuid NOT NULL,
+                            i_author varchar NOT NULL,
+                            i_cre timestamp(6) NOT NULL,
+                            i_upd timestamp(6) NOT NULL,
+                            "attributes" text NULL,
+                            compliance_profile_uuid uuid NULL,
+                            rule_uuid uuid NULL,
+                            CONSTRAINT compliance_profile_rule_pkey PRIMARY KEY (uuid),
+                            CONSTRAINT compliance_profile_rule_to_compliance_profile FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile("uuid"),
+                            CONSTRAINT compliance_profile_rule_to_compliance_rule FOREIGN KEY (rule_uuid) REFERENCES compliance_rule("uuid")
+                        );
+                
+                        CREATE TABLE ra_profile_2_compliance_profile (
+                            ra_profile_uuid uuid NULL,
+                            compliance_profile_uuid uuid NULL,
+                            CONSTRAINT compliance_profile_to_mapping_key FOREIGN KEY (compliance_profile_uuid) REFERENCES compliance_profile("uuid") ON DELETE CASCADE
+                        );
+                
+                        CREATE TABLE compliance_profile_2_compliance_group (
+                        	profile_uuid uuid NULL,
+                        	group_uuid uuid NULL,
+                        	CONSTRAINT compliance_group_to_mapping_key FOREIGN KEY (group_uuid) REFERENCES compliance_group(uuid),
+                        	CONSTRAINT compliance_profile_to_mapping_key FOREIGN KEY (profile_uuid) REFERENCES compliance_profile(uuid) ON DELETE CASCADE
+                        );
+                """;
 
         String sqlData = """
-                INSERT INTO connector (uuid, i_author, i_cre, i_upd, auth_type, name, status, url) VALUES ('80490584-ec68-48af-915e-9d2aed8ee471', 'superadmin', '2023-11-22 16:07:19.212517', '2023-11-22 16:07:19.212517', 'NONE', 'X509-Compliance-Provider', 'CONNECTED', 'http://localhost:8250');
-                INSERT INTO compliance_profile (uuid, i_author, i_cre, i_upd, name, description) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', 'superadmin', '2023-11-30 16:33:30.855932', '2023-11-30 16:33:30.855932', 'BasicComplianceProfile', '');
-                INSERT INTO ra_profile_2_compliance_profile (ra_profile_uuid, compliance_profile_uuid) VALUES ('9e834b25-3c44-4251-8745-3bd8c0d99ff4', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af');
-
-                INSERT INTO compliance_group (uuid, name, kind, description, decommissioned, connector_uuid) VALUES ('52350996-ddb2-11ec-9d64-0242ac120002', 'Apple''s CT Policy', 'x509', 'https://support.apple.com/en-us/HT205280#:~:text=Apple''s%20policy%20requires%20at%20least,extension%20or%20OCSP%20Stapling%3B%20or', false, '80490584-ec68-48af-915e-9d2aed8ee471');
-                INSERT INTO compliance_group (uuid, name, kind, description, decommissioned, connector_uuid) VALUES ('52350df6-ddb2-11ec-9d64-0242ac120002', 'Mozilla''s PKI Policy', 'x509', 'https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/policy/', false, '80490584-ec68-48af-915e-9d2aed8ee471');
-
-                INSERT INTO compliance_profile_2_compliance_group (profile_uuid, group_uuid) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '52350996-ddb2-11ec-9d64-0242ac120002');
-                INSERT INTO compliance_profile_2_compliance_group (profile_uuid, group_uuid) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '52350df6-ddb2-11ec-9d64-0242ac120002');
-
-                INSERT INTO compliance_rule (name, uuid, kind, decommissioned, certificate_type, description, group_uuid, connector_uuid) VALUES ('e_mp_modulus_must_be_2048_bits_or_more', '40f08544-ddc1-11ec-9378-34cff65c6ee3', 'x509', false, 'X509', 'RSA keys must have modulus size of at least 2048 bits', '52350df6-ddb2-11ec-9d64-0242ac120002', '80490584-ec68-48af-915e-9d2aed8ee471');
-                INSERT INTO compliance_rule (name, uuid, kind, decommissioned, certificate_type, description, group_uuid, connector_uuid) VALUES ('e_algorithm_identifier_improper_encoding', '40f084cc-ddc1-11ec-9d7f-34cff65c6ee3', 'x509', false, 'X509', 'Encoded AlgorithmObjectIdentifier objects inside a SubjectPublicKeyInfo field MUST comply with specified byte sequences.', NULL, '80490584-ec68-48af-915e-9d2aed8ee471');
-
-                INSERT INTO compliance_profile_rule (uuid, i_author, i_cre, i_upd, compliance_profile_uuid, rule_uuid) VALUES ('cc9a2fc0-dcc7-49a2-ad57-ce3559a3ee71', 'superadmin', '2023-11-30 16:34:32.338669', '2023-11-30 16:34:32.338669', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '40f08544-ddc1-11ec-9378-34cff65c6ee3');
-                INSERT INTO compliance_profile_rule (uuid, i_author, i_cre, i_upd, compliance_profile_uuid, rule_uuid) VALUES ('ab5e89fd-d6a8-460c-a397-c173f6043aed', 'superadmin', '2025-07-17 21:10:15.965651', '2025-07-17 21:10:15.965651', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '40f084cc-ddc1-11ec-9d7f-34cff65c6ee3');
-        """;
+                        INSERT INTO certificate (uuid, i_author, i_cre, i_upd, subject_dn, public_key_algorithm, certificate_type, subject_type, validation_status, state, compliance_status, compliance_result)
+                        VALUES (
+                          '11111111-1111-1111-1111-111111111111', 'superadmin', '2025-01-01 00:00:00', '2025-01-01 00:00:00',
+                          'CN=Test Certificate', 'RSA', 'X509', 'END_ENTITY', 'NOT_CHECKED', 'ISSUED',
+                          'NOT_CHECKED', E'{"na":["40f084cc-ddc1-11ec-9d7f-34cff65c6ee3"], "nok":["40f08544-ddc1-11ec-9378-34cff65c6ee3"]}'
+                        );
+                
+                        INSERT INTO connector (uuid, i_author, i_cre, i_upd, auth_type, name, status, url) VALUES ('80490584-ec68-48af-915e-9d2aed8ee471', 'superadmin', '2023-11-22 16:07:19.212517', '2023-11-22 16:07:19.212517', 'NONE', 'X509-Compliance-Provider', 'CONNECTED', 'http://localhost:8250');
+                        INSERT INTO compliance_profile (uuid, i_author, i_cre, i_upd, name, description) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', 'superadmin', '2023-11-30 16:33:30.855932', '2023-11-30 16:33:30.855932', 'BasicComplianceProfile', '');
+                        INSERT INTO ra_profile_2_compliance_profile (ra_profile_uuid, compliance_profile_uuid) VALUES ('9e834b25-3c44-4251-8745-3bd8c0d99ff4', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af');
+                
+                        INSERT INTO compliance_group (uuid, name, kind, description, decommissioned, connector_uuid) VALUES ('52350996-ddb2-11ec-9d64-0242ac120002', 'Apple''s CT Policy', 'x509', 'https://support.apple.com/en-us/HT205280#:~:text=Apple''s%20policy%20requires%20at%20least,extension%20or%20OCSP%20Stapling%3B%20or', false, '80490584-ec68-48af-915e-9d2aed8ee471');
+                        INSERT INTO compliance_group (uuid, name, kind, description, decommissioned, connector_uuid) VALUES ('52350df6-ddb2-11ec-9d64-0242ac120002', 'Mozilla''s PKI Policy', 'x509', 'https://www.mozilla.org/en-US/about/governance/policies/security-group/certs/policy/', false, '80490584-ec68-48af-915e-9d2aed8ee471');
+                
+                        INSERT INTO compliance_profile_2_compliance_group (profile_uuid, group_uuid) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '52350996-ddb2-11ec-9d64-0242ac120002');
+                        INSERT INTO compliance_profile_2_compliance_group (profile_uuid, group_uuid) VALUES ('44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '52350df6-ddb2-11ec-9d64-0242ac120002');
+                
+                        INSERT INTO compliance_rule (name, uuid, kind, decommissioned, certificate_type, description, group_uuid, connector_uuid) VALUES ('e_mp_modulus_must_be_2048_bits_or_more', '40f08544-ddc1-11ec-9378-34cff65c6ee3', 'x509', false, 'X509', 'RSA keys must have modulus size of at least 2048 bits', '52350df6-ddb2-11ec-9d64-0242ac120002', '80490584-ec68-48af-915e-9d2aed8ee471');
+                        INSERT INTO compliance_rule (name, uuid, kind, decommissioned, certificate_type, description, group_uuid, connector_uuid) VALUES ('e_algorithm_identifier_improper_encoding', '40f084cc-ddc1-11ec-9d7f-34cff65c6ee3', 'x509', false, 'X509', 'Encoded AlgorithmObjectIdentifier objects inside a SubjectPublicKeyInfo field MUST comply with specified byte sequences.', NULL, '80490584-ec68-48af-915e-9d2aed8ee471');
+                
+                        INSERT INTO compliance_profile_rule (uuid, i_author, i_cre, i_upd, compliance_profile_uuid, rule_uuid) VALUES ('cc9a2fc0-dcc7-49a2-ad57-ce3559a3ee71', 'superadmin', '2023-11-30 16:34:32.338669', '2023-11-30 16:34:32.338669', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '40f08544-ddc1-11ec-9378-34cff65c6ee3');
+                        INSERT INTO compliance_profile_rule (uuid, i_author, i_cre, i_upd, compliance_profile_uuid, rule_uuid) VALUES ('ab5e89fd-d6a8-460c-a397-c173f6043aed', 'superadmin', '2025-07-17 21:10:15.965651', '2025-07-17 21:10:15.965651', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '40f084cc-ddc1-11ec-9d7f-34cff65c6ee3');
+                """;
 
         try (Statement statement = context.getConnection().createStatement()) {
             statement.execute(sqlStructure);
@@ -169,11 +185,30 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
             Assertions.assertEquals("9e834b25-3c44-4251-8745-3bd8c0d99ff4", resultSet.getObject("object_uuid").toString());
         }
 
-        try (Statement statement = dataSource.getConnection().createStatement()) {
-            try (ResultSet resultSet = statement.executeQuery("SELECT * FROM compliance_profile_rule WHERE compliance_group_uuid = '52350996-ddb2-11ec-9d64-0242ac120002'")) {
-                Assertions.assertTrue(resultSet.next());
-                Assertions.assertEquals(UUID.fromString("44ce3ecf-ecd5-43cc-a836-8171b42ca2af"), resultSet.getObject("compliance_profile_uuid", UUID.class));
-            }
+        try (Statement statement = dataSource.getConnection().createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT * FROM compliance_profile_rule WHERE compliance_group_uuid = '52350996-ddb2-11ec-9d64-0242ac120002'")) {
+            Assertions.assertTrue(resultSet.next());
+            Assertions.assertEquals(UUID.fromString("44ce3ecf-ecd5-43cc-a836-8171b42ca2af"), resultSet.getObject("compliance_profile_uuid", UUID.class));
+        }
+
+        // verify certificate compliance_result was migrated to new JSON structure
+        try (Statement statement = dataSource.getConnection().createStatement();
+             ResultSet rs = statement.executeQuery("SELECT compliance_result FROM certificate WHERE uuid = '11111111-1111-1111-1111-111111111111'")) {
+            Assertions.assertTrue(rs.next(), "migrated certificate row must exist");
+            String complianceResultJson = rs.getString("compliance_result");
+            Assertions.assertNotNull(complianceResultJson, "compliance_result must not be null after migration");
+
+            ComplianceResultDto resultDto = objectMapper.readValue(complianceResultJson, ComplianceResultDto.class);
+
+            Assertions.assertNotNull(resultDto);
+            Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, resultDto.getStatus(), "status should be preserved in migrated JSON");
+            Assertions.assertNotNull(resultDto.getTimestamp());
+            Assertions.assertNull(resultDto.getInternalRules());
+            Assertions.assertNotNull(resultDto.getProviderRules());
+            Assertions.assertEquals(1, resultDto.getProviderRules().getNotApplicable().size(), "notApplicable rules should have 1 entry");
+            Assertions.assertEquals("40f084cc-ddc1-11ec-9d7f-34cff65c6ee3", resultDto.getProviderRules().getNotApplicable().stream().findFirst().orElseThrow().toString(), "notApplicable rule UUID should match");
+            Assertions.assertEquals(1, resultDto.getProviderRules().getNotCompliant().size(), "notCompliant rules should have 1 entry");
+            Assertions.assertEquals("40f08544-ddc1-11ec-9378-34cff65c6ee3", resultDto.getProviderRules().getNotCompliant().stream().findFirst().orElseThrow().toString(), "notCompliant rule UUID should match");
         }
     }
 }
