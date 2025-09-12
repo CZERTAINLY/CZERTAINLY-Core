@@ -9,7 +9,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
 
-public interface AcmeAccountService {
+public interface AcmeAccountService extends ResourceExtensionService {
 
     void revokeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException;
 

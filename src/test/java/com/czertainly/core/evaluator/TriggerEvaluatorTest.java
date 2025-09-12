@@ -17,6 +17,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateKeyUsage;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.enums.CertificateProtocol;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -25,6 +26,7 @@ import com.czertainly.api.model.core.workflows.TriggerType;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.dao.repository.workflows.ActionRepository;
@@ -328,9 +330,33 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
         condition.setValue(List.of(CertificateKeyUsage.DIGITAL_SIGNATURE, CertificateKeyUsage.KEY_ENCIPHERMENT));
         Assertions.assertFalse(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
 
+    @Test
+    void testCertificateRuleEvaluatorProtocols() throws RuleException {
+        AcmeProfile acmeProfile = new AcmeProfile();
+        acmeProfile.setName("profile");
+        CertificateProtocolAssociation protocolAssociation = new CertificateProtocolAssociation();
+        protocolAssociation.setProtocol(CertificateProtocol.ACME);
+        protocolAssociation.setAcmeProfile(acmeProfile);
+        certificate.setProtocolAssociation(protocolAssociation);
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue(List.of(acmeProfile.getName()));
+        condition.setFieldIdentifier(FilterField.ACME_PROFILE.name());
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
+    }
 
-
+    @Test
+    void testCertRuleEvaluatorRaProfile() throws RuleException {
+        RaProfile raProfile = new RaProfile();
+        raProfile.setName("profile");
+        certificate.setRaProfile(raProfile);
+        condition.setFieldSource(FilterFieldSource.PROPERTY);
+        condition.setOperator(FilterConditionOperator.EQUALS);
+        condition.setValue(List.of(raProfile.getName()));
+        condition.setFieldIdentifier(FilterField.RA_PROFILE_NAME.name());
+        Assertions.assertTrue(certificateTriggerEvaluator.evaluateConditionItem(condition, certificate, Resource.CERTIFICATE));
     }
 
     @Test

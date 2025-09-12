@@ -1,9 +1,15 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.enums.CertificateProtocol;
+import com.czertainly.core.dao.entity.acme.AcmeAccount;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.SQLRestriction;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
@@ -32,6 +38,30 @@ public class CertificateProtocolAssociation extends UniquelyIdentified implement
 
     @Column(name = "additional_protocol_uuid")
     private UUID additionalProtocolUuid;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @SQLRestriction("protocol = 'ACME'")
+    private AcmeProfile acmeProfile;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @SQLRestriction("protocol = 'SCEP'")
+    private ScepProfile scepProfile;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "protocol_profile_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @SQLRestriction("protocol = 'CMP'")
+    private CmpProfile cmpProfile;
+
+    @JsonIgnore
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "additional_protocol_uuid", insertable = false, updatable = false, foreignKey = @ForeignKey(ConstraintMode.NO_CONSTRAINT))
+    @SQLRestriction("protocol = 'ACME'")
+    private AcmeAccount acmeAccount;
 
     public void setCertificate(Certificate certificate) {
         this.certificate = certificate;
