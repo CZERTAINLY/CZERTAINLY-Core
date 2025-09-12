@@ -4,7 +4,7 @@ import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultRulesDto;
+import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.util.DatabaseMigration;
 import com.fasterxml.jackson.annotation.JsonInclude;
@@ -101,7 +101,8 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     ADD CONSTRAINT fk_compliance_profile_rule_to_connector FOREIGN KEY (connector_uuid) REFERENCES connector(uuid) ON UPDATE CASCADE ON DELETE RESTRICT,
                     ADD CONSTRAINT fk_compliance_profile_rule_to_rule FOREIGN KEY (internal_rule_uuid) REFERENCES rule(uuid) ON UPDATE CASCADE ON DELETE RESTRICT;
                 
-                UPDATE compliance_profile_rule SET compliance_rule_uuid = rule_uuid;
+                UPDATE compliance_profile_rule SET compliance_rule_uuid = rule_uuid, resource = 'CERTIFICATE', type = 'X509';
+                
                 ALTER TABLE compliance_profile_rule
                     DROP COLUMN rule_uuid;
                 
@@ -183,6 +184,22 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
             logger.debug("Executing batch insert with {} compliance profile group associations.", count);
             insertProfileGroupAssocStatement.executeBatch();
 
+            // update all provider compliance rules to set connector UUID and kind
+            String updateComplianceProfileRules = """
+                    UPDATE compliance_profile_rule
+                    SET connector_uuid = (SELECT r.connector_uuid FROM compliance_rule AS r WHERE r.uuid = compliance_profile_rule.compliance_rule_uuid),
+                        kind = (SELECT r.kind FROM compliance_rule AS r WHERE r.uuid = compliance_profile_rule.compliance_rule_uuid)
+                    WHERE compliance_rule_uuid IS NOT NULL;
+                    
+                    UPDATE compliance_profile_rule
+                    SET connector_uuid = (SELECT g.connector_uuid FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid),
+                        kind = (SELECT g.kind FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid)
+                    WHERE compliance_group_uuid IS NOT NULL;
+                    """;
+
+            count = statement.executeUpdate(updateComplianceProfileRules);
+            logger.debug("Updated {} compliance profile rules associations to set connector UUID and kind.", count);
+
             // migrate compliance results
             count = 0;
             ObjectMapper mapper = Jackson2ObjectMapperBuilder.json()
@@ -191,25 +208,25 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     .serializationInclusion(JsonInclude.Include.NON_NULL)
                     .build();
             OffsetDateTime complianceTimestamp = OffsetDateTime.now();
-            try (ResultSet rows = statement.executeQuery("SELECT uuid, compliance_status, compliance_result FROM certificate WHERE compliance_result IS NOT NULL")) {
-                while (rows.next()) {
-                    final UUID certificateUuid = rows.getObject("uuid", UUID.class);
-                    final ComplianceStatus complianceStatus = ComplianceStatus.valueOf(rows.getString("compliance_status"));
-                    String complianceResult = rows.getString("compliance_result");
-                    try {
-                        HashMap<String, List<String>> complianceResultOld = mapper.readValue(complianceResult, HashMap.class);
-                        ComplianceResultRulesDto providerRulesResult = new ComplianceResultRulesDto();
 
-                        if (complianceResultOld.containsKey("na")) {
-                            providerRulesResult.getNotApplicable().addAll(complianceResultOld.get("na").stream().map(UUID::fromString).toList());
-                        }
-                        if (complianceResultOld.containsKey("nok")) {
-                            providerRulesResult.getNotCompliant().addAll(complianceResultOld.get("nok").stream().map(UUID::fromString).toList());
-                        }
+            Map<UUID, String> ruleConnectorKindMap = new HashMap<>();
+            try (ResultSet rulesRows = statement.executeQuery("SELECT uuid, connector_uuid, kind FROM compliance_rule")) {
+                while (rulesRows.next()) {
+                    ruleConnectorKindMap.put(rulesRows.getObject("uuid", UUID.class), rulesRows.getString("connector_uuid") + "|" + rulesRows.getString("kind"));
+                }
+            }
+
+            try (ResultSet certificatesRows = statement.executeQuery("SELECT uuid, compliance_status, compliance_result FROM certificate WHERE compliance_result IS NOT NULL")) {
+                while (certificatesRows.next()) {
+                    final UUID certificateUuid = certificatesRows.getObject("uuid", UUID.class);
+                    final ComplianceStatus complianceStatus = ComplianceStatus.valueOf(certificatesRows.getString("compliance_status"));
+                    String complianceResult = certificatesRows.getString("compliance_result");
+                    try {
+                        Map<String, List<String>> complianceResultOld = mapper.readValue(complianceResult, HashMap.class);
                         ComplianceResultDto complianceResultDto = new ComplianceResultDto();
                         complianceResultDto.setTimestamp(complianceTimestamp);
                         complianceResultDto.setStatus(complianceStatus);
-                        complianceResultDto.setProviderRules(providerRulesResult);
+                        complianceResultDto.setProviderRules(getComplianceResultProviderRules(ruleConnectorKindMap, complianceResultOld));
 
                         updateCertComplianceResultStatement.setString(1, mapper.writeValueAsString(complianceResultDto));
                         updateCertComplianceResultStatement.setObject(2, certificateUuid);
@@ -224,6 +241,57 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
             logger.debug("Executing batch update of compliance result for {} certificates.", count);
             updateCertComplianceResultStatement.executeBatch();
         }
+    }
+
+    private List<ComplianceResultProviderRulesDto> getComplianceResultProviderRules(Map<UUID, String> ruleConnectorKindMap, Map<String, List<String>> complianceResultOld) {
+        List<String> notApplicable = complianceResultOld.get("na");
+        List<String> notCompliant = complianceResultOld.get("nok");
+        if ((notApplicable == null || notApplicable.isEmpty()) && (notCompliant == null || notCompliant.isEmpty())) {
+            return null;
+        }
+
+        Map<String, ComplianceResultProviderRulesDto> providerRulesMap = new HashMap<>();
+        if (notApplicable != null) {
+            for (String uuid : notApplicable) {
+                UUID ruleUuid = UUID.fromString(uuid);
+                String connectorKind = ruleConnectorKindMap.get(ruleUuid);
+                ComplianceResultProviderRulesDto providerRules = providerRulesMap.computeIfAbsent(connectorKind, k -> {
+                    String[] parts = k.split("\\|");
+                    ComplianceResultProviderRulesDto dto = new ComplianceResultProviderRulesDto();
+                    dto.setConnectorUuid(UUID.fromString(parts[0]));
+                    dto.setKind(parts[1]);
+                    return dto;
+                });
+
+                if (connectorKind == null) {
+                    providerRules.getNotAvailable().add(ruleUuid);
+                } else {
+                    providerRules.getNotApplicable().add(ruleUuid);
+                }
+            }
+        }
+
+        if (notCompliant != null) {
+            for (String uuid : notCompliant) {
+                UUID ruleUuid = UUID.fromString(uuid);
+                String connectorKind = ruleConnectorKindMap.get(ruleUuid);
+                ComplianceResultProviderRulesDto providerRules = providerRulesMap.computeIfAbsent(connectorKind, k -> {
+                    String[] parts = k.split("\\|");
+                    ComplianceResultProviderRulesDto dto = new ComplianceResultProviderRulesDto();
+                    dto.setConnectorUuid(UUID.fromString(parts[0]));
+                    dto.setKind(parts[1]);
+                    return dto;
+                });
+
+                if (connectorKind == null) {
+                    providerRules.getNotAvailable().add(ruleUuid);
+                } else {
+                    providerRules.getNotCompliant().add(ruleUuid);
+                }
+            }
+        }
+
+        return providerRulesMap.values().stream().toList();
     }
 
     private void cleanDbStructureAndData(Context context) throws SQLException {

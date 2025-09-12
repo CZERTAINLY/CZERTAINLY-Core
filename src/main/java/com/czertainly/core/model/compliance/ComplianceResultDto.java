@@ -1,7 +1,6 @@
 package com.czertainly.core.model.compliance;
 
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceResultRulesDto;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
@@ -10,6 +9,7 @@ import lombok.ToString;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Getter
 @Setter
@@ -27,6 +27,6 @@ public class ComplianceResultDto implements Serializable {
     private ComplianceResultRulesDto internalRules;
 
     @Schema(description = "List of groups", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    private ComplianceResultRulesDto providerRules;
+    private List<ComplianceResultProviderRulesDto> providerRules;
 
 }

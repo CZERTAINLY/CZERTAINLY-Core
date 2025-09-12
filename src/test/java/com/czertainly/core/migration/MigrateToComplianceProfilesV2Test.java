@@ -205,10 +205,15 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
             Assertions.assertNotNull(resultDto.getTimestamp());
             Assertions.assertNull(resultDto.getInternalRules());
             Assertions.assertNotNull(resultDto.getProviderRules());
-            Assertions.assertEquals(1, resultDto.getProviderRules().getNotApplicable().size(), "notApplicable rules should have 1 entry");
-            Assertions.assertEquals("40f084cc-ddc1-11ec-9d7f-34cff65c6ee3", resultDto.getProviderRules().getNotApplicable().stream().findFirst().orElseThrow().toString(), "notApplicable rule UUID should match");
-            Assertions.assertEquals(1, resultDto.getProviderRules().getNotCompliant().size(), "notCompliant rules should have 1 entry");
-            Assertions.assertEquals("40f08544-ddc1-11ec-9378-34cff65c6ee3", resultDto.getProviderRules().getNotCompliant().stream().findFirst().orElseThrow().toString(), "notCompliant rule UUID should match");
+            Assertions.assertEquals(1, resultDto.getProviderRules().size(), "There should be rules from exactly one provider");
+
+            var providerRules = resultDto.getProviderRules().getFirst();
+            Assertions.assertEquals("80490584-ec68-48af-915e-9d2aed8ee471", providerRules.getConnectorUuid().toString(), "connector UUID should match");
+            Assertions.assertEquals("x509", providerRules.getKind(), "kind should match");
+            Assertions.assertEquals(1, providerRules.getNotApplicable().size(), "notApplicable rules should have 1 entry");
+            Assertions.assertEquals("40f084cc-ddc1-11ec-9d7f-34cff65c6ee3", providerRules.getNotApplicable().stream().findFirst().orElseThrow().toString(), "notApplicable rule UUID should match");
+            Assertions.assertEquals(1, providerRules.getNotCompliant().size(), "notCompliant rules should have 1 entry");
+            Assertions.assertEquals("40f08544-ddc1-11ec-9378-34cff65c6ee3", providerRules.getNotCompliant().stream().findFirst().orElseThrow().toString(), "notCompliant rule UUID should match");
         }
     }
 }
