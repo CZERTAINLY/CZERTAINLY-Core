@@ -13,10 +13,12 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
 import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.acme.AcmeProfile_;
 import com.czertainly.core.dao.repository.AcmeProfileRepository;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -411,12 +413,14 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return acmeProfileRepository.findResourceObject(objectUuid, AcmeProfile_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return acmeProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(AcmeProfile::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return acmeProfileRepository.listResourceObjects(filter, AcmeProfile_.name);
     }
 
     @Override

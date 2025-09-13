@@ -624,6 +624,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return discoveryRepository.findResourceObject(objectUuid, DiscoveryHistory_.name);
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource discoveries.");
     }

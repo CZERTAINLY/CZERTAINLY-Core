@@ -2,17 +2,16 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.core.compliance.*;
+import com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto;
+import com.czertainly.api.model.core.compliance.v2.*;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
-import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serializable;
 import java.util.*;
-import java.util.stream.Collectors;
 
 /**
  * Compliance Profile entity storing the details of rules and groups associated with the compliance profile.
@@ -26,78 +25,82 @@ import java.util.stream.Collectors;
 @Table(name = "compliance_profile")
 public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<ComplianceProfileDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
-    @Column(name = "name")
+    @Column(name = "name", nullable = false)
     private String name;
 
     @Column(name = "description")
     private String description;
 
-    @JsonBackReference
-    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
+    @OneToMany(mappedBy = "complianceProfile", cascade = CascadeType.REMOVE, fetch = FetchType.LAZY)
     @ToString.Exclude
     private Set<ComplianceProfileRule> complianceRules = new HashSet<>();
 
-    @ManyToMany(fetch = FetchType.LAZY)
-    @JoinTable(
-            name = "compliance_profile_2_compliance_group",
-            joinColumns = @JoinColumn(name = "profile_uuid"),
-            inverseJoinColumns = @JoinColumn(name = "group_uuid"))
+    @OneToMany(mappedBy = "complianceProfile", fetch = FetchType.LAZY)
     @ToString.Exclude
-    private Set<ComplianceGroup> groups = new HashSet<>();
+    private Set<ComplianceProfileAssociation> associations = new HashSet<>();
 
-    @JsonBackReference
-    @ManyToMany(mappedBy = "complianceProfiles", fetch = FetchType.LAZY)
-    @ToString.Exclude
-    private Set<RaProfile> raProfiles = new HashSet<>();
+    public ComplianceProfileListDto mapToListDto() {
+        int internalRulesCount = 0;
+        int providerRulesCount = 0;
+        int providerGroupsCount = 0;
+        for (ComplianceProfileRule rule : complianceRules) {
+            if (rule.getInternalRuleUuid() != null) {
+                ++internalRulesCount;
+            } else if (rule.getComplianceRuleUuid() != null) {
+                ++providerRulesCount;
+            } else {
+                ++providerGroupsCount;
+            }
+        }
 
-    @Override
-    public ComplianceProfileDto mapToDto(){
-        ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
+        ComplianceProfileListDto complianceProfileDto = new ComplianceProfileListDto();
+        complianceProfileDto.setUuid(uuid);
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
+        complianceProfileDto.setInternalRulesCount(internalRulesCount);
+        complianceProfileDto.setProviderRulesCount(providerRulesCount);
+        complianceProfileDto.setProviderGroupsCount(providerGroupsCount);
+        complianceProfileDto.setAssociations(associations.size());
+
+        return complianceProfileDto;
+    }
+
+    @Override
+    public ComplianceProfileDto mapToDto() {
+        ComplianceProfileDto complianceProfileDto = new ComplianceProfileDto();
+        complianceProfileDto.setUuid(uuid);
+        complianceProfileDto.setName(name);
+        complianceProfileDto.setDescription(description);
+
+        return complianceProfileDto;
+    }
+
+    /**
+     * MapToDto function concentrating on providing the values that are required only for the List API
+     *
+     * @return ComplianceProfilesListDto with the response for listing operation
+     */
+    public com.czertainly.api.model.core.compliance.ComplianceProfilesListDto mapToListDtoV1() {
+        var complianceProfileDto = new com.czertainly.api.model.core.compliance.ComplianceProfilesListDto();
+        complianceProfileDto.setName(name);
         complianceProfileDto.setUuid(uuid.toString());
-        complianceProfileDto.setRaProfiles(raProfiles.stream().map(RaProfile::mapToDtoSimplified).collect(Collectors.toList()));
-        Map<String, List<ComplianceRulesDto>> rules = new HashMap<>();
-        //Frame a map with the Unique ID as Connector UUID, Name and Kind. This will later than be used to group the response
-        for(ComplianceProfileRule complianceRule: complianceRules){
-            ComplianceRule rul = complianceRule.getComplianceRule();
-            String ruleKey = rul.getConnector().getUuid() + ":" + rul.getConnector().getName() + ":" + rul.getKind();
-            rules.computeIfAbsent(ruleKey, k -> new ArrayList<>()).add(complianceRule.mapToDtoForProfile());
+        complianceProfileDto.setDescription(description);
+
+        Map<String, com.czertainly.api.model.core.compliance.ComplianceProviderSummaryDto> providersMapping = new TreeMap<>();
+        for (ComplianceProfileRule complianceRule : complianceRules) {
+            if (complianceRule.getComplianceRuleUuid() != null) {
+                String connectorName = complianceRule.getConnector().getName();
+                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
+                providerSummary.setNumberOfRules(providerSummary.getNumberOfRules() + 1);
+            } else if (complianceRule.getComplianceGroupUuid() != null) {
+                // ??? should we count also rules from groups ???
+                String connectorName = complianceRule.getConnector().getName();
+                var providerSummary = providersMapping.computeIfAbsent(connectorName, k -> new ComplianceProviderSummaryDto(connectorName));
+                providerSummary.setNumberOfGroups(providerSummary.getNumberOfGroups() + 1);
+            }
         }
 
-        List<ComplianceConnectorAndRulesDto> rulesDtos = new ArrayList<>();
-        for(Map.Entry<String, List<ComplianceRulesDto>> entry : rules.entrySet()){
-            ComplianceConnectorAndRulesDto complianceConnectorAndRulesDto = new ComplianceConnectorAndRulesDto();
-            String[] nameSplits = entry.getKey().split(":");
-            complianceConnectorAndRulesDto.setConnectorName(nameSplits[1]);
-            complianceConnectorAndRulesDto.setKind(nameSplits[2]);
-            complianceConnectorAndRulesDto.setConnectorUuid(nameSplits[0]);
-            complianceConnectorAndRulesDto.setRules(entry.getValue());
-            rulesDtos.add(complianceConnectorAndRulesDto);
-        }
-        complianceProfileDto.setRules(rulesDtos);
-
-        Map<String, List<ComplianceGroupsDto>> locGroups = new HashMap<>();
-        for(ComplianceGroup complianceGroup: groups){
-            String groupKey = complianceGroup.getConnector().getUuid() + ":" + complianceGroup.getConnector().getName() + ":" + complianceGroup.getKind();
-            ComplianceGroupsDto uuidDto = new ComplianceGroupsDto();
-            uuidDto.setUuid(complianceGroup.getUuid().toString());
-            uuidDto.setName(complianceGroup.getName());
-            uuidDto.setDescription(complianceGroup.getDescription());
-            locGroups.computeIfAbsent(groupKey, k -> new ArrayList<>()).add(uuidDto);
-        }
-        List<ComplianceConnectorAndGroupsDto> groupsDtos = new ArrayList<>();
-        for(Map.Entry<String, List<ComplianceGroupsDto>> entry : locGroups.entrySet()){
-            ComplianceConnectorAndGroupsDto grps = new ComplianceConnectorAndGroupsDto();
-            String[] nameSplits = entry.getKey().split(":");
-            grps.setConnectorName(nameSplits[1]);
-            grps.setKind(nameSplits[2]);
-            grps.setConnectorUuid(nameSplits[0]);
-            grps.setGroups(entry.getValue());
-            groupsDtos.add(grps);
-        }
-        complianceProfileDto.setGroups(groupsDtos);
-
+        complianceProfileDto.setRules(providersMapping.values().stream().toList());
         return complianceProfileDto;
     }
 
@@ -107,7 +110,7 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
     }
 
 
-    public SimplifiedComplianceProfileDto raProfileMapToDto(){
+    public SimplifiedComplianceProfileDto raProfileMapToDto() {
         SimplifiedComplianceProfileDto complianceProfileDto = new SimplifiedComplianceProfileDto();
         complianceProfileDto.setName(name);
         complianceProfileDto.setDescription(description);
@@ -115,76 +118,19 @@ public class ComplianceProfile extends UniquelyIdentifiedAndAudited implements S
         return complianceProfileDto;
     }
 
-    /**
-     *MapToDto function concentrating on providing the values that are required only for the List API
-     * @return ComplianceProfilesListDto with the response for listing operation
-     */
-    public ComplianceProfilesListDto ListMapToDTO(){
-        ComplianceProfilesListDto complianceProfileDto = new ComplianceProfilesListDto();
-        complianceProfileDto.setName(name);
-        complianceProfileDto.setUuid(uuid.toString());
-        complianceProfileDto.setDescription(description);
-
-        Map<String, Integer> providerGroupSummary = new HashMap<>();
-        Map<String, Integer> providerGroupSummaryRules = new HashMap<>();
-        for(ComplianceGroup grp : groups){
-            String connectorName = grp.getConnector().getName();
-            if(providerGroupSummary.containsKey(connectorName)){
-                providerGroupSummary.put(connectorName, providerGroupSummary.get(connectorName) + 1);
-            } else {
-                providerGroupSummary.put(connectorName, 1);
-            }
-            List<Set<ComplianceRule>>  listRules = groups.stream().map(ComplianceGroup::getRules).toList();
-            if(!listRules.isEmpty()){
-                Integer listRulesSize = listRules.stream().filter(Objects::nonNull).flatMap(Set::stream).collect(Collectors.toSet()).size();
-                providerGroupSummaryRules.put(connectorName, listRulesSize);
-            }else {
-                providerGroupSummaryRules.put(connectorName, 0);
-            }
-        }
-
-        Map<String, Integer> providerSummary = new HashMap<>();
-        if(complianceRules != null && complianceRules.isEmpty()) {
-            for(String connectorName : providerGroupSummaryRules.keySet()) {
-                providerSummary.put(connectorName, providerGroupSummaryRules.getOrDefault(connectorName, 1));
-            }
-        } else {
-            assert complianceRules != null;
-            for (ComplianceProfileRule complianceRule : complianceRules) {
-                String connectorName = complianceRule.getComplianceRule().getConnector().getName();
-                if (providerSummary.containsKey(connectorName)) {
-                    providerSummary.put(connectorName, providerSummary.get(connectorName) + 1);
-                } else {
-                    providerSummary.put(connectorName, providerGroupSummaryRules.getOrDefault(connectorName, 1));
-                }
-            }
-        }
-
-        List<ComplianceProviderSummaryDto> complianceProviderSummaryDtoList = new ArrayList<>();
-        for(String connectorName : providerSummary.keySet()){
-            ComplianceProviderSummaryDto complianceProviderSummaryDto = new ComplianceProviderSummaryDto();
-            complianceProviderSummaryDto.setConnectorName(connectorName);
-            complianceProviderSummaryDto.setNumberOfRules(providerSummary.get(connectorName));
-            complianceProviderSummaryDto.setNumberOfGroups(providerGroupSummary.get(connectorName));
-            complianceProviderSummaryDtoList.add(complianceProviderSummaryDto);
-        }
-        complianceProfileDto.setRules(complianceProviderSummaryDtoList);
-        return complianceProfileDto;
-    }
-
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        ComplianceProfile that = (ComplianceProfile) o;
+        if (!(o instanceof ComplianceProfile that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

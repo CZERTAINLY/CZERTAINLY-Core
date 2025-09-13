@@ -16,10 +16,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.AuthorityInstanceReference;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.Connector2FunctionGroup;
-import com.czertainly.core.dao.entity.RaProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -38,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.AUTHORITY)
@@ -315,12 +313,14 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return authorityInstanceReferenceRepository.findResourceObject(objectUuid, AuthorityInstanceReference_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return authorityInstanceReferenceRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(AuthorityInstanceReference::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name);
     }
 
     @Override

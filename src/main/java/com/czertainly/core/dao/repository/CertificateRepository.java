@@ -92,8 +92,6 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
                                              @Param("platformEnabled") boolean platformEnabled,
                                              Pageable pageable);
 
-    List<Certificate> findByComplianceResultContaining(String ruleUuid);
-
     List<Certificate> findByRaProfileAndComplianceStatusIsNotNullAndArchivedIsFalse(RaProfile raProfile);
 
     Optional<Certificate> findBySubjectDnNormalizedAndSerialNumber(String subjectDnNormalized, String serialNumber);

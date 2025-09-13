@@ -1,10 +1,10 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.core.dao.AggregateResultDto;
-import com.czertainly.core.dao.entity.Certificate_;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.CryptographicKeyItem_;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -133,11 +133,52 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
         Predicate additionalWhereClausePredicate = additionalWhereClause.apply(root, cb, cd);
         final List<Predicate> predicates = getPredicates(filter, additionalWhereClausePredicate, root, cb);
-        if(!predicates.isEmpty()) {
+        if (!predicates.isEmpty()) {
             cd = cd.where(predicates.toArray(new Predicate[]{}));
         }
 
         return entityManager.createQuery(cd).executeUpdate();
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute) {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
+        final Root<T> root = query.from(entity);
+
+        query.select(
+                cb.construct(
+                        NameAndUuidDto.class,
+                        root.get("uuid"),
+                        root.get(nameAttribute)
+                )
+        );
+
+        final List<Predicate> predicates = getPredicates(securityFilter, null, root, cb);
+        if (!predicates.isEmpty()) {
+            query = query.where(predicates.toArray(new Predicate[]{}));
+        }
+
+        return entityManager.createQuery(query).getResultList();
+    }
+
+    @Override
+    public NameAndUuidDto findResourceObject(UUID uuid, SingularAttribute<T, String> nameAttribute) throws NotFoundException {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
+        final Root<T> root = query.from(entity);
+
+        query.select(
+                cb.construct(
+                        NameAndUuidDto.class,
+                        root.get("uuid"),
+                        root.get(nameAttribute)
+                )
+        ).where(cb.equal(root.get("uuid"), uuid));
+
+        return entityManager.createQuery(query).getResultList().stream().findFirst().orElseThrow(() -> new NotFoundException(this.entityInformation.getClass(), uuid));
     }
 
     private CriteriaQuery<T> createCriteriaBuilder(final SecurityFilter filter, List<String> fetchAssociations, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
@@ -231,7 +272,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     private List<Predicate> initObjectAccessPredicates(Predicate resourceFilterPredicate, Predicate parentResourceFilterPredicate, CriteriaBuilder cb) {
         List<Predicate> objectAccessPredicates = new ArrayList<>();
-        if(resourceFilterPredicate != null && parentResourceFilterPredicate != null) {
+        if (resourceFilterPredicate != null && parentResourceFilterPredicate != null) {
             objectAccessPredicates.add(cb.and(resourceFilterPredicate, parentResourceFilterPredicate));
         } else if (resourceFilterPredicate != null) {
             objectAccessPredicates.add(resourceFilterPredicate);

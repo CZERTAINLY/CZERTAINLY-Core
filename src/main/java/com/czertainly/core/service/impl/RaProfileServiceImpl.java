@@ -30,6 +30,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.v2.ComplianceProfileService;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.PermissionEvaluator;
 import com.czertainly.core.service.RaProfileService;
@@ -70,7 +71,7 @@ public class RaProfileServiceImpl implements RaProfileService {
     private AcmeProfileRepository acmeProfileRepository;
     private ExtendedAttributeService extendedAttributeService;
     private ComplianceService complianceService;
-    private ComplianceProfileRepository complianceProfileRepository;
+    private ComplianceProfileService complianceProfileService;
     private AttributeEngine attributeEngine;
     private PermissionEvaluator permissionEvaluator;
     private RaProfileProtocolAttributeRepository raProfileProtocolAttributeRepository;
@@ -492,7 +493,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         for (SecuredUUID uuid : uuids) {
             logger.info("Checking compliance for RA Profile: {}", uuid);
             try {
-                complianceService.complianceCheckForRaProfile(uuid);
+                complianceService.checkResourceObjectCompliance(Resource.RA_PROFILE, uuid.getValue());
             } catch (Exception e) {
                 logger.error("Compliance check failed.", e);
             }
@@ -511,7 +512,13 @@ public class RaProfileServiceImpl implements RaProfileService {
     public List<SimplifiedComplianceProfileDto> getComplianceProfiles(String authorityUuid, String raProfileUuid, SecurityFilter filter) throws NotFoundException {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
-        return getComplianceProfilesForRaProfile(raProfileUuid, filter);
+        return complianceProfileService.getAssociatedComplianceProfiles(Resource.RA_PROFILE, UUID.fromString(raProfileUuid)).stream().map(cp -> {
+            SimplifiedComplianceProfileDto dto = new SimplifiedComplianceProfileDto();
+            dto.setUuid(cp.getUuid().toString());
+            dto.setName(cp.getName());
+            dto.setDescription(cp.getDescription());
+            return dto;
+        }).toList();
     }
 
     @Override
@@ -532,11 +539,14 @@ public class RaProfileServiceImpl implements RaProfileService {
 
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return raProfileRepository.findResourceObject(objectUuid, RaProfile_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return raProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(RaProfile::mapToAccessControlObjects).toList();
+        return raProfileRepository.listResourceObjects(filter, RaProfile_.name);
     }
 
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.DETAIL)
@@ -730,13 +740,6 @@ public class RaProfileServiceImpl implements RaProfileService {
         raProfileRepository.delete(raProfile);
     }
 
-    private List<SimplifiedComplianceProfileDto> getComplianceProfilesForRaProfile(String raProfileUuid, SecurityFilter filter) {
-        return complianceProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .filter(e -> e.getRaProfiles().stream().map(RaProfile::getUuid).map(UUID::toString).toList().contains(raProfileUuid))
-                .map(ComplianceProfile::raProfileMapToDto).toList();
-    }
-
     private void setAuthorityCertificates(AuthorityInstanceReference authorityInstanceRef, RaProfile raProfile) {
         try {
             List<CertificateDetailDto> certificateChain = getAuthorityCertificateChain(SecuredParentUUID.fromUUID(authorityInstanceRef.getUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
@@ -789,8 +792,8 @@ public class RaProfileServiceImpl implements RaProfileService {
     }
 
     @Autowired
-    public void setComplianceProfileRepository(ComplianceProfileRepository complianceProfileRepository) {
-        this.complianceProfileRepository = complianceProfileRepository;
+    public void setComplianceProfileService(ComplianceProfileService complianceProfileService) {
+        this.complianceProfileService = complianceProfileService;
     }
 
     @Autowired
@@ -832,5 +835,4 @@ public class RaProfileServiceImpl implements RaProfileService {
     public void setAttributeEngine(AttributeEngine attributeEngine) {
         this.attributeEngine = attributeEngine;
     }
-
 }

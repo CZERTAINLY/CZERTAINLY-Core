@@ -1,5 +1,7 @@
 package com.czertainly.core.dao.repository;
 
+import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import jakarta.persistence.criteria.*;
@@ -8,12 +10,12 @@ import jakarta.persistence.metamodel.SingularAttribute;
 import org.apache.commons.lang3.function.TriFunction;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.data.repository.NoRepositoryBean;
 
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.BiFunction;
 
 @NoRepositoryBean
@@ -39,4 +41,7 @@ public interface SecurityFilterRepository<T, ID> extends JpaRepository<T, ID> {
 
     int deleteUsingSecurityFilter(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaDelete<T>, Predicate> additionalWhereClause);
 
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute);
+
+    NameAndUuidDto findResourceObject(UUID uuid, SingularAttribute<T, String> nameAttribute) throws NotFoundException;
 }

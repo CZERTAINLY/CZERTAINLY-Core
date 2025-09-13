@@ -1,8 +1,6 @@
 package com.czertainly.core.service.handler;
 
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
@@ -107,9 +105,9 @@ public class CertificateHandler {
 
         try {
             if (certificate.getRaProfileUuid() != null) {
-                complianceService.checkComplianceOfCertificate(certificate);
+                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
             }
-        } catch (ConnectorException | NotFoundException e) {
+        } catch (Exception e) {
             logger.error("Error when checking compliance of certificate {}: {}", certificate.toStringShort(), e.getMessage());
         }
     }

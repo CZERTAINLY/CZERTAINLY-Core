@@ -1,9 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.NotSupportedException;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.auth.RoleRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.*;
@@ -148,6 +145,12 @@ public class RoleManagementServiceImpl implements RoleManagementService {
     @ExternalAuthorization(resource = Resource.ROLE, action = ResourceAction.UPDATE)
     public RoleDetailDto updateUsers(String roleUuid, List<String> userUuids) {
         return roleManagementApiClient.updateUsers(roleUuid, userUuids);
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        RoleDetailDto roleDetailDto = roleManagementApiClient.getRoleDetail(objectUuid.toString());
+        return new NameAndUuidDto(roleDetailDto.getUuid(), roleDetailDto.getName());
     }
 
     @Override

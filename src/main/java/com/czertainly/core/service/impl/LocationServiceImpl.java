@@ -734,11 +734,14 @@ public class LocationServiceImpl implements LocationService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return locationRepository.findResourceObject(objectUuid, Location_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return locationRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(Location::mapToAccessControlObjects).toList();
+        return locationRepository.listResourceObjects(filter, Location_.name);
     }
 
     @Override

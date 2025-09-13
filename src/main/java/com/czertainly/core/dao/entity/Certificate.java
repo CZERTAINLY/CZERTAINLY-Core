@@ -5,21 +5,22 @@ import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
-import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
-import com.czertainly.core.util.SerializationUtil;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.annotations.SQLJoinTableRestriction;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serial;
 import java.io.Serializable;
@@ -156,12 +157,13 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     @Column(name = "certificate_validation_result", length = 100000)
     private String certificateValidationResult;
 
-    @Column(name = "compliance_result")
-    private String complianceResult;
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ComplianceResultDto complianceResult;
 
-    @Column(name = "compliance_status")
+    @Column(name = "compliance_status", nullable = false)
     @Enumerated(EnumType.STRING)
-    private ComplianceStatus complianceStatus;
+    private ComplianceStatus complianceStatus = ComplianceStatus.NOT_CHECKED;
 
     @JsonBackReference
     @OneToMany(mappedBy = "certificate", fetch = FetchType.LAZY, cascade = CascadeType.REMOVE)
@@ -275,7 +277,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
          * like complianceRules etc., So only the overall status of the compliance will be set in the mapToDto function
          */
         dto.setComplianceStatus(complianceStatus);
-
         if (raProfile != null) {
             SimplifiedRaProfileDto raDto = new SimplifiedRaProfileDto();
             raDto.setName(raProfile.getName());
@@ -418,6 +419,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
     public CertificateRequestEntity prepareCertificateRequest(final CertificateRequestFormat certificateRequestFormat) {
         final CertificateRequestEntity newCertificateRequestEntity = new CertificateRequestEntity();
         newCertificateRequestEntity.setCertificateType(this.certificateType);
+        newCertificateRequestEntity.setComplianceStatus(ComplianceStatus.NOT_CHECKED);
         newCertificateRequestEntity.setKeyUsage(this.keyUsage);
         newCertificateRequestEntity.setCommonName(this.commonName);
         newCertificateRequestEntity.setPublicKeyAlgorithm(this.publicKeyAlgorithm);
@@ -437,17 +439,6 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
         this.raProfile = raProfile;
         if (raProfile != null) this.raProfileUuid = raProfile.getUuid();
         else this.raProfileUuid = null;
-    }
-
-    public CertificateComplianceStorageDto getComplianceResult() {
-        if (complianceResult == null) {
-            return null;
-        }
-        return (CertificateComplianceStorageDto) SerializationUtil.deserialize(complianceResult, CertificateComplianceStorageDto.class);
-    }
-
-    public void setComplianceResult(CertificateComplianceStorageDto complianceResult) {
-        this.complianceResult = SerializationUtil.serialize(complianceResult);
     }
 
     public void setKey(CryptographicKey key) {

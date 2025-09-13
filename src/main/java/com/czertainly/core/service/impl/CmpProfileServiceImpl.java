@@ -16,11 +16,9 @@ import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile_;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -332,12 +330,15 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return cmpProfileRepository.findResourceObject(objectUuid, CmpProfile_.name);
+
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.CMP_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return cmpProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(CmpProfile::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return cmpProfileRepository.listResourceObjects(filter, CmpProfile_.name);
     }
 
     @Override

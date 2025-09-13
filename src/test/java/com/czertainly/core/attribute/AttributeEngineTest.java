@@ -4,10 +4,12 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -26,6 +28,7 @@ import org.jetbrains.annotations.NotNull;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.function.Executable;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.io.IOException;
@@ -72,7 +75,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     private MetadataAttribute networkDiscoveryMeta;
 
     @BeforeEach
-    public void setUp() throws AttributeException, NotFoundException {
+    void setUp() throws AttributeException, NotFoundException {
         connectorAuthority = new Connector();
         connectorAuthority.setName("EJBCAAuthorityConnector");
         connectorAuthority.setUrl("http://localhost:8080");
@@ -215,7 +218,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
         Assertions.assertEquals(orderNoCustomAttribute.getUuid(), certificateDetailDto.getCustomAttributes().getFirst().getUuid());
 
-        filter = new SecurityResourceFilter(List.of(), List.of(expirationDateCustomAttribute.getUuid(), orderNoCustomAttribute.getUuid()),  false);
+        filter = new SecurityResourceFilter(List.of(), List.of(expirationDateCustomAttribute.getUuid(), orderNoCustomAttribute.getUuid()), false);
         attributeEngine.deleteObjectAllowedCustomAttributeContent(filter, Resource.CERTIFICATE, certificate.getUuid());
         certificateDetailDto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate.getUuid()));
         Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
@@ -231,7 +234,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         Assertions.assertTrue(certificateDetailDto.getCustomAttributes().isEmpty());
 
         attributeEngine.deleteAttributeDefinition(AttributeType.META, connectorDiscovery.getUuid(), UUID.fromString(networkDiscoveryMeta.getUuid()), networkDiscoveryMeta.getName());
-        
+
         Assertions.assertFalse(certificateDetailDto.getMetadata().isEmpty());
         Assertions.assertTrue(certificateDetailDto.getCustomAttributes().isEmpty());
 
@@ -363,5 +366,100 @@ class AttributeEngineTest extends BaseSpringBootTest {
         metaProps3.setLabel("EJBCA Username");
         authorityIssueMeta.setProperties(metaProps3);
         attributeEngine.updateMetadataAttribute(authorityIssueMeta, new ObjectAttributeContentInfo(connectorAuthority.getUuid(), Resource.CERTIFICATE, certificate.getUuid()));
+    }
+
+    @Test
+    void getRequestDataAttributesContentReturnsCorrectResponse() throws AttributeException {
+        // Arrange
+        DataAttribute dataAttribute = new DataAttribute();
+        dataAttribute.setUuid(UUID.randomUUID().toString());
+        dataAttribute.setName("testAttribute");
+        dataAttribute.setType(AttributeType.DATA);
+        dataAttribute.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Test Label");
+        props.setRequired(true);
+        props.setReadOnly(false);
+        props.setVisible(false);
+        props.setList(false);
+        dataAttribute.setProperties(props);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
+
+        RequestAttributeDto requestAttribute = new RequestAttributeDto();
+        requestAttribute.setUuid(dataAttribute.getUuid());
+        requestAttribute.setName(dataAttribute.getName());
+        requestAttribute.setContentType(dataAttribute.getContentType());
+        requestAttribute.setContent(List.of(new StringAttributeContent("testValue")));
+
+        // Act
+        List<ResponseAttributeDto> responseAttributes = AttributeEngine.getRequestDataAttributesContent(List.of(dataAttribute), List.of(requestAttribute));
+
+        // Assert
+        Assertions.assertEquals(1, responseAttributes.size());
+        Assertions.assertEquals(dataAttribute.getUuid(), responseAttributes.getFirst().getUuid());
+        Assertions.assertEquals(dataAttribute.getName(), responseAttributes.getFirst().getName());
+        Assertions.assertEquals(dataAttribute.getProperties().getLabel(), responseAttributes.getFirst().getLabel());
+        Assertions.assertEquals(requestAttribute.getContent(), responseAttributes.getFirst().getContent());
+    }
+
+    @Test
+    void validateRequestDataAttributesThrowsValidationExceptionForMissingRequiredAttributes() throws AttributeException {
+        // Arrange
+        DataAttribute requiredAttribute = new DataAttribute();
+        requiredAttribute.setUuid(UUID.randomUUID().toString());
+        requiredAttribute.setName("requiredAttribute");
+        requiredAttribute.setType(AttributeType.DATA);
+        requiredAttribute.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Required Label");
+        props.setRequired(true);
+        props.setReadOnly(false);
+        props.setVisible(false);
+        props.setList(false);
+        requiredAttribute.setProperties(props);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(requiredAttribute));
+
+        RequestAttributeDto requestAttribute = new RequestAttributeDto();
+        requestAttribute.setUuid(UUID.randomUUID().toString());
+        requestAttribute.setName("unrelatedAttribute");
+        requestAttribute.setContentType(AttributeContentType.STRING);
+        requestAttribute.setContent(List.of(new StringAttributeContent("value")));
+
+        // Act
+        Executable executable = () -> AttributeEngine.validateRequestDataAttributes(List.of(requiredAttribute), List.of(requestAttribute), true);
+
+        // Assert
+        Assertions.assertThrows(ValidationException.class, executable);
+    }
+
+    @Test
+    void validateRequestDataAttributesPassesForValidAttributes() throws AttributeException {
+        // Arrange
+        DataAttribute validAttribute = new DataAttribute();
+        validAttribute.setUuid(UUID.randomUUID().toString());
+        validAttribute.setName("validAttribute");
+        validAttribute.setType(AttributeType.DATA);
+        validAttribute.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Valid Label");
+        props.setRequired(true);
+        props.setReadOnly(false);
+        props.setVisible(false);
+        props.setList(false);
+        validAttribute.setProperties(props);
+
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
+
+        RequestAttributeDto requestAttribute = new RequestAttributeDto();
+        requestAttribute.setUuid(validAttribute.getUuid());
+        requestAttribute.setName(validAttribute.getName());
+        requestAttribute.setContentType(validAttribute.getContentType());
+        requestAttribute.setContent(List.of(new StringAttributeContent("validValue")));
+
+        // Act & Assert
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(List.of(validAttribute), List.of(requestAttribute), true));
     }
 }
