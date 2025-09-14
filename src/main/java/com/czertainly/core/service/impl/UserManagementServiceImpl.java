@@ -13,34 +13,34 @@ import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
+import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.CertificateService;
-import com.czertainly.core.service.GroupService;
-import com.czertainly.core.service.ResourceObjectAssociationService;
-import com.czertainly.core.service.UserManagementService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.CertificateUtil;
+import com.czertainly.core.util.OAuth2Util;
 import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.session.FindByIndexNameSessionRepository;
+import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
 
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.*;
 import java.security.cert.CertificateException;
 import java.text.ParseException;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 @Service(Resource.Codes.USER)
 @Transactional
@@ -52,8 +52,21 @@ public class UserManagementServiceImpl implements UserManagementService {
     private CertificateService certificateService;
     private GroupService groupService;
     private ResourceObjectAssociationService objectAssociationService;
+    private AuditLogService auditLogService;
 
     private AttributeEngine attributeEngine;
+
+    private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
+
+    @Autowired
+    public void setAuditLogService(AuditLogService auditLogService) {
+        this.auditLogService = auditLogService;
+    }
+
+    @Autowired
+    public void setSessionRepository(FindByIndexNameSessionRepository<? extends Session> sessionRepository) {
+        this.sessionRepository = sessionRepository;
+    }
 
     @Autowired
     public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
@@ -157,6 +170,29 @@ public class UserManagementServiceImpl implements UserManagementService {
         certificateService.removeCertificateUser(uuid);
         objectAssociationService.removeOwnerAssociations(uuid);
         attributeEngine.deleteAllObjectAttributeContent(Resource.USER, UUID.fromString(userUuid));
+        clearAuthenticationData(userUuid, "deleted");
+    }
+
+    private void clearAuthenticationData(String userUuid, String actionName) {
+        Map<String, ? extends Session> userSessions =
+                sessionRepository.findByPrincipalName(userUuid);
+
+        for (Map.Entry<String, ? extends Session> entry : userSessions.entrySet()) {
+            OAuth2Util.endUserSession(entry.getValue());
+            sessionRepository.deleteById(entry.getKey());
+        }
+        if (!userSessions.isEmpty()) {
+            auditLogService.log(LogRecord.builder()
+                    .version("1.0")
+                    .operation(Operation.LOGOUT)
+                    .operationResult(OperationResult.SUCCESS)
+                    .module(Module.AUTH)
+                    .actor(LoggingHelper.getActorInfo())
+                    .source(LoggingHelper.getSourceInfo())
+                    .resource(ResourceRecord.builder().type(Resource.USER).uuids(List.of(UUID.fromString(userUuid))).build())
+                    .message("User with UUID %s has been %s".formatted(userUuid, actionName))
+                    .build());
+        }
     }
 
     @Override
@@ -186,7 +222,9 @@ public class UserManagementServiceImpl implements UserManagementService {
     @Override
     @ExternalAuthorization(resource = Resource.USER, action = ResourceAction.ENABLE)
     public UserDetailDto disableUser(String userUuid) {
-        return userManagementApiClient.disableUser(userUuid);
+        UserDetailDto result = userManagementApiClient.disableUser(userUuid);
+        clearAuthenticationData(userUuid, "disabled");
+        return result;
     }
 
     @Override
@@ -275,7 +313,8 @@ public class UserManagementServiceImpl implements UserManagementService {
                 throw new CertificateException("Cannot upload certificate that should be assigned to the user: " + e.getMessage());
             }
         } else {
-            if (certificate.isArchived()) throw new ValidationException("Cannot assign archived certificate to the user.");
+            if (certificate.isArchived())
+                throw new ValidationException("Cannot assign archived certificate to the user.");
             if (!certificate.getState().equals(CertificateState.ISSUED)) {
                 throw new ValidationException(ValidationError.create("Cannot assign certificate with state %s to the user".formatted(certificate.getState().getLabel())));
             }

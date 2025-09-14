@@ -9,6 +9,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
@@ -23,6 +24,9 @@ import java.util.UUID;
 @Table(name = "entity_instance_reference")
 public class EntityInstanceReference extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<EntityInstanceDto>, ObjectAccessControlMapper<NameAndUuidDto> {
 
+    @Serial
+    private static final long serialVersionUID = 3534027884573518933L;
+    
     @Column(name = "entity_instance_uuid")
     private String entityInstanceUuid;
 
