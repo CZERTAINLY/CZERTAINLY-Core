@@ -12,6 +12,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.proxy.HibernateProxy;
 
+import java.io.Serial;
 import java.io.Serializable;
 import java.util.*;
 
@@ -22,6 +23,9 @@ import java.util.*;
 @Entity
 @Table(name = "location")
 public class Location extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<LocationDto>, ObjectAccessControlMapper<NameAndUuidDto> {
+
+    @Serial
+    private static final long serialVersionUID = -5260518684354195007L;
 
     @Column(name = "name")
     private String name;

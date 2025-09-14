@@ -53,6 +53,6 @@ public class CzertainlyAuthenticationToken extends AbstractAuthenticationToken {
 
     @Override
     public String getName() {
-        return "";
+        return this.principal.getUserUuid();
     }
 }
