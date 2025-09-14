@@ -149,7 +149,11 @@ public class ComplianceProfileRuleHandler {
         ComplianceRuleDto ruleDto = new ComplianceRuleDto();
         ruleDto.setUuid(complianceProfileRule.getComplianceRuleUuid());
         ruleDto.setResource(complianceProfileRule.getResource());
-        ruleDto.setType(getComplianceRuleTypeFromName(complianceProfileRule.getResource(), complianceProfileRule.getType()).getCode());
+
+        var type = getComplianceRuleTypeFromName(complianceProfileRule.getResource(), complianceProfileRule.getType());
+        if (type != null) {
+            ruleDto.setType(type.getCode());
+        }
 
         if (providerRule == null) {
             ruleDto.setName("N/A");
@@ -297,8 +301,12 @@ public class ComplianceProfileRuleHandler {
         complianceProfileRule.setKind(kind);
         complianceProfileRule.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         complianceProfileRule.setResource(providerRule.getResource());
-        complianceProfileRule.setType(getComplianceRuleTypeFromCode(providerRule.getResource(), providerRule.getType()).name());
         complianceProfileRule.setAttributes(requestAttributes);
+
+        var type = getComplianceRuleTypeFromCode(providerRule.getResource(), providerRule.getType());
+        if (type != null) {
+            complianceProfileRule.setType(type.name());
+        }
         complianceProfileRuleRepository.save(complianceProfileRule);
 
         return complianceProfileRule;
@@ -465,6 +473,9 @@ public class ComplianceProfileRuleHandler {
     }
 
     private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromName(Resource resource, String typeName) {
+        if (typeName == null) {
+            return null;
+        }
         try {
             return (E) switch (resource) {
                 case CERTIFICATE, CERTIFICATE_REQUEST -> CertificateType.valueOf(typeName);
@@ -478,6 +489,9 @@ public class ComplianceProfileRuleHandler {
     }
 
     private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromCode(Resource resource, String typeCode) {
+        if (typeCode == null) {
+            return null;
+        }
         try {
             return (E) switch (resource) {
                 case CERTIFICATE, CERTIFICATE_REQUEST -> CertificateType.fromCode(typeCode);
