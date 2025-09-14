@@ -192,7 +192,8 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     WHERE compliance_rule_uuid IS NOT NULL;
                     
                     UPDATE compliance_profile_rule
-                    SET connector_uuid = (SELECT g.connector_uuid FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid),
+                    SET resource = 'CERTIFICATE',
+                        connector_uuid = (SELECT g.connector_uuid FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid),
                         kind = (SELECT g.kind FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid)
                     WHERE compliance_group_uuid IS NOT NULL;
                     """;

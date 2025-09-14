@@ -200,7 +200,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         complianceProfileRule.setConnectorUuid(connectorUuid);
         complianceProfileRule.setKind(request.getKind());
         complianceProfileRule.setResource(Resource.CERTIFICATE);
-        complianceProfileRule.setType(providerRule.getCertificateType().getCode());
+        complianceProfileRule.setType(providerRule.getCertificateType().name());
         complianceProfileRule.setAttributes(request.getAttributes());
         complianceProfileRuleRepository.save(complianceProfileRule);
 

@@ -7,8 +7,11 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.compliance.v2.*;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
@@ -146,7 +149,7 @@ public class ComplianceProfileRuleHandler {
         ComplianceRuleDto ruleDto = new ComplianceRuleDto();
         ruleDto.setUuid(complianceProfileRule.getComplianceRuleUuid());
         ruleDto.setResource(complianceProfileRule.getResource());
-        ruleDto.setType(complianceProfileRule.getType());
+        ruleDto.setType(getComplianceRuleTypeFromName(complianceProfileRule.getResource(), complianceProfileRule.getType()).getCode());
 
         if (providerRule == null) {
             ruleDto.setName("N/A");
@@ -162,10 +165,10 @@ public class ComplianceProfileRuleHandler {
         // set other properties based on comparison, if not set before as newly created rule association
         StringBuilder updatedReason = new StringBuilder();
         if (complianceProfileRule.getAvailabilityStatus() == null) {
-            if (complianceProfileRule.getResource() != providerRule.getResource()) {
+            if (ruleDto.getResource() != providerRule.getResource()) {
                 updatedReason.append("Resource changed from '%s' to '%s'%n".formatted(complianceProfileRule.getResource().getLabel(), providerRule.getResource().getLabel()));
             }
-            if (!Objects.equals(complianceProfileRule.getType(), providerRule.getType())) {
+            if (!Objects.equals(ruleDto.getType(), providerRule.getType())) {
                 updatedReason.append("Resource type changed from '%s' to '%s'%n".formatted(Objects.toString(complianceProfileRule.getType(), "NULL"), Objects.toString(providerRule.getType(), "NULL")));
             }
             try {
@@ -294,7 +297,7 @@ public class ComplianceProfileRuleHandler {
         complianceProfileRule.setKind(kind);
         complianceProfileRule.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         complianceProfileRule.setResource(providerRule.getResource());
-        complianceProfileRule.setType(providerRule.getType());
+        complianceProfileRule.setType(getComplianceRuleTypeFromCode(providerRule.getResource(), providerRule.getType()).name());
         complianceProfileRule.setAttributes(requestAttributes);
         complianceProfileRuleRepository.save(complianceProfileRule);
 
@@ -459,5 +462,31 @@ public class ComplianceProfileRuleHandler {
         }
 
         return functionGroup.getFunctionGroupCode();
+    }
+
+    private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromName(Resource resource, String typeName) {
+        try {
+            return (E) switch (resource) {
+                case CERTIFICATE, CERTIFICATE_REQUEST -> CertificateType.valueOf(typeName);
+                case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM -> KeyType.valueOf(typeName);
+                default ->
+                        throw new ValidationException("Compliance rule with resource '%s' cannot be associated with compliance profile because resource does not support compliance check".formatted(resource.getLabel()));
+            };
+        } catch (Exception e) {
+            throw new ValidationException("Compliance rule with resource '%s' has not supported type '%s'".formatted(resource.getLabel(), typeName));
+        }
+    }
+
+    private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromCode(Resource resource, String typeCode) {
+        try {
+            return (E) switch (resource) {
+                case CERTIFICATE, CERTIFICATE_REQUEST -> CertificateType.fromCode(typeCode);
+                case CRYPTOGRAPHIC_KEY, CRYPTOGRAPHIC_KEY_ITEM -> KeyType.findByCode(typeCode);
+                default ->
+                        throw new ValidationException("Compliance rule with resource '%s' cannot be associated with compliance profile because resource does not support compliance check".formatted(resource.getLabel()));
+            };
+        } catch (Exception e) {
+            throw new ValidationException("Compliance rule with resource '%s' has not supported type '%s'".formatted(resource.getLabel(), typeCode));
+        }
     }
 }
