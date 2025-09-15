@@ -9,6 +9,7 @@ import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.util.converter.ResourceCodeConverter;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.WebDataBinder;
 import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
@@ -20,6 +21,11 @@ import java.util.UUID;
 public class ComplianceControllerImpl implements ComplianceController {
 
     private ComplianceService complianceService;
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
+    }
 
     @InitBinder
     public void initBinder(final WebDataBinder webdataBinder) {
