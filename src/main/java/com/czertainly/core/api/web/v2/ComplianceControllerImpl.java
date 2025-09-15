@@ -8,6 +8,9 @@ import com.czertainly.core.aop.AuditLogged;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.util.converter.ResourceCodeConverter;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -17,6 +20,11 @@ import java.util.UUID;
 public class ComplianceControllerImpl implements ComplianceController {
 
     private ComplianceService complianceService;
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
+    }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
