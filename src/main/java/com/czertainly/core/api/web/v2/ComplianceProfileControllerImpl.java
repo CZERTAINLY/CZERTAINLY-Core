@@ -21,7 +21,10 @@ import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.v2.ComplianceProfileService;
+import com.czertainly.core.util.converter.ResourceCodeConverter;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -35,6 +38,11 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     @Autowired
     public void setComplianceProfileService(ComplianceProfileService complianceProfileService) {
         this.complianceProfileService = complianceProfileService;
+    }
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
     }
 
     @Override
