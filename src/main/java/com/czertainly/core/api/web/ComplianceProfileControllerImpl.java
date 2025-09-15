@@ -13,7 +13,6 @@ import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.core.aop.AuditLogged;
-import com.czertainly.core.auth.AuthEndpoint;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -26,7 +25,7 @@ import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 import java.net.URI;
 import java.util.List;
 
-@RestController
+@RestController("complianceProfileControllerV1")
 public class ComplianceProfileControllerImpl implements ComplianceProfileController {
 
     private ComplianceProfileService complianceProfileService;
@@ -37,7 +36,6 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     }
 
     @Override
-    @AuthEndpoint(resourceName = Resource.COMPLIANCE_PROFILE)
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.LIST)
     public List<ComplianceProfilesListDto> listComplianceProfiles() {
         return complianceProfileService.listComplianceProfiles(SecurityFilter.create());
@@ -45,7 +43,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.DETAIL)
-    public ComplianceProfileDto getComplianceProfile(@LogResource(uuid = true) String uuid) throws NotFoundException {
+    public ComplianceProfileDto getComplianceProfile(@LogResource(uuid = true) String uuid) throws NotFoundException, ConnectorException {
         return complianceProfileService.getComplianceProfile(SecuredUUID.fromString(uuid));
     }
 
@@ -66,37 +64,37 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, operation = Operation.LIST)
-    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException {
+    public List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException, ConnectorException {
         return complianceProfileService.getComplianceRules(complianceProviderUuid, kind, certificateType);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.ADD)
-    public ComplianceProfileRuleDto addRule(@LogResource(uuid = true) String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException {
+    public ComplianceProfileRuleDto addRule(@LogResource(uuid = true) String uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, ConnectorException {
         return complianceProfileService.addRule(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_RULE, operation = Operation.REMOVE)
-    public void removeRule(@LogResource(uuid = true) String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException {
+    public void removeRule(@LogResource(uuid = true) String uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException, ConnectorException {
         complianceProfileService.removeRule(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_GROUP, operation = Operation.LIST)
-    public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException {
+    public List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException, ConnectorException {
         return complianceProfileService.getComplianceGroups(complianceProviderUuid, kind);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.ADD)
-    public void addGroup(@LogResource(uuid = true) String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException {
+    public void addGroup(@LogResource(uuid = true) String uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException {
         complianceProfileService.addGroup(SecuredUUID.fromString(uuid), request);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.REMOVE)
-    public void removeGroup(@LogResource(uuid = true) String uuid, ComplianceGroupRequestDto request) throws NotFoundException {
+    public void removeGroup(@LogResource(uuid = true) String uuid, ComplianceGroupRequestDto request) throws NotFoundException, ConnectorException {
         complianceProfileService.removeGroup(SecuredUUID.fromString(uuid), request);
     }
 
@@ -126,7 +124,7 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, affiliatedResource = Resource.RA_PROFILE, operation = Operation.ASSOCIATE)
-    public void associateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException {
+    public void associateProfiles(@LogResource(uuid = true) String uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, AlreadyExistException {
         complianceProfileService.associateProfile(SecuredUUID.fromString(uuid), raProfiles);
     }
 

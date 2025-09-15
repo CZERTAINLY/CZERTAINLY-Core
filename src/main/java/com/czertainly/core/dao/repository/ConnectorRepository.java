@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.model.core.connector.ConnectorStatus;
+import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.FunctionGroup;
 import org.springframework.data.jpa.repository.Query;
@@ -30,4 +31,20 @@ public interface ConnectorRepository extends SecurityFilterRepository<Connector,
     List<Connector> findConnectedByFunctionGroupAndKind(
             @Param("functionGroup") FunctionGroup functionGroup,
             @Param("kind") String kind);
+
+    @Query(value = """
+            SELECT c from Connector c
+            JOIN c.functionGroups c2fg
+            JOIN c2fg.functionGroup fg
+            WHERE c.status = 'CONNECTED' AND fg.code = :functionGroup
+            """)
+    List<Connector> findConnectedByFunctionGroupCode(@Param("functionGroup") FunctionGroupCode functionGroupCode);
+
+    @Query(value = """
+            SELECT c from Connector c
+            JOIN c.functionGroups c2fg
+            JOIN c2fg.functionGroup fg
+            WHERE c.status = 'CONNECTED' AND fg.code = :functionGroup AND c2fg.kinds LIKE '%' || :kind || '%'
+            """)
+    List<Connector> findConnectedByFunctionGroupCodeAndKind(@Param("functionGroup") FunctionGroupCode functionGroupCode, @Param("kind") String kind);
 }
