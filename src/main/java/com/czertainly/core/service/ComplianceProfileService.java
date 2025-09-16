@@ -7,13 +7,10 @@ import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.ComplianceProfilesListDto;
-import com.czertainly.core.dao.entity.ComplianceProfile;
-import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
-import java.util.Set;
 
 public interface ComplianceProfileService extends ResourceExtensionService {
     /**
@@ -30,16 +27,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
      */
-    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException;
-
-    /**
-     * Get the details of a compliance profile
-     *
-     * @param uuid Uuid of the compliance profile
-     * @return Compliance Profile Entity
-     * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
-     */
-    ComplianceProfile getComplianceProfileEntity(SecuredUUID uuid) throws NotFoundException;
+    ComplianceProfileDto getComplianceProfile(SecuredUUID uuid) throws NotFoundException, ConnectorException;
 
     /**
      * Create a new compliance profile
@@ -50,7 +38,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @throws NotFoundException     Thrown when a Rule or Group is not found
      * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
      */
-    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, AttributeException;
+    ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, AttributeException, ConnectorException;
 
     /**
      * Add a rule to a compliance profile
@@ -62,7 +50,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @throws NotFoundException     Thrown when unable to find the rule with the provided details
      * @throws ValidationException   Thrown when the attribute validation fails for the given rule
      */
-    ComplianceProfileRuleDto addRule(SecuredUUID uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException;
+    ComplianceProfileRuleDto addRule(SecuredUUID uuid, ComplianceRuleAdditionRequestDto request) throws AlreadyExistException, NotFoundException, ValidationException, ConnectorException;
 
     /**
      * Remove a rule from a compliance profile
@@ -72,7 +60,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the rule is not found with the profile
      */
-    ComplianceProfileRuleDto removeRule(SecuredUUID uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException;
+    ComplianceProfileRuleDto removeRule(SecuredUUID uuid, ComplianceRuleDeletionRequestDto request) throws NotFoundException, ConnectorException;
 
     /**
      * Add a group to a compliance profile
@@ -82,7 +70,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return
      * @throws AlreadyExistException Thrown when the selected group is already associated
      */
-    ComplianceProfileDto addGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException;
+    ComplianceProfileDto addGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws AlreadyExistException, NotFoundException, ConnectorException;
 
     /**
      * Delete a group from a compliance profile
@@ -92,7 +80,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return Compliance Profile DTO
      * @throws NotFoundException Thrown when the selected group is not found associated with the compliance profile
      */
-    ComplianceProfileDto removeGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws NotFoundException;
+    ComplianceProfileDto removeGroup(SecuredUUID uuid, ComplianceGroupRequestDto request) throws NotFoundException, ConnectorException;
 
     /**
      * Get the list of associated RA Profile to the compliance profile
@@ -101,7 +89,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return List of RA Profiles associated with the compliance profile. {@link SimplifiedRaProfileDto}
      * @throws NotFoundException * @throws NotFoundException Thrown when a Rule or Group is not found
      */
-    List<SimplifiedRaProfileDto> getAssociatedRAProfiles(SecuredUUID uuid) throws NotFoundException;
+    List<SimplifiedRaProfileDto> getAssociatedRAProfiles(SecuredUUID uuid);
 
     /**
      * Delete a compliance profile
@@ -139,7 +127,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return List of the rules for given connector and its kind
      * @throws ConnectorException Thrown when there are issues related to connector communication
      */
-    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException;
+    List<ComplianceRulesListResponseDto> getComplianceRules(String complianceProviderUuid, String kind, List<CertificateType> certificateType) throws NotFoundException, ConnectorException;
 
     /**
      * List of all compliance groups from the compliance providers
@@ -149,7 +137,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @return List of compliance groups
      * @throws ConnectorException Thrown when there are issues with the connector communication and operations
      */
-    List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException;
+    List<ComplianceGroupsListResponseDto> getComplianceGroups(String complianceProviderUuid, String kind) throws NotFoundException, ConnectorException;
 
     /**
      * Associate a compliance profile to an RA Profile
@@ -158,7 +146,7 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @param raProfiles Uuid of the RA Profile. See {{@link RaProfileAssociationRequestDto}}
      * @throws NotFoundException Thrown when either of the profiles are not found
      */
-    void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
+    void associateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException, AlreadyExistException;
 
     /**
      * Check the compliance for all the certificates associated with the compliance profiles
@@ -174,26 +162,4 @@ public interface ComplianceProfileService extends ResourceExtensionService {
      * @param raProfiles List of RA Profile UUIDs
      */
     void disassociateProfile(SecuredUUID uuid, RaProfileAssociationRequestDto raProfiles) throws NotFoundException;
-
-    /**
-     * Check if the compliance provider is associated with any compliance profiles
-     *
-     * @param connector Connector Entity
-     * @return Is the connector tagged with any compliance profiles
-     */
-    Set<String> isComplianceProviderAssociated(Connector connector);
-
-    /**
-     * Remove all the association from the connector to Compliance Group and Rule
-     *
-     * @param connector Connector Entity
-     */
-    void nullifyComplianceProviderAssociation(Connector connector);
-
-    /**
-     * Removes the rules and groups tagged with a compliance connector
-     *
-     * @param connector Connector Entity
-     */
-    void removeRulesAndGroupForEmptyConnector(Connector connector);
 }

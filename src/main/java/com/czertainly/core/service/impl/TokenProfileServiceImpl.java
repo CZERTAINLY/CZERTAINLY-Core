@@ -13,8 +13,10 @@ import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
+import com.czertainly.core.dao.entity.TokenProfile_;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
 import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -33,6 +35,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.TOKEN_PROFILE)
@@ -255,13 +258,14 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return tokenProfileRepository.findResourceObject(objectUuid, TokenProfile_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        logger.info("Listing token profiles with filter: {}", filter);
-        return tokenProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(TokenProfile::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return tokenProfileRepository.listResourceObjects(filter, TokenProfile_.name);
     }
 
     @Override

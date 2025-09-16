@@ -9,14 +9,12 @@ import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
-import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -324,7 +322,16 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         if (certificate.getComplianceResult() != null) {
-            dto.setNonCompliantRules(frameComplianceResult(certificate.getComplianceResult()));
+            dto.setComplianceResult(complianceService.getComplianceCheckResult(certificate.getComplianceResult()));
+            dto.setNonCompliantRules(dto.getComplianceResult().getFailedRules().stream().map(failedRule -> {
+                CertificateComplianceResultDto resultDto = new CertificateComplianceResultDto();
+                resultDto.setConnectorName(failedRule.getConnectorName());
+                resultDto.setRuleName(failedRule.getName());
+                resultDto.setRuleDescription(failedRule.getDescription());
+                resultDto.setStatus(failedRule.getStatus());
+                resultDto.setAttributes(failedRule.getAttributes());
+                return resultDto;
+            }).toList());
         }
         if (dto.getCertificateRequest() != null) {
             dto.getCertificateRequest().setAttributes(attributeEngine.getObjectDataAttributesContent(null, null, Resource.CERTIFICATE_REQUEST, certificate.getCertificateRequest().getUuid()));
@@ -1146,8 +1153,8 @@ public class CertificateServiceImpl implements CertificateService {
         for (String uuid : request.getCertificateUuids()) {
             try {
                 Certificate certificateEntity = getCertificateEntity(SecuredUUID.fromString(uuid));
-                complianceService.checkComplianceOfCertificate(certificateEntity);
-            } catch (ConnectorException e) {
+                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificateEntity.getUuid());
+            } catch (Exception e) {
                 logger.error("Compliance check failed.", e);
             }
         }
@@ -1184,7 +1191,7 @@ public class CertificateServiceImpl implements CertificateService {
                 certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
                 validate(certificate);
                 if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == ComplianceStatus.NOT_CHECKED) {
-                    complianceService.checkComplianceOfCertificate(certificate);
+                    complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
                 }
 
                 transactionManager.commit(status);
@@ -1348,6 +1355,11 @@ public class CertificateServiceImpl implements CertificateService {
             certificate.setAltKeyUuid(null);
             certificateRepository.save(certificate);
         }
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return certificateRepository.findResourceObject(objectUuid, Certificate_.serialNumber);
     }
 
     @Override
@@ -1831,47 +1843,11 @@ public class CertificateServiceImpl implements CertificateService {
         return new CertificateRelationId(successorUuid, predecessorUuid);
     }
 
-    private List<CertificateComplianceResultDto> frameComplianceResult(CertificateComplianceStorageDto storageDto) {
-        logger.debug("Framing Compliance Result from stored data: {}", storageDto);
-        List<CertificateComplianceResultDto> result = new ArrayList<>();
-        List<ComplianceProfileRule> rules = complianceService.getComplianceProfileRuleEntityForIds(storageDto.getNok());
-        List<ComplianceRule> rulesWithoutAttributes = complianceService.getComplianceRuleEntityForIds(storageDto.getNok());
-        for (ComplianceProfileRule complianceRule : rules) {
-            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
-        }
-        for (ComplianceRule complianceRule : rulesWithoutAttributes) {
-            result.add(getCertificateComplianceResultDto(complianceRule, ComplianceRuleStatus.NOK));
-        }
-        logger.debug("Compliance Result: {}", result);
-        return result;
-    }
-
-    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceProfileRule rule, ComplianceRuleStatus status) {
-        CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-        dto.setConnectorName(rule.getComplianceRule().getConnector().getName());
-        dto.setRuleName(rule.getComplianceRule().getName());
-        dto.setRuleDescription(rule.getComplianceRule().getDescription());
-        List<DataAttribute> attributes = AttributeDefinitionUtils.mergeAttributes(rule.getComplianceRule().getAttributes(), rule.getAttributes());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(attributes));
-        dto.setStatus(status);
-        return dto;
-    }
-
-    private CertificateComplianceResultDto getCertificateComplianceResultDto(ComplianceRule rule, ComplianceRuleStatus status) {
-        CertificateComplianceResultDto dto = new CertificateComplianceResultDto();
-        dto.setConnectorName(rule.getConnector().getName());
-        dto.setRuleName(rule.getName());
-        dto.setRuleDescription(rule.getDescription());
-        dto.setAttributes(AttributeDefinitionUtils.getResponseAttributes(rule.getAttributes()));
-        dto.setStatus(status);
-        return dto;
-    }
-
     private void certificateComplianceCheck(Certificate certificate) {
         if (certificate.getRaProfile() != null) {
             try {
-                complianceService.checkComplianceOfCertificate(certificate);
-            } catch (ConnectorException | NotFoundException e) {
+                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
+            } catch (Exception e) {
                 logger.debug("Error when checking compliance: {}", e.getMessage());
             }
         }
@@ -1993,8 +1969,8 @@ public class CertificateServiceImpl implements CertificateService {
             attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
 
             try {
-                complianceService.checkComplianceOfCertificate(certificate);
-            } catch (ConnectorException e) {
+                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
+            } catch (Exception e) {
                 logger.error("Error when checking compliance:", e);
             }
         }

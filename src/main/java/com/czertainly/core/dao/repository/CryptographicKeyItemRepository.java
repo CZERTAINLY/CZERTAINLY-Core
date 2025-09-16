@@ -26,11 +26,11 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
     @Query(value = """
             INSERT INTO {h-schema}cryptographic_key_item (
                 uuid, name, type, key_reference_uuid, key_uuid, key_algorithm, format, key_data,
-                state, enabled, length, fingerprint, reason, created_at, updated_at, usage
+                state, enabled, length, fingerprint, reason, compliance_status, created_at, updated_at, usage
             ) VALUES (
                 :#{#cki.uuid}, :#{#cki.name}, :#{#cki.type.name()}, :#{#cki.keyReferenceUuid}, :#{#cki.keyUuid},
                 :#{#cki.keyAlgorithm.name()}, :#{#cki.format?.name() ?: null}, :#{#cki.keyData}, :#{#cki.state.name()}, :#{#cki.enabled},
-                :#{#cki.length}, :#{#cki.fingerprint}, :#{#cki.reason?.name() ?: null}, :#{#cki.createdAt},
+                :#{#cki.length}, :#{#cki.fingerprint}, :#{#cki.reason?.name() ?: null}, :#{#cki.complianceStatus.name()}, :#{#cki.createdAt},
                 :#{#cki.updatedAt}, :#{#cki.usageBitmask}
             ) ON CONFLICT (fingerprint) DO NOTHING
             """, nativeQuery = true)
