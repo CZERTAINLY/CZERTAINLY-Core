@@ -345,7 +345,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     private String buildNewAccountRequestJSON(URI requestUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true}"));
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
         jwsObjectJSON.sign(
                 new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(rsa2048PublicJWK)
@@ -694,6 +694,15 @@ class AcmeServiceTest extends BaseSpringBootTest {
                         RA_PROFILE_NAME,
                         buildRevokeCertRequestJSON_withAccountKey(requestUri, baseUri, nonAcmeB64UrlCertificate), requestUri, true));
         Assertions.assertEquals(thrown.getHttpStatusCode(), HttpStatus.FORBIDDEN.value());
+    }
+
+    @Test
+    void testUpdateAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/update");
+        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(ACME_ACCOUNT_ID_VALID).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
 
     private String buildRevokeCertRequestJSON_withAccountKey(URI requestUri, String baseUri, String certificate) throws JOSEException {
