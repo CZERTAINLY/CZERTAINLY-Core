@@ -6,8 +6,12 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
+import java.util.UUID;
 
 public interface ResourceExtensionService {
+
+    NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException;
+
     /**
      * Function to get the list of name and uuid dto for the objects available in the database.
      * @return List of NameAndUuidDto

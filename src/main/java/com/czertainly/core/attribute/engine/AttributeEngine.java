@@ -795,6 +795,72 @@ public class AttributeEngine {
         }
     }
 
+    public static void validateRequestDataAttributes(List<BaseAttribute> definitions, List<RequestAttributeDto> requestAttributes, boolean strict) throws ValidationException {
+        if (definitions == null) {
+            definitions = new ArrayList<>();
+        }
+        if (requestAttributes == null) {
+            requestAttributes = new ArrayList<>();
+        }
+
+        Map<String, DataAttribute> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute) a));
+        Map<String, RequestAttributeDto> mappedRequestAttributes = requestAttributes.stream().collect(Collectors.toMap(RequestAttributeDto::getUuid, a -> a));
+
+        if (strict) {
+            for (RequestAttributeDto requestAttribute : requestAttributes) {
+                if (mappedDefinitions.get(requestAttribute.getUuid()) == null) {
+                    throw new ValidationException("Request attribute '%s' does not have definition".formatted(requestAttribute.getName()));
+                }
+            }
+        }
+
+        for (DataAttribute definition : mappedDefinitions.values()) {
+            RequestAttributeDto requestAttribute = mappedRequestAttributes.get(definition.getUuid());
+            if (requestAttribute == null) {
+                if (definition.getProperties().isRequired()) {
+                    throw new ValidationException("Missing Request attribute for required attribute '%s'".formatted(definition.getName()));
+                }
+                continue;
+            }
+
+            // compare name and content type
+            if (!definition.getName().equals(requestAttribute.getName())) {
+                throw new ValidationException("Data attribute with UUID '%s' and name '%s' has different name in request attribute: '%s'".formatted(definition.getUuid(), definition.getName(), requestAttribute.getName()));
+            }
+            if (!definition.getContentType().equals(requestAttribute.getContentType())) {
+                throw new ValidationException("Data attribute '%s' of content type '%s' has different content type in request attribute: '%s'".formatted(definition.getName(), definition.getContentType().getLabel(), requestAttribute.getContentType().getLabel()));
+            }
+        }
+    }
+
+    public static List<ResponseAttributeDto> getRequestDataAttributesContent(List<BaseAttribute> definitions, List<RequestAttributeDto> requestAttributes) throws ValidationException {
+        if (definitions == null) {
+            definitions = new ArrayList<>();
+        }
+        if (requestAttributes == null) {
+            requestAttributes = new ArrayList<>();
+        }
+
+        List<ResponseAttributeDto> responseAttributes = new ArrayList<>();
+        Map<String, DataAttribute> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute) a));
+        for (RequestAttributeDto requestAttribute : requestAttributes) {
+            DataAttribute definition = mappedDefinitions.get(requestAttribute.getUuid());
+            if (definition == null) {
+                continue;
+            }
+
+            ResponseAttributeDto responseAttribute = new ResponseAttributeDto();
+            responseAttribute.setUuid(requestAttribute.getUuid());
+            responseAttribute.setName(requestAttribute.getName());
+            responseAttribute.setContentType(requestAttribute.getContentType());
+            responseAttribute.setContent(requestAttribute.getContent());
+            responseAttribute.setLabel(definition.getProperties().getLabel());
+            responseAttribute.setType(definition.getType());
+            responseAttributes.add(responseAttribute);
+        }
+        return responseAttributes;
+    }
+
     public void validateCustomAttributesContent(Resource resource, List<RequestAttributeDto> attributes) throws ValidationException {
         logger.debug("Validating custom attributes: {}", attributes);
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();

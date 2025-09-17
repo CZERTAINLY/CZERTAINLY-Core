@@ -1,11 +1,15 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.certificate.CertificateType;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.util.CertificateUtil;
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
+import org.hibernate.type.SqlTypes;
 
 import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
@@ -59,6 +63,14 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
     @Column(name = "key_usage")
     private int keyUsage;
 
+    @Column(name = "compliance_result", columnDefinition = "jsonb")
+    @JdbcTypeCode(SqlTypes.JSON)
+    private ComplianceResultDto complianceResult;
+
+    @Column(name = "compliance_status", nullable = false)
+    @Enumerated(EnumType.STRING)
+    private ComplianceStatus complianceStatus = ComplianceStatus.NOT_CHECKED;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "key_uuid", insertable = false, updatable = false)
     @ToString.Exclude
@@ -91,15 +103,15 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        CertificateRequestEntity that = (CertificateRequestEntity) o;
+        if (!(o instanceof CertificateRequestEntity that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }

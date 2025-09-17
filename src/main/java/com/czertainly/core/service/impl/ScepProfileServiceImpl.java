@@ -14,11 +14,9 @@ import com.czertainly.api.model.core.scep.ScepProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
-import com.czertainly.core.dao.entity.RaProfile;
-import com.czertainly.core.dao.entity.UniquelyIdentifiedAndAudited;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile_;
 import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
 import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -369,12 +367,14 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return scepProfileRepository.findResourceObject(objectUuid, ScepProfile_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return scepProfileRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(ScepProfile::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return scepProfileRepository.listResourceObjects(filter, ScepProfile_.name);
     }
 
     @Override

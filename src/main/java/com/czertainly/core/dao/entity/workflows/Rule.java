@@ -2,6 +2,9 @@
 package com.czertainly.core.dao.entity.workflows;
 
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.api.model.core.workflows.RuleDetailDto;
 import com.czertainly.api.model.core.workflows.RuleDto;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
@@ -64,19 +67,40 @@ public class Rule extends UniquelyIdentified {
         return ruleDetailDto;
     }
 
+    public ComplianceRuleDto mapToComplianceRuleDto() {
+        ComplianceRuleDto dto = new ComplianceRuleDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(description);
+        dto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
+        dto.setResource(resource);
+
+        return dto;
+    }
+
+    public ComplianceRuleListDto mapToComplianceRuleListDto() {
+        ComplianceRuleListDto dto = new ComplianceRuleListDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(description);
+        dto.setResource(resource);
+
+        return dto;
+    }
+
     @Override
     public final boolean equals(Object o) {
         if (this == o) return true;
         if (o == null) return false;
-        Class<?> oEffectiveClass = o instanceof HibernateProxy ? ((HibernateProxy) o).getHibernateLazyInitializer().getPersistentClass() : o.getClass();
-        Class<?> thisEffectiveClass = this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass() : this.getClass();
+        Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
+        Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        Rule rule = (Rule) o;
-        return getUuid() != null && Objects.equals(getUuid(), rule.getUuid());
+        if (!(o instanceof Rule that)) return false;
+        return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 
     @Override
     public final int hashCode() {
-        return this instanceof HibernateProxy ? ((HibernateProxy) this).getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
+        return this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass().hashCode() : getClass().hashCode();
     }
 }
