@@ -55,11 +55,11 @@ public class AcmeAccount extends UniquelyIdentifiedAndAudited implements Seriali
     @ToString.Exclude
     private Set<AcmeOrder> orders = new HashSet<>();
 
-    @Column
-    private int validOrders = 0;
+    @Column(name = "valid_orders")
+    private int validOrders;
 
-    @Column
-    private int failedOrders = 0;
+    @Column(name = "failed_orders")
+    private int failedOrders;
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "ra_profile_uuid", nullable = false, insertable = false, updatable = false)
