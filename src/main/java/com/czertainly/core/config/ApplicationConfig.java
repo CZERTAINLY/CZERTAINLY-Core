@@ -124,6 +124,11 @@ public class ApplicationConfig {
     }
 
     @Bean
+    public com.czertainly.api.clients.v2.ComplianceApiClient complianceApiClientV2(WebClient webClient, TrustManager[] defaultTrustManagers) {
+        return new com.czertainly.api.clients.v2.ComplianceApiClient(webClient, defaultTrustManagers);
+    }
+
+    @Bean
     public UserManagementApiClient userManagementApiClient() {
         return new UserManagementApiClient();
     }

@@ -17,9 +17,7 @@ import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceStatusDetailDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
-import com.czertainly.core.dao.entity.Connector;
-import com.czertainly.core.dao.entity.TokenInstanceReference;
-import com.czertainly.core.dao.entity.TokenProfile;
+import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -36,6 +34,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.TOKEN)
@@ -347,13 +346,14 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return tokenInstanceReferenceRepository.findResourceObject(objectUuid, TokenInstanceReference_.name);
+    }
+
+    @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        logger.info("Listing resource objects with filter: {}", filter);
-        return tokenInstanceReferenceRepository.findUsingSecurityFilter(filter)
-                .stream()
-                .map(TokenInstanceReference::mapToAccessControlObjects)
-                .collect(Collectors.toList());
+        return tokenInstanceReferenceRepository.listResourceObjects(filter, TokenInstanceReference_.name);
     }
 
     @Override

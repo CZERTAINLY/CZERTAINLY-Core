@@ -1,0 +1,46 @@
+package com.czertainly.core.api.web.v2;
+
+import com.czertainly.api.interfaces.core.web.v2.ComplianceController;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.enums.Operation;
+import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.logging.LogResource;
+import com.czertainly.core.security.authz.SecuredUUID;
+import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.util.converter.ResourceCodeConverter;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.web.bind.WebDataBinder;
+import org.springframework.web.bind.annotation.InitBinder;
+import org.springframework.web.bind.annotation.RestController;
+
+import java.util.List;
+import java.util.UUID;
+
+@RestController
+public class ComplianceControllerImpl implements ComplianceController {
+
+    private ComplianceService complianceService;
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
+    }
+
+    @InitBinder
+    public void initBinder(final WebDataBinder webdataBinder) {
+        webdataBinder.registerCustomEditor(Resource.class, new ResourceCodeConverter());
+    }
+
+    @Override
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
+    public void checkCompliance(@LogResource(uuid = true) List<UUID> uuids, Resource resource, String type) {
+        complianceService.checkCompliance(SecuredUUID.fromUuidList(uuids), resource, type);
+    }
+
+    @Override
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
+    public void checkResourceObjectsCompliance(@LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) List<UUID> objectUuids) {
+        complianceService.checkResourceObjectsCompliance(resource, objectUuids);
+    }
+}

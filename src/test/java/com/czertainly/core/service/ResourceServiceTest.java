@@ -160,7 +160,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testGetObjectsForResource() {
+    void testGetResourceObjects() {
         List<Resource> resources = List.of(
                 Resource.ACME_PROFILE,
                 Resource.AUTHORITY,
@@ -181,13 +181,13 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
         for (Resource resource : resources) {
             // Call the method to test and check that it does not throw an exception
-            Assertions.assertDoesNotThrow(() -> resourceService.getObjectsForResource(resource), "Should not throw exception for resource: " + resource);
+            Assertions.assertDoesNotThrow(() -> resourceService.getResourceObjects(resource), "Should not throw exception for resource: " + resource);
         }
 
         // Throw NotFoundException for unsupported resource
         Resource unsupportedResource = Resource.CERTIFICATE;
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getObjectsForResource(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getObjectsForResource(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
     }
 
     @Test
