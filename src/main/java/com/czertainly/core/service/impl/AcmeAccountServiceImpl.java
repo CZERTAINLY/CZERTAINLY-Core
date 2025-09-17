@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
+import com.czertainly.core.dao.entity.acme.AcmeAccount_;
 import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
@@ -28,6 +29,7 @@ import jakarta.transaction.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service(Resource.Codes.ACME_ACCOUNT)
@@ -160,9 +162,13 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return acmeAccountRepository.findResourceObject(objectUuid, AcmeAccount_.accountId);
+    }
+
+    @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return acmeAccountRepository.findAll().stream().map(acmeAccount ->
-            new NameAndUuidDto(acmeAccount.getAccountId(), acmeAccount.getUuid().toString())).toList();
+        return acmeAccountRepository.listResourceObjects(filter, AcmeAccount_.accountId);
     }
 
     @Override
