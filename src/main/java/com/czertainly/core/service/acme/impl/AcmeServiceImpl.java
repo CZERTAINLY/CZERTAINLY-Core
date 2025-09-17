@@ -300,7 +300,7 @@ public class AcmeServiceImpl implements AcmeService {
         }
         if (request.getStatus() != null && request.getStatus().equals(AccountStatus.DEACTIVATED)) {
             logger.info("Deactivating Account with ID: {}", accountId);
-            deactivateOrders(account.getOrders(), account);
+            deactivateOrders(account);
             account.setStatus(AccountStatus.DEACTIVATED);
         }
         acmeAccountRepository.save(account);
@@ -431,7 +431,9 @@ public class AcmeServiceImpl implements AcmeService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
         }
 
-        updateOrderStatusForAccount(acmeAccount);
+        int invalidatedOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
+        acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + invalidatedOrders);
+        acmeAccountRepository.save(acmeAccount);
 
         logger.debug("Request to list Orders for the Account with ID: {}", accountId);
         List<Order> orders = acmeAccount
@@ -832,9 +834,10 @@ public class AcmeServiceImpl implements AcmeService {
         }
     }
 
-    private void deactivateOrders(Set<AcmeOrder> orders, AcmeAccount acmeAccount) {
+    private void deactivateOrders(AcmeAccount acmeAccount) {
         int failedOrdersCount = 0;
-        for (AcmeOrder order : orders) {
+        for (AcmeOrder order : acmeAccount.getOrders()) {
+            // Order might have already been invalid and accounted for, only update count for changed status
             if (order.getStatus() != OrderStatus.INVALID) failedOrdersCount++;
             order.setStatus(OrderStatus.INVALID);
             deactivateAuthorizations(order.getAuthorizations());
@@ -848,7 +851,7 @@ public class AcmeServiceImpl implements AcmeService {
             authorization.setStatus(AuthorizationStatus.DEACTIVATED);
             deactivateChallenges(authorization.getChallenges());
             acmeAuthorizationRepository.save(authorization);
-        }
+        }   
     }
 
     private void deactivateChallenges(Set<AcmeChallenge> challenges) {
@@ -944,25 +947,6 @@ public class AcmeServiceImpl implements AcmeService {
         challenge.setType(challengeType);
         acmeChallengeRepository.save(challenge);
         return challenge;
-    }
-
-    private void updateOrderStatusForAccount(AcmeAccount account) {
-        List<AcmeOrder> expiredOrders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(account, new Date());
-        int failedOrdersIncrement = 0;
-        for (AcmeOrder order : expiredOrders) {
-            if (!order.getStatus().equals(OrderStatus.VALID) && !order.getStatus().equals(OrderStatus.INVALID)) {
-                order.setStatus(OrderStatus.INVALID);
-                failedOrdersIncrement++;
-                acmeOrderRepository.save(order);
-            }
-        }
-        account.setFailedOrders(account.getFailedOrders() + failedOrdersIncrement);
-        acmeAccountRepository.save(account);
-    }
-
-    private void updateFailedOrdersCount(AcmeOrder order) {
-        order.getAcmeAccount().setFailedOrders(order.getAcmeAccount().getFailedOrders() + 1);
-        acmeAccountRepository.save(order.getAcmeAccount());
     }
 
     private boolean validateHttpChallenge(AcmeChallenge challenge) throws AcmeProblemDocumentException {
@@ -1188,7 +1172,8 @@ public class AcmeServiceImpl implements AcmeService {
             } catch (Exception e) {
                 logger.error("Issue Certificate failed. Exception: {}", e.getMessage());
                 order.setStatus(OrderStatus.INVALID);
-                updateFailedOrdersCount(order);
+                // Order with previously invalid status would not have reached issuing of certificate, therefore count needs to be incremented always
+                incrementFailedOrdersCount(order);
             }
             acmeOrderRepository.save(order);
         } else {
@@ -1196,7 +1181,7 @@ public class AcmeServiceImpl implements AcmeService {
             logger.debug("Calling finalize of Order but certificate is already requested. Current status: {}", newStatus);
             if (!newStatus.equals(order.getStatus())) {
                 order.setStatus(newStatus);
-                updateOrderCounts(newStatus, order);
+                incrementOrderCounts(newStatus, order);
                 acmeOrderRepository.save(order);
             }
         }
@@ -1399,7 +1384,7 @@ public class AcmeServiceImpl implements AcmeService {
             if (!newStatus.equals(order.getStatus())) {
                 logger.info("ACME Order status changed from {} to {}.", order.getStatus(), newStatus);
                 order.setStatus(newStatus);
-                updateOrderCounts(newStatus, order);
+                incrementOrderCounts(newStatus, order);
                 acmeOrderRepository.save(order);
             }
         }
@@ -1407,14 +1392,21 @@ public class AcmeServiceImpl implements AcmeService {
         return order;
     }
 
-    private void updateOrderCounts(OrderStatus newStatus, AcmeOrder order) {
+    private void incrementOrderCounts(OrderStatus newStatus, AcmeOrder order) {
+        // Since this method is called only if the order status has been changed, the count of failed/valid orders will
+        // always need to be updated
         if (newStatus == OrderStatus.INVALID) {
-            updateFailedOrdersCount(order);
+            incrementFailedOrdersCount(order);
         }
         if (newStatus == OrderStatus.VALID) {
             order.getAcmeAccount().setValidOrders(order.getAcmeAccount().getValidOrders() + 1);
             acmeAccountRepository.save(order.getAcmeAccount());
         }
+    }
+
+    private void incrementFailedOrdersCount(AcmeOrder order) {
+        order.getAcmeAccount().setFailedOrders(order.getAcmeAccount().getFailedOrders() + 1);
+        acmeAccountRepository.save(order.getAcmeAccount());
     }
 
     private AcmeAuthorization validateAuthorization(String authorizationId) throws AcmeProblemDocumentException {
