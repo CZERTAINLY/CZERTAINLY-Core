@@ -7,11 +7,9 @@ import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
-import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
 import com.czertainly.core.dao.entity.acme.AcmeAccount_;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -135,13 +133,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
 
-        List<AcmeOrder> orders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(acmeAccount, new Date());
-        for (AcmeOrder order : orders) {
-            if (!order.getStatus().equals(OrderStatus.VALID)) {
-                order.setStatus(OrderStatus.INVALID);
-                acmeOrderRepository.save(order);
-            }
-        }
+        int invalidatedExpiredOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
+        acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + invalidatedExpiredOrders);
+        acmeAccountRepository.save(acmeAccount);
 
         return getAcmeAccountEntity(uuid).mapToDtoForUi();
     }
