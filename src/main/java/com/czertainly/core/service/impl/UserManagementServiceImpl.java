@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.NameAndUuid;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
@@ -189,7 +190,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .module(Module.AUTH)
                     .actor(LoggingHelper.getActorInfo())
                     .source(LoggingHelper.getSourceInfo())
-                    .resource(ResourceRecord.builder().type(Resource.USER).uuids(List.of(UUID.fromString(userUuid))).build())
+                    .resource(ResourceRecord.builder().type(Resource.USER).nameAndUuids(List.of(new NameAndUuid(null, UUID.fromString(userUuid)))).build())
                     .message("User with UUID %s has been %s".formatted(userUuid, actionName))
                     .build());
         }
