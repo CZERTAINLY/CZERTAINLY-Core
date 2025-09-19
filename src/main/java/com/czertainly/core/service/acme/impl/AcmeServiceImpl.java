@@ -240,7 +240,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         Account accountDto = account.mapToDto();
         String baseUri = getAcmeBaseUri();
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, account.getUuid(), account.getAccountId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, account.getUuid().toString(), account.getAccountId());
 
         ResponseEntity.BodyBuilder responseBuilder;
         if (isRaProfileBased) {
@@ -286,7 +286,7 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeAccount account;
         try {
             account = getAcmeAccountEntity(accountId);
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, account.getUuid(), account.getAccountId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, account.getUuid().toString(), account.getAccountId());
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
         }
@@ -357,7 +357,7 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeAccount acmeAccount;
         try {
             acmeAccount = getAcmeAccountEntity(accountId);
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, acmeAccount.getUuid(), acmeAccount.getAccountId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, false, acmeAccount.getUuid().toString(), acmeAccount.getAccountId());
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
         }
@@ -402,7 +402,7 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeAccount acmeAccount;
         try {
             acmeAccount = getAcmeAccountEntity(acmeAccountId);
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, acmeAccount.getUuid(), acmeAccount.getAccountId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, acmeAccount.getUuid().toString(), acmeAccount.getAccountId());
             validateAccount(acmeAccount);
             logger.info("ACME Account set: {}", acmeAccount);
         } catch (NotFoundException e) {
@@ -412,7 +412,7 @@ public class AcmeServiceImpl implements AcmeService {
 
         AcmeOrder order = generateOrder(acmeAccount, jwsRequest);
         logger.debug("Order created: {}", order);
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid(), order.getOrderId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid().toString(), order.getOrderId());
 
         return ResponseEntity.created(URI.create(order.getUrl()))
                 .header(AcmeConstants.NONCE_HEADER_NAME, generateNonce())
@@ -426,7 +426,7 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeAccount acmeAccount;
         try {
             acmeAccount = getAcmeAccountEntity(accountId);
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, acmeAccount.getUuid(), acmeAccount.getAccountId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, acmeAccount.getUuid().toString(), acmeAccount.getAccountId());
         } catch (NotFoundException e) {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
         }
@@ -458,9 +458,9 @@ public class AcmeServiceImpl implements AcmeService {
         AcmeJwsRequest jwsRequest = new AcmeJwsRequest(requestJson);
         validateRequest(jwsRequest, acmeProfileName, requestUri, isRaProfileBased);
         AcmeAuthorization authorization = validateAuthorization(authorizationId);
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_AUTHORIZATION, false, authorization.getUuid(), authorization.getAuthorizationId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_AUTHORIZATION, false, authorization.getUuid().toString(), authorization.getAuthorizationId());
         if (authorization.getOrder() != null) {
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, true, authorization.getOrder().getUuid(), authorization.getOrder().getOrderId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, true, authorization.getOrder().getUuid().toString(), authorization.getOrder().getOrderId());
         }
 
         boolean isDeactivateRequest = false;
@@ -496,7 +496,7 @@ public class AcmeServiceImpl implements AcmeService {
         logger.debug("Authorization corresponding to the Order: {}", authorization.toString());
         AcmeOrder order = authorization.getOrder();
         logger.debug("Order corresponding to the Challenge: {}", order.toString());
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, true, order.getUuid(), order.getOrderId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, true, order.getUuid().toString(), order.getOrderId());
 
         boolean isValid;
         if (challenge.getType().equals(ChallengeType.HTTP01)) {
@@ -540,9 +540,9 @@ public class AcmeServiceImpl implements AcmeService {
 
         logger.debug("Request to finalize the Order with ID: {}", orderId);
         AcmeOrder order = validateOrder(orderId);
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid(), order.getOrderId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid().toString(), order.getOrderId());
         if (order.getAcmeAccount() != null) {
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, order.getAcmeAccount().getUuid(), order.getAcmeAccount().getAccountId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, order.getAcmeAccount().getUuid().toString(), order.getAcmeAccount().getAccountId());
         }
 
         validateAccount(order.getAcmeAccount());
@@ -595,9 +595,9 @@ public class AcmeServiceImpl implements AcmeService {
     @Override
     public ResponseEntity<Order> getOrder(String acmeProfileName, String orderId, URI requestUri, boolean isRaProfileBased) throws AcmeProblemDocumentException {
         AcmeOrder order = validateOrder(orderId);
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid(), order.getOrderId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, false, order.getUuid().toString(), order.getOrderId());
         if (order.getAcmeAccount() != null) {
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, order.getAcmeAccount().getUuid(), order.getAcmeAccount().getAccountId());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ACCOUNT, true, order.getAcmeAccount().getUuid().toString(), order.getAcmeAccount().getAccountId());
         }
 
         if (order.getStatus().equals(OrderStatus.INVALID)) {
@@ -646,7 +646,7 @@ public class AcmeServiceImpl implements AcmeService {
         ClientCertificateRevocationDto revokeRequest = new ClientCertificateRevocationDto();
 
         Certificate cert = certificateService.getCertificateEntityByContent(base64Certificate);
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.CERTIFICATE, false, cert.getUuid(), cert.getSubjectDn());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.CERTIFICATE, false, cert.getUuid().toString(), cert.getSubjectDn());
         if (cert.isArchived()) throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ARCHIVED);
         if (cert.getState().equals(CertificateState.REVOKED)) {
             logger.error("Certificate is already revoked. Serial number: {}, Fingerprint: {}", cert.getSerialNumber(), cert.getFingerprint());
@@ -1199,11 +1199,11 @@ public class AcmeServiceImpl implements AcmeService {
 
     protected ByteArrayResource getCertificateResource(String certificateId) throws NotFoundException, CertificateException {
         AcmeOrder order = acmeOrderRepository.findByCertificateId(certificateId).orElseThrow(() -> new NotFoundException(Order.class, certificateId));
-        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, true, order.getUuid(), order.getOrderId());
+        LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.ACME_ORDER, true, order.getUuid().toString(), order.getOrderId());
 
         CertificateChainResponseDto certificateChainResponse = certificateService.getCertificateChain(SecuredUUID.fromUUID(order.getCertificateReferenceUuid()), true);
         if (!certificateChainResponse.getCertificates().isEmpty()) {
-            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.CERTIFICATE, false, UUID.fromString(certificateChainResponse.getCertificates().getFirst().getUuid()), certificateChainResponse.getCertificates().getFirst().getSubjectDn());
+            LoggingHelper.putLogResourceInfo(com.czertainly.api.model.core.auth.Resource.CERTIFICATE, false, certificateChainResponse.getCertificates().getFirst().getUuid(), certificateChainResponse.getCertificates().getFirst().getSubjectDn());
         }
         String chainString = frameCertChainString(certificateChainResponse.getCertificates());
         return new ByteArrayResource(chainString.getBytes(StandardCharsets.UTF_8));

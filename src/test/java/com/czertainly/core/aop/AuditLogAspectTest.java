@@ -60,24 +60,24 @@ class AuditLogAspectTest extends BaseSpringBootTest {
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
-        Assertions.assertNull(auditLogNoUuidResource.getLogRecord().affiliatedResource().uuids());
+        Assertions.assertNull(auditLogNoUuidResource.getLogRecord().affiliatedResource().objects());
 
         AuditLog auditLogWithUuidResource = auditLogs.get(1);
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogWithUuidResource.getLogRecord().affiliatedResource().type());
-        Assertions.assertEquals(1, auditLogWithUuidResource.getLogRecord().affiliatedResource().uuids().size());
+        Assertions.assertEquals(1, auditLogWithUuidResource.getLogRecord().affiliatedResource().objects().size());
 
         AuditLog auditLogWithNamedResource = auditLogs.get(2);
         Assertions.assertEquals(OperationResult.FAILURE, auditLogWithNamedResource.getOperationResult());
         Assertions.assertEquals(Resource.ATTRIBUTE, auditLogWithNamedResource.getLogRecord().resource().type());
-        Assertions.assertEquals(KeyRequestType.KEY_PAIR.getCode(), auditLogWithNamedResource.getLogRecord().resource().names().getFirst());
+        Assertions.assertEquals(KeyRequestType.KEY_PAIR.getCode(), auditLogWithNamedResource.getLogRecord().resource().objects().getFirst().getName());
 
         AuditLog auditLogWithMoreUuidResource = auditLogs.get(3);
         Assertions.assertEquals(Resource.CRYPTOGRAPHIC_KEY, auditLogWithMoreUuidResource.getLogRecord().resource().type());
-        Assertions.assertEquals(2, auditLogWithMoreUuidResource.getLogRecord().resource().uuids().size());
+        Assertions.assertEquals(2, auditLogWithMoreUuidResource.getLogRecord().resource().objects().size());
 
         AuditLog auditLogWithNamedResourceDirectly = auditLogs.get(4);
         Assertions.assertEquals(Resource.SETTINGS, auditLogWithNamedResourceDirectly.getLogRecord().resource().type());
-        Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResourceDirectly.getLogRecord().resource().names().getFirst());
+        Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResourceDirectly.getLogRecord().resource().objects().getFirst().getName());
     }
 
     private void turnOnLogging() {

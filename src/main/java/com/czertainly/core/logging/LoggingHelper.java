@@ -86,12 +86,12 @@ public class LoggingHelper {
         if (affiliated) {
             String resource = MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), Set.of(new NameAndUuid(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new NameAndUuid(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
             }
         } else {
             String resource = MDC.get(LOG_AUDIT_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), Set.of(new NameAndUuid(MDC.get(LOG_AUDIT_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new NameAndUuid(MDC.get(LOG_AUDIT_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
             }
         }
 

@@ -65,7 +65,6 @@ public class CertificateEventHistoryServiceImpl implements CertificateEventHisto
     @Override
     public List<CertificateEventHistoryDto> getCertificateEventHistory(UUID uuid) throws NotFoundException {
         Certificate certificate = certificateRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Certificate.class, uuid));
-        LoggingHelper.putResourceInfo(List.of(new NameAndUuid(certificate.getSerialNumber(), uuid)));
         return certificateEventHistoryRepository.findByCertificateOrderByCreatedDesc(certificate).stream().map(CertificateEventHistory::mapToDto).toList();
     }
 

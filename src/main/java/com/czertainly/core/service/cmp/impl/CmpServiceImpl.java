@@ -352,7 +352,7 @@ public class CmpServiceImpl implements CmpService {
             if (cmpProfile == null) {
                 return;
             }
-            LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid(), cmpProfile.getName());
+            LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid().toString(), cmpProfile.getName());
 
             String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpIssueCertificateAttributes() : null;
             issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
@@ -363,7 +363,7 @@ public class CmpServiceImpl implements CmpService {
             if (cmpProfile == null) {
                 return;
             }
-            LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid(), cmpProfile.getName());
+            LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid().toString(), cmpProfile.getName());
             raProfile = cmpProfile.getRaProfile();
             if (raProfile == null) {
                 return;

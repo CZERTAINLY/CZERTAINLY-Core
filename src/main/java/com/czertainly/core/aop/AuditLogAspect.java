@@ -11,6 +11,7 @@ import com.czertainly.api.model.core.logging.records.*;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
+import com.czertainly.core.logging.AuditLogEnhancer;
 import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
@@ -20,6 +21,7 @@ import com.czertainly.core.messaging.producers.AuditLogsProducer;
 import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.BeautificationUtil;
+import lombok.extern.slf4j.Slf4j;
 import org.aspectj.lang.ProceedingJoinPoint;
 import org.aspectj.lang.annotation.Around;
 import org.aspectj.lang.annotation.Aspect;
@@ -34,21 +36,29 @@ import java.io.Serializable;
 import java.lang.reflect.Parameter;
 import java.util.*;
 
+@Slf4j
 @Aspect
 @Component
 public class AuditLogAspect {
-
-    private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);
 
     @Value("${logging.schema-version}")
     private String schemaVersion;
 
     private AuditLogsProducer auditLogsProducer;
 
+    private AuditLogEnhancer auditLogEnhancer;
+
+    @Autowired
+    public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
+        this.auditLogEnhancer = auditLogEnhancer;
+    }
+
     @Autowired
     public void setAuditLogsProducer(AuditLogsProducer auditLogsProducer) {
         this.auditLogsProducer = auditLogsProducer;
     }
+
+
 
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
@@ -60,28 +70,18 @@ public class AuditLogAspect {
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         AuditLogged annotation = signature.getMethod().getAnnotation(AuditLogged.class);
 
-        AuditLogMessage auditLogMessage = new AuditLogMessage();
-
-        auditLogMessage.setVersion(schemaVersion);
-        auditLogMessage.setModule(annotation.module());
-        ActorRecord actorRecord = LoggingHelper.getActorInfo();
-        auditLogMessage.setActorAuthMethod(actorRecord.authMethod());
-        auditLogMessage.setActorUuid(actorRecord.uuid());
-        auditLogMessage.setActorType(actorRecord.type());
-        auditLogMessage.setActorName(actorRecord.name());
-        SourceRecord sourceRecord = LoggingHelper.getSourceInfo();
-        if (sourceRecord != null) {
-            auditLogMessage.setUserAgent(sourceRecord.userAgent());
-            auditLogMessage.setIpAddress(sourceRecord.ipAddress());
-            auditLogMessage.setContentType(sourceRecord.contentType());
-            auditLogMessage.setPath(sourceRecord.path());
-            auditLogMessage.setContentType(sourceRecord.contentType());
-        }
+        LogRecord.LogRecordBuilder logBuilder = LogRecord.builder()
+                .version(schemaVersion) // hardcoded for now
+                .audited(true)
+                .module(annotation.module())
+                .actor(LoggingHelper.getActorInfo())
+                .source(LoggingHelper.getSourceInfo());
 
         Object result = null;
         try {
             result = joinPoint.proceed();
-            auditLogMessage.setOperationResult(OperationResult.SUCCESS);
+            logBuilder.operationResult(OperationResult.SUCCESS);
+
             return result;
         } catch (Exception e) {
             String message = e.getMessage();
@@ -90,16 +90,17 @@ public class AuditLogAspect {
                 String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
                 message = "%s. Required '%s' action permission for resource '%s'".formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName), Resource.findByCode(resourceName).getLabel());
             }
-            auditLogMessage.setOperationResult(OperationResult.FAILURE);
-            auditLogMessage.setMessage(message);
+
+            logBuilder.operationResult(OperationResult.FAILURE);
+            logBuilder.message(message);
             throw e;
         } finally {
-            constructLogData(annotation, auditLogMessage, signature.getMethod().getParameters(), joinPoint.getArgs(), result);
-            auditLogsProducer.produceMessage(auditLogMessage);
+            constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result, loggingSettingsDto.getAuditLogs().isVerbose());
+            auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build()));
         }
     }
 
-    private void constructLogData(AuditLogged annotation, AuditLogMessage auditLogMessage, Parameter[] parameters, Object[] parameterValues, Object response) {
+    private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, Object response, boolean verbose) {
         Resource resource = null;
         String resourceName = null;
         List<UUID> resourceUuids = null;
@@ -130,7 +131,7 @@ public class AuditLogAspect {
                     if (paramResource != null) resource = paramResource;
                 }
 
-                if (logger.getLogger().isDebugEnabled() && !parameters[i].isAnnotationPresent(Sensitive.class)) {
+                if (verbose && !parameters[i].isAnnotationPresent(Sensitive.class)) {
                     if (parameterValue instanceof Optional<?> optional) {
                         parameterValue = optional.orElse(null);
                     }
@@ -149,18 +150,26 @@ public class AuditLogAspect {
 
             if (response instanceof Loggable loggable) {
                 responseOperationData = loggable.toLogData();
+                // Add data from response
+                if (responseOperationData instanceof NameAndUuidDto nameAndUuidDto) {
+                    if (resourceName == null) resourceName = nameAndUuidDto.getName();
+                    if (nameAndUuidDto.getUuid() != null) {
+                        if (resourceUuids == null) resourceUuids = new ArrayList<>();
+                        resourceUuids.add(UUID.fromString(nameAndUuidDto.getUuid()));
+                    }
+                }
             }
         }
 
         Operation operation = annotation.operation() != Operation.UNKNOWN ? annotation.operation() : LoggingHelper.getAuditLogOperation();
-        auditLogMessage.setOperation(operation);
-        constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name(), auditLogMessage);
+        logBuilder.operation(operation);
+        logBuilder.resource(constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name(), operation));
         if (affiliatedResource != Resource.NONE) {
-            constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName, auditLogMessage);
+            logBuilder.affiliatedResource(constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName, operation));
         }
-        auditLogMessage.setOperationData(responseOperationData);
+        logBuilder.operationData(responseOperationData);
         if (!data.isEmpty()) {
-            auditLogMessage.setAdditionalData(data);
+            logBuilder.additionalData(data);
         }
     }
 
@@ -207,49 +216,48 @@ public class AuditLogAspect {
         return null;
     }
 
-    private void constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, AuditLogMessage auditLogMessage) {
-        List<NameAndUuid> nameAndUuids = new ArrayList<>();
+    private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, Operation operation) {
+        List<NameAndUuid> objects = new ArrayList<>();
 
-        // Work on a mutable set for fast removals
-        Set<UUID> remainingUuids = resourceUuids == null ? new HashSet<>() : new HashSet<>(resourceUuids);
-
-        // Add the "main" resource if present
-        if (!remainingUuids.isEmpty()) {
-            UUID first = remainingUuids.iterator().next();
-            nameAndUuids.add(new NameAndUuid(resourceName, first));
-            remainingUuids.remove(first);
+        // step 1: first uuid with provided resourceName (if available)
+        if (resourceUuids != null && !resourceUuids.isEmpty() && resourceName != null) {
+            objects.add(new NameAndUuid(resourceName, resourceUuids.getFirst()));
         }
 
-        // Merge with stored record
-        ResourceRecord storedResource = LoggingHelper.getLogResourceInfo(affiliated);
-        if (storedResource != null && storedResource.type() == resource) {
-            List<NameAndUuid> storedNamesAndUuids = storedResource.nameAndUuids();
-            if (storedNamesAndUuids != null) {
-                for (NameAndUuid stored : storedNamesAndUuids) {
-                    UUID uuid = stored.getUuid();
-                    if (remainingUuids.contains(uuid) && stored.getName() != null) {
-                        // Prefer the stored name if present
-                        nameAndUuids.add(stored);
-                        remainingUuids.remove(uuid);
-                    } else if (!nameAndUuids.contains(stored)) {
-                        // Only add if not already present
-                        nameAndUuids.add(stored);
-                    }
+        // prepare lookup from stored resource if needed
+        Map<UUID, String> storedUuidToName = new HashMap<>();
+        ResourceRecord storedResource = null;
+        if (resourceUuids == null || resourceName == null) {
+            storedResource = LoggingHelper.getLogResourceInfo(affiliated);
+            if (storedResource != null && storedResource.type() == resource) {
+                for (NameAndUuid storedObject : storedResource.objects()) {
+                    storedUuidToName.put(storedObject.getUuid(), storedObject.getName());
                 }
             }
         }
 
-        // Add all remaining UUIDs without names
-        for (UUID uuid : remainingUuids) {
-            nameAndUuids.add(new NameAndUuid(null, uuid));
+        // step 2: remaining uuids (use stored name if available, otherwise null)
+        if (resourceUuids != null && !resourceUuids.isEmpty()) {
+            for (UUID uuid :resourceUuids) {
+                String name = storedUuidToName.getOrDefault(uuid, null);
+                objects.add(new NameAndUuid(name, uuid));
+            }
         }
-        if (affiliated) {
-            auditLogMessage.setAffiliatedResource(resource);
-            auditLogMessage.setAffiliatedResourceNamesAndUuids(nameAndUuids);
-        } else {
-            auditLogMessage.setResource(resource);
-            auditLogMessage.setResourceNamesAndUuids(nameAndUuids);
+
+        // step 3: add all stored objects not already in resourceUuids
+        if (storedResource != null) {
+            for (NameAndUuid storedObject : storedResource.objects()) {
+                if (resourceUuids == null || !resourceUuids.contains(storedObject.getUuid())) {
+                    objects.add(storedObject);
+                }
+            }
         }
+
+        // if operation is delete, also call resource service
+        if (operation == Operation.DELETE || operation == Operation.FORCE_DELETE)
+            objects = auditLogEnhancer.enrichNamesAndUuids(objects, resource);
+
+        return new ResourceRecord(resource, objects);
     }
 
 }
