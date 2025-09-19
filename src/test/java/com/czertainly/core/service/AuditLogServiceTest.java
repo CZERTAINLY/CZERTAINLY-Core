@@ -13,13 +13,18 @@ import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
 import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
+import com.czertainly.core.messaging.listeners.AuditLogsListener;
+import com.czertainly.core.messaging.model.AuditLogMessage;
+import com.czertainly.core.messaging.producers.AuditLogsProducer;
 import com.czertainly.core.model.auth.Resource;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.File;
 import java.io.FileOutputStream;
@@ -43,8 +48,20 @@ class AuditLogServiceTest extends BaseSpringBootTest {
     @Autowired
     private AuditLogController auditLogController;
 
+    @MockitoBean
+    private AuditLogsProducer auditLogsProducer;
+
+    @Autowired
+    private AuditLogsListener auditLogsListener;
+
     @BeforeEach
     public void setUp() {
+        Mockito.doAnswer(invocation -> {
+            Object msg = invocation.getArgument(0);
+            auditLogsListener.processMessage((AuditLogMessage) msg);
+            return null; // because produceMessage returns void
+        }).when(auditLogsProducer).produceMessage(Mockito.any());
+
         LoggingSettingsDto loggingSettingsDto = new LoggingSettingsDto();
 
         AuditLoggingSettingsDto auditLoggingSettingsDto = new AuditLoggingSettingsDto();

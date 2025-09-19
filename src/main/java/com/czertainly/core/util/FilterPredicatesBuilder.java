@@ -203,19 +203,27 @@ public class FilterPredicatesBuilder {
         if (filterField.getFieldAttribute() != null && !isCountOperator(filterDto.getCondition()))
             expression = from.get(filterField.getFieldAttribute().getName());
 
+        boolean isJsonArray = filterField == FilterField.AUDIT_LOG_RESOURCE_UUID || filterField == FilterField.AUDIT_LOG_RESOURCE_NAME;
         if (filterField.getJsonPath() != null) {
-            expression = switch (filterField.getJsonPath().length) {
-                case 1 ->
-                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]));
-                case 2 ->
-                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]));
-                case 3 ->
-                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]));
-                case 4 ->
-                        criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]), criteriaBuilder.literal(filterField.getJsonPath()[3]));
-                default ->
-                        throw new ValidationException("Unexpected size of JSON path `%s`: %d".formatted(filterField.getJsonPath(), filterField.getJsonPath().length));
-            };
+            if (isJsonArray) {
+                expression = criteriaBuilder.function("jsonb_path_query_array",
+                        String.class,
+                        from.get(filterField.getFieldAttribute().getName()),
+                        criteriaBuilder.literal("$.resource.objects[*]." + filterField.getJsonPath()[2]));
+            } else {
+                expression = switch (filterField.getJsonPath().length) {
+                    case 1 ->
+                            criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]));
+                    case 2 ->
+                            criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]));
+                    case 3 ->
+                            criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]));
+                    case 4 ->
+                            criteriaBuilder.function(JSONB_EXTRACT_PATH_TEXT_FUNCTION_NAME, String.class, from.get(filterField.getFieldAttribute().getName()), criteriaBuilder.literal(filterField.getJsonPath()[0]), criteriaBuilder.literal(filterField.getJsonPath()[1]), criteriaBuilder.literal(filterField.getJsonPath()[2]), criteriaBuilder.literal(filterField.getJsonPath()[3]));
+                    default ->
+                            throw new ValidationException("Unexpected size of JSON path `%s`: %d".formatted(filterField.getJsonPath(), filterField.getJsonPath().length));
+                };
+            }
         } else if (filterField.getType().getExpressionClass() != null && filterField.getExpectedValue() == null) {
             expression = ((JpaExpression) expression).cast(filterField.getType().getExpressionClass());
         }
@@ -248,12 +256,16 @@ public class FilterPredicatesBuilder {
             case EQUALS -> {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else if (isJsonArray)
+                    predicate = criteriaBuilder.isTrue(criteriaBuilder.function(BitwiseFunctionContributor.JSONB_CONTAINS, Boolean.class, expression, criteriaBuilder.literal(MetaDefinitions.serializeArrayString(filterValues.stream().map(Object::toString).toList()))));
                 else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
             }
             case NOT_EQUALS -> {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
+                else if (isJsonArray)
+                    predicate = criteriaBuilder.isFalse(criteriaBuilder.function(BitwiseFunctionContributor.JSONB_CONTAINS, Boolean.class, expression, criteriaBuilder.literal(MetaDefinitions.serializeArrayString(filterValues.stream().map(Object::toString).toList()))));
                 else {
                     // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
                     if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
@@ -261,7 +273,7 @@ public class FilterPredicatesBuilder {
                     } else {
                         predicate = filterField.getFieldResource() == Resource.GROUP
                                 ? getGroupNotExistPredicate(criteriaBuilder, query, root, filterField.getFieldAttribute(), filterValues, filterField.getRootResource())
-                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
+                                : criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false, isJsonArray), multipleValues ? criteriaBuilder.not(expression.in(filterValues)) : criteriaBuilder.notEqual(expression, filterValues.getFirst()));
                     }
                 }
             }
@@ -269,12 +281,12 @@ public class FilterPredicatesBuilder {
             case ENDS_WITH -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst());
             case CONTAINS -> predicate = criteriaBuilder.like(expression, "%" + filterValues.getFirst() + "%");
             case NOT_CONTAINS ->
-                    predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false),
+                    predicate = criteriaBuilder.or(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, false, isJsonArray),
                             criteriaBuilder.notLike(expression, "%" + filterValues.getFirst() + "%"));
             case EMPTY ->
-                    predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty);
+                    predicate = getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty, isJsonArray);
             case NOT_EMPTY ->
-                    predicate = criteriaBuilder.not(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty));
+                    predicate = criteriaBuilder.not(getNotPresentPredicate(criteriaBuilder, from, expression, hasParent, isParentCollection, bitEnumProperty, isJsonArray));
             case GREATER ->
                     predicate = criteriaBuilder.greaterThan(expression, (Expression) criteriaBuilder.literal(filterValues.getFirst()));
             case GREATER_OR_EQUAL ->
@@ -447,9 +459,13 @@ public class FilterPredicatesBuilder {
         return criteriaBuilder.not(criteriaBuilder.exists(subquery));
     }
 
-    private static Predicate getNotPresentPredicate(final CriteriaBuilder criteriaBuilder, From from, Expression expression, boolean hasParent, boolean isParentCollection, boolean isEnumList) {
+    private static Predicate getNotPresentPredicate(final CriteriaBuilder criteriaBuilder, From from, Expression expression, boolean hasParent, boolean isParentCollection, boolean isEnumList, boolean isJsonArray) {
         if (isEnumList) {
             return criteriaBuilder.equal(expression, 0);
+        }
+
+        if (isJsonArray) {
+            return criteriaBuilder.or(criteriaBuilder.equal(expression, criteriaBuilder.literal("[]")), criteriaBuilder.isNull(expression));
         }
         if (!hasParent) {
             return criteriaBuilder.isNull(expression);

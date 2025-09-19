@@ -113,7 +113,7 @@ public class LoggerWrapper {
                 .module(module)
                 .actor(LoggingHelper.getActorInfo())
                 .source(LoggingHelper.getSourceInfo())
-                .resource(new ResourceRecord(resource, null, (String) null));
+                .resource(new ResourceRecord(resource, null));
     }
 
     private ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {

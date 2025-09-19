@@ -110,12 +110,10 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         builder.loggedAt(loggedAt);
         builder.module(module);
         builder.resource(resource);
-        builder.resourceUuids(logRecord.resource().uuids());
-        builder.resourceNames(logRecord.resource().names());
+        builder.resourceNamesAndUuids(logRecord.resource().objects());
         builder.affiliatedResource(affiliatedResource);
         if (logRecord.affiliatedResource() != null) {
-            builder.affiliatedResourceUuids(logRecord.affiliatedResource().uuids());
-            builder.affiliatedResourceNames(logRecord.affiliatedResource().names());
+            builder.affiliatedResourceNamesAndUuids(logRecord.affiliatedResource().objects());
         }
         builder.actorType(actorType);
         builder.actorAuthMethod(actorAuthMethod);

@@ -3,6 +3,7 @@ package com.czertainly.core.logging;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.records.NameAndUuid;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import lombok.Builder;
 
@@ -13,8 +14,8 @@ import java.util.UUID;
 
 @Builder
 @JsonPropertyOrder({"id", "version", "loggedAt", "module", "operation", "operationResult",
-        "resource", "resourceUuids", "resourceNames",
-        "affiliatedResource", "affiliatedResourceUuids", "affiliatedResourceNames",
+        "resource", "resourceNamesAndUuids",
+        "affiliatedResource", "affiliatedResourceNamesAndUuids",
         "actorType", "actorAuthMethod", "actorUuid", "actorName",
         "ipAddress", "userAgent", "message", "operationData", "additionalData"})
 public record AuditLogExportDto(
@@ -23,11 +24,9 @@ public record AuditLogExportDto(
         OffsetDateTime loggedAt,
         Module module,
         Resource resource,
-        List<UUID> resourceUuids,
-        List<String> resourceNames,
+        List<NameAndUuid> resourceNamesAndUuids,
         Resource affiliatedResource,
-        List<UUID> affiliatedResourceUuids,
-        List<String> affiliatedResourceNames,
+        List<NameAndUuid> affiliatedResourceNamesAndUuids,
         ActorType actorType,
         AuthMethod actorAuthMethod,
         UUID actorUuid,
