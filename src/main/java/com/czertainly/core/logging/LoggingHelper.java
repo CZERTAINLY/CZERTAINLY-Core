@@ -9,29 +9,25 @@ import com.czertainly.api.model.core.logging.records.NameAndUuid;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.logging.records.SourceRecord;
 import com.czertainly.core.util.NullUtil;
+import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 
-import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 public class LoggingHelper {
 
     private static final String LOG_AUDIT_OPERATION = "log_audit_operation";
     private static final String LOG_AUDIT_RESOURCE = "log_audit_resource";
     private static final String LOG_AUDIT_RESOURCE_UUID = "log_audit_resource_uuid";
-    public static final String LOG_AUDIT_RESOURCE_NAME = "log_audit_resource_name";
-    public static final String LOG_AUDIT_RESOURCE_NAME_UUID = "log_audit_resource_name_uuid";
-
+    private static final String LOG_AUDIT_RESOURCE_NAME = "log_audit_resource_name";
     private static final String LOG_AUDIT_AFFILIATED_RESOURCE = "log_audit_affiliatedResource";
     private static final String LOG_AUDIT_AFFILIATED_RESOURCE_UUID = "log_audit_affiliatedResource_uuid";
-    public static final String LOG_AUDIT_AFFILIATED_RESOURCE_NAME = "log_audit_affiliatedResource_name";
-    public static final String LOG_AUDIT_AFFILIATED_RESOURCE_NAME_UUID = "log_audit_affiliatedResource_name";
-
+    private static final String LOG_AUDIT_AFFILIATED_RESOURCE_NAME = "log_audit_affiliatedResource_name";
 
     private static final String LOG_ACTOR_TYPE = "log_actor_type";
     private static final String LOG_ACTOR_AUTH_METHOD = "log_actor_authMethod";
@@ -43,7 +39,6 @@ public class LoggingHelper {
     private static final String LOG_SOURCE_CONTENT_TYPE = "log_source_contentType";
     private static final String LOG_SOURCE_IP_ADDRESS = "log_source_ipAddress";
     private static final String LOG_SOURCE_USER_AGENT = "log_source_userAgent";
-
 
     private LoggingHelper() {
 
@@ -91,12 +86,12 @@ public class LoggingHelper {
         if (affiliated) {
             String resource = MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new NameAndUuid(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource), Set.of(new NameAndUuid(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
             }
         } else {
             String resource = MDC.get(LOG_AUDIT_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new NameAndUuid(MDC.get(LOG_AUDIT_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource), Set.of(new NameAndUuid(MDC.get(LOG_AUDIT_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
             }
         }
 
@@ -106,55 +101,6 @@ public class LoggingHelper {
     public static void putAuditLogOperation(Operation operation) {
         MDC.put(LoggingHelper.LOG_AUDIT_OPERATION, operation.toString());
     }
-
-    public static void putResourceInfo(List<NameAndUuid> nameAndUuids) {
-        List<NameAndUuid> recordsInMdc = new ArrayList<>();
-        if (MDC.get(LOG_AUDIT_RESOURCE_NAME_UUID) != null) {
-            try {
-                recordsInMdc = deserializeNameAndUuid(MDC.get(LOG_AUDIT_RESOURCE_NAME_UUID));
-            } catch (IOException e) {
-                // Did not deserialize saved records
-            }
-        }
-        recordsInMdc.addAll(nameAndUuids);
-        try {
-            MDC.put(LOG_AUDIT_RESOURCE_NAME_UUID, serializeNameAndUuid(recordsInMdc));
-        } catch (JsonProcessingException e) {
-            // Did not serialize saved records, will have to be retrieved in other way
-        }
-
-    }
-
-    public static void putAffiliatedResourceInfo(List<NameAndUuid> nameAndUuids) {
-        List<NameAndUuid> recordsInMdc = new ArrayList<>();
-        if (MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME_UUID) != null) {
-            try {
-                recordsInMdc = deserializeNameAndUuid(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME_UUID));
-            } catch (IOException e) {
-                // Did not deserialize saved records
-            }
-        }
-        recordsInMdc.addAll(nameAndUuids);
-        try {
-            MDC.put(LOG_AUDIT_AFFILIATED_RESOURCE_NAME_UUID, serializeNameAndUuid(recordsInMdc));
-        } catch (JsonProcessingException e) {
-            // Did not serialize saved records, will have to be retrieved in other way
-        }
-
-    }
-
-    private static List<NameAndUuid> deserializeNameAndUuid(String serialized) throws IOException {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.readValue(serialized, new TypeReference<>() {
-        });
-    }
-
-    private static String serializeNameAndUuid(List<NameAndUuid> list) throws JsonProcessingException {
-        ObjectMapper mapper = new ObjectMapper();
-        return mapper.writeValueAsString(list);
-    }
-
-
 
     public static void putSourceInfo(HttpServletRequest request) {
         MDC.put(LoggingHelper.LOG_SOURCE_METHOD, request.getMethod());

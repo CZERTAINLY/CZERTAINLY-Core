@@ -219,7 +219,7 @@ public class ScepServiceImpl implements ScepService {
 
             issueAttributes = attributeEngine.getRequestObjectDataAttributesContent(scepProfile.getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, Resource.SCEP_PROFILE, scepProfile.getUuid());
         }
-        LoggingHelper.putLogResourceInfo(Resource.SCEP_PROFILE, true, scepProfile.getUuid().toString(), scepProfile.getName());
+        LoggingHelper.putLogResourceInfo(Resource.SCEP_PROFILE, true, scepProfile.getUuid(), scepProfile.getName());
 
         Certificate scepCaCertificate = scepProfile.getCaCertificate();
         if (scepCaCertificate == null) {

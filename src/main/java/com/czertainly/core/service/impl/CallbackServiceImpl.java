@@ -189,7 +189,7 @@ public class CallbackServiceImpl implements CallbackService {
                 );
         }
 
-        LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
+        LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid(), connector.getName());
 
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);

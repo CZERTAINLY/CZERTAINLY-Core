@@ -12,7 +12,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
+import java.util.Set;
 
 @Component
 @Transactional
@@ -52,7 +52,7 @@ public class AuditLogsListener {
         auditLogService.log(logRecord);
     }
 
-    private List<NameAndUuid> enrichNamesAndUuids(List<NameAndUuid> resourceNamesAndUuids, Resource resource) {
+    private Set<NameAndUuid> enrichNamesAndUuids(Set<NameAndUuid> resourceNamesAndUuids, Resource resource) {
         if (resourceNamesAndUuids != null) {
             for (NameAndUuid nameAndUuid : resourceNamesAndUuids) {
                 if (nameAndUuid.getUuid() != null && nameAndUuid.getName() == null) {

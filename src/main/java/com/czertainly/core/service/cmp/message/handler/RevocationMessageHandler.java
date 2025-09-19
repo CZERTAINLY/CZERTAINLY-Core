@@ -133,7 +133,7 @@ public class RevocationMessageHandler implements MessageHandler<PKIMessage> {
 
             try {
                 Certificate certificate = getCertificate(serialNumber, tid);
-                LoggingHelper.putLogResourceInfo(Resource.CERTIFICATE, false, certificate.getUuid().toString(), certificate.getSubjectDn());
+                LoggingHelper.putLogResourceInfo(Resource.CERTIFICATE, false, certificate.getUuid(), certificate.getSubjectDn());
                 revokeCertificate(tid, revocation, certificate, configuration);
                 pollFeature.pollCertificate(tid,
                         certificate.getSerialNumber(), certificate.getUuid().toString(), CertificateState.REVOKED);

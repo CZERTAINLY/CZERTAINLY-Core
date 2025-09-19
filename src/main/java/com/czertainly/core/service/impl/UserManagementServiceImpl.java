@@ -190,7 +190,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .module(Module.AUTH)
                     .actor(LoggingHelper.getActorInfo())
                     .source(LoggingHelper.getSourceInfo())
-                    .resource(ResourceRecord.builder().type(Resource.USER).nameAndUuids(List.of(new NameAndUuid(null, UUID.fromString(userUuid)))).build())
+                    .resource(ResourceRecord.builder().type(Resource.USER).nameAndUuids(Set.of(new NameAndUuid(null, UUID.fromString(userUuid)))).build())
                     .message("User with UUID %s has been %s".formatted(userUuid, actionName))
                     .build());
         }

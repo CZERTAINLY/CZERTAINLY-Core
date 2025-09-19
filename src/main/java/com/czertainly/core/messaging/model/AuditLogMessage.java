@@ -7,8 +7,8 @@ import com.czertainly.api.model.core.logging.records.*;
 import lombok.*;
 
 import java.io.Serializable;
-import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Getter
@@ -20,9 +20,9 @@ public class AuditLogMessage {
     private String version;
     private Module module;
     private Resource resource;
-    private List<NameAndUuid> resourceNamesAndUuids;
+    private Set<NameAndUuid> resourceNamesAndUuids;
     private Resource affiliatedResource;
-    private List<NameAndUuid> affiliatedResourceNamesAndUuids;
+    private Set<NameAndUuid> affiliatedResourceNamesAndUuids;
     private ActorType actorType;
     private AuthMethod actorAuthMethod;
     private UUID actorUuid;

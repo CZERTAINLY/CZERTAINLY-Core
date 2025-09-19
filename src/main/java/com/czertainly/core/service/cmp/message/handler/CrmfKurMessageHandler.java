@@ -91,7 +91,7 @@ public class CrmfKurMessageHandler implements MessageHandler<ClientCertificateDa
 
         // -- public key (from database)
         Certificate dbCertificate = getCertificate(tid, certRequest);
-        LoggingHelper.putLogResourceInfo(Resource.CERTIFICATE, false, dbCertificate.getUuid().toString(), dbCertificate.getSubjectDn());
+        LoggingHelper.putLogResourceInfo(Resource.CERTIFICATE, false, dbCertificate.getUuid(), dbCertificate.getSubjectDn());
         PublicKey dbPublicKey = convertCertificate(tid, dbCertificate).getPublicKey();
 
         if (dbPublicKey.toString().equals(reqPublicKey.toString())) {//re-key is only about public keys change
