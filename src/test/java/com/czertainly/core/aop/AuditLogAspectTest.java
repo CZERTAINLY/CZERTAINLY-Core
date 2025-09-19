@@ -14,15 +14,23 @@ import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
+import com.czertainly.core.messaging.listeners.AuditLogsListener;
+import com.czertainly.core.messaging.model.AuditLogMessage;
+import com.czertainly.core.messaging.producers.AuditLogsProducer;
 import com.czertainly.core.service.SettingService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+
+import static org.mockito.ArgumentMatchers.any;
 
 class AuditLogAspectTest extends BaseSpringBootTest {
 
@@ -38,8 +46,20 @@ class AuditLogAspectTest extends BaseSpringBootTest {
     @Autowired
     private CryptographicKeyController keyController;
 
+    @MockitoBean
+    private AuditLogsProducer auditLogsProducer;
+
+    @Autowired
+    private AuditLogsListener auditLogsListener;
+
     @Test
     void testListKeyPairsAudit() throws ConnectorException {
+        Mockito.doAnswer(invocation -> {
+            Object msg = invocation.getArgument(0);
+            auditLogsListener.processMessage((AuditLogMessage) msg);
+            return null; // because produceMessage returns void
+        }).when(auditLogsProducer).produceMessage(Mockito.any());
+
         keyController.listKeyPairs(Optional.empty());
         List<AuditLog> auditLogs = auditLogRepository.findAll();
 
@@ -60,7 +80,7 @@ class AuditLogAspectTest extends BaseSpringBootTest {
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
-        Assertions.assertNull(auditLogNoUuidResource.getLogRecord().affiliatedResource().objects());
+        Assertions.assertTrue(auditLogNoUuidResource.getLogRecord().affiliatedResource().objects().isEmpty());
 
         AuditLog auditLogWithUuidResource = auditLogs.get(1);
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogWithUuidResource.getLogRecord().affiliatedResource().type());
@@ -69,7 +89,7 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         AuditLog auditLogWithNamedResource = auditLogs.get(2);
         Assertions.assertEquals(OperationResult.FAILURE, auditLogWithNamedResource.getOperationResult());
         Assertions.assertEquals(Resource.ATTRIBUTE, auditLogWithNamedResource.getLogRecord().resource().type());
-        Assertions.assertEquals(KeyRequestType.KEY_PAIR.getCode(), auditLogWithNamedResource.getLogRecord().resource().objects().getFirst().getName());
+        Assertions.assertEquals(KeyRequestType.KEY_PAIR.getCode(), auditLogWithNamedResource.getLogRecord().resource().objects().getFirst().name());
 
         AuditLog auditLogWithMoreUuidResource = auditLogs.get(3);
         Assertions.assertEquals(Resource.CRYPTOGRAPHIC_KEY, auditLogWithMoreUuidResource.getLogRecord().resource().type());
@@ -77,7 +97,7 @@ class AuditLogAspectTest extends BaseSpringBootTest {
 
         AuditLog auditLogWithNamedResourceDirectly = auditLogs.get(4);
         Assertions.assertEquals(Resource.SETTINGS, auditLogWithNamedResourceDirectly.getLogRecord().resource().type());
-        Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResourceDirectly.getLogRecord().resource().objects().getFirst().getName());
+        Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResourceDirectly.getLogRecord().resource().objects().getFirst().name());
     }
 
     private void turnOnLogging() {

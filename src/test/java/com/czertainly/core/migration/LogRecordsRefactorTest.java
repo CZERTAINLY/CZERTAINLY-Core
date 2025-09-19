@@ -295,8 +295,8 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
         Assertions.assertNotNull(nullAffiliatedResource.getLogRecord().resource());
         Assertions.assertEquals(1, nullAffiliatedResource.getLogRecord().resource().objects().size());
         NameAndUuid onlyObject = nullAffiliatedResource.getLogRecord().resource().objects().iterator().next();
-        Assertions.assertEquals("name1", onlyObject.getName());
-        Assertions.assertNull(onlyObject.getUuid());
+        Assertions.assertEquals("name1", onlyObject.name());
+        Assertions.assertNull(onlyObject.uuid());
         Assertions.assertNull(nullAffiliatedResource.getLogRecord().affiliatedResource());
 
         // --- NULL BOTH RESOURCES ---
@@ -307,26 +307,26 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
         Assertions.assertEquals(2, oneNameTwoUuids.getLogRecord().resource().objects().size());
         // verify first object
         var objectsOne = oneNameTwoUuids.getLogRecord().resource().objects().stream().toList();
-        Assertions.assertEquals("name1", objectsOne.get(0).getName());
-        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsOne.get(0).getUuid().toString());
-        Assertions.assertNull(objectsOne.get(1).getName());
-        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc102", objectsOne.get(1).getUuid().toString());
+        Assertions.assertEquals("name1", objectsOne.get(0).name());
+        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsOne.get(0).uuid().toString());
+        Assertions.assertNull(objectsOne.get(1).name());
+        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc102", objectsOne.get(1).uuid().toString());
 
         // --- TWO NAMES, ONE UUID ---
         Assertions.assertEquals(2, twoNamesOneUuid.getLogRecord().resource().objects().size());
         var objectsTwo = twoNamesOneUuid.getLogRecord().resource().objects().stream().toList();
-        Assertions.assertEquals("name1", objectsTwo.get(0).getName());
-        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsTwo.get(0).getUuid().toString());
-        Assertions.assertEquals("name2", objectsTwo.get(1).getName());
-        Assertions.assertNull(objectsTwo.get(1).getUuid());
+        Assertions.assertEquals("name1", objectsTwo.get(0).name());
+        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsTwo.get(0).uuid().toString());
+        Assertions.assertEquals("name2", objectsTwo.get(1).name());
+        Assertions.assertNull(objectsTwo.get(1).uuid());
 
         // --- TWO NAMES, TWO UUIDS ---
         Assertions.assertEquals(2, twoNamesTwoUuids.getLogRecord().resource().objects().size());
         var objectsThree = twoNamesTwoUuids.getLogRecord().resource().objects().stream().toList();
-        Assertions.assertEquals("name1", objectsThree.get(0).getName());
-        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsThree.get(0).getUuid().toString());
-        Assertions.assertEquals("name2", objectsThree.get(1).getName());
-        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc102", objectsThree.get(1).getUuid().toString());
+        Assertions.assertEquals("name1", objectsThree.get(0).name());
+        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsThree.get(0).uuid().toString());
+        Assertions.assertEquals("name2", objectsThree.get(1).name());
+        Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc102", objectsThree.get(1).uuid().toString());
 
     }
 
