@@ -347,7 +347,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         internalRule.setDescription(request.getDescription());
         internalRule.setResource(request.getResource());
         internalRuleRepository.save(internalRule);
-        internalRule.setConditionItems(createConditionItems(request.getItems(), internalRule));
+        internalRule.setConditionItems(createConditionItems(request.getConditionItems(), internalRule));
 
         return internalRule.mapToComplianceRuleListDto();
     }
@@ -361,7 +361,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         internalRule.setName(request.getName());
         internalRule.setDescription(request.getDescription());
         internalRule.setResource(request.getResource());
-        internalRule.setConditionItems(createConditionItems(request.getItems(), internalRule));
+        internalRule.setConditionItems(createConditionItems(request.getConditionItems(), internalRule));
         internalRuleRepository.save(internalRule);
 
         return internalRule.mapToComplianceRuleListDto();
