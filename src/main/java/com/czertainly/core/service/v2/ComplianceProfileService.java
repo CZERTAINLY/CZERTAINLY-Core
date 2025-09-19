@@ -1,10 +1,7 @@
 package com.czertainly.core.service.v2;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileGroupsPatchRequestDto;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRequestDto;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRulesPatchRequestDto;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
+import com.czertainly.api.model.client.compliance.v2.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceGroupListDto;
@@ -117,14 +114,51 @@ public interface ComplianceProfileService extends ResourceExtensionService {
     List<ComplianceRuleListDto> getComplianceGroupRules(UUID groupUuid, UUID connectorUuid, String kind) throws NotFoundException, ConnectorException;
 
     /**
-     * @param uuid
-     * @param request
+     * Create a new internal compliance rule
+     *
+     * @param request Request containing the attributes to create a new internal compliance rule. See {@link ComplianceInternalRuleRequestDto}
+     * @return DTO of the new internal compliance rule that was created
+     * @throws AlreadyExistException Thrown when an existing internal compliance rule is found with the same name
+     * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
+     */
+    ComplianceRuleListDto createComplianceInternalRule(ComplianceInternalRuleRequestDto request) throws AlreadyExistException;
+
+    /**
+     * Update an existing internal compliance rule
+     *
+     * @param internalRuleUuid UUID of the internal compliance rule to be updated
+     * @param request Request containing the attributes to update the internal compliance rule. See {@link ComplianceInternalRuleRequestDto}
+     * @return DTO of the internal compliance rule that was updated
+     * @throws NotFoundException Thrown when the system cannot find the internal compliance rule for the given Uuid
+     * @throws ValidationException   Thrown when the attributes validations are failed for a rule in the request
+     */
+    ComplianceRuleListDto updateComplianceInternalRule(UUID internalRuleUuid, ComplianceInternalRuleRequestDto request) throws NotFoundException;
+
+    /**
+     * Delete an internal compliance rule
+     *
+     * @param internalRuleUuid UUID of the internal compliance rule to be deleted
+     * @throws NotFoundException Thrown when the system cannot find the internal compliance rule for the given Uuid
+     */
+    void deleteComplianceInternalRule(UUID internalRuleUuid) throws NotFoundException;
+
+    /**
+     * Patch compliance profile rules
+     *
+     * @param uuid UUID of the compliance profile
+     * @param request Request containing the rules to be added/removed from the compliance profile. See {@link ComplianceProfileRulesPatchRequestDto}
+     * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
+     * @throws ConnectorException Thrown when the system cannot communicate with the connector
      */
     void patchComplianceProfileRules(SecuredUUID uuid, ComplianceProfileRulesPatchRequestDto request) throws NotFoundException, ConnectorException;
 
     /**
-     * @param uuid
-     * @param request
+     * Patch compliance profile groups
+     *
+     * @param uuid UUID of the compliance profile
+     * @param request Request containing the groups to be added/removed from the compliance profile. See {@link ComplianceProfileGroupsPatchRequestDto}
+     * @throws NotFoundException Thrown when the system cannot find the compliance profile for the given Uuid
+     * @throws ConnectorException Thrown when the system cannot communicate with the connector
      */
     void patchComplianceProfileGroups(SecuredUUID uuid, ComplianceProfileGroupsPatchRequestDto request) throws ConnectorException, NotFoundException;
 

@@ -22,9 +22,7 @@ import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.workflows.Rule;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.dao.repository.workflows.RuleRepository;
 import com.czertainly.core.model.compliance.ComplianceRulesGroupsBatchDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.NullUtil;
@@ -43,7 +41,7 @@ public class ComplianceProfileRuleHandler {
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
 
     private ConnectorRepository connectorRepository;
-    private RuleRepository ruleRepository;
+    private ComplianceInternalRuleRepository internalRuleRepository;
     private ComplianceProfileRepository complianceProfileRepository;
     private ComplianceProfileRuleRepository complianceProfileRuleRepository;
 
@@ -65,8 +63,8 @@ public class ComplianceProfileRuleHandler {
     }
 
     @Autowired
-    public void setRuleRepository(RuleRepository ruleRepository) {
-        this.ruleRepository = ruleRepository;
+    public void setInternalRuleRepository(ComplianceInternalRuleRepository internalRuleRepository) {
+        this.internalRuleRepository = internalRuleRepository;
     }
 
     @Autowired
@@ -93,7 +91,13 @@ public class ComplianceProfileRuleHandler {
         Map<String, ComplianceRulesBatchRequestDto> providerRulesRequestMapping = new HashMap<>();
         for (ComplianceProfileRule complianceProfileRule : complianceProfile.getComplianceRules()) {
             if (complianceProfileRule.getInternalRuleUuid() != null) {
-                dto.getInternalRules().add(complianceProfileRule.getInternalRule().mapToComplianceRuleDto());
+                String updatedReason = null;
+                ComplianceRuleAvailabilityStatus availabilityStatus = ComplianceRuleAvailabilityStatus.AVAILABLE;
+                if (complianceProfileRule.getInternalRule().getResource() != complianceProfileRule.getResource()) {
+                    availabilityStatus = ComplianceRuleAvailabilityStatus.UPDATED;
+                    updatedReason = "Resource changed from '%s' to '%s'".formatted(complianceProfileRule.getResource().getLabel(), complianceProfileRule.getInternalRule().getResource().getLabel());
+                }
+                dto.getInternalRules().add(complianceProfileRule.getInternalRule().mapToComplianceRuleDto(availabilityStatus, updatedReason));
             } else {
                 String key = "%s|%s".formatted(complianceProfileRule.getConnectorUuid(), complianceProfileRule.getKind());
 
@@ -232,7 +236,7 @@ public class ComplianceProfileRuleHandler {
         // handle internal rules
         for (UUID internalRuleUuid : request.getInternalRules()) {
             ComplianceProfileRule profileRule = createComplianceProfileInternalRuleAssoc(complianceProfile.getUuid(), internalRuleUuid);
-            complianceProfileDto.getInternalRules().add(profileRule.getInternalRule().mapToComplianceRuleDto());
+            complianceProfileDto.getInternalRules().add(profileRule.getInternalRule().mapToComplianceRuleDto(profileRule.getAvailabilityStatus(), null));
         }
 
         // handle providers rules
@@ -274,7 +278,7 @@ public class ComplianceProfileRuleHandler {
     }
 
     public ComplianceProfileRule createComplianceProfileInternalRuleAssoc(UUID complianceProfileUuid, UUID internalRuleUuid) throws NotFoundException {
-        Rule internalRule = ruleRepository.findByUuid(SecuredUUID.fromUUID(internalRuleUuid)).orElseThrow(() -> new NotFoundException("Internal rule", internalRuleUuid));
+        ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(SecuredUUID.fromUUID(internalRuleUuid)).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, internalRuleUuid));
         if (!internalRule.getResource().complianceSubject()) {
             throw new ValidationException("Internal rule '%s' with resource %s cannot be associated with compliance profile because resource does not support compliance check".formatted(internalRule.getName(), internalRule.getResource().getLabel()));
         }
@@ -283,6 +287,7 @@ public class ComplianceProfileRuleHandler {
         complianceProfileRule.setComplianceProfileUuid(complianceProfileUuid);
         complianceProfileRule.setInternalRuleUuid(internalRuleUuid);
         complianceProfileRule.setInternalRule(internalRule);
+        complianceProfileRule.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         complianceProfileRule.setResource(internalRule.getResource());
         complianceProfileRuleRepository.save(complianceProfileRule);
 

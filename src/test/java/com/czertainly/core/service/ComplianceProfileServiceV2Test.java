@@ -10,6 +10,7 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileListDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.api.model.core.compliance.v2.ProviderComplianceRulesDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -64,6 +65,8 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     RuleService ruleService;
     @Autowired
     private RuleRepository ruleRepository;
+    @Autowired
+    private ComplianceInternalRuleRepository internalRuleRepository;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -555,6 +558,74 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         Assertions.assertTrue(providerRules.getGroups().stream().anyMatch(r -> r.getUuid().equals(complianceV2GroupUuid)));
         Assertions.assertEquals(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceV2GroupUuid)).findFirst().orElseThrow().getAvailabilityStatus());
         Assertions.assertEquals(ComplianceRuleAvailabilityStatus.UPDATED, providerRules.getGroups().stream().filter(r -> r.getUuid().equals(complianceV2Group2Uuid)).findFirst().orElseThrow().getAvailabilityStatus());
+    }
+
+    @Test
+    void testCreateInternalRule() throws Exception {
+        ComplianceInternalRuleRequestDto req = new ComplianceInternalRuleRequestDto();
+        req.setName("TestInternalRule_Create");
+        req.setDescription("Description create");
+        req.setResource(Resource.CERTIFICATE);
+        req.setItems(List.of()); // no condition items
+
+        ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(req);
+        UUID createdUuid = created.getUuid();
+
+        var opt = internalRuleRepository.findByUuid(createdUuid);
+        Assertions.assertTrue(opt.isPresent(), "Internal rule must be persisted");
+        ComplianceInternalRule entity = opt.get();
+        Assertions.assertEquals("TestInternalRule_Create", entity.getName());
+        Assertions.assertEquals("Description create", entity.getDescription());
+        Assertions.assertEquals(Resource.CERTIFICATE, entity.getResource());
+    }
+
+    @Test
+    void testUpdateInternalRule() throws Exception {
+        // create initial rule
+        ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
+        createReq.setName("TestInternalRule_Update");
+        createReq.setDescription("Initial desc");
+        createReq.setResource(Resource.CERTIFICATE);
+        createReq.setItems(List.of());
+
+        ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(createReq);
+        UUID uuid = created.getUuid();
+
+        // prepare update
+        ComplianceInternalRuleRequestDto updateReq = new ComplianceInternalRuleRequestDto();
+        updateReq.setName("TestInternalRule_UpdatedName");
+        updateReq.setDescription("Updated description");
+        updateReq.setResource(Resource.CERTIFICATE);
+        updateReq.setItems(List.of());
+
+        ComplianceRuleListDto updated = complianceProfileService.updateComplianceInternalRule(uuid, updateReq);
+
+        // verify persisted changes
+        var opt = internalRuleRepository.findByUuid(uuid);
+        Assertions.assertTrue(opt.isPresent(), "Updated internal rule must exist");
+        ComplianceInternalRule entity = opt.get();
+        Assertions.assertEquals("TestInternalRule_UpdatedName", entity.getName());
+        Assertions.assertEquals("Updated description", entity.getDescription());
+    }
+
+    @Test
+    void testDeleteInternalRule() throws Exception {
+        // create rule to delete
+        ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
+        createReq.setName("TestInternalRule_Delete");
+        createReq.setDescription("To be deleted");
+        createReq.setResource(Resource.CERTIFICATE);
+        createReq.setItems(List.of());
+
+        ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(createReq);
+        UUID uuid = created.getUuid();
+
+        // delete
+        complianceProfileService.deleteComplianceInternalRule(uuid);
+
+        // verify removed
+        var opt = internalRuleRepository.findByUuid(uuid);
+        Assertions.assertTrue(opt.isEmpty(), "Internal rule should be removed after delete");
     }
 
     @Test

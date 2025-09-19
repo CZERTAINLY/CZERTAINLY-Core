@@ -13,11 +13,12 @@ import com.czertainly.api.model.core.compliance.v2.*;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.api.model.core.workflows.ConditionItemRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.entity.workflows.Rule;
+import com.czertainly.core.dao.entity.workflows.ConditionItem;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.dao.repository.workflows.RuleRepository;
+import com.czertainly.core.dao.repository.workflows.ConditionItemRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -49,7 +50,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     private ResourceService resourceService;
     private ConnectorRepository connectorRepository;
-    private RuleRepository ruleRepository;
+    private ComplianceInternalRuleRepository internalRuleRepository;
+    private ConditionItemRepository conditionItemRepository;
 
     private AttributeEngine attributeEngine;
     private ComplianceProfileRuleHandler ruleHandler;
@@ -90,8 +92,13 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Autowired
-    public void setRuleRepository(RuleRepository ruleRepository) {
-        this.ruleRepository = ruleRepository;
+    public void setInternalRuleRepository(ComplianceInternalRuleRepository internalRuleRepository) {
+        this.internalRuleRepository = internalRuleRepository;
+    }
+
+    @Autowired
+    public void setConditionItemRepository(ConditionItemRepository conditionItemRepository) {
+        this.conditionItemRepository = conditionItemRepository;
     }
 
     @Autowired
@@ -199,15 +206,15 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<ComplianceRuleListDto> getComplianceRules(UUID connectorUuid, String kind, Resource resource, String type, String format) throws NotFoundException, ConnectorException {
-        if (resource == Resource.ANY || resource == Resource.NONE) {
-            throw new ValidationException("Cannot list compliance rules for resource %s".formatted(resource.getLabel()));
+        if (resource != null && !resource.complianceSubject()) {
+            throw new ValidationException("Cannot list compliance rules for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
         }
 
         // load internal rules if no connector uuid is specified
         List<ComplianceRuleListDto> complianceRules = new ArrayList<>();
         if (connectorUuid == null) {
-            List<Rule> internalRules = ruleRepository.findAllByResource(resource);
-            for (Rule internalRule : internalRules) {
+            List<ComplianceInternalRule> internalRules = resource != null ? internalRuleRepository.findByResource(resource) : internalRuleRepository.findAll();
+            for (ComplianceInternalRule internalRule : internalRules) {
                 complianceRules.add(internalRule.mapToComplianceRuleListDto());
             }
             return complianceRules;
@@ -326,6 +333,52 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
             dto.setAttributes(providerRule.getAttributes());
             return dto;
         }).toList();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public ComplianceRuleListDto createComplianceInternalRule(ComplianceInternalRuleRequestDto request) throws AlreadyExistException {
+        if (internalRuleRepository.existsByName(request.getName())) {
+            throw new AlreadyExistException("Compliance internal rule with same name already exists.");
+        }
+
+        ComplianceInternalRule internalRule = new ComplianceInternalRule();
+        internalRule.setName(request.getName());
+        internalRule.setDescription(request.getDescription());
+        internalRule.setResource(request.getResource());
+        internalRuleRepository.save(internalRule);
+        internalRule.setConditionItems(createConditionItems(request.getItems(), internalRule));
+
+        return internalRule.mapToComplianceRuleListDto();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public ComplianceRuleListDto updateComplianceInternalRule(UUID internalRuleUuid, ComplianceInternalRuleRequestDto request) throws NotFoundException {
+        ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(internalRuleUuid).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, internalRuleUuid));
+        conditionItemRepository.deleteAll(internalRule.getConditionItems());
+
+        internalRule.setName(request.getName());
+        internalRule.setDescription(request.getDescription());
+        internalRule.setResource(request.getResource());
+        internalRule.setConditionItems(createConditionItems(request.getItems(), internalRule));
+        internalRuleRepository.save(internalRule);
+
+        return internalRule.mapToComplianceRuleListDto();
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.UPDATE)
+    public void deleteComplianceInternalRule(UUID internalRuleUuid) throws NotFoundException {
+        ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(internalRuleUuid).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, internalRuleUuid));
+
+        List<ComplianceProfile> associatedProfiles = complianceProfileRepository.findDistinctByComplianceRulesInternalRuleUuid(internalRuleUuid);
+        if (!associatedProfiles.isEmpty()) {
+            String profileNames = String.join(", ", associatedProfiles.stream().map(ComplianceProfile::getName).toList());
+            throw new ValidationException("Cannot delete the compliance internal rule as it is associated to compliance profiles: %s".formatted(profileNames));
+        }
+
+        internalRuleRepository.delete(internalRule);
     }
 
     @Override
@@ -455,5 +508,27 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         attributeEngine.deleteAllObjectAttributeContent(Resource.COMPLIANCE_PROFILE, complianceProfile.getUuid());
 
         complianceProfileRepository.delete(complianceProfile);
+    }
+
+    private Set<ConditionItem> createConditionItems(List<ConditionItemRequestDto> conditionItemRequestDtos, ComplianceInternalRule internalRule) {
+        Set<ConditionItem> conditionItems = new HashSet<>();
+        for (ConditionItemRequestDto conditionItemRequestDto : conditionItemRequestDtos) {
+            if (conditionItemRequestDto.getFieldSource() == null
+                    || conditionItemRequestDto.getFieldIdentifier() == null
+                    || conditionItemRequestDto.getOperator() == null) {
+                throw new ValidationException("Missing field source, field identifier or operator in a condition.");
+            }
+
+            ConditionItem conditionItem = new ConditionItem();
+            conditionItem.setComplianceInternalRule(internalRule);
+            conditionItem.setFieldSource(conditionItemRequestDto.getFieldSource());
+            conditionItem.setFieldIdentifier(conditionItemRequestDto.getFieldIdentifier());
+            conditionItem.setOperator(conditionItemRequestDto.getOperator());
+            conditionItem.setValue(conditionItemRequestDto.getValue());
+            conditionItemRepository.save(conditionItem);
+
+            conditionItems.add(conditionItem);
+        }
+        return conditionItems;
     }
 }

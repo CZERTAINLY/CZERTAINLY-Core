@@ -11,10 +11,12 @@ import java.util.UUID;
 @Repository
 public interface ComplianceProfileRepository extends SecurityFilterRepository<ComplianceProfile, UUID> {
 
-    @EntityGraph(attributePaths = {"complianceRules", "associations"})
+    @EntityGraph(attributePaths = {"complianceRules", "complianceRules.internalRule", "associations"})
     Optional<ComplianceProfile> findWithAssociationsByUuid(UUID uuid);
 
     Optional<ComplianceProfile> findByName(String name);
 
     List<ComplianceProfile> findDistinctByComplianceRulesConnectorUuid(UUID connectorUuid);
+
+    List<ComplianceProfile> findDistinctByComplianceRulesInternalRuleUuid(UUID internalRuleUuid);
 }

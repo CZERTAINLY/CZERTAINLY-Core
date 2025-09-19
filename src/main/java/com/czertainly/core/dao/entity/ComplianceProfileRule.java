@@ -3,7 +3,6 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.czertainly.core.dao.entity.workflows.Rule;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
@@ -59,7 +58,7 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "internal_rule_uuid", insertable = false, updatable = false)
     @ToString.Exclude
-    private Rule internalRule;
+    private ComplianceInternalRule internalRule;
 
     @Column(name = "internal_rule_uuid")
     private UUID internalRuleUuid;
