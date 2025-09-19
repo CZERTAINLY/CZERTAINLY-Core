@@ -163,7 +163,7 @@ public class UpdateIntuneRevocationRequestsTask implements ScheduledJobTask {
 
         for (CARevocationRequest revocationRequest : revocationRequests) {
             try {
-                String issuerName = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, new X500Principal(revocationRequest.issuerName, OidHandler.getCodeToOidMap()).getEncoded()).toString();
+                String issuerName = X500Name.getInstance(new CzertainlyX500NameStyle(true), new X500Principal(revocationRequest.issuerName, OidHandler.getCodeToOidMap()).getEncoded()).toString();
                 Certificate certificate = certificateService.getCertificateEntityByIssuerDnNormalizedAndSerialNumber(
                         issuerName,
                         revocationRequest.serialNumber
