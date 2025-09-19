@@ -33,7 +33,15 @@ import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
+import com.czertainly.core.dao.entity.acme.AcmeAccount;
+import com.czertainly.core.dao.entity.acme.AcmeAccount_;
+import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
+import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
+import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.events.handlers.CertificateExpiringEventHandler;
 import com.czertainly.core.events.handlers.CertificateStatusChangedEventHandler;
@@ -130,6 +138,10 @@ public class CertificateServiceImpl implements CertificateService {
     private CrlService crlService;
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
     private CertificateRelationRepository certificateRelationRepository;
+    private AcmeProfileRepository acmeProfileRepository;
+    private ScepProfileRepository scepProfileRepository;
+    private CmpProfileRepository cmpProfileRepository;
+    private AcmeAccountRepository acmeAccountRepository;
 
     private AttributeEngine attributeEngine;
     private ExtendedAttributeService extendedAttributeService;
@@ -141,6 +153,26 @@ public class CertificateServiceImpl implements CertificateService {
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
      */
     private Map<String, ICertificateValidator> certificateValidatorMap;
+
+    @Autowired
+    public void setAcmeAccountRepository(AcmeAccountRepository acmeAccountRepository) {
+        this.acmeAccountRepository = acmeAccountRepository;
+    }
+
+    @Autowired
+    public void setCmpProfileRepository(CmpProfileRepository cmpProfileRepository) {
+        this.cmpProfileRepository = cmpProfileRepository;
+    }
+
+    @Autowired
+    public void setScepProfileRepository(ScepProfileRepository scepProfileRepository) {
+        this.scepProfileRepository = scepProfileRepository;
+    }
+
+    @Autowired
+    public void setAcmeProfileRepository(AcmeProfileRepository acmeProfileRepository) {
+        this.acmeProfileRepository = acmeProfileRepository;
+    }
 
     @Autowired
     public void setCertificateRelationRepository(CertificateRelationRepository certificateRelationRepository) {
@@ -578,8 +610,11 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.ARCHIVED),
                 SearchHelper.prepareSearch(FilterField.CERTIFICATE_PROTOCOL),
                 SearchHelper.prepareSearch(FilterField.PRECEDING_CERTIFICATES, Arrays.stream(CertificateRelationType.values()).map(CertificateRelationType::getCode).toList()),
-                SearchHelper.prepareSearch(FilterField.SUCCEEDING_CERTIFICATES, Arrays.stream(CertificateRelationType.values()).map(CertificateRelationType::getCode).toList())
-
+                SearchHelper.prepareSearch(FilterField.SUCCEEDING_CERTIFICATES, Arrays.stream(CertificateRelationType.values()).map(CertificateRelationType::getCode).toList()),
+                SearchHelper.prepareSearch(FilterField.ACME_PROFILE, acmeProfileRepository.findAll().stream().map(AcmeProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.SCEP_PROFILE, scepProfileRepository.findAll().stream().map(ScepProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.CMP_PROFILE, cmpProfileRepository.findAll().stream().map(CmpProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.ACME_ACCOUNT, acmeAccountRepository.findAll().stream().map(AcmeAccount::getAccountId).toList())
         );
 
         fields = new ArrayList<>(fields);
@@ -1772,6 +1807,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
 
+        validateSubjectTypes(certificate, associatedCertificate);
+
         CertificateRelation certificateRelation = new CertificateRelation();
         CertificateRelationId id = determineCertificateRelationId(certificate, associatedCertificate);
         Certificate successorCertificate = id.getSuccessorCertificateUuid().equals(certificate.getUuid()) ? certificate : associatedCertificate;
@@ -1798,6 +1835,25 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(id.getSuccessorCertificateUuid(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Predecessor certificate %s has been associated with the certificate by relation type %s".formatted(id.getPredecessorCertificateUuid(), certificateRelation.getRelationType().getLabel()), "");
         certificateEventHistoryService.addEventHistory(id.getPredecessorCertificateUuid(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Successor certificate %s has been associated with the certificate by relation type %s".formatted(id.getSuccessorCertificateUuid(), certificateRelation.getRelationType().getLabel()), "");
 
+    }
+
+    private static void validateSubjectTypes(Certificate certificate, Certificate associatedCertificate) {
+        if (certificate.getSubjectType() != null && associatedCertificate.getSubjectType() != null) {
+            CertificateSubjectType subjectType1 =
+                    (certificate.getSubjectType() == CertificateSubjectType.SELF_SIGNED_END_ENTITY)
+                            ? CertificateSubjectType.END_ENTITY
+                            : certificate.getSubjectType();
+
+            CertificateSubjectType subjectType2 =
+                    (associatedCertificate.getSubjectType() == CertificateSubjectType.SELF_SIGNED_END_ENTITY)
+                            ? CertificateSubjectType.END_ENTITY
+                            : associatedCertificate.getSubjectType();
+
+            if (subjectType1 != subjectType2) {
+                throw new ValidationException("Certificate subject types do not match: "
+                        + certificate.getSubjectType() + " vs " + associatedCertificate.getSubjectType());
+            }
+        }
     }
 
     private static boolean successorCertificateHasBeenIssued(CertificateState successorCertificateState) {

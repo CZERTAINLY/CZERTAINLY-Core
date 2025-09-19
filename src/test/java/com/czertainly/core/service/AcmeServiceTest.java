@@ -1,6 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AcmeProblemDocumentException;
+import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.acme.*;
@@ -18,6 +19,7 @@ import com.czertainly.core.service.acme.AcmeService;
 import com.czertainly.core.util.AcmeCommonHelper;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateUtil;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import com.nimbusds.jose.*;
@@ -31,13 +33,14 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 import java.util.Date;
 import java.util.List;
@@ -102,6 +105,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private String b64UrlCertificate;
     private String nonAcmeB64UrlCertificate;
     private Certificate certificate;
+    private AcmeOrder order1;
 
     @BeforeEach
     void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
@@ -218,10 +222,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
         acmeAccount.setPublicKey(Base64.getEncoder().encodeToString(rsa2048JWK.toPublicKey().getEncoded()));
         acmeAccountRepository.save(acmeAccount);
 
-        AcmeOrder order1 = new AcmeOrder();
+        order1 = new AcmeOrder();
         order1.setOrderId(ORDER_ID_VALID);
         order1.setStatus(OrderStatus.VALID);
         order1.setAcmeAccount(acmeAccount);
+        order1.setCertificateReference(certificate);
+        order1.setCertificateReferenceUuid(certificate.getUuid());
         acmeOrderRepository.save(order1);
 
         AcmeAuthorization authorization1 = new AcmeAuthorization();
@@ -339,7 +345,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     private String buildNewAccountRequestJSON(URI requestUri) throws JOSEException {
-        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true}"));
+        JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"contact\":[\"mailto:test.test@test\"],\"termsOfServiceAgreed\":true, \"status\": \"deactivated\"}"));
         jwsObjectJSON.sign(
                 new JWSHeader.Builder(JWSAlgorithm.RS256)
                         .jwk(rsa2048PublicJWK)
@@ -549,12 +555,37 @@ class AcmeServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testFinalize() throws URISyntaxException {
+    void testFinalize() throws URISyntaxException, ConnectorException, CertificateException, AlreadyExistException, JOSEException, AcmeProblemDocumentException, JsonProcessingException {
         String baseUri = BASE_URI + ACME_PROFILE_NAME;
         URI requestUri = new URI(baseUri + "/order/" + ORDER_ID_VALID + "/finalize");
+        certificate.setState(CertificateState.FAILED);
+        certificateRepository.save(certificate);
+        order1.setStatus(OrderStatus.PENDING);
+        acmeOrderRepository.save(order1);
         Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
                 ACME_PROFILE_NAME, ORDER_ID_VALID,
                 buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
+        AcmeAccount acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getFailedOrders());
+        certificate.setState(CertificateState.ISSUED);
+        certificateRepository.save(certificate);
+        order1.setStatus(OrderStatus.PENDING);
+        acmeOrderRepository.save(order1);
+        Assertions.assertThrows(AcmeProblemDocumentException.class, () -> acmeService.finalizeOrder(
+                ACME_PROFILE_NAME, ORDER_ID_VALID,
+                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false));
+        acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getValidOrders());
+
+        order1.setCertificateReference(null);
+        order1.setCertificateReferenceUuid(null);
+        order1.setStatus(OrderStatus.READY);
+        acmeOrderRepository.save(order1);
+        acmeService.finalizeOrder(
+                ACME_PROFILE_NAME, ORDER_ID_VALID,
+                buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false);
+        acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(2, acmeAccount.getFailedOrders());
     }
 
     @Test
@@ -665,6 +696,15 @@ class AcmeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(thrown.getHttpStatusCode(), HttpStatus.FORBIDDEN.value());
     }
 
+    @Test
+    void testUpdateAccount() throws URISyntaxException, JOSEException, AcmeProblemDocumentException, NotFoundException {
+        String baseUri = BASE_URI + ACME_PROFILE_NAME;
+        URI requestUri = new URI(baseUri + "/update");
+        acmeService.updateAccount(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, buildNewAccountRequestJSON(requestUri), requestUri, false);
+        AcmeAccount acmeAccount = acmeAccountRepository.findByAccountId(ACME_ACCOUNT_ID_VALID).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getFailedOrders());
+    }
+
     private String buildRevokeCertRequestJSON_withAccountKey(URI requestUri, String baseUri, String certificate) throws JOSEException {
         JWSObjectJSON jwsObjectJSON = new JWSObjectJSON(new Payload("{\"certificate\":\"" + certificate + "\",\"reason\":0}"));
         jwsObjectJSON.sign(
@@ -724,6 +764,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
         URI requestUri = URI.create(BASE_URI + ACME_PROFILE_NAME + "/orders/" + ACME_ACCOUNT_ID_VALID);
         ResponseEntity<List<Order>> orders = acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
         assertGetOrderList(orders);
+        order1.setStatus(OrderStatus.READY);
+        order1.setExpires(Date.from(Instant.now().minus(1, ChronoUnit.DAYS)));
+        acmeOrderRepository.save(order1);
+        acmeService.listOrders(ACME_PROFILE_NAME, ACME_ACCOUNT_ID_VALID, requestUri, false);
+        AcmeAccount acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
+        Assertions.assertEquals(1, acmeAccount.getFailedOrders());
     }
 
     @Test

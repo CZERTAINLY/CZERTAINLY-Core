@@ -17,8 +17,12 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.oid.OidCategory;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.acme.AcmeAccount_;
+import com.czertainly.core.dao.entity.acme.AcmeProfile_;
+import com.czertainly.core.dao.entity.cmp.CmpProfile_;
 import com.czertainly.core.dao.entity.oid.CustomOidEntry_;
 import com.czertainly.core.dao.entity.oid.RdnAttributeTypeCustomOidEntry_;
+import com.czertainly.core.dao.entity.scep.ScepProfile_;
 import com.czertainly.core.model.auth.ResourceAction;
 import jakarta.persistence.metamodel.Attribute;
 import lombok.Getter;
@@ -65,6 +69,10 @@ public enum FilterField {
     ARCHIVED(Resource.CERTIFICATE, null, null, Certificate_.archived, "Archived", SearchFieldTypeEnum.BOOLEAN),
     SUCCEEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.successorRelations), CertificateRelation_.relationType, "Succeeding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
     PRECEDING_CERTIFICATES(Resource.CERTIFICATE, null, List.of(Certificate_.predecessorRelations), CertificateRelation_.relationType, "Preceding Certificates", SearchFieldTypeEnum.LIST, CertificateRelationType.class),
+    ACME_PROFILE(Resource.CERTIFICATE, Resource.ACME_PROFILE, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.acmeProfile), AcmeProfile_.name, "ACME Profile", SearchFieldTypeEnum.LIST),
+    SCEP_PROFILE(Resource.CERTIFICATE, Resource.SCEP_PROFILE, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.scepProfile), ScepProfile_.name, "SCEP Profile", SearchFieldTypeEnum.LIST),
+    CMP_PROFILE(Resource.CERTIFICATE, Resource.CMP_PROFILE, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.cmpProfile), CmpProfile_.name, "CMP Profile", SearchFieldTypeEnum.LIST),
+    ACME_ACCOUNT(Resource.CERTIFICATE, Resource.ACME_ACCOUNT, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.acmeAccount), AcmeAccount_.accountId, "ACME Account", SearchFieldTypeEnum.LIST),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),

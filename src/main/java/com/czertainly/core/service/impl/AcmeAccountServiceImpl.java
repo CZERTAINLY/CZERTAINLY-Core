@@ -5,11 +5,11 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
-import com.czertainly.api.model.core.acme.OrderStatus;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeOrder;
+import com.czertainly.core.dao.entity.acme.AcmeAccount_;
 import com.czertainly.core.dao.repository.acme.AcmeAccountRepository;
 import com.czertainly.core.dao.repository.acme.AcmeOrderRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -27,9 +27,10 @@ import jakarta.transaction.Transactional;
 
 import java.util.Date;
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
-@Service
+@Service(Resource.Codes.ACME_ACCOUNT)
 @Transactional
 public class AcmeAccountServiceImpl implements AcmeAccountService {
 
@@ -132,13 +133,9 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
 
-        List<AcmeOrder> orders = acmeOrderRepository.findByAcmeAccountAndExpiresBefore(acmeAccount, new Date());
-        for (AcmeOrder order : orders) {
-            if (!order.getStatus().equals(OrderStatus.VALID)) {
-                order.setStatus(OrderStatus.INVALID);
-                acmeOrderRepository.save(order);
-            }
-        }
+        int invalidatedExpiredOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
+        acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + invalidatedExpiredOrders);
+        acmeAccountRepository.save(acmeAccount);
 
         return getAcmeAccountEntity(uuid).mapToDtoForUi();
     }
@@ -156,5 +153,20 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
         account.setStatus(AccountStatus.REVOKED);
         account.setEnabled(false);
         acmeAccountRepository.save(account);
+    }
+
+    @Override
+    public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
+        return acmeAccountRepository.findResourceObject(objectUuid, AcmeAccount_.accountId);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+        return acmeAccountRepository.listResourceObjects(filter, AcmeAccount_.accountId);
+    }
+
+    @Override
+    public void evaluatePermissionChain(SecuredUUID uuid) throws NotFoundException {
+        // Permission evaluation logic not required
     }
 }
