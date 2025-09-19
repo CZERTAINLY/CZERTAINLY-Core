@@ -114,8 +114,8 @@ public enum FilterField {
     AUDIT_LOG_SOURCE_IP_ADDRESS(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "IP Address", SearchFieldTypeEnum.STRING, new String[]{"source", "ipAddress"}),
     AUDIT_LOG_SOURCE_PATH(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "API path", SearchFieldTypeEnum.STRING, new String[]{"source", "path"}),
     AUDIT_LOG_MESSAGE(Resource.AUDIT_LOG, null, null, AuditLog_.message, "Message", SearchFieldTypeEnum.STRING),
-    AUDIT_LOG_RESOURCE_UUID(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource UUIDs", SearchFieldTypeEnum.STRING, new String[]{"resource", "uuids"}),
-    AUDIT_LOG_RESOURCE_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource Names", SearchFieldTypeEnum.STRING, new String[]{"resource", "names"}),
+    AUDIT_LOG_RESOURCE_UUID(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource UUIDs", SearchFieldTypeEnum.LIST, new String[]{"resource", "objects", "uuid"}),
+    AUDIT_LOG_RESOURCE_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource Names", SearchFieldTypeEnum.LIST, new String[]{"resource", "objects", "name"}),
 
     // Scheduled Job
     SCHEDULED_JOB_NAME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.jobName, "Job Name", SearchFieldTypeEnum.STRING),
