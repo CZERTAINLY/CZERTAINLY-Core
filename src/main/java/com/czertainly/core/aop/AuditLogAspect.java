@@ -187,16 +187,16 @@ public class AuditLogAspect {
 
                 return parameterValue instanceof List<?> listValues
                         ? listValues.stream().map(v -> UUID.fromString(v.toString())).toList()
-                        : (parameterValue instanceof Optional<?> optional && optional.isPresent() ? List.of(UUID.fromString(optional.get().toString())) : List.of(UUID.fromString(parameterValue.toString())));
+                        : (parameterValue instanceof Optional<?> optional && optional.isPresent() ? new ArrayList<>(List.of(UUID.fromString(optional.get().toString()))) : new ArrayList<>(List.of(UUID.fromString(parameterValue.toString()))));
             }
             return null;
         }
         if (parameterName.equalsIgnoreCase("uuid")) {
             if (parameterValue instanceof String paramString) {
-                return List.of(UUID.fromString(paramString));
+                return new ArrayList<>(List.of(UUID.fromString(paramString)));
             }
             if (parameterValue instanceof UUID paramUuid) {
-                return List.of(paramUuid);
+                return new ArrayList<>(List.of(paramUuid));
             }
         }
 
