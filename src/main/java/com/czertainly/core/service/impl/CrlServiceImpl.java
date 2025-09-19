@@ -52,7 +52,7 @@ public class CrlServiceImpl implements CrlService {
     @Override
     public UUID getCurrentCrl(X509Certificate certificate, X509Certificate issuerCertificate) throws IOException {
         byte[] issuerDnPrincipalEncoded = certificate.getIssuerX500Principal().getEncoded();
-        String issuerDn = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString();
+        String issuerDn = X500Name.getInstance(new CzertainlyX500NameStyle(true), issuerDnPrincipalEncoded).toString();
         String issuerSerialNumber = issuerCertificate.getSerialNumber().toString(16);
         Crl crl = crlRepository.findByIssuerDnAndSerialNumber(issuerDn, issuerSerialNumber).orElse(null);
         Certificate caCertificate = certificateRepository.findBySubjectDnNormalizedAndSerialNumber(issuerDn, issuerSerialNumber).orElse(null);
@@ -114,7 +114,7 @@ public class CrlServiceImpl implements CrlService {
                 crl = new Crl();
                 crl.setUuid(UUID.randomUUID());
                 byte[] issuerDnPrincipalEncoded = x509CRL.getIssuerX500Principal().getEncoded();
-                crl.setCrlIssuerDn(X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, issuerDnPrincipalEncoded).toString());
+                crl.setCrlIssuerDn(X500Name.getInstance(new CzertainlyX500NameStyle(true), issuerDnPrincipalEncoded).toString());
                 crl.setSerialNumber(issuerSerialNumber);
                 crl.setIssuerDn(issuerDn);
                 crl.setCaCertificateUuid(caCertificateUuid);
@@ -172,7 +172,7 @@ public class CrlServiceImpl implements CrlService {
                 // Failed to read content from URL, continue to next URL
                 continue;
             }
-            String deltaCrlIssuer = X500Name.getInstance(CzertainlyX500NameStyle.NORMALIZED, deltaCrl.getIssuerX500Principal().getEncoded()).toString();
+            String deltaCrlIssuer = X500Name.getInstance(new CzertainlyX500NameStyle(true), deltaCrl.getIssuerX500Principal().getEncoded()).toString();
             // Compare CRL issuer with issuer stored in CRL entity, delta CRL is invalid if they are not the same
             if (!Objects.equals(deltaCrlIssuer, crl.getCrlIssuerDn()))
                 throw new ValidationException("Delta CRL issuer not same as issuer stored in CRL entity");
