@@ -33,6 +33,7 @@ import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
@@ -47,6 +48,9 @@ import java.util.*;
 @Transactional
 public class UserManagementServiceImpl implements UserManagementService {
     private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);
+
+    @Value("${logging.schema-version}")
+    private String schemaVersion;
 
     private UserManagementApiClient userManagementApiClient;
 
@@ -184,7 +188,7 @@ public class UserManagementServiceImpl implements UserManagementService {
         }
         if (!userSessions.isEmpty()) {
             auditLogService.log(LogRecord.builder()
-                    .version("1.0")
+                    .version(schemaVersion)
                     .operation(Operation.LOGOUT)
                     .operationResult(OperationResult.SUCCESS)
                     .module(Module.AUTH)

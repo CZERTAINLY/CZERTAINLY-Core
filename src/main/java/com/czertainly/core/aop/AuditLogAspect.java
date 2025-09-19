@@ -13,7 +13,6 @@ import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.core.logging.AuditLogEnhancer;
 import com.czertainly.core.logging.LogResource;
-import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.core.messaging.model.AuditLogMessage;
@@ -222,7 +221,8 @@ public class AuditLogAspect {
         // step 1: first uuid with provided resourceName (if available)
         if (resourceUuids != null && !resourceUuids.isEmpty() && resourceName != null) {
             objects.add(new NameAndUuid(resourceName, resourceUuids.getFirst()));
-        }
+        } else if (resourceUuids == null && resourceName != null) objects.add(new NameAndUuid(resourceName, null));
+
 
         // prepare lookup from stored resource if needed
         Map<UUID, String> storedUuidToName = new HashMap<>();
@@ -231,7 +231,7 @@ public class AuditLogAspect {
             storedResource = LoggingHelper.getLogResourceInfo(affiliated);
             if (storedResource != null && storedResource.type() == resource) {
                 for (NameAndUuid storedObject : storedResource.objects()) {
-                    storedUuidToName.put(storedObject.getUuid(), storedObject.getName());
+                    storedUuidToName.put(storedObject.uuid(), storedObject.name());
                 }
             }
         }
@@ -247,7 +247,7 @@ public class AuditLogAspect {
         // step 3: add all stored objects not already in resourceUuids
         if (storedResource != null) {
             for (NameAndUuid storedObject : storedResource.objects()) {
-                if (resourceUuids == null || !resourceUuids.contains(storedObject.getUuid())) {
+                if (resourceUuids == null || !resourceUuids.contains(storedObject.uuid())) {
                     objects.add(storedObject);
                 }
             }
