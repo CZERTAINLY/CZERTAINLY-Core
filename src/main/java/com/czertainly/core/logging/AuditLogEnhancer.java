@@ -7,8 +7,8 @@ import com.czertainly.core.service.ResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Set;
 
 @Component
 public class AuditLogEnhancer {
@@ -21,17 +21,19 @@ public class AuditLogEnhancer {
     }
 
     public List<NameAndUuid> enrichNamesAndUuids(List<NameAndUuid> resourceNamesAndUuids, Resource resource) {
+        List<NameAndUuid> enrichedObjects = new ArrayList<>();
         if (resourceNamesAndUuids != null) {
             for (NameAndUuid nameAndUuid : resourceNamesAndUuids) {
-                if (nameAndUuid.getUuid() != null && nameAndUuid.getName() == null) {
+                if (nameAndUuid.uuid() != null && nameAndUuid.name() == null) {
                     try {
-                        nameAndUuid.setName(resourceService.getResourceObject(resource, nameAndUuid.getUuid()).getName());
+                        enrichedObjects.add(new NameAndUuid(resourceService.getResourceObject(resource, nameAndUuid.uuid()).getName(), nameAndUuid.uuid()));
                     } catch (NotFoundException ignored) {
                         // Did not manage to retrieve object name
+                        enrichedObjects.add(nameAndUuid);
                     }
-                }
+                } else enrichedObjects.add(nameAndUuid);
             }
         }
-        return resourceNamesAndUuids;
+        return enrichedObjects;
     }
 }
