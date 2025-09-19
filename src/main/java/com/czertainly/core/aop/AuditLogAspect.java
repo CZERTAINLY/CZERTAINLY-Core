@@ -238,7 +238,7 @@ public class AuditLogAspect {
 
         // step 2: remaining uuids (use stored name if available, otherwise null)
         if (resourceUuids != null && !resourceUuids.isEmpty()) {
-            for (UUID uuid :resourceUuids) {
+            for (UUID uuid : resourceUuids) {
                 String name = storedUuidToName.getOrDefault(uuid, null);
                 objects.add(new NameAndUuid(name, uuid));
             }

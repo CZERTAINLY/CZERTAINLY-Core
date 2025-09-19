@@ -122,7 +122,7 @@ public class AuditLogServiceImpl implements AuditLogService {
                     builder.resourceNamesAndUuids(a.getLogRecord().resource().objects());
                     builder.affiliatedResource(a.getAffiliatedResource());
                     if (a.getLogRecord().affiliatedResource() != null) {
-                        builder.affiliatedResourceNamesAndUuids(a.getLogRecord().resource().objects());
+                        builder.affiliatedResourceNamesAndUuids(a.getLogRecord().affiliatedResource().objects());
                     }
                     builder.actorType(a.getActorType());
                     builder.actorAuthMethod(a.getActorAuthMethod());
