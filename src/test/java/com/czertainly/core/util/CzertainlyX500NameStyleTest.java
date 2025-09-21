@@ -63,6 +63,29 @@ class CzertainlyX500NameStyleTest extends BaseSpringBootTest {
         Assertions.assertEquals(oid2, getOidByValueFromRDNs(normalizedX500Name, "US"));
     }
 
+    @Test
+    void testTranslationFromOidToCode() {
+        String oid = "1.2.3.4.5";
+        String code = "X";
+        List<String> altCodes = List.of("XX", "XXX");
+        String oid2 = "1.2.3.4.5.6";
+        String code2 = "UID";
+
+        // register OIDs with codes in the handler
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, oid, new OidRecord("d", code, altCodes));
+        OidHandler.cacheOid(OidCategory.RDN_ATTRIBUTE_TYPE, oid2, new OidRecord("d", code2, List.of()));
+
+        // build DN using numeric OIDs (use OID.<dot-notation> syntax)
+        String originalX500 = "CN=Certificate Authority, OID." + oid + "=Location, OID." + oid2 + "=US, O=Organization";
+        X500Principal x500Principal = new X500Principal(originalX500);
+
+        // use non-normalized custom style which maps OID -> code for toString()
+        String rendered = X500Name.getInstance(new CzertainlyX500NameStyle(false), x500Principal.getEncoded()).toString();
+
+        Assertions.assertTrue(rendered.contains(code + "=Location"), "OID should be rendered as code for Location");
+        Assertions.assertTrue(rendered.contains(code2 + "=US"), "OID should be rendered as code for US");
+    }
+
     private static String getOidByValueFromRDNs(X500Name normalizedX500Name, String value) {
         // Find the RDN whose value matches the input
         RDN matchingRdn = null;
