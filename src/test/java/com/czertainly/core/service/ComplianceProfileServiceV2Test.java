@@ -610,7 +610,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         updateReq.setResource(Resource.CERTIFICATE);
         updateReq.setConditionItems(List.of(conditionItemRequestDto, conditionItemRequestDto2));
 
-        ComplianceRuleListDto updated = complianceProfileService.updateComplianceInternalRule(uuid, updateReq);
+        complianceProfileService.updateComplianceInternalRule(uuid, updateReq);
 
         // verify persisted changes
         var opt = internalRuleRepository.findByUuid(uuid);
@@ -624,6 +624,9 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void testDeleteInternalRule() throws Exception {
+        // delete associated internal rule
+        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceInternalRule(internalRuleUuid));
+
         // create rule to delete
         ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
         createReq.setName("TestInternalRule_Delete");
