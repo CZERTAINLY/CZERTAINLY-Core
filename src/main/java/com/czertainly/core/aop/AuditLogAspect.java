@@ -77,6 +77,8 @@ public class AuditLogAspect {
                 .source(LoggingHelper.getSourceInfo());
 
         Object result = null;
+        constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result, loggingSettingsDto.getAuditLogs().isVerbose());
+
         try {
             result = joinPoint.proceed();
             logBuilder.operationResult(OperationResult.SUCCESS);
@@ -94,7 +96,7 @@ public class AuditLogAspect {
             logBuilder.message(message);
             throw e;
         } finally {
-            constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result, loggingSettingsDto.getAuditLogs().isVerbose());
+            addDataFromResponse(logBuilder, result);
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build()));
         }
     }
@@ -106,7 +108,6 @@ public class AuditLogAspect {
         Resource affiliatedResource = null;
         String affiliatedResourceName = null;
         List<UUID> affiliatedResourceUuids = null;
-        Serializable responseOperationData = null;
         Map<String, Object> data = new LinkedHashMap<>();
 
         if (parameters != null && parameterValues != null) {
@@ -142,31 +143,12 @@ public class AuditLogAspect {
         if (resource == null) resource = annotation.resource();
         if (affiliatedResource == null) affiliatedResource = annotation.affiliatedResource();
 
-        if (response != null) {
-            if (response instanceof ResponseEntity<?> responseEntity) {
-                response = responseEntity.getBody();
-            }
-
-            if (response instanceof Loggable loggable) {
-                responseOperationData = loggable.toLogData();
-                // Add data from response
-                if (responseOperationData instanceof NameAndUuidDto nameAndUuidDto) {
-                    if (resourceName == null) resourceName = nameAndUuidDto.getName();
-                    if (nameAndUuidDto.getUuid() != null) {
-                        if (resourceUuids == null) resourceUuids = new ArrayList<>();
-                        resourceUuids.add(UUID.fromString(nameAndUuidDto.getUuid()));
-                    }
-                }
-            }
-        }
-
         Operation operation = annotation.operation() != Operation.UNKNOWN ? annotation.operation() : LoggingHelper.getAuditLogOperation();
         logBuilder.operation(operation);
         logBuilder.resource(constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name(), operation));
         if (affiliatedResource != Resource.NONE) {
             logBuilder.affiliatedResource(constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName, operation));
         }
-        logBuilder.operationData(responseOperationData);
         if (!data.isEmpty()) {
             logBuilder.additionalData(data);
         }
@@ -216,12 +198,12 @@ public class AuditLogAspect {
     }
 
     private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, Operation operation) {
-        List<NameAndUuid> objects = new ArrayList<>();
+        List<ResourceObjectIdentity> objects = new ArrayList<>();
 
         // step 1: first uuid with provided resourceName (if available)
         if (resourceUuids != null && !resourceUuids.isEmpty() && resourceName != null) {
-            objects.add(new NameAndUuid(resourceName, resourceUuids.getFirst()));
-        } else if (resourceUuids == null && resourceName != null) objects.add(new NameAndUuid(resourceName, null));
+            objects.add(new ResourceObjectIdentity(resourceName, resourceUuids.getFirst()));
+        } else if (resourceUuids == null && resourceName != null) objects.add(new ResourceObjectIdentity(resourceName, null));
 
 
         // prepare lookup from stored resource if needed
@@ -230,7 +212,7 @@ public class AuditLogAspect {
         if (resourceUuids == null || resourceName == null) {
             storedResource = LoggingHelper.getLogResourceInfo(affiliated);
             if (storedResource != null && storedResource.type() == resource) {
-                for (NameAndUuid storedObject : storedResource.objects()) {
+                for (ResourceObjectIdentity storedObject : storedResource.objects()) {
                     storedUuidToName.put(storedObject.uuid(), storedObject.name());
                 }
             }
@@ -240,13 +222,13 @@ public class AuditLogAspect {
         if (resourceUuids != null && !resourceUuids.isEmpty()) {
             for (UUID uuid : resourceUuids) {
                 String name = storedUuidToName.getOrDefault(uuid, null);
-                objects.add(new NameAndUuid(name, uuid));
+                objects.add(new ResourceObjectIdentity(name, uuid));
             }
         }
 
         // step 3: add all stored objects not already in resourceUuids
         if (storedResource != null) {
-            for (NameAndUuid storedObject : storedResource.objects()) {
+            for (ResourceObjectIdentity storedObject : storedResource.objects()) {
                 if (resourceUuids == null || !resourceUuids.contains(storedObject.uuid())) {
                     objects.add(storedObject);
                 }
@@ -258,6 +240,20 @@ public class AuditLogAspect {
             objects = auditLogEnhancer.enrichNamesAndUuids(objects, resource);
 
         return new ResourceRecord(resource, objects);
+    }
+
+    private void addDataFromResponse(LogRecord.LogRecordBuilder builder, Object response) {
+        Serializable responseOperationData = null;
+        if (response != null) {
+            if (response instanceof ResponseEntity<?> responseEntity) {
+                response = responseEntity.getBody();
+            }
+
+            if (response instanceof Loggable loggable) {
+                responseOperationData = loggable.toLogData();
+            }
+        }
+        builder.operationData(responseOperationData);
     }
 
 }
