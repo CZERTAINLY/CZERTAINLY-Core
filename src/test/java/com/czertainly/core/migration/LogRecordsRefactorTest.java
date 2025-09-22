@@ -4,7 +4,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.records.LogRecord;
-import com.czertainly.api.model.core.logging.records.NameAndUuid;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -294,7 +294,7 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
         // --- NULL AFFILIATED RESOURCE ---
         Assertions.assertNotNull(nullAffiliatedResource.getLogRecord().resource());
         Assertions.assertEquals(1, nullAffiliatedResource.getLogRecord().resource().objects().size());
-        NameAndUuid onlyObject = nullAffiliatedResource.getLogRecord().resource().objects().iterator().next();
+        ResourceObjectIdentity onlyObject = nullAffiliatedResource.getLogRecord().resource().objects().iterator().next();
         Assertions.assertEquals("name1", onlyObject.name());
         Assertions.assertNull(onlyObject.uuid());
         Assertions.assertNull(nullAffiliatedResource.getLogRecord().affiliatedResource());

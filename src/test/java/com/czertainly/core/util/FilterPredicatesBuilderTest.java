@@ -28,7 +28,7 @@ import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.records.ActorRecord;
 import com.czertainly.api.model.core.logging.records.LogRecord;
-import com.czertainly.api.model.core.logging.records.NameAndUuid;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
@@ -1003,8 +1003,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         String name1 = "name";
         UUID uuid2 = UUID.randomUUID();
         String name2 = "name2";
-        AuditLog auditLog1 = createAuditLog(List.of(new NameAndUuid(name1, uuid1)));
-        AuditLog auditLog2 = createAuditLog(List.of(new NameAndUuid(name1, uuid1), new NameAndUuid(name2, uuid2)));
+        AuditLog auditLog1 = createAuditLog(List.of(new ResourceObjectIdentity(name1, uuid1)));
+        AuditLog auditLog2 = createAuditLog(List.of(new ResourceObjectIdentity(name1, uuid1), new ResourceObjectIdentity(name2, uuid2)));
         AuditLog auditLog3  = createAuditLog(List.of());
         AuditLog auditLog4 = createAuditLog(null);
         SearchRequestDto searchRequestDto = new SearchRequestDto();
@@ -1029,7 +1029,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         return responseDto.getItems().stream().map(AuditLogDto::getId).collect(Collectors.toSet());
     }
 
-    private AuditLog createAuditLog(List<NameAndUuid> resourceObjects) {
+    private AuditLog createAuditLog(List<ResourceObjectIdentity> resourceObjects) {
         AuditLog entity = new AuditLog();
         entity.setVersion("1.0");
         entity.setModule(Module.AUTH);
