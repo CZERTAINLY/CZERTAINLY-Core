@@ -24,13 +24,10 @@ import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-
-import static org.mockito.ArgumentMatchers.any;
 
 class AuditLogAspectTest extends BaseSpringBootTest {
 
