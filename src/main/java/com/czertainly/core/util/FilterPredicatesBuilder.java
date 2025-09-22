@@ -257,7 +257,7 @@ public class FilterPredicatesBuilder {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
                 else if (isJsonArray)
-                    predicate = criteriaBuilder.isTrue(criteriaBuilder.function(BitwiseFunctionContributor.JSONB_CONTAINS, Boolean.class, expression, criteriaBuilder.literal(MetaDefinitions.serializeArrayString(filterValues.stream().map(Object::toString).toList()))));
+                    predicate = criteriaBuilder.isTrue(getJsonContainsExpression(criteriaBuilder, expression, filterValues));
                 else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
             }
@@ -265,7 +265,7 @@ public class FilterPredicatesBuilder {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
                 else if (isJsonArray)
-                    predicate = criteriaBuilder.isFalse(criteriaBuilder.function(BitwiseFunctionContributor.JSONB_CONTAINS, Boolean.class, expression, criteriaBuilder.literal(MetaDefinitions.serializeArrayString(filterValues.stream().map(Object::toString).toList()))));
+                    predicate = criteriaBuilder.isFalse(getJsonContainsExpression(criteriaBuilder, expression, filterValues));
                 else {
                     // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
                     if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
@@ -328,8 +328,12 @@ public class FilterPredicatesBuilder {
         return predicate;
     }
 
+    private static Expression<Boolean> getJsonContainsExpression(CriteriaBuilder criteriaBuilder, Expression expression, List<Object> filterValues) {
+        return criteriaBuilder.function(PostgresFunctionContributor.JSONB_CONTAINS, Boolean.class, expression, criteriaBuilder.literal(MetaDefinitions.serializeArrayString(filterValues.stream().map(Object::toString).toList())));
+    }
+
     private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression, CriteriaBuilder criteriaBuilder) {
-        return criteriaBuilder.function(BitwiseFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression, criteriaBuilder.literal(bit));
+        return criteriaBuilder.function(PostgresFunctionContributor.BIT_AND_FUNCTION, Integer.class, expression, criteriaBuilder.literal(bit));
     }
 
     private static void validateRegexForDbQuery(String regex) {
