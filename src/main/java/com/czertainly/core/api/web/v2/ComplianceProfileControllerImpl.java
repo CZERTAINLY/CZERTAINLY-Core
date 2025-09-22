@@ -2,10 +2,7 @@ package com.czertainly.core.api.web.v2;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.v2.ComplianceProfileController;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileGroupsPatchRequestDto;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRequestDto;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileRulesPatchRequestDto;
-import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
+import com.czertainly.api.model.client.compliance.v2.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceGroupListDto;
@@ -104,6 +101,24 @@ public class ComplianceProfileControllerImpl implements ComplianceProfileControl
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, affiliatedResource = Resource.COMPLIANCE_GROUP, operation = Operation.LIST)
     public List<ComplianceRuleListDto> getComplianceGroupRules(@LogResource(uuid = true, affiliated = true) UUID groupUuid, UUID connectorUuid, String kind) throws ConnectorException, NotFoundException {
         return complianceProfileService.getComplianceGroupRules(groupUuid, connectorUuid, kind);
+    }
+
+    @Override
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, operation = Operation.CREATE)
+    public ComplianceRuleListDto createComplianceInternalRule(ComplianceInternalRuleRequestDto request) throws AlreadyExistException {
+        return complianceProfileService.createComplianceInternalRule(request);
+    }
+
+    @Override
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, operation = Operation.UPDATE)
+    public ComplianceRuleListDto updateComplianceInternalRule(UUID internalRuleUuid, ComplianceInternalRuleRequestDto request) throws NotFoundException {
+        return complianceProfileService.updateComplianceInternalRule(internalRuleUuid, request);
+    }
+
+    @Override
+    @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_RULE, operation = Operation.DELETE)
+    public void deleteComplianceInternalRule(UUID internalRuleUuid) throws NotFoundException {
+        complianceProfileService.deleteComplianceInternalRule(internalRuleUuid);
     }
 
     @Override

@@ -143,7 +143,7 @@ public class ExceptionHandlingAdvice {
      * @return {@link ErrorMessageDto}
      */
     @ExceptionHandler(MethodArgumentNotValidException.class)
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ResponseStatus(HttpStatus.UNPROCESSABLE_ENTITY)
     public ErrorMessageDto handleMethodArgumentNotValidException(MethodArgumentNotValidException ex) {
         StringBuilder messageBuilder = new StringBuilder();
         messageBuilder.append("Validation error: ");
@@ -153,7 +153,7 @@ public class ExceptionHandlingAdvice {
         // remote trailing comma and space
         messageBuilder.delete(messageBuilder.length() - 2, messageBuilder.length());
 
-        LOG.info("HTTP 400: {}", messageBuilder);
+        LOG.info("HTTP 422: {}", messageBuilder);
         return ErrorMessageDto.getInstance(messageBuilder.toString());
     }
 
