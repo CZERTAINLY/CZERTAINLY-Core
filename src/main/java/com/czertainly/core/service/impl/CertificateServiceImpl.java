@@ -1773,11 +1773,10 @@ public class CertificateServiceImpl implements CertificateService {
     public void updateCertificateDNs(String oid, String newCode, String oldCode) {
         String regex = "([!$()*+.:<=>?\\[\\\\\\]^{|}\\-])";
         String escapedOid = oid.replaceAll(regex, "\\\\$1");
-        String escapedNewCode = newCode.replaceAll(regex, "\\\\$1");
         String escapedOldCode = oldCode.replaceAll(regex, "\\\\$1");
 
-        certificateRepository.updateCertificateIssuerDN(escapedOid, escapedNewCode, escapedOldCode);
-        certificateRepository.updateCertificateSubjectDN(escapedOid, escapedNewCode, escapedOldCode);
+        certificateRepository.updateCertificateIssuerDN(escapedOid, newCode, escapedOldCode);
+        certificateRepository.updateCertificateSubjectDN(escapedOid, newCode, escapedOldCode);
     }
 
     @Override
@@ -1807,6 +1806,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         Certificate associatedCertificate = getCertificateEntity(SecuredUUID.fromUUID(certificateUuid));
 
+        validateSubjectTypes(certificate, associatedCertificate);
+
         CertificateRelation certificateRelation = new CertificateRelation();
         CertificateRelationId id = determineCertificateRelationId(certificate, associatedCertificate);
         Certificate successorCertificate = id.getSuccessorCertificateUuid().equals(certificate.getUuid()) ? certificate : associatedCertificate;
@@ -1833,6 +1834,25 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEventHistoryService.addEventHistory(id.getSuccessorCertificateUuid(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Predecessor certificate %s has been associated with the certificate by relation type %s".formatted(id.getPredecessorCertificateUuid(), certificateRelation.getRelationType().getLabel()), "");
         certificateEventHistoryService.addEventHistory(id.getPredecessorCertificateUuid(), CertificateEvent.UPDATE_ENTITY, CertificateEventStatus.SUCCESS, "Successor certificate %s has been associated with the certificate by relation type %s".formatted(id.getSuccessorCertificateUuid(), certificateRelation.getRelationType().getLabel()), "");
 
+    }
+
+    private static void validateSubjectTypes(Certificate certificate, Certificate associatedCertificate) {
+        if (certificate.getSubjectType() != null && associatedCertificate.getSubjectType() != null) {
+            CertificateSubjectType subjectType1 =
+                    (certificate.getSubjectType() == CertificateSubjectType.SELF_SIGNED_END_ENTITY)
+                            ? CertificateSubjectType.END_ENTITY
+                            : certificate.getSubjectType();
+
+            CertificateSubjectType subjectType2 =
+                    (associatedCertificate.getSubjectType() == CertificateSubjectType.SELF_SIGNED_END_ENTITY)
+                            ? CertificateSubjectType.END_ENTITY
+                            : associatedCertificate.getSubjectType();
+
+            if (subjectType1 != subjectType2) {
+                throw new ValidationException("Certificate subject types do not match: "
+                        + certificate.getSubjectType() + " vs " + associatedCertificate.getSubjectType());
+            }
+        }
     }
 
     private static boolean successorCertificateHasBeenIssued(CertificateState successorCertificateState) {
