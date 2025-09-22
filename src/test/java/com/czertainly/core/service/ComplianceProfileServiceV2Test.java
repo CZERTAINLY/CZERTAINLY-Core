@@ -886,7 +886,10 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void getComplianceRulesTest() throws ConnectorException, NotFoundException {
-        var rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
+        var rules = complianceProfileService.getComplianceRules(null, null, null, null, null);
+        Assertions.assertEquals(2, rules.size());
+
+        rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
         Assertions.assertEquals(2, rules.size());
 
         rules = complianceProfileService.getComplianceRules(connectorV2.getUuid(), KIND_V2, null, null, null);
