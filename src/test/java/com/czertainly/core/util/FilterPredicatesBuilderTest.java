@@ -1008,8 +1008,12 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         AuditLog auditLog3  = createAuditLog(List.of());
         AuditLog auditLog4 = createAuditLog(null);
         SearchRequestDto searchRequestDto = new SearchRequestDto();
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(uuid1, uuid2))));
+        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(uuid1))));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(uuid2))));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog3.getId(), auditLog4.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 

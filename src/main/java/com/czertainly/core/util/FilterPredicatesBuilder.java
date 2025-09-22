@@ -257,7 +257,7 @@ public class FilterPredicatesBuilder {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
                 else if (isJsonArray)
-                    predicate = criteriaBuilder.isTrue(getJsonContainsExpression(criteriaBuilder, expression, filterValues));
+                    predicate = getJsonContainsExpression(criteriaBuilder, expression, filterValues, true);
                 else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
             }
@@ -265,7 +265,7 @@ public class FilterPredicatesBuilder {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
                 else if (isJsonArray)
-                    predicate = criteriaBuilder.isFalse(getJsonContainsExpression(criteriaBuilder, expression, filterValues));
+                    predicate = getJsonContainsExpression(criteriaBuilder, expression, filterValues, false);
                 else {
                     // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
                     if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
@@ -328,8 +328,23 @@ public class FilterPredicatesBuilder {
         return predicate;
     }
 
-    private static Expression<Boolean> getJsonContainsExpression(CriteriaBuilder criteriaBuilder, Expression expression, List<Object> filterValues) {
-        return criteriaBuilder.function(PostgresFunctionContributor.JSONB_CONTAINS, Boolean.class, expression, criteriaBuilder.literal(MetaDefinitions.serializeArrayString(filterValues.stream().map(Object::toString).toList())));
+    private static Predicate getJsonContainsExpression(CriteriaBuilder criteriaBuilder, Expression expression, List<Object> filterValues, boolean equals) {
+        List<Predicate> predicates = filterValues.stream()
+                .map(value -> {
+                    Expression<Boolean> expr = criteriaBuilder.function(
+                            PostgresFunctionContributor.JSONB_CONTAINS,
+                            Boolean.class,
+                            expression,
+                            criteriaBuilder.literal(
+                                    "[\"%s\"]".formatted(value)
+                            )
+                    );
+                    return equals ? criteriaBuilder.isTrue(expr) : criteriaBuilder.isFalse(expr);
+                })
+                .toList();
+
+        Predicate[] predicatesArray = predicates.toArray(new Predicate[0]);
+        return equals ? criteriaBuilder.or(predicatesArray) : criteriaBuilder.and(predicatesArray);
     }
 
     private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression, CriteriaBuilder criteriaBuilder) {

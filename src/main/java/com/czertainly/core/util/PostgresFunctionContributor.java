@@ -15,7 +15,7 @@ public class PostgresFunctionContributor implements FunctionContributor {
         BasicType<Integer> resultType = functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.INTEGER);
         functionContributions.getFunctionRegistry().registerPattern(BIT_AND_FUNCTION,
                 "?1 & ?2", resultType);
-        functionContributions.getFunctionRegistry().registerPattern(JSONB_CONTAINS, "?1 ?| CAST(?2 AS jsonb)", functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.BOOLEAN));
+        functionContributions.getFunctionRegistry().registerPattern(JSONB_CONTAINS, "?1 @> CAST(?2 AS jsonb)", functionContributions.getTypeConfiguration().getBasicTypeRegistry().resolve(StandardBasicTypes.BOOLEAN));
 
     }
 }
