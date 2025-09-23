@@ -18,6 +18,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 @Getter
@@ -98,6 +99,7 @@ public class LoggerWrapper {
 
         var logBuilder = prepareLogRecord(audited, module, resource);
         return logBuilder
+                .timestamp(OffsetDateTime.now())
                 .operation(operation)
                 .operationResult(operationResult)
                 .operationData(operationData)
