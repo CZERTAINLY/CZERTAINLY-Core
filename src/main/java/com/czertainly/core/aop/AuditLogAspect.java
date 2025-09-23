@@ -33,6 +33,7 @@ import org.springframework.stereotype.Component;
 import java.io.Serializable;
 import java.lang.reflect.Parameter;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 @Slf4j
@@ -96,7 +97,7 @@ public class AuditLogAspect {
             throw e;
         } finally {
             addDataFromResponse(logBuilder, result);
-            logBuilder.timestamp(LocalDateTime.now());
+            logBuilder.timestamp(OffsetDateTime.now());
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build()));
         }
     }

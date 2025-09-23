@@ -147,7 +147,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         auditLog.setOperationResult(logRecord.operationResult());
         auditLog.setMessage(logRecord.message());
         auditLog.setLogRecord(logRecord);
-        auditLog.setTimestamp(OffsetDateTime.from(logRecord.timestamp()));
+        auditLog.setTimestamp(logRecord.timestamp());
 
         return auditLog;
     }

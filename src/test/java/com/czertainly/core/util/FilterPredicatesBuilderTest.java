@@ -1041,7 +1041,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
                 .audited(true)
                 .version("v")
                 .module(Module.AUTH)
-                .timestamp(LocalDateTime.now())
+                .timestamp(OffsetDateTime.now())
                 .actor(new ActorRecord(ActorType.USER, AuthMethod.CERTIFICATE, null, null))
                 .operation(Operation.LOGOUT)
                 .operationResult(OperationResult.FAILURE)

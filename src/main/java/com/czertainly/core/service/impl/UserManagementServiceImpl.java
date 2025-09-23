@@ -45,6 +45,7 @@ import java.security.cert.*;
 import java.security.cert.CertificateException;
 import java.text.ParseException;
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service(Resource.Codes.USER)
@@ -195,7 +196,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .operation(Operation.LOGOUT)
                     .operationResult(OperationResult.SUCCESS)
                     .module(Module.AUTH)
-                    .timestamp(LocalDateTime.now())
+                    .timestamp(OffsetDateTime.now())
                     .actor(LoggingHelper.getActorInfo())
                     .source(LoggingHelper.getSourceInfo())
                     .resource(ResourceRecord.builder().type(Resource.USER).objects(List.of(new ResourceObjectIdentity(null, UUID.fromString(userUuid)))).build())
