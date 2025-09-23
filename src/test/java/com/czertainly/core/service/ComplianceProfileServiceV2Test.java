@@ -5,11 +5,13 @@ import com.czertainly.api.model.client.compliance.v2.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceRuleRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceProfileListDto;
+import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.api.model.core.compliance.v2.ProviderComplianceRulesDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -18,7 +20,7 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.dao.repository.workflows.RuleRepository;
+import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.v2.ComplianceProfileService;
@@ -61,9 +63,7 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
 
     @Autowired
-    RuleService ruleService;
-    @Autowired
-    private RuleRepository ruleRepository;
+    private ComplianceInternalRuleRepository internalRuleRepository;
 
     @Autowired
     private RaProfileRepository raProfileRepository;
@@ -164,33 +164,25 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
         return connector;
     }
 
-    private void createInternalRule() throws NotFoundException, AlreadyExistException {
+    private void createInternalRule() throws AlreadyExistException {
         ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
         conditionItemRequestDto.setFieldSource(FilterFieldSource.PROPERTY);
         conditionItemRequestDto.setFieldIdentifier("KEY_SIZE");
         conditionItemRequestDto.setOperator(FilterConditionOperator.EQUALS);
         conditionItemRequestDto.setValue(1024);
 
-        ConditionRequestDto conditionRequestDto = new ConditionRequestDto();
-        conditionRequestDto.setName("TestCond");
-        conditionRequestDto.setResource(Resource.CERTIFICATE);
-        conditionRequestDto.setType(ConditionType.CHECK_FIELD);
-        conditionRequestDto.setItems(List.of(conditionItemRequestDto));
-        ConditionDto conditionDto = ruleService.createCondition(conditionRequestDto);
-
-        RuleRequestDto ruleRequestDto = new RuleRequestDto();
+        ComplianceInternalRuleRequestDto ruleRequestDto = new ComplianceInternalRuleRequestDto();
         ruleRequestDto.setName("TestInternalRule");
         ruleRequestDto.setResource(Resource.CERTIFICATE);
-        ruleRequestDto.setConditionsUuids(List.of(conditionDto.getUuid()));
-        RuleDetailDto ruleDetailDto = ruleService.createRule(ruleRequestDto);
-        internalRuleUuid = UUID.fromString(ruleDetailDto.getUuid());
+        ruleRequestDto.setConditionItems(List.of(conditionItemRequestDto));
+        ComplianceRuleListDto ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
+        internalRuleUuid = ruleDetailDto.getUuid();
 
         conditionItemRequestDto.setFieldIdentifier("PRIVATE_KEY");
         conditionItemRequestDto.setValue(true);
-        conditionRequestDto.setName("TestCond2");
         ruleRequestDto.setName("TestInternalRule2");
-        ruleDetailDto = ruleService.createRule(ruleRequestDto);
-        internalRule2Uuid = UUID.fromString(ruleDetailDto.getUuid());
+        ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
+        internalRule2Uuid = ruleDetailDto.getUuid();
     }
 
     private void createComplianceProfileAssociations() {
@@ -558,6 +550,102 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
     }
 
     @Test
+    void testCreateInternalRule() throws Exception {
+        ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
+        conditionItemRequestDto.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequestDto.setFieldIdentifier(FilterField.SUBJECT_TYPE.name());
+        conditionItemRequestDto.setOperator(FilterConditionOperator.EQUALS);
+        conditionItemRequestDto.setValue(CertificateSubjectType.ROOT_CA.getCode());
+
+        ComplianceInternalRuleRequestDto req = new ComplianceInternalRuleRequestDto();
+        req.setName("TestInternalRule");
+        req.setDescription("Description create");
+        req.setResource(Resource.CERTIFICATE);
+        req.setConditionItems(List.of(conditionItemRequestDto)); // no condition items
+        Assertions.assertThrows(AlreadyExistException.class, () -> complianceProfileService.createComplianceInternalRule(req));
+
+        req.setName("TestInternalRule_Create");
+        ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(req);
+        UUID createdUuid = created.getUuid();
+
+        var opt = internalRuleRepository.findByUuid(createdUuid);
+        Assertions.assertTrue(opt.isPresent(), "Internal rule must be persisted");
+        ComplianceInternalRule entity = opt.get();
+        Assertions.assertEquals("TestInternalRule_Create", entity.getName());
+        Assertions.assertEquals("Description create", entity.getDescription());
+        Assertions.assertEquals(Resource.CERTIFICATE, entity.getResource());
+        Assertions.assertEquals(1, entity.getConditionItems().size());
+        Assertions.assertEquals(FilterField.SUBJECT_TYPE.name(), entity.getConditionItems().stream().findFirst().orElseThrow().getFieldIdentifier());
+    }
+
+    @Test
+    void testUpdateInternalRule() throws Exception {
+        ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
+        conditionItemRequestDto.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequestDto.setFieldIdentifier(FilterField.SUBJECT_TYPE.name());
+        conditionItemRequestDto.setOperator(FilterConditionOperator.EQUALS);
+        conditionItemRequestDto.setValue(CertificateSubjectType.ROOT_CA.getCode());
+
+        // create initial rule
+        ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
+        createReq.setName("TestInternalRule_Update");
+        createReq.setDescription("Initial desc");
+        createReq.setResource(Resource.CERTIFICATE);
+        createReq.setConditionItems(List.of(conditionItemRequestDto));
+
+        ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(createReq);
+        UUID uuid = created.getUuid();
+
+        // prepare update
+        conditionItemRequestDto.setValue(CertificateSubjectType.INTERMEDIATE_CA.getCode());
+        ConditionItemRequestDto conditionItemRequestDto2 = new ConditionItemRequestDto();
+        conditionItemRequestDto2.setFieldSource(FilterFieldSource.PROPERTY);
+        conditionItemRequestDto2.setFieldIdentifier(FilterField.KEY_SIZE.name());
+        conditionItemRequestDto2.setOperator(FilterConditionOperator.EQUALS);
+        conditionItemRequestDto2.setValue(1024);
+
+        ComplianceInternalRuleRequestDto updateReq = new ComplianceInternalRuleRequestDto();
+        updateReq.setName("TestInternalRule_UpdatedName");
+        updateReq.setDescription("Updated description");
+        updateReq.setResource(Resource.CERTIFICATE);
+        updateReq.setConditionItems(List.of(conditionItemRequestDto, conditionItemRequestDto2));
+
+        complianceProfileService.updateComplianceInternalRule(uuid, updateReq);
+
+        // verify persisted changes
+        var opt = internalRuleRepository.findByUuid(uuid);
+        Assertions.assertTrue(opt.isPresent(), "Updated internal rule must exist");
+        ComplianceInternalRule entity = opt.get();
+        Assertions.assertEquals("TestInternalRule_UpdatedName", entity.getName());
+        Assertions.assertEquals("Updated description", entity.getDescription());
+        Assertions.assertEquals(2, entity.getConditionItems().size());
+        Assertions.assertEquals(FilterField.SUBJECT_TYPE.name(), entity.getConditionItems().stream().findFirst().orElseThrow().getFieldIdentifier());
+    }
+
+    @Test
+    void testDeleteInternalRule() throws Exception {
+        // delete associated internal rule
+        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceInternalRule(internalRuleUuid));
+
+        // create rule to delete
+        ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
+        createReq.setName("TestInternalRule_Delete");
+        createReq.setDescription("To be deleted");
+        createReq.setResource(Resource.CERTIFICATE);
+        createReq.setConditionItems(List.of());
+
+        ComplianceRuleListDto created = complianceProfileService.createComplianceInternalRule(createReq);
+        UUID uuid = created.getUuid();
+
+        // delete
+        complianceProfileService.deleteComplianceInternalRule(uuid);
+
+        // verify removed
+        var opt = internalRuleRepository.findByUuid(uuid);
+        Assertions.assertTrue(opt.isEmpty(), "Internal rule should be removed after delete");
+    }
+
+    @Test
     void addRuleTest() throws NotFoundException, ConnectorException {
         ComplianceProfileRulesPatchRequestDto dto = new ComplianceProfileRulesPatchRequestDto();
         dto.setRemoval(false);
@@ -798,7 +886,10 @@ class ComplianceProfileServiceV2Test extends BaseSpringBootTest {
 
     @Test
     void getComplianceRulesTest() throws ConnectorException, NotFoundException {
-        var rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
+        var rules = complianceProfileService.getComplianceRules(null, null, null, null, null);
+        Assertions.assertEquals(2, rules.size());
+
+        rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
         Assertions.assertEquals(2, rules.size());
 
         rules = complianceProfileService.getComplianceRules(connectorV2.getUuid(), KIND_V2, null, null, null);

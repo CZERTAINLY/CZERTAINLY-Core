@@ -2,9 +2,6 @@
 package com.czertainly.core.dao.entity.workflows;
 
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.api.model.core.workflows.RuleDetailDto;
 import com.czertainly.api.model.core.workflows.RuleDto;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
@@ -65,27 +62,6 @@ public class Rule extends UniquelyIdentified {
         if (conditions != null) ruleDetailDto.setConditions(conditions.stream().map(Condition::mapToDto).toList());
         
         return ruleDetailDto;
-    }
-
-    public ComplianceRuleDto mapToComplianceRuleDto() {
-        ComplianceRuleDto dto = new ComplianceRuleDto();
-        dto.setUuid(uuid);
-        dto.setName(name);
-        dto.setDescription(description);
-        dto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
-        dto.setResource(resource);
-
-        return dto;
-    }
-
-    public ComplianceRuleListDto mapToComplianceRuleListDto() {
-        ComplianceRuleListDto dto = new ComplianceRuleListDto();
-        dto.setUuid(uuid);
-        dto.setName(name);
-        dto.setDescription(description);
-        dto.setResource(resource);
-
-        return dto;
     }
 
     @Override

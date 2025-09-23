@@ -1773,11 +1773,10 @@ public class CertificateServiceImpl implements CertificateService {
     public void updateCertificateDNs(String oid, String newCode, String oldCode) {
         String regex = "([!$()*+.:<=>?\\[\\\\\\]^{|}\\-])";
         String escapedOid = oid.replaceAll(regex, "\\\\$1");
-        String escapedNewCode = newCode.replaceAll(regex, "\\\\$1");
         String escapedOldCode = oldCode.replaceAll(regex, "\\\\$1");
 
-        certificateRepository.updateCertificateIssuerDN(escapedOid, escapedNewCode, escapedOldCode);
-        certificateRepository.updateCertificateSubjectDN(escapedOid, escapedNewCode, escapedOldCode);
+        certificateRepository.updateCertificateIssuerDN(escapedOid, newCode, escapedOldCode);
+        certificateRepository.updateCertificateSubjectDN(escapedOid, newCode, escapedOldCode);
     }
 
     @Override
