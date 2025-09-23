@@ -1,5 +1,7 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
@@ -19,7 +21,7 @@ public interface ComplianceService {
      * @param resource Filter checked objects by resource
      * @param type Filter checked objects by resource type
      */
-    void checkCompliance(List<SecuredUUID> uuids, Resource resource, String type);
+    void checkCompliance(List<SecuredUUID> uuids, Resource resource, String type) throws ConnectorException, NotFoundException;
 
     /**
      * Check compliance on specified resource object

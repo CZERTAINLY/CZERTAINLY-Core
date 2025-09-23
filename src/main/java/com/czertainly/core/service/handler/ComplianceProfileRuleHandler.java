@@ -334,7 +334,7 @@ public class ComplianceProfileRuleHandler {
         return complianceProfileRule;
     }
 
-    private ComplianceRulesGroupsBatchDto getComplianceProviderRulesBatch(UUID connectorUuid, String kind, Set<UUID> ruleUuids, Set<UUID> groupUuids, boolean withGroupRules) throws NotFoundException, ConnectorException {
+    public ComplianceRulesGroupsBatchDto getComplianceProviderRulesBatch(UUID connectorUuid, String kind, Set<UUID> ruleUuids, Set<UUID> groupUuids, boolean withGroupRules) throws NotFoundException, ConnectorException {
         Connector connector = connectorRepository.findByUuid(connectorUuid).orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         ConnectorDto connectorDto = connector.mapToDto();
         FunctionGroupCode functionGroup = validateComplianceProvider(connectorDto, kind);
@@ -477,7 +477,7 @@ public class ComplianceProfileRuleHandler {
         return functionGroup.getFunctionGroupCode();
     }
 
-    private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromName(Resource resource, String typeName) {
+    public static <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromName(Resource resource, String typeName) {
         if (typeName == null) {
             return null;
         }
@@ -493,7 +493,7 @@ public class ComplianceProfileRuleHandler {
         }
     }
 
-    private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromCode(Resource resource, String typeCode) {
+    public static <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromCode(Resource resource, String typeCode) {
         if (typeCode == null) {
             return null;
         }
