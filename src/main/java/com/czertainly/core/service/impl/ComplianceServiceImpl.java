@@ -3,13 +3,11 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.connector.compliance.v2.ComplianceRulesBatchRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.ComplianceProfile;
-import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.ComplianceProfileAssociationRepository;
 import com.czertainly.core.dao.repository.ComplianceProfileRepository;
@@ -28,7 +26,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -111,6 +108,9 @@ public class ComplianceServiceImpl implements ComplianceService {
     private ComplianceCheckContext loadComplianceCheckContext(List<ComplianceProfile> complianceProfiles, Resource resource, String type) throws ConnectorException, NotFoundException {
         ComplianceCheckContext context = new ComplianceCheckContext(resource, type);
         for (ComplianceProfile profile : complianceProfiles) {
+            if (profile.getAssociations().isEmpty() || profile.getComplianceRules().isEmpty()) {
+                continue;
+            }
             context.addComplianceProfile(profile);
         }
 

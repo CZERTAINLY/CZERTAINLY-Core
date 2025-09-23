@@ -142,6 +142,11 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute) {
+        return listResourceObjects(securityFilter, nameAttribute, null);
+    }
+
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
@@ -155,7 +160,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
                 )
         );
 
-        final List<Predicate> predicates = getPredicates(securityFilter, null, root, cb);
+        final List<Predicate> predicates = getPredicates(securityFilter, additionalWhereClause, root, cb, query);
         if (!predicates.isEmpty()) {
             query = query.where(predicates.toArray(new Predicate[]{}));
         }
