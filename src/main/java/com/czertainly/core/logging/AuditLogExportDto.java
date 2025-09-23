@@ -14,8 +14,8 @@ import java.util.UUID;
 
 @Builder
 @JsonPropertyOrder({"id", "version", "loggedAt", "module", "operation", "operationResult",
-        "resource", "resourceNamesAndUuids",
-        "affiliatedResource", "affiliatedResourceNamesAndUuids",
+        "resource", "resourceObjects",
+        "affiliatedResource", "affiliatedObjects",
         "actorType", "actorAuthMethod", "actorUuid", "actorName",
         "ipAddress", "userAgent", "message", "operationData", "additionalData"})
 public record AuditLogExportDto(
@@ -24,9 +24,9 @@ public record AuditLogExportDto(
         OffsetDateTime loggedAt,
         Module module,
         Resource resource,
-        List<ResourceObjectIdentity> resourceNamesAndUuids,
+        List<ResourceObjectIdentity> resourceObjects,
         Resource affiliatedResource,
-        List<ResourceObjectIdentity> affiliatedResourceNamesAndUuids,
+        List<ResourceObjectIdentity> affiliatedObjects,
         ActorType actorType,
         AuthMethod actorAuthMethod,
         UUID actorUuid,
