@@ -71,7 +71,7 @@ public class DatabaseMigration {
         V202508261555__EnumCollectionsColumnsBitmask(-1617046736),
         V202508281320__UniqueCryptographicKeyItemFingerprint(2020026258),
         V202509041555__CertificateRequestEntityBitmask(1876867908),
-        V202509191412__LogRecordsRefactor(1842278821);
+        V202509191412__LogRecordsRefactor(-104148580);
 
         private final int checksum;
 

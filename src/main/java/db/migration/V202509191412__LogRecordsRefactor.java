@@ -32,7 +32,7 @@ public class V202509191412__LogRecordsRefactor extends BaseJavaMigration {
             statement.execute("UPDATE audit_log SET timestamp = logged_at");
             statement.execute("ALTER TABLE audit_log ALTER COLUMN timestamp SET NOT NULL");
 
-            ResultSet auditLogs = statement.executeQuery("SELECT id, log_record, to_char(timestamp AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.USOF') AS timestamp FROM audit_log");
+            ResultSet auditLogs = statement.executeQuery("SELECT id, log_record, to_char(timestamp AT TIME ZONE 'UTC', 'YYYY-MM-DD\"T\"HH24:MI:SS.USOF:TZM') AS timestamp FROM audit_log");
             while (auditLogs.next()) {
                 String newJson = changeLogRecordToNewVersion(auditLogs.getString("log_record"), auditLogs.getString("timestamp"));
                 updateStatement.setString(1, newJson);
