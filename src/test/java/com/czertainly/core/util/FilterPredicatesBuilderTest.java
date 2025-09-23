@@ -1009,18 +1009,16 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         AuditLog auditLog4 = createAuditLog(null);
         SearchRequestDto searchRequestDto = new SearchRequestDto();
 
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(uuid1, uuid2))));
-        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(uuid1))));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, uuid1)));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EQUALS, (Serializable) List.of(uuid2))));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EQUALS, uuid2)));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog3.getId(), auditLog4.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EMPTY, (Serializable) List.of(uuid2))));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EMPTY, uuid2)));
         Assertions.assertEquals(Set.of(auditLog3.getId(), auditLog4.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator. NOT_EMPTY, (Serializable) List.of(uuid2))));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator. NOT_EMPTY, uuid2)));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
     }
@@ -1038,10 +1036,12 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         entity.setResource(Resource.CERTIFICATE);
         entity.setOperation(Operation.LOGOUT);
         entity.setOperationResult(OperationResult.FAILURE);
+        entity.setTimestamp(OffsetDateTime.now());
         entity.setLogRecord(LogRecord.builder()
                 .audited(true)
                 .version("v")
                 .module(Module.AUTH)
+                .timestamp(LocalDateTime.now())
                 .actor(new ActorRecord(ActorType.USER, AuthMethod.CERTIFICATE, null, null))
                 .operation(Operation.LOGOUT)
                 .operationResult(OperationResult.FAILURE)

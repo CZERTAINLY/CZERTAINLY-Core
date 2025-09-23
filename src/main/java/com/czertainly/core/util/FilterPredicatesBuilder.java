@@ -203,13 +203,14 @@ public class FilterPredicatesBuilder {
         if (filterField.getFieldAttribute() != null && !isCountOperator(filterDto.getCondition()))
             expression = from.get(filterField.getFieldAttribute().getName());
 
-        boolean isJsonArray = filterField == FilterField.AUDIT_LOG_RESOURCE_UUID || filterField == FilterField.AUDIT_LOG_RESOURCE_NAME;
+        boolean isJsonArray = false;
         if (filterField.getJsonPath() != null) {
+            isJsonArray = isJsonArray(filterField);
             if (isJsonArray) {
                 expression = criteriaBuilder.function("jsonb_path_query_array",
                         String.class,
                         from.get(filterField.getFieldAttribute().getName()),
-                        criteriaBuilder.literal("$.resource.objects[*]." + filterField.getJsonPath()[2]));
+                        criteriaBuilder.literal(getArrayJsonPath(filterField.getJsonPath())));
             } else {
                 expression = switch (filterField.getJsonPath().length) {
                     case 1 ->
@@ -257,7 +258,7 @@ public class FilterPredicatesBuilder {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.notEqual(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
                 else if (isJsonArray)
-                    predicate = getJsonContainsExpression(criteriaBuilder, expression, filterValues, true);
+                    predicate = criteriaBuilder.isTrue(getJsonArrayEqualsExpression(criteriaBuilder, expression, filterValues.getFirst().toString()));
                 else
                     predicate = multipleValues ? expression.in(filterValues) : criteriaBuilder.equal(expression, filterValues.getFirst());
             }
@@ -265,7 +266,7 @@ public class FilterPredicatesBuilder {
                 if (bitEnumProperty)
                     predicate = criteriaBuilder.equal(getBitwiseEqualExpression(filterValues.getFirst(), expression, criteriaBuilder), 0);
                 else if (isJsonArray)
-                    predicate = getJsonContainsExpression(criteriaBuilder, expression, filterValues, false);
+                    predicate = criteriaBuilder.isFalse(getJsonArrayEqualsExpression(criteriaBuilder, expression, filterValues.getFirst().toString()));
                 else {
                     // hack how to filter out correctly Has private key property filter for certificate. Needs to find correct solution for SET attributes predicates!
                     if (filterField.getExpectedValue() != null && filterField == FilterField.PRIVATE_KEY) {
@@ -328,23 +329,28 @@ public class FilterPredicatesBuilder {
         return predicate;
     }
 
-    private static Predicate getJsonContainsExpression(CriteriaBuilder criteriaBuilder, Expression expression, List<Object> filterValues, boolean equals) {
-        List<Predicate> predicates = filterValues.stream()
-                .map(value -> {
-                    Expression<Boolean> expr = criteriaBuilder.function(
-                            PostgresFunctionContributor.JSONB_CONTAINS,
-                            Boolean.class,
-                            expression,
-                            criteriaBuilder.literal(
-                                    "[\"%s\"]".formatted(value)
-                            )
-                    );
-                    return equals ? criteriaBuilder.isTrue(expr) : criteriaBuilder.isFalse(expr);
-                })
-                .toList();
+    public static boolean isJsonArray(FilterField filterField) {
+        return Arrays.stream(filterField.getJsonPath()).anyMatch(pathPart -> pathPart.contains("*"));
+    }
 
-        Predicate[] predicatesArray = predicates.toArray(new Predicate[0]);
-        return equals ? criteriaBuilder.or(predicatesArray) : criteriaBuilder.and(predicatesArray);
+    private static String getArrayJsonPath(String[] jsonPath) {
+        StringBuilder stringBuilder = new StringBuilder("$");
+        for (String pathPart : jsonPath) {
+            stringBuilder.append(".");
+            stringBuilder.append(pathPart);
+        }
+        return stringBuilder.toString();
+    }
+
+    private static Expression<Boolean> getJsonArrayEqualsExpression(CriteriaBuilder criteriaBuilder, Expression expression, String filterValue) {
+        return criteriaBuilder.function(
+                PostgresFunctionContributor.JSONB_CONTAINS,
+                Boolean.class,
+                expression,
+                criteriaBuilder.literal(
+                        "[\"%s\"]".formatted(filterValue)
+                )
+        );
     }
 
     private static Expression<?> getBitwiseEqualExpression(Object bit, Expression expression, CriteriaBuilder criteriaBuilder) {

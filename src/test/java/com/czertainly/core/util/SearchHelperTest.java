@@ -34,4 +34,14 @@ class SearchHelperTest extends BaseSpringBootTest {
             }
         Assertions.assertEquals(shouldHaveCountOperator, withCountOperator);
     }
+
+    @Test
+    void testPrepareSearchJsonArray() {
+        Set<FilterField> jsonArrays = Set.of(FilterField.AUDIT_LOG_RESOURCE_NAME, FilterField.AUDIT_LOG_RESOURCE_UUID);
+        for (FilterField filterField : jsonArrays) {
+            SearchFieldDataDto searchFieldDataDto = SearchHelper.prepareSearch(filterField);
+            Assertions.assertEquals(Set.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.NOT_EMPTY, FilterConditionOperator.EMPTY),
+                    new HashSet<>(searchFieldDataDto.getConditions()));
+        }
+    }
 }
