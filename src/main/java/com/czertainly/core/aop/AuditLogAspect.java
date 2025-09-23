@@ -1,6 +1,5 @@
 package com.czertainly.core.aop;
 
-import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.Named;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
@@ -33,6 +32,7 @@ import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
 import java.lang.reflect.Parameter;
+import java.time.LocalDateTime;
 import java.util.*;
 
 @Slf4j
@@ -96,6 +96,7 @@ public class AuditLogAspect {
             throw e;
         } finally {
             addDataFromResponse(logBuilder, result);
+            logBuilder.timestamp(LocalDateTime.now());
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build()));
         }
     }

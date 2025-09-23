@@ -40,6 +40,7 @@ public class AuditLogsListener {
 
         LogRecord.LogRecordBuilder builder = LogRecord.builder()
                 .audited(true)
+                .timestamp(logRecord.timestamp())
                 .version(logRecord.version())
                 .message(logRecord.message())
                 .actor(logRecord.actor())

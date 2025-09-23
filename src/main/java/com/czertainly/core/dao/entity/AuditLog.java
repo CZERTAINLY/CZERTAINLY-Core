@@ -43,6 +43,9 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
     @Column(name = "logged_at", nullable = false, updatable = false)
     protected OffsetDateTime loggedAt;
 
+    @Column(name = "timestamp", nullable = false)
+    protected OffsetDateTime timestamp;
+
     @Column(name = "module", nullable = false)
     @Enumerated(EnumType.STRING)
     private Module module;
@@ -144,6 +147,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         auditLog.setOperationResult(logRecord.operationResult());
         auditLog.setMessage(logRecord.message());
         auditLog.setLogRecord(logRecord);
+        auditLog.setTimestamp(OffsetDateTime.from(logRecord.timestamp()));
 
         return auditLog;
     }

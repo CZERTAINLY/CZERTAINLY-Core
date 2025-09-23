@@ -20,6 +20,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import javax.sql.DataSource;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.time.OffsetDateTime;
 import java.util.List;
 
 import static org.mockito.Mockito.when;
@@ -331,7 +332,9 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
     }
 
     private void simulateOldEnvironment(Context context) throws SQLException {
-        try (Statement insertStatement = context.getConnection().createStatement()) {
+        try (Statement alterStatement = context.getConnection().createStatement();
+             Statement insertStatement = context.getConnection().createStatement()) {
+            alterStatement.execute("ALTER TABLE audit_log DROP COLUMN timestamp;");
             insertStatement.execute("""
                     UPDATE audit_log SET log_record='%s' WHERE id='%s'
                     """.formatted(NULL_RESOURCE, nullResource.getId()));
@@ -361,6 +364,7 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
         entity.setResource(Resource.CERTIFICATE);
         entity.setOperation(Operation.LOGOUT);
         entity.setOperationResult(OperationResult.FAILURE);
+        entity.setTimestamp(OffsetDateTime.now());
 
         LogRecord logRecord = LogRecord.builder().build();
         entity.setLogRecord(logRecord);

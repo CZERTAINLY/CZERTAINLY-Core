@@ -28,9 +28,13 @@ public class V202509191412__LogRecordsRefactor extends BaseJavaMigration {
         String updateAuditLog = "UPDATE audit_log SET log_record = ?::jsonb WHERE id = ?";
         try (Statement statement = context.getConnection().createStatement();
              PreparedStatement updateStatement = context.getConnection().prepareStatement(updateAuditLog)) {
-            ResultSet auditLogs = statement.executeQuery("SELECT id, log_record FROM audit_log");
+            statement.execute("ALTER TABLE audit_log ADD COLUMN timestamp TIMESTAMP WITHOUT TIME ZONE");
+            statement.execute("UPDATE audit_log SET timestamp = logged_at");
+            statement.execute("ALTER TABLE audit_log ALTER COLUMN timestamp SET NOT NULL");
+
+            ResultSet auditLogs = statement.executeQuery("SELECT id, log_record, to_char(timestamp, 'YYYY-MM-DD\"T\"HH24:MI:SS.US') AS timestamp FROM audit_log");
             while (auditLogs.next()) {
-                String newJson = changeLogRecordToNewVersion(auditLogs.getString("log_record"));
+                String newJson = changeLogRecordToNewVersion(auditLogs.getString("log_record"), auditLogs.getString("timestamp"));
                 updateStatement.setString(1, newJson);
                 updateStatement.setInt(2, auditLogs.getInt("id"));
                 updateStatement.addBatch();
@@ -41,12 +45,16 @@ public class V202509191412__LogRecordsRefactor extends BaseJavaMigration {
     }
 
 
-    public static String changeLogRecordToNewVersion(String oldJson) throws IOException {
+    public static String changeLogRecordToNewVersion(String oldJson, String timestamp) throws IOException {
         JsonNode root = mapper.readTree(oldJson);
         // migrate "resource"
         updateResource(root, "resource");
         // migrate "affiliatedResource" if present
         updateResource(root, "affiliatedResource");
+        // add new timestamp property
+        if (root.isObject()) {
+            ((ObjectNode) root).put("timestamp", timestamp);
+        }
         return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
     }
 
