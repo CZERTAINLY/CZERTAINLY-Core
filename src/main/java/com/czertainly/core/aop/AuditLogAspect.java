@@ -58,7 +58,6 @@ public class AuditLogAspect {
     }
 
 
-
     @Around("@annotation(AuditLogged)")
     public Object log(ProceedingJoinPoint joinPoint) throws Throwable {
         LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
@@ -200,20 +199,22 @@ public class AuditLogAspect {
     private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, Operation operation) {
         List<ResourceObjectIdentity> objects = new ArrayList<>();
 
-        // step 1: first uuid with provided resourceName (if available)
-        if (resourceUuids != null && !resourceUuids.isEmpty() && resourceName != null) {
-            objects.add(new ResourceObjectIdentity(resourceName, resourceUuids.getFirst()));
-        } else if (resourceUuids == null && resourceName != null) objects.add(new ResourceObjectIdentity(resourceName, null));
-
 
         // prepare lookup from stored resource if needed
-        Map<UUID, String> storedUuidToName = new HashMap<>();
+        Map<UUID, String> uuidToName = new HashMap<>();
+
+        // step 1: first uuid with provided resourceName (if available)
+        if (resourceUuids != null && !resourceUuids.isEmpty() && resourceName != null)
+            uuidToName.put(resourceUuids.getFirst(), resourceName);
+        else if (resourceUuids == null && resourceName != null)
+            objects.add(new ResourceObjectIdentity(resourceName, null));
+
         ResourceRecord storedResource = null;
         if (resourceUuids == null || resourceName == null) {
             storedResource = LoggingHelper.getLogResourceInfo(affiliated);
             if (storedResource != null && storedResource.type() == resource) {
                 for (ResourceObjectIdentity storedObject : storedResource.objects()) {
-                    storedUuidToName.put(storedObject.uuid(), storedObject.name());
+                    uuidToName.putIfAbsent(storedObject.uuid(), storedObject.name());
                 }
             }
         }
@@ -221,7 +222,7 @@ public class AuditLogAspect {
         // step 2: remaining uuids (use stored name if available, otherwise null)
         if (resourceUuids != null && !resourceUuids.isEmpty()) {
             for (UUID uuid : resourceUuids) {
-                String name = storedUuidToName.getOrDefault(uuid, null);
+                String name = uuidToName.getOrDefault(uuid, null);
                 objects.add(new ResourceObjectIdentity(name, uuid));
             }
         }
