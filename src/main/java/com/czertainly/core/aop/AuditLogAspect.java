@@ -32,7 +32,6 @@ import org.springframework.stereotype.Component;
 
 import java.io.Serializable;
 import java.lang.reflect.Parameter;
-import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.*;
 
@@ -77,7 +76,7 @@ public class AuditLogAspect {
                 .source(LoggingHelper.getSourceInfo());
 
         Object result = null;
-        constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), result, loggingSettingsDto.getAuditLogs().isVerbose());
+        constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), loggingSettingsDto.getAuditLogs().isVerbose());
 
         try {
             result = joinPoint.proceed();
@@ -102,7 +101,7 @@ public class AuditLogAspect {
         }
     }
 
-    private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, Object response, boolean verbose) {
+    private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, boolean verbose) {
         Resource resource = null;
         String resourceName = null;
         List<UUID> resourceUuids = null;
@@ -240,7 +239,7 @@ public class AuditLogAspect {
 
         // if operation is delete, also call resource service
         if (operation == Operation.DELETE || operation == Operation.FORCE_DELETE)
-            objects = auditLogEnhancer.enrichNamesAndUuids(objects, resource);
+            objects = auditLogEnhancer.enrichObjectIdentities(objects, resource);
 
         return new ResourceRecord(resource, objects);
     }

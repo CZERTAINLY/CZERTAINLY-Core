@@ -1,6 +1,7 @@
 package com.czertainly.core.logging;
 
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.core.service.ResourceService;
@@ -20,18 +21,18 @@ public class AuditLogEnhancer {
         this.resourceService = resourceService;
     }
 
-    public List<ResourceObjectIdentity> enrichNamesAndUuids(List<ResourceObjectIdentity> resourceNamesAndUuids, Resource resource) {
+    public List<ResourceObjectIdentity> enrichObjectIdentities(List<ResourceObjectIdentity> objects, Resource resource) {
         List<ResourceObjectIdentity> enrichedObjects = new ArrayList<>();
-        if (resourceNamesAndUuids != null) {
-            for (ResourceObjectIdentity resourceObjectIdentity : resourceNamesAndUuids) {
-                if (resourceObjectIdentity.uuid() != null && resourceObjectIdentity.name() == null) {
+        if (objects != null) {
+            for (ResourceObjectIdentity object : objects) {
+                if (object.uuid() != null && object.name() == null) {
                     try {
-                        enrichedObjects.add(new ResourceObjectIdentity(resourceService.getResourceObject(resource, resourceObjectIdentity.uuid()).getName(), resourceObjectIdentity.uuid()));
-                    } catch (NotFoundException ignored) {
+                        enrichedObjects.add(new ResourceObjectIdentity(resourceService.getResourceObject(resource, object.uuid()).getName(), object.uuid()));
+                    } catch (NotFoundException | NotSupportedException ignored) {
                         // Did not manage to retrieve object name
-                        enrichedObjects.add(resourceObjectIdentity);
+                        enrichedObjects.add(object);
                     }
-                } else enrichedObjects.add(resourceObjectIdentity);
+                } else enrichedObjects.add(object);
             }
         }
         return enrichedObjects;
