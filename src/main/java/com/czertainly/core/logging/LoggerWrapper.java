@@ -108,7 +108,7 @@ public class LoggerWrapper {
 
     private LogRecord.LogRecordBuilder prepareLogRecord(boolean audited, Module module, Resource resource) {
         return LogRecord.builder()
-                .version("1.0")
+                .version("1.1")
                 .audited(audited)
                 .module(module)
                 .actor(LoggingHelper.getActorInfo())
