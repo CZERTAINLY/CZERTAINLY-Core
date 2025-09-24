@@ -110,7 +110,7 @@ public enum FilterField {
 
 
     // Audit Logs
-    AUDIT_LOG_TIMESTAMP(Resource.AUDIT_LOG, null, null, AuditLog_.loggedAt, "Logged at", SearchFieldTypeEnum.DATETIME),
+    AUDIT_LOG_TIMESTAMP(Resource.AUDIT_LOG, null, null, AuditLog_.timestamp, "Timestamp", SearchFieldTypeEnum.DATETIME),
     AUDIT_LOG_MODULE(Resource.AUDIT_LOG, null, null, AuditLog_.module, "Module", SearchFieldTypeEnum.LIST, Module.class),
     AUDIT_LOG_ACTOR_TYPE(Resource.AUDIT_LOG, null, null, AuditLog_.actorType, "Actor type", SearchFieldTypeEnum.LIST, ActorType.class),
     AUDIT_LOG_ACTOR_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.actorName, "Actor name", SearchFieldTypeEnum.STRING),
@@ -122,8 +122,11 @@ public enum FilterField {
     AUDIT_LOG_SOURCE_IP_ADDRESS(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "IP Address", SearchFieldTypeEnum.STRING, new String[]{"source", "ipAddress"}),
     AUDIT_LOG_SOURCE_PATH(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "API path", SearchFieldTypeEnum.STRING, new String[]{"source", "path"}),
     AUDIT_LOG_MESSAGE(Resource.AUDIT_LOG, null, null, AuditLog_.message, "Message", SearchFieldTypeEnum.STRING),
-    AUDIT_LOG_RESOURCE_UUID(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource UUIDs", SearchFieldTypeEnum.STRING, new String[]{"resource", "objects[*]", "uuid"}),
-    AUDIT_LOG_RESOURCE_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource Names", SearchFieldTypeEnum.STRING, new String[]{"resource", "objects[*]", "name"}),
+    AUDIT_LOG_RESOURCE_UUID(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource UUID", SearchFieldTypeEnum.STRING, new String[]{"resource", Constants.RESOURCE_OBJECTS_ARRAY, "uuid"}),
+    AUDIT_LOG_RESOURCE_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Resource Name", SearchFieldTypeEnum.STRING, new String[]{"resource", Constants.RESOURCE_OBJECTS_ARRAY, "name"}),
+    AUDIT_LOG_AFFILIATED_RESOURCE_UUID(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Affiliated Resource UUID", SearchFieldTypeEnum.STRING, new String[]{"affiliatedResource", Constants.RESOURCE_OBJECTS_ARRAY, "uuid"}),
+    AUDIT_LOG_AFFILIATED_RESOURCE_NAME(Resource.AUDIT_LOG, null, null, AuditLog_.logRecord, "Affiliated Resource Name", SearchFieldTypeEnum.STRING, new String[]{"affiliatedResource", Constants.RESOURCE_OBJECTS_ARRAY, "name"}),
+
 
     // Scheduled Job
     SCHEDULED_JOB_NAME(Resource.SCHEDULED_JOB, null, null, ScheduledJob_.jobName, "Job Name", SearchFieldTypeEnum.STRING),
@@ -189,6 +192,10 @@ public enum FilterField {
 
     public static List<FilterField> getEnumsForResource(Resource resource) {
         return Arrays.stream(VALUES).filter(filterField -> filterField.rootResource == resource).toList();
+    }
+
+    private static class Constants {
+        private static final String RESOURCE_OBJECTS_ARRAY = "objects[*]";
     }
 
 }
