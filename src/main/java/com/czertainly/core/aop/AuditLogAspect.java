@@ -198,14 +198,15 @@ public class AuditLogAspect {
     }
 
     private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, Operation operation) {
-        List<ResourceObjectIdentity> objects = new ArrayList<>();
+        List<ResourceObjectIdentity> objects = null;
 
         // If there are more UUIDs, for now it is assumed that names are not available (neither from MDC), and we will only add them without name
         if (resourceUuids != null && resourceUuids.size() > 1) {
-            objects.addAll(resourceUuids.stream().map(uuid -> new ResourceObjectIdentity(null, uuid)).toList());
+            objects = new ArrayList<>(resourceUuids.stream().map(uuid -> new ResourceObjectIdentity(null, uuid)).toList());
         } else {
             // Otherwise there is only one resource object
-            objects.add(getObjectIdentityFromMDC(resourceUuids, resourceName, affiliated, resource));
+            ResourceObjectIdentity objectIdentityFromMDC = getObjectIdentityFromMDC(resourceUuids, resourceName, affiliated, resource);
+            if (objectIdentityFromMDC != null) objects = new ArrayList<>(List.of(objectIdentityFromMDC));
         }
 
         // if operation is delete, also call resource service
