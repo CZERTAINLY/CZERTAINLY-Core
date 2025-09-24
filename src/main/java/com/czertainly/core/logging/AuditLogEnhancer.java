@@ -25,7 +25,7 @@ public class AuditLogEnhancer {
         List<ResourceObjectIdentity> enrichedObjects = new ArrayList<>();
         if (objects != null) {
             for (ResourceObjectIdentity object : objects) {
-                if (object.uuid() != null && object.name() == null) {
+                if (object != null && object.uuid() != null && object.name() == null) {
                     try {
                         enrichedObjects.add(new ResourceObjectIdentity(resourceService.getResourceObject(resource, object.uuid()).getName(), object.uuid()));
                     } catch (NotFoundException | NotSupportedException ignored) {
