@@ -254,7 +254,8 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
                   }
                 },
                 "operationResult": "success",
-                "affiliatedResource": null
+                "affiliatedResource": {"names": [null],
+                  "uuids": [null]}
               }
             """;
 
@@ -290,12 +291,12 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
         // --- NULL RESOURCE ---
         Assertions.assertNull(nullResource.getLogRecord().resource());
         Assertions.assertNotNull(nullResource.getLogRecord().affiliatedResource());
-        Assertions.assertTrue(nullResource.getLogRecord().affiliatedResource().objects().isEmpty());
+        Assertions.assertNull(nullResource.getLogRecord().affiliatedResource().objects());
 
         // --- NULL AFFILIATED RESOURCE ---
         Assertions.assertNotNull(nullAffiliatedResource.getLogRecord().resource());
         Assertions.assertEquals(1, nullAffiliatedResource.getLogRecord().resource().objects().size());
-        ResourceObjectIdentity onlyObject = nullAffiliatedResource.getLogRecord().resource().objects().iterator().next();
+        ResourceObjectIdentity onlyObject = nullAffiliatedResource.getLogRecord().resource().objects().getFirst();
         Assertions.assertEquals("name1", onlyObject.name());
         Assertions.assertNull(onlyObject.uuid());
         Assertions.assertNull(nullAffiliatedResource.getLogRecord().affiliatedResource());
@@ -307,7 +308,7 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
         // --- ONE NAME, TWO UUIDS ---
         Assertions.assertEquals(2, oneNameTwoUuids.getLogRecord().resource().objects().size());
         // verify first object
-        var objectsOne = oneNameTwoUuids.getLogRecord().resource().objects().stream().toList();
+        List<ResourceObjectIdentity> objectsOne = oneNameTwoUuids.getLogRecord().resource().objects();
         Assertions.assertEquals("name1", objectsOne.get(0).name());
         Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsOne.get(0).uuid().toString());
         Assertions.assertNull(objectsOne.get(1).name());
@@ -315,7 +316,7 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
 
         // --- TWO NAMES, ONE UUID ---
         Assertions.assertEquals(2, twoNamesOneUuid.getLogRecord().resource().objects().size());
-        var objectsTwo = twoNamesOneUuid.getLogRecord().resource().objects().stream().toList();
+        List<ResourceObjectIdentity> objectsTwo = twoNamesOneUuid.getLogRecord().resource().objects();
         Assertions.assertEquals("name1", objectsTwo.get(0).name());
         Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsTwo.get(0).uuid().toString());
         Assertions.assertEquals("name2", objectsTwo.get(1).name());
@@ -323,7 +324,7 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
 
         // --- TWO NAMES, TWO UUIDS ---
         Assertions.assertEquals(2, twoNamesTwoUuids.getLogRecord().resource().objects().size());
-        var objectsThree = twoNamesTwoUuids.getLogRecord().resource().objects().stream().toList();
+        List<ResourceObjectIdentity> objectsThree = twoNamesTwoUuids.getLogRecord().resource().objects();
         Assertions.assertEquals("name1", objectsThree.get(0).name());
         Assertions.assertEquals("6057ad37-2c27-42d6-a232-0622b5dcc10d", objectsThree.get(0).uuid().toString());
         Assertions.assertEquals("name2", objectsThree.get(1).name());
