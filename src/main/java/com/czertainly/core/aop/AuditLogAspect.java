@@ -232,7 +232,12 @@ public class AuditLogAspect {
                 }
 
         }
-        return new ResourceObjectIdentity(loggedResourceName, loggedResourceUuid);
+        // If both stay null, return null
+        return getResourceObjectIdentity(loggedResourceName, loggedResourceUuid);
+    }
+
+    private static ResourceObjectIdentity getResourceObjectIdentity(String loggedResourceName, UUID loggedResourceUuid) {
+        return loggedResourceName == null && loggedResourceUuid == null ? null : new ResourceObjectIdentity(loggedResourceName, loggedResourceUuid);
     }
 
     private static boolean objectIdentityAvailable(Resource resource, ResourceRecord storedResource) {
