@@ -16,6 +16,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.annotation.DirtiesContext;
 
 import javax.sql.DataSource;
 
@@ -24,6 +25,7 @@ import java.sql.Statement;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class UniqueCryptographicKeyItemFingerprintTest extends BaseSpringBootTest {
     private static final String DUPLICATE_FINGERPRINT = "duplicateFingerprint";
     @Autowired
