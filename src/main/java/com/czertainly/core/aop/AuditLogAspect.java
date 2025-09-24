@@ -200,41 +200,12 @@ public class AuditLogAspect {
     private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, Operation operation) {
         List<ResourceObjectIdentity> objects = new ArrayList<>();
 
-
-        // prepare lookup from stored resource if needed
-        Map<UUID, String> uuidToName = new HashMap<>();
-
-        // step 1: first uuid with provided resourceName (if available)
-        if (resourceUuids != null && !resourceUuids.isEmpty() && resourceName != null)
-            uuidToName.put(resourceUuids.getFirst(), resourceName);
-        else if (resourceUuids == null && resourceName != null)
-            objects.add(new ResourceObjectIdentity(resourceName, null));
-
-        ResourceRecord storedResource = null;
-        if (resourceUuids == null || resourceName == null) {
-            storedResource = LoggingHelper.getLogResourceInfo(affiliated);
-            if (storedResource != null && storedResource.type() == resource) {
-                for (ResourceObjectIdentity storedObject : storedResource.objects()) {
-                    uuidToName.putIfAbsent(storedObject.uuid(), storedObject.name());
-                }
-            }
-        }
-
-        // step 2: remaining uuids (use stored name if available, otherwise null)
-        if (resourceUuids != null && !resourceUuids.isEmpty()) {
-            for (UUID uuid : resourceUuids) {
-                String name = uuidToName.getOrDefault(uuid, null);
-                objects.add(new ResourceObjectIdentity(name, uuid));
-            }
-        }
-
-        // step 3: add all stored objects not already in resourceUuids
-        if (storedResource != null) {
-            for (ResourceObjectIdentity storedObject : storedResource.objects()) {
-                if (resourceUuids == null || !resourceUuids.contains(storedObject.uuid())) {
-                    objects.add(storedObject);
-                }
-            }
+        // If there are more UUIDs, for now it is assumed that names are not available (neither from MDC), and we will only add them without name
+        if (resourceUuids != null && resourceUuids.size() > 1) {
+            objects.addAll(resourceUuids.stream().map(uuid -> new ResourceObjectIdentity(null, uuid)).toList());
+        } else {
+            // Otherwise there is only one resource object
+            objects.add(getObjectIdentityFromMDC(resourceUuids, resourceName, affiliated, resource));
         }
 
         // if operation is delete, also call resource service
@@ -242,6 +213,30 @@ public class AuditLogAspect {
             objects = auditLogEnhancer.enrichObjectIdentities(objects, resource);
 
         return new ResourceRecord(resource, objects);
+    }
+
+    private ResourceObjectIdentity getObjectIdentityFromMDC(List<UUID> resourceUuids, String resourceName, boolean affiliated, Resource resource) {
+        UUID loggedResourceUuid = resourceUuids == null ? null : resourceUuids.getFirst();
+        String loggedResourceName = resourceName;
+        // If one at least of these is missing, try to enhance it from MDC
+        if (loggedResourceName == null || loggedResourceUuid == null) {
+            ResourceRecord storedResource = LoggingHelper.getLogResourceInfo(affiliated);
+            if (objectIdentityAvailable(resource, storedResource)) {
+                    ResourceObjectIdentity objectIdentity = storedResource.objects().getFirst();
+                    // If UUID is missing and the name is same, add the stored UUID (or if both are missing)
+                    if (loggedResourceUuid == null && (objectIdentity.name().equals(resourceName) || resourceName == null))
+                        loggedResourceUuid = objectIdentity.uuid();
+                    // If name is missing and the UUID is same, add the stored name (or if both are missing)
+                    if (loggedResourceName == null && (objectIdentity.uuid().equals(loggedResourceUuid) || loggedResourceUuid == null))
+                        loggedResourceName = objectIdentity.name();
+                }
+
+        }
+        return new ResourceObjectIdentity(loggedResourceName, loggedResourceUuid);
+    }
+
+    private static boolean objectIdentityAvailable(Resource resource, ResourceRecord storedResource) {
+        return storedResource != null && Objects.equals(storedResource.type(), resource) && storedResource.objects() != null && !storedResource.objects().isEmpty();
     }
 
     private void addDataFromResponse(LogRecord.LogRecordBuilder builder, Object response) {
