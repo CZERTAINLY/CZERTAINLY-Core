@@ -1018,7 +1018,7 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EMPTY, uuid2)));
         Assertions.assertEquals(Set.of(auditLog3.getId(), auditLog4.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
-        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator. NOT_EMPTY, uuid2)));
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EMPTY, uuid2)));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
     }
