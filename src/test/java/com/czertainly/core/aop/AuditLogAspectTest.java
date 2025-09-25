@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
 import com.czertainly.api.interfaces.core.web.SettingController;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.key.BulkCompromiseKeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -15,6 +16,7 @@ import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
 import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.messaging.listeners.AuditLogsListener;
 import com.czertainly.core.messaging.model.AuditLogMessage;
 import com.czertainly.core.messaging.producers.AuditLogsProducer;
@@ -76,8 +78,14 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         bulkCompromiseKeyRequestDto.setUuids(List.of(UUID.randomUUID(), UUID.randomUUID()));
         keyController.compromiseKeys(bulkCompromiseKeyRequestDto);
 
+        // Simulate retrieving data from MDC
+        UUID resourceUuid = UUID.randomUUID();
+        String resourceName = "name";
+        LoggingHelper.putLogResourceInfo(Resource.CRYPTOGRAPHIC_KEY, false, String.valueOf(resourceUuid), resourceName);
+        keyController.listCryptographicKeys(new SearchRequestDto());
+
         auditLogs = auditLogRepository.findAll();
-        Assertions.assertEquals(6, auditLogs.size());
+        Assertions.assertEquals(7, auditLogs.size());
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
@@ -102,6 +110,12 @@ class AuditLogAspectTest extends BaseSpringBootTest {
 
         AuditLog auditLogWithUuidsFromRequest = auditLogs.get(5);
         Assertions.assertEquals(2, auditLogWithUuidsFromRequest.getLogRecord().resource().objects().size());
+
+        AuditLog auditLogFromMdc = auditLogs.get(6);
+        Assertions.assertEquals(Resource.CRYPTOGRAPHIC_KEY, auditLogFromMdc.getLogRecord().resource().type());
+        Assertions.assertEquals(1, auditLogFromMdc.getLogRecord().resource().objects().size());
+        Assertions.assertEquals(resourceName, auditLogFromMdc.getLogRecord().resource().objects().getFirst().name());
+        Assertions.assertEquals(resourceUuid, auditLogFromMdc.getLogRecord().resource().objects().getFirst().uuid());
 
     }
 
