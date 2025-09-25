@@ -9,6 +9,7 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.oid.*;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.aop.AuditLogged;
+import com.czertainly.core.logging.LogResource;
 import com.czertainly.core.service.CustomOidEntryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
@@ -51,7 +52,7 @@ public class CustomOidEntryControllerImpl implements CustomOidEntryController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.OID, operation = Operation.DELETE)
-    public void bulkDeleteCustomOidEntry(List<String> oids) {
+    public void bulkDeleteCustomOidEntry(@LogResource(uuid = true) List<String> oids) {
         customOidEntryService.bulkDeleteCustomOidEntry(oids);
     }
 

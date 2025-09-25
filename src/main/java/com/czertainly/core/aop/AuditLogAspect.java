@@ -131,6 +131,11 @@ public class AuditLogAspect {
                     if (paramResource != null) resource = paramResource;
                 }
 
+                if ((paramResourceUuids == null || paramResourceName == null) && parameterValues[i] instanceof Loggable loggable) {
+                    if (paramResourceUuids == null && !loggable.toLogResourceObjectsUuids().isEmpty()) resourceUuids = loggable.toLogResourceObjectsUuids();
+                    if (paramResourceName == null && !loggable.toLogResourceObjectsNames().isEmpty()) resourceName = loggable.toLogResourceObjectsNames().getFirst();
+                }
+
                 if (verbose && !parameters[i].isAnnotationPresent(Sensitive.class)) {
                     if (parameterValue instanceof Optional<?> optional) {
                         parameterValue = optional.orElse(null);

@@ -45,13 +45,13 @@ public class NotificationControllerImpl implements NotificationController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION, operation = Operation.DELETE)
-    public void bulkDeleteNotification(List<String> uuids) {
+    public void bulkDeleteNotification(@LogResource(uuid = true) List<String> uuids) {
         notificationService.bulkDeleteNotifications(uuids);
     }
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.NOTIFICATION, operation = Operation.MARK_AS_READ)
-    public void bulkMarkNotificationAsRead(List<String> uuids) {
+    public void bulkMarkNotificationAsRead(@LogResource(uuid = true) List<String> uuids) {
         notificationService.bulkMarkNotificationAsRead(uuids);
     }
 }
