@@ -33,6 +33,9 @@ import java.util.stream.Collectors;
 
 public class FilterPredicatesBuilder {
 
+    public static final String EMPTY_JSON_ARRAY = "[]";
+    public static final String NULL_JSON_ARRAY = "[null]";
+
     private FilterPredicatesBuilder() {
         throw new IllegalStateException("Static utility class");
     }
@@ -490,7 +493,7 @@ public class FilterPredicatesBuilder {
         }
 
         if (isJsonArray) {
-            return criteriaBuilder.or(criteriaBuilder.equal(expression, criteriaBuilder.literal("[]")), criteriaBuilder.isNull(expression), criteriaBuilder.equal(expression, criteriaBuilder.literal("[null]")));
+            return criteriaBuilder.or(criteriaBuilder.equal(expression, criteriaBuilder.literal(EMPTY_JSON_ARRAY)), criteriaBuilder.isNull(expression), criteriaBuilder.equal(expression, criteriaBuilder.literal(NULL_JSON_ARRAY)));
         }
         if (!hasParent) {
             return criteriaBuilder.isNull(expression);
