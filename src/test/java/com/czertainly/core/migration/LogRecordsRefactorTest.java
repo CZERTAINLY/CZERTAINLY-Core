@@ -256,8 +256,8 @@ class LogRecordsRefactorTest extends BaseSpringBootTest {
                   }
                 },
                 "operationResult": "success",
-                "affiliatedResource": {"names": [null],
-                  "uuids": [null]}
+                "affiliatedResource": {"names": null,
+                  "uuids": null}
               }
             """;
 

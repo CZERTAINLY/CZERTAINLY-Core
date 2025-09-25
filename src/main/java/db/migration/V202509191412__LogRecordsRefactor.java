@@ -1,20 +1,17 @@
 package db.migration;
 
 import com.czertainly.core.util.DatabaseMigration;
-import com.czertainly.core.util.MetaDefinitions;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 
 import java.io.IOException;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 @SuppressWarnings("java:S101")
 public class V202509191412__LogRecordsRefactor extends BaseJavaMigration {
@@ -28,78 +25,88 @@ public class V202509191412__LogRecordsRefactor extends BaseJavaMigration {
 
     @Override
     public void migrate(Context context) throws Exception {
-        String addTimestampToLogRecord = """
+        String updateLogRecord = """
                 UPDATE audit_log SET log_record =
                 log_record::jsonb || jsonb_build_object(
-                  'timestamp',
-                  to_char(logged_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MSOF:TZM')
-                )
+                  'timestamp', to_char(logged_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.MSOF:TZM'),
+                  'version', '1.1')
+                #- '{resource, uuids}' #- '{resource, names}'
+                #- '{affiliatedResource, uuids}' #- '{affiliatedResource, names}'
                 """;
-        String removeResourceUuids = "UPDATE audit_log SET log_record = log_record::jsonb #- '{resource, uuids}'";
-        String removeResourceNames = "UPDATE audit_log SET log_record = log_record::jsonb #- '{resource, names}'";
-        String removeAffResourceUuids = "UPDATE audit_log SET log_record = log_record::jsonb #- '{affiliatedResource, uuids}'";
-        String removeAffResourceNames = "UPDATE audit_log SET log_record = log_record::jsonb #- '{affiliatedResource, names}'";
-        String addResourceIdentities =  "UPDATE audit_log SET log_record = jsonb_insert(log_record, '{resource, objects}', ?::jsonb) WHERE id = ?";
-        String addAffResourceIdentities =  "UPDATE audit_log SET log_record = jsonb_insert(log_record, '{affiliatedResource, objects}', ?::jsonb) WHERE id = ?";
+        String updateAuditLog = "UPDATE audit_log SET log_record = ?::jsonb WHERE id = ?";
 
         try (Statement statement = context.getConnection().createStatement();
-             PreparedStatement addResourceIdentitiesPs = context.getConnection().prepareStatement(addResourceIdentities);
-             PreparedStatement addAffResourceIdentitiesPs = context.getConnection().prepareStatement(addAffResourceIdentities)
+             PreparedStatement updateStatement = context.getConnection().prepareStatement(updateAuditLog)
         ) {
             statement.execute("ALTER TABLE audit_log ADD COLUMN timestamp TIMESTAMP WITHOUT TIME ZONE");
-            statement.execute("UPDATE audit_log SET timestamp = logged_at");
+            statement.execute("UPDATE audit_log SET timestamp = logged_at, version = '1.1'");
             statement.execute("ALTER TABLE audit_log ALTER COLUMN timestamp SET NOT NULL");
-            statement.execute(addTimestampToLogRecord);
-            statement.execute("UPDATE audit_log SET version = '1.1'");
             statement.setFetchSize(100000);
             ResultSet auditLogs = statement.executeQuery("""
                     SELECT id,
-                    log_record #> '{resource, names}' as resourceNames,
-                    log_record #> '{resource, uuids}' as resourceUuids,
-                    log_record #> '{affiliatedResource, names}' as affResourceNames,
-                    log_record #> '{affiliatedResource, uuids}' as affResourceUuids
+                    log_record
                     FROM audit_log
                     WHERE log_record #> '{resource, names}' != 'null' OR log_record #> '{resource, uuids}' != 'null'
                        OR log_record #> '{affiliatedResource, names}' != 'null' OR log_record #> '{affiliatedResource, uuids}' != 'null';
                     """);
             while (auditLogs.next()) {
-                addResourceIdentities(auditLogs, addResourceIdentitiesPs, "resourceNames", "resourceUuids");
-                addResourceIdentities(auditLogs, addAffResourceIdentitiesPs, "affResourceNames", "affResourceUuids");
+                String newJson = changeLogRecordToNewVersion(auditLogs.getString("log_record"));
+                updateStatement.setString(1, newJson);
+                updateStatement.setInt(2, auditLogs.getInt("id"));
+                updateStatement.addBatch();
             }
-            addResourceIdentitiesPs.executeBatch();
-            addAffResourceIdentitiesPs.executeBatch();
-            statement.execute(removeResourceNames);
-            statement.execute(removeResourceUuids);
-            statement.execute(removeAffResourceNames);
-            statement.execute(removeAffResourceUuids);
+            updateStatement.executeBatch();
+            statement.execute(updateLogRecord);
         }
     }
 
-    private static void addResourceIdentities(ResultSet auditLogs, PreparedStatement preparedStatement, String resourceNamesColumn, String resourceUuidsColumn) throws SQLException, IOException {
-        List<String> resourceNames = MetaDefinitions.deserializeArrayString(auditLogs.getString(resourceNamesColumn));
-        List<String> resourceUuids = MetaDefinitions.deserializeArrayString(auditLogs.getString(resourceUuidsColumn));
-        if (resourceNames != null || resourceUuids != null) {
-            String objectIdentities = getObjectIdentities(resourceNames == null ? new ArrayList<>() : resourceNames, resourceUuids == null ? new ArrayList<>() : resourceUuids);
-            preparedStatement.setString(1, objectIdentities);
-            preparedStatement.setInt(2, auditLogs.getInt("id"));
-            preparedStatement.addBatch();
-        }
+    public static String changeLogRecordToNewVersion(String oldJson) throws IOException {
+        JsonNode root = mapper.readTree(oldJson);
+        // migrate "resource"
+        updateResource(root, "resource");
+        // migrate "affiliatedResource" if present
+        updateResource(root, "affiliatedResource");
+        return mapper.writerWithDefaultPrettyPrinter().writeValueAsString(root);
     }
 
+    private static void updateResource(JsonNode root, String resource) {
+        JsonNode resourceNode = root.get(resource);
+        if (resourceNode != null && resourceNode.isObject()) {
+            ObjectNode resourceObj = (ObjectNode) resourceNode;
+            // collect names + uuids
+            JsonNode names = resourceObj.get("names");
+            JsonNode uuids = resourceObj.get("uuids");
 
-    public static String getObjectIdentities(List<String> resourceNames, List<String> resourceUuids) throws IOException {
-        int maxSize = Integer.max(resourceNames.size(), resourceUuids.size());
-        List<Map<String, String>> objectIdentifiers  = new ArrayList<>();
-        for (int i = 0; i < maxSize; i++) {
-            String name = resourceNames.size() <= i ? null : resourceNames.get(i);
-            String uuid = resourceUuids.size() <= i ? null : resourceUuids.get(i);
-            if (!(name == null && uuid == null)) {
-                Map<String, String> identity = new HashMap<>();
-                identity.put("name", name);
-                identity.put("uuid", uuid);
-                objectIdentifiers.add(identity);
+            ArrayNode objects = mapper.createArrayNode();
+
+            int maxSize = 0;
+            maxSize = getMaxSize(names, maxSize);
+            maxSize = getMaxSize(uuids, maxSize);
+
+            for (int i = 0; i < maxSize; i++) {
+                ObjectNode obj = mapper.createObjectNode();
+                updateObjectProperty(names, i, obj, "name");
+                updateObjectProperty(uuids, i, obj, "uuid");
+                if (!obj.get("name").isNull() || !obj.get("uuid").isNull()) objects.add(obj);
             }
+            resourceObj.set("objects", objects);
         }
-        return mapper.writeValueAsString(objectIdentifiers);
+
     }
+
+    private static void updateObjectProperty(JsonNode names, int i, ObjectNode obj, String name) {
+        if (names != null && i < names.size() && !names.get(i).isNull()) {
+            obj.put(name, names.get(i).asText());
+        } else {
+            obj.putNull(name);
+        }
+    }
+
+    private static int getMaxSize(JsonNode names, int maxSize) {
+        if (names != null && names.isArray()) {
+            maxSize = Math.max(maxSize, names.size());
+        }
+        return maxSize;
+    }
+
 }
