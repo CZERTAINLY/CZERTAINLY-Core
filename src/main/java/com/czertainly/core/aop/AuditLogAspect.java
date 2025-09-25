@@ -134,14 +134,14 @@ public class AuditLogAspect {
         if (isDeleteOperation)
             resourceRecord = new ResourceRecord(resource, deletedObjectsIdentities);
         else
-            resourceRecord = constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name(), operation);
+            resourceRecord = constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name());
         logBuilder.resource(resourceRecord);
         if (affiliatedResource != Resource.NONE) {
             ResourceRecord affiliatedResourceRecord;
             if (isDeleteOperation)
                 affiliatedResourceRecord = new ResourceRecord(affiliatedResource, deletedAffiliatedObjectsIdentities);
             else
-               affiliatedResourceRecord = constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName, operation);
+               affiliatedResourceRecord = constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName);
             logBuilder.affiliatedResource(affiliatedResourceRecord);
         }
     }
@@ -198,7 +198,7 @@ public class AuditLogAspect {
     }
 
     private Resource getResourceFromParameter(LogResource logResource, Object parameterValue) {
-        return logResource != null && logResource.resource() && parameterValue instanceof Resource resource ? resource : null;
+        return logResource != null && logResource.resource() && parameterValue instanceof Resource resourceInstance ? resourceInstance : null;
     }
 
     private List<UUID> getResourceUuidsFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
@@ -240,7 +240,7 @@ public class AuditLogAspect {
         return null;
     }
 
-    private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName, Operation operation) {
+    private ResourceRecord constructResourceRecord(boolean affiliated, Resource resource, List<UUID> resourceUuids, String resourceName) {
         List<ResourceObjectIdentity> objects = null;
 
         // If there are more UUIDs, for now it is assumed that names are not available (neither from MDC), and we will only add them without name
