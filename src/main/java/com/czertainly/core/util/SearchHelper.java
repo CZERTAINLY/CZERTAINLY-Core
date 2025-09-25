@@ -42,11 +42,10 @@ public class SearchHelper {
         fieldDataDto.setConditions(conditionOperators);
         fieldDataDto.setType(filterField.getType().getFieldType());
         // Do not add null value to List filter
-        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null && values != null) {
-                values = new ArrayList<>((List<?>) values);
-                ((List<?>) values).remove(null);
-            }
-
+        if (filterField.getType().getFieldType() == FilterFieldType.LIST && filterField.getEnumClass() == null) {
+            values = new ArrayList<>((List<?>) values);
+            ((List<?>) values).remove(null);
+        }
         fieldDataDto.setValue(values);
 
         if (filterField.getEnumClass() != null) {
