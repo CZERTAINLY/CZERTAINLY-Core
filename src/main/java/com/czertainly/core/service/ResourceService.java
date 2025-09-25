@@ -84,4 +84,6 @@ public interface ResourceService {
      * @return Map of events
      */
     Map<ResourceEvent, List<ResourceEventDto>> listAllResourceEvents();
+
+    public boolean hasResourceExtensionService(Resource resource);
 }

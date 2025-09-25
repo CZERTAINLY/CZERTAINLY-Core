@@ -22,6 +22,7 @@ public class AuditLogEnhancer {
     }
 
     public List<ResourceObjectIdentity> enrichObjectIdentities(List<ResourceObjectIdentity> objects, Resource resource) {
+        if (!resourceService.hasResourceExtensionService(resource)) return objects;
         List<ResourceObjectIdentity> enrichedObjects = new ArrayList<>();
         if (objects != null) {
             for (ResourceObjectIdentity object : objects) {
