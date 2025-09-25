@@ -47,13 +47,13 @@ public class AuditLogAspect {
 
     private AuditLogEnhancer auditLogEnhancer;
 
-    Resource resource;
-    String resourceName;
-    List<UUID> resourceUuids;
-    Resource affiliatedResource;
-    String affiliatedResourceName;
-    List<UUID> affiliatedResourceUuids;
-    Operation operation;
+    private Resource resource;
+    private String resourceName;
+    private List<UUID> resourceUuids;
+    private Resource affiliatedResource;
+    private String affiliatedResourceName;
+    private List<UUID> affiliatedResourceUuids;
+    private Operation operation;
 
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
@@ -90,6 +90,7 @@ public class AuditLogAspect {
         affiliatedResource = null;
         affiliatedResourceName = null;
         affiliatedResourceUuids = null;
+        operation = null;
 
         constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), loggingSettingsDto.getAuditLogs().isVerbose());
 
