@@ -89,7 +89,7 @@ class AuditLogAspectTest extends BaseSpringBootTest {
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
-        Assertions.assertTrue(auditLogNoUuidResource.getLogRecord().affiliatedResource().objects().isEmpty());
+        Assertions.assertNull(auditLogNoUuidResource.getLogRecord().affiliatedResource().objects());
 
         AuditLog auditLogWithUuidResource = auditLogs.get(1);
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogWithUuidResource.getLogRecord().affiliatedResource().type());
