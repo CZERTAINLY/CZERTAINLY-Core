@@ -4,6 +4,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CryptographicKeyController;
 import com.czertainly.api.interfaces.core.web.SettingController;
+import com.czertainly.api.model.client.cryptography.key.BulkCompromiseKeyRequestDto;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
@@ -71,9 +72,12 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         Assertions.assertThrows(NotFoundException.class, () -> keyController.listCreateKeyAttributes(UUID.randomUUID().toString(), UUID.randomUUID().toString(), KeyRequestType.KEY_PAIR));
         keyController.deleteKeys(List.of(UUID.randomUUID().toString(), UUID.randomUUID().toString()));
         settingController.getLoggingSettings();
+        BulkCompromiseKeyRequestDto bulkCompromiseKeyRequestDto = new BulkCompromiseKeyRequestDto();
+        bulkCompromiseKeyRequestDto.setUuids(List.of(UUID.randomUUID(), UUID.randomUUID()));
+        keyController.compromiseKeys(bulkCompromiseKeyRequestDto);
 
         auditLogs = auditLogRepository.findAll();
-        Assertions.assertEquals(5, auditLogs.size());
+        Assertions.assertEquals(6, auditLogs.size());
 
         AuditLog auditLogNoUuidResource = auditLogs.getFirst();
         Assertions.assertEquals(Resource.TOKEN_PROFILE, auditLogNoUuidResource.getLogRecord().affiliatedResource().type());
@@ -95,6 +99,10 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         AuditLog auditLogWithNamedResourceDirectly = auditLogs.get(4);
         Assertions.assertEquals(Resource.SETTINGS, auditLogWithNamedResourceDirectly.getLogRecord().resource().type());
         Assertions.assertEquals(SettingsSection.LOGGING.getCode(), auditLogWithNamedResourceDirectly.getLogRecord().resource().objects().getFirst().name());
+
+        AuditLog auditLogWithUuidsFromRequest = auditLogs.get(5);
+        Assertions.assertEquals(2, auditLogWithUuidsFromRequest.getLogRecord().resource().objects().size());
+
     }
 
     private void turnOnLogging() {
@@ -104,6 +112,7 @@ class AuditLogAspectTest extends BaseSpringBootTest {
         auditLoggingSettingsDto.setOutput(AuditLogOutput.ALL);
         auditLoggingSettingsDto.setLogAllModules(true);
         auditLoggingSettingsDto.setLogAllResources(true);
+        auditLoggingSettingsDto.setVerbose(true);
         loggingSettingsDto.setAuditLogs(auditLoggingSettingsDto);
 
         ResourceLoggingSettingsDto eventLoggingSettingsDto = new ResourceLoggingSettingsDto();

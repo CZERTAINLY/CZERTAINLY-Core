@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.UUID;
 
 @Component
 public class AuditLogEnhancer {
@@ -37,5 +38,19 @@ public class AuditLogEnhancer {
             }
         }
         return enrichedObjects;
+    }
+
+    public List<ResourceObjectIdentity> enrichObjectUuids(List<UUID> uuids, Resource resource) {
+        if (resourceService.hasResourceExtensionService(resource)) return uuids.stream().map(uuid -> {
+            String name ;
+            try {
+                name = resourceService.getResourceObject(resource, uuid).getName();
+            } catch (NotFoundException e) {
+                name = null;
+            }
+            return new ResourceObjectIdentity(name, uuid);
+        }
+        ).toList();
+        else return uuids.stream().map(uuid -> new ResourceObjectIdentity(null, uuid)).toList();
     }
 }

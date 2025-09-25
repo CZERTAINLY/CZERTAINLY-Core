@@ -47,6 +47,14 @@ public class AuditLogAspect {
 
     private AuditLogEnhancer auditLogEnhancer;
 
+    Resource resource;
+    String resourceName;
+    List<UUID> resourceUuids;
+    Resource affiliatedResource;
+    String affiliatedResourceName;
+    List<UUID> affiliatedResourceUuids;
+    Operation operation;
+
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
         this.auditLogEnhancer = auditLogEnhancer;
@@ -76,19 +84,38 @@ public class AuditLogAspect {
                 .source(LoggingHelper.getSourceInfo());
 
         Object result = null;
+        resource = null;
+        resourceName = null;
+        resourceUuids = null;
+        affiliatedResource = null;
+        affiliatedResourceName = null;
+        affiliatedResourceUuids = null;
+
         constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), loggingSettingsDto.getAuditLogs().isVerbose());
+
+        List<ResourceObjectIdentity> deletedObjectsIdentities = new ArrayList<>();
+        List<ResourceObjectIdentity> deletedAffiliatedObjectsIdentities = new ArrayList<>();
+
+        boolean isDeleteOperation = operation == Operation.DELETE || operation == Operation.FORCE_DELETE;
+        if (isDeleteOperation) {
+            if (resourceUuids != null) {
+                deletedObjectsIdentities = auditLogEnhancer.enrichObjectUuids(resourceUuids, resource);
+            }
+            if (affiliatedResource != Resource.NONE && affiliatedResourceUuids != null) {
+                deletedAffiliatedObjectsIdentities = auditLogEnhancer.enrichObjectUuids(affiliatedResourceUuids, affiliatedResource);
+            }
+        }
 
         try {
             result = joinPoint.proceed();
             logBuilder.operationResult(OperationResult.SUCCESS);
-
             return result;
         } catch (Exception e) {
             String message = e.getMessage();
             if (e instanceof AccessDeniedException) {
-                String resourceName = AuthHelper.getDeniedPermissionResource();
+                String resourceNameAccessDenied = AuthHelper.getDeniedPermissionResource();
                 String resourceActionName = AuthHelper.getDeniedPermissionResourceAction();
-                message = "%s. Required '%s' action permission for resource '%s'".formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName), Resource.findByCode(resourceName).getLabel());
+                message = "%s. Required '%s' action permission for resource '%s'".formatted(message, BeautificationUtil.camelToHumanForm(resourceActionName), Resource.findByCode(resourceNameAccessDenied).getLabel());
             }
 
             logBuilder.operationResult(OperationResult.FAILURE);
@@ -96,18 +123,31 @@ public class AuditLogAspect {
             throw e;
         } finally {
             addDataFromResponse(logBuilder, result);
+            setResourceRecords(isDeleteOperation, deletedObjectsIdentities, annotation, logBuilder, deletedAffiliatedObjectsIdentities);
             logBuilder.timestamp(OffsetDateTime.now());
             auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build()));
         }
     }
 
+    private void setResourceRecords(boolean isDeleteOperation, List<ResourceObjectIdentity> deletedObjectsIdentities, AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, List<ResourceObjectIdentity> deletedAffiliatedObjectsIdentities) {
+        ResourceRecord resourceRecord;
+        if (isDeleteOperation)
+            resourceRecord = new ResourceRecord(resource, deletedObjectsIdentities);
+        else
+            resourceRecord = constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name(), operation);
+        logBuilder.resource(resourceRecord);
+        if (affiliatedResource != Resource.NONE) {
+            ResourceRecord affiliatedResourceRecord;
+            if (isDeleteOperation)
+                affiliatedResourceRecord = new ResourceRecord(affiliatedResource, deletedAffiliatedObjectsIdentities);
+            else
+               affiliatedResourceRecord = constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName, operation);
+            logBuilder.affiliatedResource(affiliatedResourceRecord);
+        }
+    }
+
     private void constructLogData(AuditLogged annotation, LogRecord.LogRecordBuilder logBuilder, Parameter[] parameters, Object[] parameterValues, boolean verbose) {
-        Resource resource = null;
-        String resourceName = null;
-        List<UUID> resourceUuids = null;
-        Resource affiliatedResource = null;
-        String affiliatedResourceName = null;
-        List<UUID> affiliatedResourceUuids = null;
+
         Map<String, Object> data = new LinkedHashMap<>();
 
         if (parameters != null && parameterValues != null) {
@@ -132,8 +172,10 @@ public class AuditLogAspect {
                 }
 
                 if ((paramResourceUuids == null || paramResourceName == null) && parameterValues[i] instanceof Loggable loggable) {
-                    if (paramResourceUuids == null && !loggable.toLogResourceObjectsUuids().isEmpty()) resourceUuids = loggable.toLogResourceObjectsUuids();
-                    if (paramResourceName == null && !loggable.toLogResourceObjectsNames().isEmpty()) resourceName = loggable.toLogResourceObjectsNames().getFirst();
+                    if (paramResourceUuids == null && !loggable.toLogResourceObjectsUuids().isEmpty())
+                        resourceUuids = loggable.toLogResourceObjectsUuids();
+                    if (paramResourceName == null && !loggable.toLogResourceObjectsNames().isEmpty())
+                        resourceName = loggable.toLogResourceObjectsNames().getFirst();
                 }
 
                 if (verbose && !parameters[i].isAnnotationPresent(Sensitive.class)) {
@@ -148,12 +190,8 @@ public class AuditLogAspect {
         if (resource == null) resource = annotation.resource();
         if (affiliatedResource == null) affiliatedResource = annotation.affiliatedResource();
 
-        Operation operation = annotation.operation() != Operation.UNKNOWN ? annotation.operation() : LoggingHelper.getAuditLogOperation();
+        operation = annotation.operation() != Operation.UNKNOWN ? annotation.operation() : LoggingHelper.getAuditLogOperation();
         logBuilder.operation(operation);
-        logBuilder.resource(constructResourceRecord(false, resource, resourceUuids, annotation.name().isEmpty() ? resourceName : annotation.name(), operation));
-        if (affiliatedResource != Resource.NONE) {
-            logBuilder.affiliatedResource(constructResourceRecord(true, affiliatedResource, affiliatedResourceUuids, affiliatedResourceName, operation));
-        }
         if (!data.isEmpty()) {
             logBuilder.additionalData(data);
         }
@@ -214,10 +252,6 @@ public class AuditLogAspect {
             if (objectIdentityFromMDC != null) objects = new ArrayList<>(List.of(objectIdentityFromMDC));
         }
 
-        // if operation is delete, also call resource service
-        if (operation == Operation.DELETE || operation == Operation.FORCE_DELETE)
-            objects = auditLogEnhancer.enrichObjectIdentities(objects, resource);
-
         return new ResourceRecord(resource, objects);
     }
 
@@ -228,14 +262,14 @@ public class AuditLogAspect {
         if (loggedResourceName == null || loggedResourceUuid == null) {
             ResourceRecord storedResource = LoggingHelper.getLogResourceInfo(affiliated);
             if (objectIdentityAvailable(resource, storedResource)) {
-                    ResourceObjectIdentity objectIdentity = storedResource.objects().getFirst();
-                    // If UUID is missing and the name is same, add the stored UUID (or if both are missing)
-                    if (loggedResourceUuid == null && (objectIdentity.name().equals(resourceName) || resourceName == null))
-                        loggedResourceUuid = objectIdentity.uuid();
-                    // If name is missing and the UUID is same, add the stored name (or if both are missing)
-                    if (loggedResourceName == null && (objectIdentity.uuid().equals(loggedResourceUuid) || loggedResourceUuid == null))
-                        loggedResourceName = objectIdentity.name();
-                }
+                ResourceObjectIdentity objectIdentity = storedResource.objects().getFirst();
+                // If UUID is missing and the name is same, add the stored UUID (or if both are missing)
+                if (loggedResourceUuid == null && (objectIdentity.name().equals(resourceName) || resourceName == null))
+                    loggedResourceUuid = objectIdentity.uuid();
+                // If name is missing and the UUID is same, add the stored name (or if both are missing)
+                if (loggedResourceName == null && (objectIdentity.uuid().equals(loggedResourceUuid) || loggedResourceUuid == null))
+                    loggedResourceName = objectIdentity.name();
+            }
 
         }
         // If both stay null, return null
