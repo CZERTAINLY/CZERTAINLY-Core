@@ -490,7 +490,7 @@ public class FilterPredicatesBuilder {
         }
 
         if (isJsonArray) {
-            return criteriaBuilder.or(criteriaBuilder.equal(expression, criteriaBuilder.literal("[]")), criteriaBuilder.isNull(expression));
+            return criteriaBuilder.or(criteriaBuilder.equal(expression, criteriaBuilder.literal("[]")), criteriaBuilder.isNull(expression), criteriaBuilder.equal(expression, criteriaBuilder.literal("[null]")));
         }
         if (!hasParent) {
             return criteriaBuilder.isNull(expression);

@@ -1007,16 +1007,17 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         AuditLog auditLog2 = createAuditLog(List.of(new ResourceObjectIdentity(name1, uuid1), new ResourceObjectIdentity(name2, uuid2)));
         AuditLog auditLog3  = createAuditLog(List.of());
         AuditLog auditLog4 = createAuditLog(null);
+        AuditLog auditLog5 = createAuditLog(List.of(new ResourceObjectIdentity("name3", null)));
         SearchRequestDto searchRequestDto = new SearchRequestDto();
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, uuid1)));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EQUALS, uuid2)));
-        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog3.getId(), auditLog4.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog3.getId(), auditLog4.getId(), auditLog5.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EMPTY, uuid2)));
-        Assertions.assertEquals(Set.of(auditLog3.getId(), auditLog4.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+        Assertions.assertEquals(Set.of(auditLog3.getId(), auditLog4.getId(), auditLog5.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EMPTY, uuid2)));
         Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
