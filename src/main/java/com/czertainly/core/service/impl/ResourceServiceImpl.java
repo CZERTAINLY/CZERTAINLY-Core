@@ -164,4 +164,9 @@ public class ResourceServiceImpl implements ResourceService {
                 ));
     }
 
+    @Override
+    public boolean hasResourceExtensionService(Resource resource) {
+        return resourceExtensionServices.keySet().stream().anyMatch(key -> key.equals(resource.getCode()));
+    }
+
 }

@@ -14,11 +14,14 @@ import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
+import com.czertainly.core.messaging.model.AuditLogMessage;
+import com.czertainly.core.messaging.producers.AuditLogsProducer;
 import com.czertainly.core.model.auth.AuthenticationRequestDto;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -32,6 +35,7 @@ import com.nimbusds.jwt.SignedJWT;
 import jakarta.transaction.Transactional;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.session.FindByIndexNameSessionRepository;
 import org.springframework.session.Session;
 import org.springframework.stereotype.Service;
@@ -40,6 +44,7 @@ import java.security.NoSuchAlgorithmException;
 import java.security.cert.*;
 import java.security.cert.CertificateException;
 import java.text.ParseException;
+import java.time.OffsetDateTime;
 import java.util.*;
 
 @Service(Resource.Codes.USER)
@@ -47,20 +52,23 @@ import java.util.*;
 public class UserManagementServiceImpl implements UserManagementService {
     private static final LoggerWrapper logger = new LoggerWrapper(UserManagementServiceImpl.class, Module.AUTH, Resource.USER);
 
+    @Value("${logging.schema-version}")
+    private String schemaVersion;
+
     private UserManagementApiClient userManagementApiClient;
 
     private CertificateService certificateService;
     private GroupService groupService;
     private ResourceObjectAssociationService objectAssociationService;
-    private AuditLogService auditLogService;
+    private AuditLogsProducer auditLogsProducer;
 
     private AttributeEngine attributeEngine;
 
     private FindByIndexNameSessionRepository<? extends Session> sessionRepository;
 
     @Autowired
-    public void setAuditLogService(AuditLogService auditLogService) {
-        this.auditLogService = auditLogService;
+    public void setAuditLogsProducer(AuditLogsProducer auditLogsProducer) {
+        this.auditLogsProducer = auditLogsProducer;
     }
 
     @Autowired
@@ -182,16 +190,17 @@ public class UserManagementServiceImpl implements UserManagementService {
             sessionRepository.deleteById(entry.getKey());
         }
         if (!userSessions.isEmpty()) {
-            auditLogService.log(LogRecord.builder()
-                    .version("1.0")
+            auditLogsProducer.produceMessage(new AuditLogMessage(LogRecord.builder()
+                    .version(schemaVersion)
                     .operation(Operation.LOGOUT)
                     .operationResult(OperationResult.SUCCESS)
                     .module(Module.AUTH)
+                    .timestamp(OffsetDateTime.now())
                     .actor(LoggingHelper.getActorInfo())
                     .source(LoggingHelper.getSourceInfo())
-                    .resource(ResourceRecord.builder().type(Resource.USER).uuids(List.of(UUID.fromString(userUuid))).build())
+                    .resource(ResourceRecord.builder().type(Resource.USER).objects(List.of(new ResourceObjectIdentity(null, UUID.fromString(userUuid)))).build())
                     .message("User with UUID %s has been %s".formatted(userUuid, actionName))
-                    .build());
+                    .build()));
         }
     }
 

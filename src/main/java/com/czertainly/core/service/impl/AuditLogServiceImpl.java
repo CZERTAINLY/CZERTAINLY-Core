@@ -119,12 +119,10 @@ public class AuditLogServiceImpl implements AuditLogService {
                     builder.loggedAt(a.getLoggedAt());
                     builder.module(a.getModule());
                     builder.resource(a.getResource());
-                    builder.resourceUuids(a.getLogRecord().resource().uuids());
-                    builder.resourceNames(a.getLogRecord().resource().names());
+                    builder.resourceObjects(a.getLogRecord().resource().objects());
                     builder.affiliatedResource(a.getAffiliatedResource());
                     if (a.getLogRecord().affiliatedResource() != null) {
-                        builder.affiliatedResourceUuids(a.getLogRecord().affiliatedResource().uuids());
-                        builder.affiliatedResourceNames(a.getLogRecord().affiliatedResource().names());
+                        builder.affiliatedObjects(a.getLogRecord().affiliatedResource().objects());
                     }
                     builder.actorType(a.getActorType());
                     builder.actorAuthMethod(a.getActorAuthMethod());
@@ -192,7 +190,8 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
 
         Map<String, Object> additionalData = null;
-        if (logger.getLogger().isDebugEnabled()) {
+        LoggingSettingsDto loggingSettings = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettings.getAuditLogs().isVerbose()) {
             additionalData = new HashMap<>();
             additionalData.put("authData", authData);
         }

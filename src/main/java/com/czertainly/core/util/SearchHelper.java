@@ -29,8 +29,11 @@ public class SearchHelper {
         fieldDataDto.setFieldIdentifier(filterField.name());
         fieldDataDto.setFieldLabel(filterField.getLabel());
         fieldDataDto.setMultiValue(filterField.getType().isMultiValue());
-        List<FilterConditionOperator> conditionOperators = new ArrayList<>(filterField.getType().getFieldType() == FilterFieldType.BOOLEAN && filterField.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : filterField.getType().getConditions());
-        if (filterField.getFieldAttribute() == null) conditionOperators = new ArrayList<>(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY));
+        List<FilterConditionOperator> conditionOperators = new ArrayList<>(getInitialCapacity(filterField));
+
+        if (filterField.getFieldAttribute() == null) {
+            conditionOperators = new ArrayList<>(List.of(FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY));
+        }
 
         if (filterField.getType() == SearchFieldTypeEnum.LIST && filterField.getJoinAttributes() != null && filterField.getJoinAttributes().stream().anyMatch(Attribute::isCollection)) {
             conditionOperators.addAll(List.of(FilterConditionOperator.COUNT_EQUAL, FilterConditionOperator.COUNT_NOT_EQUAL, FilterConditionOperator.COUNT_GREATER_THAN, FilterConditionOperator.COUNT_LESS_THAN));
@@ -53,6 +56,11 @@ public class SearchHelper {
         }
 
         return fieldDataDto;
+    }
+
+    private static List<FilterConditionOperator> getInitialCapacity(FilterField filterField) {
+        if (filterField.getJsonPath() != null && FilterPredicatesBuilder.isJsonArray(filterField)) return List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS, FilterConditionOperator.EMPTY, FilterConditionOperator.NOT_EMPTY);
+        return filterField.getType().getFieldType() == FilterFieldType.BOOLEAN && filterField.getExpectedValue() != null ? List.of(FilterConditionOperator.EQUALS, FilterConditionOperator.NOT_EQUALS) : filterField.getType().getConditions();
     }
 
     public static SearchFieldDataDto prepareSearchForJSON(final SearchFieldObject attributeSearchInfo, final boolean hasDupliciteInList) {

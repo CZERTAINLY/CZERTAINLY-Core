@@ -5,6 +5,7 @@ import com.czertainly.api.model.core.logging.enums.ActorType;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.records.ActorRecord;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.logging.records.SourceRecord;
 import com.czertainly.core.util.NullUtil;
@@ -80,12 +81,12 @@ public class LoggingHelper {
         if (affiliated) {
             String resource = MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)), MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new ResourceObjectIdentity(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_AFFILIATED_RESOURCE_UUID)))));
             }
         } else {
             String resource = MDC.get(LOG_AUDIT_RESOURCE);
             if (resource != null) {
-                resourceRecord = new ResourceRecord(Resource.valueOf(resource), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)), MDC.get(LOG_AUDIT_RESOURCE_NAME));
+                resourceRecord = new ResourceRecord(Resource.valueOf(resource), List.of(new ResourceObjectIdentity(MDC.get(LOG_AUDIT_RESOURCE_NAME), NullUtil.parseUuidOrNull(MDC.get(LOG_AUDIT_RESOURCE_UUID)))));
             }
         }
 

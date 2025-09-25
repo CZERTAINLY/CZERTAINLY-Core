@@ -48,6 +48,9 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
+    public Queue queueAuditLogs() { return new Queue(RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, true); }
+
+    @Bean
     public Binding eventQueueBinding() {
         return BindingBuilder.bind(queueEvents()).to(czertainlyExchange()).with(RabbitMQConstants.EVENT_ROUTING_KEY);
     }
@@ -71,4 +74,10 @@ public class RabbitMQConfiguration {
     public Binding validationQueueBinding() {
         return BindingBuilder.bind(queueValidation()).to(czertainlyExchange()).with(RabbitMQConstants.VALIDATION_ROUTING_KEY);
     }
+
+    @Bean
+    public Binding auditLogsQueueBinding() {
+        return BindingBuilder.bind(queueAuditLogs()).to(czertainlyExchange()).with(RabbitMQConstants.AUDIT_LOGS_ROUTING_KEY);
+    }
+
 }

@@ -13,17 +13,25 @@ import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.SerializationFeature;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.Map;
 
 @Getter
 public class LoggerWrapper {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
+
+    static {
+        OBJECT_MAPPER.findAndRegisterModules();
+        OBJECT_MAPPER.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
+        OBJECT_MAPPER.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    }
 
     private final Logger logger;
     private final Module module;
@@ -98,6 +106,7 @@ public class LoggerWrapper {
 
         var logBuilder = prepareLogRecord(audited, module, resource);
         return logBuilder
+                .timestamp(OffsetDateTime.now())
                 .operation(operation)
                 .operationResult(operationResult)
                 .operationData(operationData)
@@ -108,12 +117,12 @@ public class LoggerWrapper {
 
     private LogRecord.LogRecordBuilder prepareLogRecord(boolean audited, Module module, Resource resource) {
         return LogRecord.builder()
-                .version("1.0")
+                .version("1.1")
                 .audited(audited)
                 .module(module)
                 .actor(LoggingHelper.getActorInfo())
                 .source(LoggingHelper.getSourceInfo())
-                .resource(new ResourceRecord(resource, null, (String) null));
+                .resource(new ResourceRecord(resource, null));
     }
 
     private ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {
