@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.UUID;
 
 @Builder
-@JsonPropertyOrder({"id", "version", "loggedAt", "module", "operation", "operationResult",
+@JsonPropertyOrder({"id", "version", "loggedAt", "timestamp", "module", "operation", "operationResult",
         "resource", "resourceObjects",
         "affiliatedResource", "affiliatedObjects",
         "actorType", "actorAuthMethod", "actorUuid", "actorName",
@@ -22,6 +22,7 @@ public record AuditLogExportDto(
         long id,
         String version,
         OffsetDateTime loggedAt,
+        OffsetDateTime timestamp,
         Module module,
         Resource resource,
         List<ResourceObjectIdentity> resourceObjects,
