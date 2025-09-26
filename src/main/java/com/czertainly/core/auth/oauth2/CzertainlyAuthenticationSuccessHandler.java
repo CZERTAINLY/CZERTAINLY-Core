@@ -48,6 +48,9 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
     public void onAuthenticationSuccess(HttpServletRequest request, HttpServletResponse response, Authentication authentication) {
         LoggingHelper.putActorInfoWhenNull(ActorType.USER, AuthMethod.SESSION);
         OAuth2AuthenticationToken authenticationToken = (OAuth2AuthenticationToken) authentication;
+        OidcUser oidcUser = (OidcUser) authenticationToken.getPrincipal();
+        Object username = oidcUser.getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME);
+        if (username != null) LoggingHelper.putActorInfoWhenNull(null, null, username.toString());
 
         OAuth2AuthorizedClient authorizedClient = authorizedClientService.loadAuthorizedClient(authenticationToken.getAuthorizedClientRegistrationId(), authentication.getName());
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
@@ -65,7 +68,6 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         }
 
         try {
-            OidcUser oidcUser = (OidcUser) authenticationToken.getPrincipal();
             OAuth2Util.getAllClaimsAvailable(providerSettings, authorizedClient.getAccessToken().getTokenValue(), oidcUser.getIdToken());
         } catch (CzertainlyAuthenticationException e) {
             auditLogService.logAuthentication(Operation.LOGIN, OperationResult.FAILURE, e.getMessage(), authorizedClient.getAccessToken().getTokenValue());
@@ -82,10 +84,10 @@ public class CzertainlyAuthenticationSuccessHandler implements AuthenticationSuc
         try {
             response.sendRedirect(redirectUrl);
         } catch (IOException e) {
-            logger.error("Error occurred when sending redirect user {} to {} after authentication via OAuth2. ", authenticationToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME), redirectUrl);
+            logger.error("Error occurred when sending redirect user {} to {} after authentication via OAuth2. ", username, redirectUrl);
             return;
         }
-        logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", authenticationToken.getPrincipal().getAttribute(OAuth2Constants.TOKEN_USERNAME_CLAIM_NAME), redirectUrl);
+        logger.debug("Authentication of user {} via OAuth2 successful, redirecting to {}", username, redirectUrl);
         auditLogService.logAuthentication(Operation.LOGIN, OperationResult.SUCCESS, null, authorizedClient.getAccessToken().getTokenValue());
     }
 }
