@@ -117,6 +117,7 @@ public class AuditLogServiceImpl implements AuditLogService {
                     builder.id(a.getId());
                     builder.version(a.getVersion());
                     builder.loggedAt(a.getLoggedAt());
+                    builder.timestamp(a.getTimestamp());
                     builder.module(a.getModule());
                     builder.resource(a.getResource());
                     builder.resourceObjects(a.getLogRecord().resource().objects());

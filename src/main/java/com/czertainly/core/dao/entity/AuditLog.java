@@ -93,6 +93,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         dto.setId(id);
         dto.setVersion(version);
         dto.setLoggedAt(loggedAt);
+        dto.setTimestamp(timestamp);
         dto.setModule(module);
         dto.setActor(logRecord.actor());
         dto.setSource(logRecord.source());
@@ -113,6 +114,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         builder.loggedAt(loggedAt);
         builder.module(module);
         builder.resource(resource);
+        builder.timestamp(timestamp);
         builder.resourceObjects(logRecord.resource().objects());
         builder.affiliatedResource(affiliatedResource);
         if (logRecord.affiliatedResource() != null) {
