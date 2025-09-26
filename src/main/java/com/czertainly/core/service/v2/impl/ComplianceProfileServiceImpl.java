@@ -444,7 +444,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<ComplianceProfileListDto> getAssociatedComplianceProfiles(Resource resource, UUID associationObjectUuid) {
-        List<ComplianceProfileAssociation> associations = complianceProfileAssociationRepository.findByResourceAndObjectUuid(resource, associationObjectUuid);
+        List<ComplianceProfileAssociation> associations = complianceProfileAssociationRepository.findDistinctByResourceAndObjectUuid(resource, associationObjectUuid);
 
         return associations.stream().map(a -> a.getComplianceProfile().mapToListDto()).toList();
     }

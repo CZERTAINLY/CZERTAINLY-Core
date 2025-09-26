@@ -14,7 +14,9 @@ public interface ComplianceProfileAssociationRepository extends SecurityFilterRe
     List<ComplianceProfileAssociation> findByComplianceProfileUuidAndResource(UUID complianceProfileUuid, Resource resource);
 
     @EntityGraph(attributePaths = {"complianceProfile"})
-    List<ComplianceProfileAssociation> findByResourceAndObjectUuid(Resource resource, UUID associationObjectUuid);
+    List<ComplianceProfileAssociation> findDistinctByResourceAndObjectUuid(Resource resource, UUID associationObjectUuid);
+
+    long countByResourceAndObjectUuid(Resource resource, UUID associationObjectUuid);
 
     long deleteByComplianceProfileUuid(UUID complianceProfileUuid);
 

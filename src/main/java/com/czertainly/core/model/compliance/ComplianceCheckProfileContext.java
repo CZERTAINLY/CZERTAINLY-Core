@@ -1,8 +1,8 @@
 package com.czertainly.core.model.compliance;
 
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.core.dao.entity.ComplianceProfileAssociation;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
+import com.czertainly.core.dao.entity.ComplianceSubject;
 import lombok.Getter;
 
 import java.util.*;
@@ -10,29 +10,25 @@ import java.util.*;
 @Getter
 public class ComplianceCheckProfileContext {
 
-    private final UUID complianceProfileUuid;
+    private final Map<Resource, Set<ComplianceSubject>> complianceSubjects;
+    private final List<ComplianceProfileRule> internalRules = new ArrayList<>();
+    private final Map<String, List<ComplianceProfileRule>> providerRulesMapping = new HashMap<>();
 
-    private final Set<ComplianceProfileAssociation> associations;
-    private final Map<Resource, List<Object>> complianceSubjects = new EnumMap<>(Resource.class);
-
-    private final Map<UUID, ComplianceProfileRule> internalRulesMapping = new HashMap<>();
-    private final Map<UUID, ComplianceProfileRule> rulesMapping = new HashMap<>();
-    private final Map<UUID, ComplianceProfileRule> groupsMapping = new HashMap<>();
-
-    public ComplianceCheckProfileContext(UUID complianceProfileUuid, Set<ComplianceProfileAssociation> associations) {
-        this.complianceProfileUuid = complianceProfileUuid;
-        this.associations = associations;
+    public ComplianceCheckProfileContext(Map<Resource, Set<ComplianceSubject>> complianceSubjects) {
+        this.complianceSubjects = complianceSubjects;
     }
 
-    public void addProfileRule(ComplianceProfileRule rule) {
+    /**
+     * Adds a compliance profile rule to the appropriate mapping based on its type.
+     *
+     * @param providerKey The key identifying the provider of the rule.
+     * @param rule        The compliance profile rule to be added.
+     */
+    public void addProfileRule(String providerKey, ComplianceProfileRule rule) {
         if (rule.getInternalRuleUuid() != null) {
-            internalRulesMapping.put(rule.getInternalRuleUuid(), rule);
+            internalRules.add(rule);
         } else {
-            if (rule.getComplianceRuleUuid() != null) {
-                rulesMapping.put(rule.getComplianceRuleUuid(), rule);
-            } else {
-                groupsMapping.put(rule.getComplianceGroupUuid(), rule);
-            }
+            providerRulesMapping.computeIfAbsent(providerKey, k -> new ArrayList<>()).add(rule);
         }
     }
 

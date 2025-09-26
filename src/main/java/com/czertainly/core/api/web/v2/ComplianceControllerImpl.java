@@ -1,5 +1,7 @@
 package com.czertainly.core.api.web.v2;
 
+import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.v2.ComplianceController;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -34,13 +36,13 @@ public class ComplianceControllerImpl implements ComplianceController {
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkCompliance(@LogResource(uuid = true) List<UUID> uuids, Resource resource, String type) {
+    public void checkCompliance(@LogResource(uuid = true) List<UUID> uuids, Resource resource, String type) throws ConnectorException, NotFoundException {
         complianceService.checkCompliance(SecuredUUID.fromUuidList(uuids), resource, type);
     }
 
     @Override
     @AuditLogged(module = Module.COMPLIANCE, resource = Resource.COMPLIANCE_PROFILE, operation = Operation.CHECK_COMPLIANCE)
-    public void checkResourceObjectsCompliance(@LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) List<UUID> objectUuids) {
+    public void checkResourceObjectsCompliance(@LogResource(resource = true, affiliated = true) Resource resource, @LogResource(uuid = true, affiliated = true) List<UUID> objectUuids) throws ConnectorException, NotFoundException {
         complianceService.checkResourceObjectsCompliance(resource, objectUuids);
     }
 }

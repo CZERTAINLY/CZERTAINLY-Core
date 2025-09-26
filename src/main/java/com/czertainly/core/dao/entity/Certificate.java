@@ -2,6 +2,7 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -23,7 +24,6 @@ import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
 
 import java.io.Serial;
-import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
@@ -34,7 +34,7 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "certificate")
-public class Certificate extends UniquelyIdentifiedAndAudited implements Serializable, DtoMapper<CertificateDetailDto> {
+public class Certificate extends UniquelyIdentifiedAndAudited implements ComplianceSubject, DtoMapper<CertificateDetailDto> {
 
     private static final String EMPTY_COMMON_NAME = "<empty>";
 
@@ -486,6 +486,21 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Seriali
 
     public void setUsage(List<CertificateKeyUsage> usage) {
         this.keyUsage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(CertificateKeyUsage.class) : EnumSet.copyOf(usage));
+    }
+
+    @Override
+    public IPlatformEnum getType() {
+        return this.certificateType;
+    }
+
+    @Override
+    public IPlatformEnum getFormat() {
+        return CertificateFormat.RAW;
+    }
+
+    @Override
+    public String getContentData() {
+        return this.certificateContent.getContent();
     }
 
     @Override

@@ -38,7 +38,7 @@ public class ComplianceInternalRule extends UniquelyIdentified {
     @ToString.Exclude
     private Set<ConditionItem> conditionItems;
 
-    public ComplianceRuleDto mapToComplianceRuleDto(ComplianceRuleAvailabilityStatus availabilityStatus, String updatedReason) {
+    public ComplianceRuleDto mapToComplianceRuleDto(Resource resource, ComplianceRuleAvailabilityStatus availabilityStatus, String updatedReason) {
         ComplianceRuleDto dto = new ComplianceRuleDto();
         dto.setUuid(uuid);
         dto.setName(name);

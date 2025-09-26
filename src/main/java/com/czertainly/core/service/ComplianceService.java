@@ -29,7 +29,15 @@ public interface ComplianceService {
      * @param resource Resource of objects checked by compliance
      * @param objectUuid UUID of object to be checked
      */
-    void checkResourceObjectCompliance(Resource resource, UUID objectUuid);
+    void checkResourceObjectComplianceAsync(Resource resource, UUID objectUuid) throws ConnectorException, NotFoundException;
+
+    /**
+     * Check compliance on specified resource object
+     *
+     * @param resource Resource of objects checked by compliance
+     * @param objectUuid UUID of object to be checked
+     */
+    void checkResourceObjectCompliance(Resource resource, UUID objectUuid) throws ConnectorException, NotFoundException;
 
     /**
      * Check compliance on specified resource objects
@@ -37,6 +45,6 @@ public interface ComplianceService {
      * @param resource Resource of objects checked by compliance
      * @param objectUuids UUIDs of objects to be checked
      */
-    void checkResourceObjectsCompliance(Resource resource, List<UUID> objectUuids);
+    void checkResourceObjectsCompliance(Resource resource, List<UUID> objectUuids) throws ConnectorException, NotFoundException;
 
 }

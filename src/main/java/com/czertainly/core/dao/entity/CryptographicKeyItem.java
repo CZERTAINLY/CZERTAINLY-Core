@@ -24,7 +24,6 @@ import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
-import java.io.Serializable;
 import java.time.LocalDateTime;
 import java.util.*;
 
@@ -35,7 +34,7 @@ import java.util.*;
 @Entity
 @Table(name = "cryptographic_key_item")
 @EntityListeners(AuditingEntityListener.class)
-public class CryptographicKeyItem extends UniquelyIdentified implements Serializable, DtoMapper<KeyItemDetailDto> {
+public class CryptographicKeyItem extends UniquelyIdentified implements ComplianceSubject, DtoMapper<KeyItemDetailDto> {
 
     @Column(name = "name")
     private String name;
@@ -128,7 +127,6 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
         this.usage = BitMaskEnum.convertSetToBitMask(usage.isEmpty() ? EnumSet.noneOf(KeyUsage.class) : EnumSet.copyOf(usage));
     }
 
-
     @Override
     public KeyItemDetailDto mapToDto() {
         KeyItemDetailDto dto = new KeyItemDetailDto();
@@ -179,6 +177,11 @@ public class CryptographicKeyItem extends UniquelyIdentified implements Serializ
             dto.setTokenProfileUuid(key.getTokenProfile().getUuid().toString());
         }
         return dto;
+    }
+
+    @Override
+    public String getContentData() {
+        return this.keyData;
     }
 
     @Override

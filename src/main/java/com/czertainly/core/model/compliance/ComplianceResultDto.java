@@ -9,6 +9,7 @@ import lombok.ToString;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Getter
@@ -27,6 +28,6 @@ public class ComplianceResultDto implements Serializable {
     private ComplianceResultRulesDto internalRules;
 
     @Schema(description = "List of groups", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
-    private List<ComplianceResultProviderRulesDto> providerRules;
+    private List<ComplianceResultProviderRulesDto> providerRules = new ArrayList<>();
 
 }

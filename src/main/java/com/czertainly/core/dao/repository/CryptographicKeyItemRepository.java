@@ -2,6 +2,7 @@ package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -20,7 +21,14 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
 
     Optional<CryptographicKeyItem> findByUuidAndKey(UUID uuid, CryptographicKey cryptographicKey);
 
+    @EntityGraph(attributePaths = {"key", "key.tokenProfile"})
+    List<CryptographicKeyItem> findByUuidIn(List<UUID> uuids);
+
+    List<CryptographicKeyItem> findByKeyUuidIn(List<UUID> keyUuids);
+
     List<CryptographicKeyItem> findByKeyReferenceUuid(UUID keyReferenceUuid);
+
+    List<CryptographicKeyItem> findByKeyTokenProfileUuid(UUID tokenProfileUuid);
 
     @Modifying
     @Query(value = """

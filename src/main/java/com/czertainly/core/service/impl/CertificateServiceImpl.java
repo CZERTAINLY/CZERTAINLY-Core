@@ -34,7 +34,6 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeAccount_;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
@@ -1901,7 +1900,7 @@ public class CertificateServiceImpl implements CertificateService {
     private void certificateComplianceCheck(Certificate certificate) {
         if (certificate.getRaProfile() != null) {
             try {
-                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
+                complianceService.checkResourceObjectComplianceAsync(Resource.CERTIFICATE, certificate.getUuid());
             } catch (Exception e) {
                 logger.debug("Error when checking compliance: {}", e.getMessage());
             }
@@ -2024,7 +2023,7 @@ public class CertificateServiceImpl implements CertificateService {
             attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
 
             try {
-                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
+                complianceService.checkResourceObjectComplianceAsync(Resource.CERTIFICATE, certificate.getUuid());
             } catch (Exception e) {
                 logger.error("Error when checking compliance:", e);
             }

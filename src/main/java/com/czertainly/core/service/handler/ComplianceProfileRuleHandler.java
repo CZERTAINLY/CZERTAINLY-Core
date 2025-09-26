@@ -97,7 +97,7 @@ public class ComplianceProfileRuleHandler {
                     availabilityStatus = ComplianceRuleAvailabilityStatus.UPDATED;
                     updatedReason = "Resource changed from '%s' to '%s'".formatted(complianceProfileRule.getResource().getLabel(), complianceProfileRule.getInternalRule().getResource().getLabel());
                 }
-                dto.getInternalRules().add(complianceProfileRule.getInternalRule().mapToComplianceRuleDto(availabilityStatus, updatedReason));
+                dto.getInternalRules().add(complianceProfileRule.getInternalRule().mapToComplianceRuleDto(complianceProfileRule.getResource(), availabilityStatus, updatedReason));
             } else {
                 String key = "%s|%s".formatted(complianceProfileRule.getConnectorUuid(), complianceProfileRule.getKind());
 
@@ -236,7 +236,7 @@ public class ComplianceProfileRuleHandler {
         // handle internal rules
         for (UUID internalRuleUuid : request.getInternalRules()) {
             ComplianceProfileRule profileRule = createComplianceProfileInternalRuleAssoc(complianceProfile.getUuid(), internalRuleUuid);
-            complianceProfileDto.getInternalRules().add(profileRule.getInternalRule().mapToComplianceRuleDto(profileRule.getAvailabilityStatus(), null));
+            complianceProfileDto.getInternalRules().add(profileRule.getInternalRule().mapToComplianceRuleDto(profileRule.getResource(), profileRule.getAvailabilityStatus(), null));
         }
 
         // handle providers rules
@@ -465,7 +465,7 @@ public class ComplianceProfileRuleHandler {
         }
     }
 
-    public FunctionGroupCode validateComplianceProvider(ConnectorDto connectorDto, String kind) throws ValidationException {
+    public static FunctionGroupCode validateComplianceProvider(ConnectorDto connectorDto, String kind) throws ValidationException {
         FunctionGroupDto functionGroup = connectorDto.getFunctionGroups().stream().filter(fg -> fg.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER_V2) && fg.getKinds().contains(kind)).findFirst().orElse(null);
         if (functionGroup == null) {
             functionGroup = connectorDto.getFunctionGroups().stream().filter(fg -> fg.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER) && fg.getKinds().contains(kind)).findFirst().orElse(null);
@@ -505,7 +505,7 @@ public class ComplianceProfileRuleHandler {
                         throw new ValidationException("Compliance rule with resource '%s' cannot be associated with compliance profile because resource does not support compliance check".formatted(resource.getLabel()));
             };
         } catch (Exception e) {
-            throw new ValidationException("Compliance rule with resource '%s' has not supported type '%s'".formatted(resource.getLabel(), typeCode));
+            throw new ValidationException("Type '%s' is not supported for resource '%s'".formatted(typeCode, resource.getLabel()));
         }
     }
 }
