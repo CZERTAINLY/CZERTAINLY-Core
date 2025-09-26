@@ -9,10 +9,13 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.certificate.CertificateResponseDto;
 import com.czertainly.api.model.client.certificate.CertificateSearchRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
+import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
+import com.czertainly.api.model.core.audit.AuditLogDto;
+import com.czertainly.api.model.core.audit.AuditLogResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateRelationType;
 import com.czertainly.api.model.core.certificate.CertificateKeyUsage;
@@ -21,6 +24,12 @@ import com.czertainly.api.model.core.certificate.CertificateSubjectType;
 import com.czertainly.api.model.core.cryptography.key.KeyItemDto;
 import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
+import com.czertainly.api.model.core.logging.enums.*;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.records.ActorRecord;
+import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
+import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -30,6 +39,7 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.AttributeService;
+import com.czertainly.core.service.AuditLogService;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.CryptographicKeyService;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -104,6 +114,11 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
     private AcmeProfileRepository acmeProfileRepository;
     @Autowired
     private CertificateProtocolAssociationRepository protocolAssociationRepository;
+
+    @Autowired
+    private AuditLogRepository auditLogRepository;
+    @Autowired
+    private AuditLogService auditLogService;
 
     private CriteriaBuilder criteriaBuilder;
 
@@ -980,6 +995,61 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         CertificateSearchRequestDto searchRequestDto = new CertificateSearchRequestDto();
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.ACME_PROFILE.name(), FilterConditionOperator.EQUALS, (Serializable) List.of(acmeProfile.getName()))));
         Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
+    }
+
+    @Test
+    void testAuditLogFilters() {
+        UUID uuid1 = UUID.randomUUID();
+        String name1 = "name";
+        UUID uuid2 = UUID.randomUUID();
+        String name2 = "name2";
+        AuditLog auditLog1 = createAuditLog(List.of(new ResourceObjectIdentity(name1, uuid1)));
+        AuditLog auditLog2 = createAuditLog(List.of(new ResourceObjectIdentity(name1, uuid1), new ResourceObjectIdentity(name2, uuid2)));
+        AuditLog auditLog3  = createAuditLog(List.of());
+        AuditLog auditLog4 = createAuditLog(null);
+        AuditLog auditLog5 = createAuditLog(List.of(new ResourceObjectIdentity("name3", null)));
+        SearchRequestDto searchRequestDto = new SearchRequestDto();
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EQUALS, uuid1)));
+        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EQUALS, uuid2)));
+        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog3.getId(), auditLog4.getId(), auditLog5.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.EMPTY, uuid2)));
+        Assertions.assertEquals(Set.of(auditLog3.getId(), auditLog4.getId(), auditLog5.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.AUDIT_LOG_RESOURCE_UUID.name(), FilterConditionOperator.NOT_EMPTY, uuid2)));
+        Assertions.assertEquals(Set.of(auditLog1.getId(), auditLog2.getId()), extractIdsFromAuditLogResponse(auditLogService.listAuditLogs(searchRequestDto)));
+
+    }
+
+    private Set<Long> extractIdsFromAuditLogResponse(AuditLogResponseDto responseDto) {
+        return responseDto.getItems().stream().map(AuditLogDto::getId).collect(Collectors.toSet());
+    }
+
+    private AuditLog createAuditLog(List<ResourceObjectIdentity> resourceObjects) {
+        AuditLog entity = new AuditLog();
+        entity.setVersion("1.0");
+        entity.setModule(Module.AUTH);
+        entity.setActorType(ActorType.USER);
+        entity.setActorAuthMethod(AuthMethod.NONE);
+        entity.setResource(Resource.CERTIFICATE);
+        entity.setOperation(Operation.LOGOUT);
+        entity.setOperationResult(OperationResult.FAILURE);
+        entity.setTimestamp(OffsetDateTime.now());
+        entity.setLogRecord(LogRecord.builder()
+                .audited(true)
+                .version("v")
+                .module(Module.AUTH)
+                .timestamp(OffsetDateTime.now())
+                .actor(new ActorRecord(ActorType.USER, AuthMethod.CERTIFICATE, null, null))
+                .operation(Operation.LOGOUT)
+                .operationResult(OperationResult.FAILURE)
+                .resource(new ResourceRecord(Resource.USER, resourceObjects))
+                .build());
+        auditLogRepository.save(entity);
+        return entity;
     }
 
 

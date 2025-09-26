@@ -43,6 +43,9 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
     @Column(name = "logged_at", nullable = false, updatable = false)
     protected OffsetDateTime loggedAt;
 
+    @Column(name = "timestamp", nullable = false)
+    protected OffsetDateTime timestamp;
+
     @Column(name = "module", nullable = false)
     @Enumerated(EnumType.STRING)
     private Module module;
@@ -90,6 +93,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         dto.setId(id);
         dto.setVersion(version);
         dto.setLoggedAt(loggedAt);
+        dto.setTimestamp(timestamp);
         dto.setModule(module);
         dto.setActor(logRecord.actor());
         dto.setSource(logRecord.source());
@@ -110,12 +114,11 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         builder.loggedAt(loggedAt);
         builder.module(module);
         builder.resource(resource);
-        builder.resourceUuids(logRecord.resource().uuids());
-        builder.resourceNames(logRecord.resource().names());
+        builder.timestamp(timestamp);
+        builder.resourceObjects(logRecord.resource().objects());
         builder.affiliatedResource(affiliatedResource);
         if (logRecord.affiliatedResource() != null) {
-            builder.affiliatedResourceUuids(logRecord.affiliatedResource().uuids());
-            builder.affiliatedResourceNames(logRecord.affiliatedResource().names());
+            builder.affiliatedObjects(logRecord.affiliatedResource().objects());
         }
         builder.actorType(actorType);
         builder.actorAuthMethod(actorAuthMethod);
@@ -146,6 +149,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         auditLog.setOperationResult(logRecord.operationResult());
         auditLog.setMessage(logRecord.message());
         auditLog.setLogRecord(logRecord);
+        auditLog.setTimestamp(logRecord.timestamp());
 
         return auditLog;
     }
