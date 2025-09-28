@@ -322,8 +322,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             throw new RuleException("Setting property '" + fieldIdentifier + "' is not supported.");
         try {
             PropertyUtils.setProperty(object, propertyEnum.getFieldAttribute().getName(), actionData);
-        } catch (IllegalArgumentException | IllegalAccessException | InvocationTargetException |
-                 NoSuchMethodException e) {
+        } catch (Exception e) {
             throw new RuleException(e.getMessage());
         }
     }

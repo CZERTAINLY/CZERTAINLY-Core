@@ -269,7 +269,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
                     addEntryToAltPublicKeyMap(altKeysToCertificatesMap, altPublicKey, certificate);
                 }
             }
-        } catch (RuleException e) {
+        } catch (Exception e) {
             logger.error("Unable to process trigger on certificate {} from discovery certificate with UUID {}. Message: {}", certificate.getUuid(), discoveryCertificate.getUuid(), e.getMessage());
         }
 
