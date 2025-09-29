@@ -70,13 +70,18 @@ public class ComplianceCheckContext {
         }
     }
 
-    public void performComplianceCheck() throws ConnectorException, NotFoundException {
+    public void performComplianceCheck() {
         for (ComplianceCheckProfileContext profileContext : profilesContextMap.values()) {
             for (Map.Entry<Resource, Set<ComplianceSubject>> resourceObjects : profileContext.getComplianceSubjects().entrySet()) {
                 ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler = subjectHandlers.get(resourceObjects.getKey());
                 for (var subject : resourceObjects.getValue()) {
-                    performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
-                    subjectHandler.saveComplianceResult(subject);
+                    try {
+                        subjectHandler.initSubjectComplianceResult(subject.getUuid(), subject.getComplianceResult());
+                        performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
+                        subjectHandler.saveComplianceResult(subject, null);
+                    } catch (Exception e) {
+                        subjectHandler.saveComplianceResult(subject, e.getMessage());
+                    }
                 }
             }
         }
@@ -106,9 +111,7 @@ public class ComplianceCheckContext {
                 }
                 // add rule to compliance check request, if returns non-null status, it means the rule is not available or not applicable. In case of null, the rule will be checked by the provider.
                 ComplianceRuleStatus ruleStatus = providerContext.addProfileRuleToCheck(profileRule);
-                if (ruleStatus != null) {
-                    subjectHandler.addProviderRuleResult(subject.getUuid(), providerRules.getKey(), providerContext.getConnectorUuid(), providerContext.getKind(), profileRule.getComplianceRuleUuid(), profileRule.getComplianceGroupUuid(), ruleStatus);
-                }
+                subjectHandler.addProviderRuleResult(subject.getUuid(), providerRules.getKey(), providerContext.getConnectorUuid(), providerContext.getKind(), profileRule.getComplianceRuleUuid(), profileRule.getComplianceGroupUuid(), ruleStatus);
             }
             ComplianceResponseDto complianceResponse = providerContext.executeComplianceCheck();
             for (ComplianceResponseRuleDto responseRule : complianceResponse.getRules()) {

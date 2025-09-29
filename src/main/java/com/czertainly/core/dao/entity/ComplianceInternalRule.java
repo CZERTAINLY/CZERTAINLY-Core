@@ -3,6 +3,8 @@ package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
+import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceCheckRuleDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceRuleListDto;
 import com.czertainly.core.dao.entity.workflows.ConditionItem;
@@ -61,6 +63,18 @@ public class ComplianceInternalRule extends UniquelyIdentified {
 
         return dto;
     }
+
+    public ComplianceCheckRuleDto mapToComplianceCheckRuleDto(ComplianceRuleStatus status) {
+        ComplianceCheckRuleDto dto = new ComplianceCheckRuleDto();
+        dto.setUuid(uuid);
+        dto.setName(name);
+        dto.setDescription(description);
+        dto.setStatus(status);
+        dto.setResource(resource);
+
+        return dto;
+    }
+
 
     @Override
     public final boolean equals(Object o) {

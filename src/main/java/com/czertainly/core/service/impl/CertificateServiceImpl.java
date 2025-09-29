@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.oid.OidCategory;
@@ -353,8 +354,8 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         if (certificate.getComplianceResult() != null) {
-            dto.setComplianceResult(complianceService.getComplianceCheckResult(certificate.getComplianceResult()));
-            dto.setNonCompliantRules(dto.getComplianceResult().getFailedRules().stream().map(failedRule -> {
+            ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid(), certificate.getComplianceResult());
+            dto.setNonCompliantRules(complianceCheckResult.getFailedRules().stream().map(failedRule -> {
                 CertificateComplianceResultDto resultDto = new CertificateComplianceResultDto();
                 resultDto.setConnectorName(failedRule.getConnectorName());
                 resultDto.setRuleName(failedRule.getName());

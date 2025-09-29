@@ -85,7 +85,7 @@ public class ComplianceCheckProviderContext {
      * Adds a compliance profile rule to the compliance check request.
      *
      * @param profileRule Compliance profile rule to be added to check request
-     * @return ComplianceRuleStatus.OK if the group was added successfully
+     * @return null if the rule/group was added successfully
      * ComplianceRuleStatus.NA if the rule is not applicable (e.g. resource/type do not match)
      * ComplianceRuleStatus.NOT_AVAILABLE if the rule/group is not available in the provider
      */
@@ -108,7 +108,6 @@ public class ComplianceCheckProviderContext {
                 providerRuleRequest.setAttributes(profileRule.getAttributes());
                 complianceRequestDto.getRules().add(providerRuleRequest);
             }
-            return null;
         }
 
         ComplianceGroupBatchResponseDto providerGroup = rulesGroupsBatchDto.getGroups().get(profileRule.getComplianceGroupUuid());
@@ -128,7 +127,7 @@ public class ComplianceCheckProviderContext {
             providerGroupRequest.setUuid(providerGroup.getUuid());
             complianceRequestDto.getGroups().add(providerGroup.getUuid());
         }
-        return ComplianceRuleStatus.OK; // Group is not returned as null to force adding it to set of checked groups in subject handler
+        return null;
     }
 
     /**

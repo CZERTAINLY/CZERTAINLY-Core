@@ -126,7 +126,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CREATE)
     public ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException, NotFoundException, AttributeException {
-        if (complianceProfileRepository.findByName(request.getName()).isPresent()) {
+        if (complianceProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException(ComplianceProfile.class, request.getName());
         }
         attributeEngine.validateCustomAttributesContent(Resource.COMPLIANCE_PROFILE, request.getCustomAttributes());

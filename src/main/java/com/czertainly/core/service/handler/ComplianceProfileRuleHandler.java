@@ -7,16 +7,15 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.compliance.v2.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
-import com.czertainly.api.model.core.compliance.v2.ProviderComplianceRulesDto;
+import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
+import com.czertainly.api.model.core.compliance.v2.*;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
@@ -36,6 +35,8 @@ import java.util.stream.Collectors;
 @Component
 @Transactional
 public class ComplianceProfileRuleHandler {
+
+    private static final String NOT_AVAILABLE_RULE_NAME = "<Not Available>";
 
     private ComplianceApiClient complianceApiClient;
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
@@ -149,6 +150,60 @@ public class ComplianceProfileRuleHandler {
         return dto;
     }
 
+    public ComplianceCheckRuleDto mapComplianceCheckProviderRuleDto(UUID connectorUuid, String connectorName, String kind, UUID providerRuleUuid, ComplianceRuleStatus status, ComplianceRuleResponseDto providerRule) {
+        ComplianceCheckRuleDto dto = new ComplianceCheckRuleDto();
+        dto.setUuid(providerRuleUuid);
+        dto.setConnectorUuid(connectorUuid);
+        dto.setConnectorName(connectorName);
+        dto.setKind(kind);
+        dto.setStatus(status);
+
+        if (providerRule != null) {
+            dto.setName(providerRule.getName());
+            dto.setDescription(providerRule.getDescription());
+            dto.setResource(providerRule.getResource());
+            if (providerRule.getAttributes() != null && !providerRule.getAttributes().isEmpty()) {
+                mapFromProfileRule(connectorUuid, kind, providerRuleUuid, providerRule.getAttributes(), dto);
+            }
+
+            return dto;
+        }
+
+        mapFromProfileRule(connectorUuid, kind, providerRuleUuid, null, dto);
+        dto.setName(NOT_AVAILABLE_RULE_NAME);
+        if (dto.getResource() == null) {
+            dto.setResource(Resource.NONE);
+        }
+
+        return dto;
+    }
+
+    private void mapFromProfileRule(UUID connectorUuid, String kind, UUID providerRuleUuid, List<BaseAttribute> attributes, ComplianceCheckRuleDto ruleDto) {
+        List<ComplianceProfileRule> profileRules = complianceProfileRuleRepository.findByConnectorUuidAndKindAndComplianceRuleUuid(connectorUuid, kind, providerRuleUuid);
+        if (profileRules.isEmpty()) {
+            return;
+        }
+
+        ComplianceProfileRule matchedProfileRule = profileRules.getFirst();
+        if (attributes != null && !attributes.isEmpty()) {
+            for (ComplianceProfileRule profileRule : profileRules) {
+                if (profileRule.getAttributes() != null && !profileRule.getAttributes().isEmpty()) {
+                    try {
+                        AttributeEngine.validateRequestDataAttributes(attributes, profileRule.getAttributes(), true);
+                    } catch (ValidationException e) {
+                        continue;
+                    }
+
+                    matchedProfileRule = profileRule;
+                    break;
+                }
+            }
+        }
+
+        ruleDto.setResource(matchedProfileRule.getResource());
+        ruleDto.setAttributes(AttributeEngine.getRequestDataAttributesContent(attributes, matchedProfileRule.getAttributes()));
+    }
+
     private ComplianceRuleDto mapProviderRuleDto(ComplianceProfileRule complianceProfileRule, ComplianceRuleResponseDto providerRule) throws ValidationException {
         ComplianceRuleDto ruleDto = new ComplianceRuleDto();
         ruleDto.setUuid(complianceProfileRule.getComplianceRuleUuid());
@@ -160,7 +215,7 @@ public class ComplianceProfileRuleHandler {
         }
 
         if (providerRule == null) {
-            ruleDto.setName("N/A");
+            ruleDto.setName(NOT_AVAILABLE_RULE_NAME);
             ruleDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE);
             return ruleDto;
         }
@@ -206,7 +261,7 @@ public class ComplianceProfileRuleHandler {
         groupDto.setResource(complianceProfileRule.getResource());
 
         if (providerGroup == null) {
-            groupDto.setName("N/A");
+            groupDto.setName(NOT_AVAILABLE_RULE_NAME);
             groupDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE);
             return groupDto;
         }

@@ -11,7 +11,6 @@ import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
 import lombok.Getter;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -22,6 +21,7 @@ import java.util.UUID;
 @Getter
 public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
+    private final boolean checkByProfiles;
     private final TriggerEvaluator<T> triggerEvaluator;
     private final SecurityFilterRepository<T, UUID> repository;
 
@@ -30,17 +30,23 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     private final Map<UUID, Map<String, Set<UUID>>> checkedProviderGroupsMap = new HashMap<>();
     private final Map<UUID, ComplianceResultDto> complianceResultsMap = new HashMap<>();
 
-    @Autowired
-    public ComplianceSubjectHandler(TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {
+    public ComplianceSubjectHandler(boolean checkByProfiles, TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {
+        this.checkByProfiles = checkByProfiles;
         this.triggerEvaluator = triggerEvaluator;
         this.repository = repository;
+    }
+
+    public void initSubjectComplianceResult(UUID subjectUuid, ComplianceResultDto existingResult) {
+        if (checkByProfiles && existingResult != null) {
+            complianceResultsMap.put(subjectUuid, existingResult);
+        }
     }
 
     /**
      * Evaluate internal rule for the given subject. If the rule was already checked for the subject, it will be skipped.
      *
      * @param profileRule the profile rule containing the internal rule to be evaluated
-     * @param subject    the subject to be evaluated
+     * @param subject     the subject to be evaluated
      */
     public void evaluateInternalRule(ComplianceProfileRule profileRule, ComplianceSubject subject) {
         T typedSubject = (T) subject;
@@ -48,27 +54,35 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             return;
         }
 
+        UUID internalRuleUuid = profileRule.getInternalRuleUuid();
         ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subject.getUuid(), k -> new ComplianceResultDto());
+        if (checkByProfiles && complianceResultDto.getInternalRules() != null) {
+            // remove if compliance rule result exists to avoid duplicates and be rewritten by current result
+            complianceResultDto.getInternalRules().getNotCompliant().remove(internalRuleUuid);
+            complianceResultDto.getInternalRules().getNotApplicable().remove(internalRuleUuid);
+            complianceResultDto.getInternalRules().getNotAvailable().remove(internalRuleUuid);
+        }
+
         if (profileRule.getResource() != profileRule.getInternalRule().getResource()) {
             if (complianceResultDto.getInternalRules() == null) {
                 complianceResultDto.setInternalRules(new ComplianceResultRulesDto());
             }
-            complianceResultDto.getInternalRules().getNotApplicable().add(profileRule.getInternalRuleUuid());
+            complianceResultDto.getInternalRules().getNotApplicable().add(internalRuleUuid);
         }
 
-        boolean failed;
+        boolean valid;
         try {
-            failed = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), typedSubject);
+            valid = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), typedSubject);
         } catch (RuleException e) {
-            failed = true;
+            valid = false;
         }
-        if (failed) {
+        if (!valid) {
             if (complianceResultDto.getInternalRules() == null) {
                 complianceResultDto.setInternalRules(new ComplianceResultRulesDto());
             }
-            complianceResultDto.getInternalRules().getNotCompliant().add(profileRule.getInternalRuleUuid());
+            complianceResultDto.getInternalRules().getNotCompliant().add(internalRuleUuid);
         }
-        checkedInternalRulesMap.get(subject.getUuid()).add(profileRule.getInternalRuleUuid());
+        checkedInternalRulesMap.get(subject.getUuid()).add(internalRuleUuid);
     }
 
     /**
@@ -100,13 +114,13 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
      * Records the result of a provider rule evaluation for a subject and updates the in-memory compliance result.
      * If {@code groupUuid} is provided the group is just marked as checked
      *
-     * @param subjectUuid UUID of the subject the result belongs to
-     * @param providerKey key of the provider
+     * @param subjectUuid   UUID of the subject the result belongs to
+     * @param providerKey   key of the provider
      * @param connectorUuid UUID identifying the provider connector
-     * @param kind kind identifier
-     * @param ruleUUid UUID of the evaluated rule (may be null when groupUuid is provided)
-     * @param groupUuid UUID of the evaluated rule group (may be null)
-     * @param ruleStatus status returned by the provider for the evaluated rule
+     * @param kind          kind identifier
+     * @param ruleUUid      UUID of the evaluated rule (may be null when groupUuid is provided)
+     * @param groupUuid     UUID of the evaluated rule group (may be null)
+     * @param ruleStatus    status returned by the provider for the evaluated rule
      */
     public void addProviderRuleResult(UUID subjectUuid, String providerKey, UUID connectorUuid, String kind, UUID ruleUUid, UUID groupUuid, ComplianceRuleStatus ruleStatus) {
         if (groupUuid != null) {
@@ -115,6 +129,10 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
         }
 
         checkedProviderRulesMap.computeIfAbsent(subjectUuid, k -> new java.util.HashMap<>()).computeIfAbsent(providerKey, k -> new java.util.HashSet<>()).add(ruleUUid);
+        if (ruleStatus == null || (ruleStatus == ComplianceRuleStatus.OK && !checkByProfiles)) {
+            // rule will be checked by the provider, do not update compliance result
+            return;
+        }
 
         // update compliance result
         ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subjectUuid, k -> new ComplianceResultDto());
@@ -124,13 +142,17 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             providerResult.setConnectorUuid(connectorUuid);
             providerResult.setKind(kind);
             complianceResultDto.getProviderRules().add(providerResult);
+        } else if (checkByProfiles) {
+            // remove if compliance rule result exists to avoid duplicates and be rewritten by current result
+            providerResult.getNotCompliant().remove(ruleUUid);
+            providerResult.getNotApplicable().remove(ruleUUid);
+            providerResult.getNotAvailable().remove(ruleUUid);
         }
-        if (ruleStatus == ComplianceRuleStatus.NOK) {
-            providerResult.getNotCompliant().add(ruleUUid);
-        } else if (ruleStatus == ComplianceRuleStatus.NA) {
-            providerResult.getNotApplicable().add(ruleUUid);
-        } else if (ruleStatus == ComplianceRuleStatus.NOT_AVAILABLE) {
-            providerResult.getNotAvailable().add(ruleUUid);
+
+        switch (ruleStatus) {
+            case ComplianceRuleStatus.NOK -> providerResult.getNotCompliant().add(ruleUUid);
+            case ComplianceRuleStatus.NA -> providerResult.getNotApplicable().add(ruleUUid);
+            default -> providerResult.getNotAvailable().add(ruleUUid);
         }
     }
 
@@ -141,11 +163,17 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
      *
      * @param subject the subject whose compliance result should be saved
      */
-    public void saveComplianceResult(ComplianceSubject subject) {
+    public void saveComplianceResult(ComplianceSubject subject, String errorMessage) {
         T typedSubject = (T) subject;
         ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subject.getUuid(), k -> new ComplianceResultDto());
         complianceResultDto.setTimestamp(OffsetDateTime.now());
-        complianceResultDto.setStatus(calculateComplianceStatus(complianceResultDto));
+        if (errorMessage != null) {
+            complianceResultDto.setMessage(errorMessage);
+            complianceResultDto.setStatus(ComplianceStatus.FAILED);
+        } else {
+            complianceResultDto.setStatus(calculateComplianceStatus(complianceResultDto));
+        }
+
         typedSubject.setComplianceResult(complianceResultDto);
         typedSubject.setComplianceStatus(complianceResultDto.getStatus());
         repository.save(typedSubject);

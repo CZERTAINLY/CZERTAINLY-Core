@@ -1,25 +1,28 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.v2.ComplianceApiClient;
-import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
+import com.czertainly.api.model.connector.compliance.v2.ComplianceRuleResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.evaluator.CertificateTriggerEvaluator;
 import com.czertainly.core.evaluator.TriggerEvaluator;
-import com.czertainly.core.model.compliance.ComplianceCheckContext;
-import com.czertainly.core.model.compliance.ComplianceResultDto;
+import com.czertainly.core.model.compliance.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.handler.ComplianceSubjectHandler;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -30,28 +33,28 @@ import java.util.*;
 @Service
 @Transactional
 public class ComplianceServiceImpl implements ComplianceService {
-//    private PlatformTransactionManager transactionManager;
 
+    private static final Logger logger = LoggerFactory.getLogger(ComplianceServiceImpl.class);
+
+    //    private PlatformTransactionManager transactionManager;
     private ComplianceApiClient complianceApiClient;
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
 
     private ComplianceProfileRepository complianceProfileRepository;
     private ComplianceProfileAssociationRepository complianceProfileAssociationRepository;
+    private ComplianceInternalRuleRepository internalRuleRepository;
+
     private CertificateRepository certificateRepository;
     private CertificateRequestRepository certificateRequestRepository;
     private CryptographicKeyRepository cryptographicKeyRepository;
     private CryptographicKeyItemRepository cryptographicKeyItemRepository;
 
-    private CertificateTriggerEvaluator certificateTriggerEvaluator;
+    // since only checking condition items, not necessary CertificateTriggerEvaluator that implements special logic for setting properties
+    private TriggerEvaluator<Certificate> certificateTriggerEvaluator;
     private TriggerEvaluator<CertificateRequestEntity> certificateRequestTriggerEvaluator;
     private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyItemTriggerEvaluator;
 
     private ComplianceProfileRuleHandler ruleHandler;
-    private final Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> subjectHandlers = new EnumMap<>(Resource.class) {{;
-        put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(certificateTriggerEvaluator, certificateRepository));
-        put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(certificateRequestTriggerEvaluator, certificateRequestRepository));
-        put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
-    }};
 
 //    @Autowired
 //    public void setTransactionManager(PlatformTransactionManager transactionManager) {
@@ -79,6 +82,11 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Autowired
+    public void setInternalRuleRepository(ComplianceInternalRuleRepository internalRuleRepository) {
+        this.internalRuleRepository = internalRuleRepository;
+    }
+
+    @Autowired
     public void setCertificateRepository(CertificateRepository certificateRepository) {
         this.certificateRepository = certificateRepository;
     }
@@ -98,8 +106,9 @@ public class ComplianceServiceImpl implements ComplianceService {
         this.cryptographicKeyItemRepository = cryptographicKeyItemRepository;
     }
 
+    @Lazy
     @Autowired
-    public void setCertificateTriggerEvaluator(CertificateTriggerEvaluator certificateTriggerEvaluator) {
+    public void setCertificateTriggerEvaluator(TriggerEvaluator<Certificate> certificateTriggerEvaluator) {
         this.certificateTriggerEvaluator = certificateTriggerEvaluator;
     }
 
@@ -119,15 +128,104 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
-    public ComplianceCheckResultDto getComplianceCheckResult(ComplianceResultDto complianceResult) {
-        return null;
+    public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid) throws NotFoundException {
+        if (!resource.complianceSubject()) {
+            throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+        }
+
+        ComplianceSubject complianceSubject = switch (resource) {
+            case CERTIFICATE ->
+                    complianceSubject = certificateRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(Certificate.class, objectUuid));
+            case CERTIFICATE_REQUEST ->
+                    complianceSubject = certificateRequestRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CertificateRequestEntity.class, objectUuid));
+            case CRYPTOGRAPHIC_KEY_ITEM ->
+                    complianceSubject = cryptographicKeyItemRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, objectUuid));
+            default ->
+                    throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+        };
+
+        return getComplianceCheckResult(resource, objectUuid, complianceSubject.getComplianceResult());
+    }
+
+    @Override
+    public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid, ComplianceResultDto complianceResult) {
+        ComplianceCheckResultDto resultDto = new ComplianceCheckResultDto();
+        if (complianceResult == null) {
+            resultDto.setStatus(ComplianceStatus.NOT_CHECKED);
+            return resultDto;
+        }
+
+        resultDto.setStatus(complianceResult.getStatus());
+        resultDto.setTimestamp(complianceResult.getTimestamp());
+        // load internal rules
+        if (complianceResult.getInternalRules() != null) {
+            List<UUID> failedInternalRulesUuids = new ArrayList<>(complianceResult.getInternalRules().getNotCompliant());
+            failedInternalRulesUuids.addAll(complianceResult.getInternalRules().getNotApplicable());
+            failedInternalRulesUuids.addAll(complianceResult.getInternalRules().getNotAvailable());
+            internalRuleRepository.findByUuidIn(failedInternalRulesUuids).forEach(internalRule -> {
+                ComplianceRuleStatus status = popFailedRuleWithStatus(complianceResult.getInternalRules(), internalRule.getUuid());
+                resultDto.getFailedRules().add(internalRule.mapToComplianceCheckRuleDto(status));
+            });
+
+            // should we handle internal rules that are not existing anymore?
+        }
+
+        // load provider rules
+        for (ComplianceResultProviderRulesDto providerRules : complianceResult.getProviderRules()) {
+            Set<UUID> failedProviderRulesUuids = new HashSet<>(providerRules.getNotCompliant());
+            failedProviderRulesUuids.addAll(providerRules.getNotApplicable());
+            failedProviderRulesUuids.addAll(providerRules.getNotAvailable());
+            ComplianceRulesGroupsBatchDto batchDto = null;
+            try {
+                batchDto = ruleHandler.getComplianceProviderRulesBatch(providerRules.getConnectorUuid(), providerRules.getKind(), failedProviderRulesUuids, null, false);
+            } catch (Exception e) {
+                logger.warn("Cannot retrieve compliance rules from provider {} of kind {} when getting compliance result rules of {} with UUID {}. Marking all {} rules as Not Available", providerRules.getConnectorUuid(), providerRules.getKind(), resource, objectUuid, failedProviderRulesUuids.size());
+                batchDto = new ComplianceRulesGroupsBatchDto();
+                batchDto.setConnectorUuid(providerRules.getConnectorUuid());
+                batchDto.setKind(providerRules.getKind());
+            }
+
+            for (UUID failedRuleUuid : failedProviderRulesUuids) {
+                ComplianceRuleStatus status = popFailedRuleWithStatus(providerRules, failedRuleUuid);
+                ComplianceRuleResponseDto providerRule = batchDto.getRules().get(failedRuleUuid);
+                resultDto.getFailedRules().add(ruleHandler.mapComplianceCheckProviderRuleDto(batchDto.getConnectorUuid(), batchDto.getConnectorName(), batchDto.getKind(), failedRuleUuid, status, providerRule));
+            }
+        }
+
+        return resultDto;
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void checkComplianceValidation(List<SecuredUUID> uuids, Resource resource, String type) throws ValidationException, NotFoundException {
+        if (resource != null) {
+            if (!resource.complianceSubject()) {
+                throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+            }
+            ComplianceProfileRuleHandler.getComplianceRuleTypeFromCode(resource, type);
+        } else if (type != null) {
+            throw new ValidationException("Cannot check compliance for type %s. Resource must be specified when type is specified".formatted(type));
+        }
+
+        for (SecuredUUID uuid : uuids) {
+            if (!complianceProfileRepository.existsById(uuid.getValue())) {
+                throw new NotFoundException("Cannot check compliance. Compliance profile with UUID %s not found".formatted(uuid.getValue()));
+            }
+        }
     }
 
     @Override
     @Async
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkCompliance(List<SecuredUUID> uuids, Resource resource, String type) throws ConnectorException, NotFoundException {
+    public void checkComplianceAsync(List<SecuredUUID> uuids, Resource resource, String type) {
+        checkCompliance(uuids, resource, type);
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void checkCompliance(List<SecuredUUID> uuids, Resource resource, String type) {
         IPlatformEnum typeEnum = null;
         if (resource != null) {
             if (!resource.complianceSubject()) {
@@ -139,9 +237,9 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
 
         // load compliance profiles
-        ComplianceCheckContext context = new ComplianceCheckContext(true, resource, typeEnum, ruleHandler, subjectHandlers, complianceApiClient, complianceApiClientV1);
+        ComplianceCheckContext context = new ComplianceCheckContext(true, resource, typeEnum, ruleHandler, getSubjectHandlers(true), complianceApiClient, complianceApiClientV1);
         List<ComplianceProfile> complianceProfiles = complianceProfileRepository.findWithAssociationsByUuidIn(uuids.stream().map(SecuredUUID::getValue).toList()).stream()
-                .filter(p -> p.getAssociations().isEmpty() || p.getComplianceRules().isEmpty()).toList();
+                .filter(p -> !p.getAssociations().isEmpty() && !p.getComplianceRules().isEmpty()).toList();
         for (ComplianceProfile profile : complianceProfiles) {
             // load compliance subjects
             Map<Resource, Set<ComplianceSubject>> complianceSubjects = new EnumMap<>(Resource.class);
@@ -166,11 +264,51 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void checkResourceObjectsComplianceValidation(Resource resource, List<UUID> objectUuids) throws ValidationException, NotFoundException {
+        if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject() && !resource.hasComplianceProfiles())) {
+            throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles".formatted(resource.getLabel()));
+        }
+
+        for (UUID objectUuid : objectUuids) {
+            boolean exists = switch (resource) {
+                case CERTIFICATE -> certificateRepository.existsById(objectUuid);
+                case CRYPTOGRAPHIC_KEY -> cryptographicKeyRepository.existsById(objectUuid);
+                case CRYPTOGRAPHIC_KEY_ITEM -> cryptographicKeyItemRepository.existsById(objectUuid);
+                case RA_PROFILE ->
+                        complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.RA_PROFILE, objectUuid) > 0;
+                case TOKEN_PROFILE ->
+                        complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, objectUuid) > 0;
+                default ->
+                        throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+            };
+            if (!exists) {
+                throw new NotFoundException("Cannot check compliance. %s with UUID %s not found".formatted(resource.getLabel(), objectUuid));
+            }
+        }
+    }
+
+    @Override
     @Async
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkResourceObjectsCompliance(Resource resource, List<UUID> objectUuids) throws ConnectorException, NotFoundException {
-        if (!resource.complianceSubject() && !resource.hasComplianceProfiles()) {
+    public void checkResourceObjectComplianceAsync(Resource resource, UUID objectUuid) {
+        checkResourceObjectsComplianceAsync(resource, List.of(objectUuid));
+    }
+
+    @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void checkResourceObjectCompliance(Resource resource, UUID objectUuid) {
+        checkResourceObjectsComplianceAsync(resource, List.of(objectUuid));
+    }
+
+    @Override
+    @Async
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
+    public void checkResourceObjectsComplianceAsync(Resource resource, List<UUID> objectUuids) {
+        if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject() && !resource.hasComplianceProfiles())) {
             throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles".formatted(resource.getLabel()));
         }
 
@@ -222,11 +360,22 @@ public class ComplianceServiceImpl implements ComplianceService {
                     throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
         }
 
-        ComplianceCheckContext context = new ComplianceCheckContext(false, null, null, ruleHandler, subjectHandlers, complianceApiClient, complianceApiClientV1);
+        ComplianceCheckContext context = new ComplianceCheckContext(false, null, null, ruleHandler, getSubjectHandlers(false), complianceApiClient, complianceApiClientV1);
         for (ComplianceProfile profile : complianceProfilesMap.values()) {
             context.addComplianceProfile(profile, complianceProfileSubjectsMap.get(profile.getUuid()));
         }
         context.performComplianceCheck();
+    }
+
+    private ComplianceRuleStatus popFailedRuleWithStatus(ComplianceResultRulesDto complianceResultRules, UUID ruleUuid) {
+        if (complianceResultRules.getNotCompliant().remove(ruleUuid)) {
+            return ComplianceRuleStatus.NOK;
+        } else if (complianceResultRules.getNotApplicable().remove(ruleUuid)) {
+            return ComplianceRuleStatus.NA;
+        } else if (complianceResultRules.getNotAvailable().remove(ruleUuid)) {
+            return ComplianceRuleStatus.NOT_AVAILABLE;
+        }
+        return ComplianceRuleStatus.NOT_AVAILABLE;
     }
 
     private void loadComplianceProfilesWithSubjects(Map<UUID, ComplianceProfile> complianceProfilesMap, Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap, Resource resource, UUID associationObjectUuid, Resource subjectResource, Collection<ComplianceSubject> complianceSubjects) {
@@ -237,21 +386,6 @@ public class ComplianceServiceImpl implements ComplianceService {
                     .computeIfAbsent(subjectResource, r -> new HashSet<>())
                     .addAll(complianceSubjects);
         }
-    }
-
-    @Override
-    @Async
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkResourceObjectComplianceAsync(Resource resource, UUID objectUuid) throws ConnectorException, NotFoundException {
-        checkResourceObjectsCompliance(resource, List.of(objectUuid));
-    }
-
-    @Override
-    @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
-    public void checkResourceObjectCompliance(Resource resource, UUID objectUuid) throws ConnectorException, NotFoundException {
-        checkResourceObjectsCompliance(resource, List.of(objectUuid));
     }
 
     private boolean isAssociationResourceCompatible(Resource associationResource, Resource resource) {
@@ -293,5 +427,14 @@ public class ComplianceServiceImpl implements ComplianceService {
             case TOKEN_PROFILE -> cryptographicKeyItemRepository.findByKeyTokenProfileUuid(associationObjectUuid);
             default -> List.of();
         };
+    }
+
+    private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(boolean checkByProfiles) {
+        Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> map = new EnumMap<>(Resource.class);
+        map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, certificateTriggerEvaluator, certificateRepository));
+        map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, certificateRequestTriggerEvaluator, certificateRequestRepository));
+        map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
+
+        return map;
     }
 }
