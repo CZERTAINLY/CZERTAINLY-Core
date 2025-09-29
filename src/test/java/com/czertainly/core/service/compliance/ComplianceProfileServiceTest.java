@@ -1,4 +1,4 @@
-package com.czertainly.core.service;
+package com.czertainly.core.service.compliance;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.compliance.*;
@@ -14,6 +14,7 @@ import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.service.ComplianceProfileService;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
