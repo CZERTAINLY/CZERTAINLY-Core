@@ -56,7 +56,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         v2GroupAssoc.setConnectorUuid(connectorV2.getUuid());
         v2GroupAssoc.setKind(KIND_V2);
         v2GroupAssoc.setComplianceGroupUuid(complianceV2Group2Uuid);
-        complianceProfileRuleRepository.save(v1RuleAssoc);
+        complianceProfileRuleRepository.save(v2GroupAssoc);
 
         WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
                 .willReturn(WireMock.aResponse()
