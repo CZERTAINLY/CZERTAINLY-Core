@@ -166,7 +166,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
                     isIgnored = true;
                 }
                 logger.debug("Ignore trigger '{}' on {} object {} processed successfully", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid());
-            } catch (RuleException e) {
+            } catch (Exception e) {
                 logger.error("Unable to process ignore trigger '{}' on {} object {}. Message: {}", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
             }
         }
@@ -183,7 +183,7 @@ public abstract class EventHandler<T extends UniquelyIdentifiedObject> implement
             try {
                 context.getTriggerEvaluator().evaluateTrigger(trigger, triggerAssociation, resourceObject, null, eventData);
                 logger.debug("Trigger '{}' on {} object {} processed successfully", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid());
-            } catch (RuleException e) {
+            } catch (Exception e) {
                 logger.error("Unable to process trigger '{}' on {} object {}. Message: {}", trigger.getName(), context.getResource().getLabel(), resourceObject.getUuid(), e.getMessage());
             }
         }

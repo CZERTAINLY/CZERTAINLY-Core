@@ -42,10 +42,10 @@ import java.util.concurrent.TimeUnit;
 @Transactional
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
-    public static final String NOTIFICATIONS_MAPPING_NAME = "notificationsMapping";
     public static final String CERTIFICATES_VALIDATION_SETTINGS_NAME = "certificatesValidation";
 
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
+    public static final String LOGGING_AUDIT_LOG_VERBOSE_NAME = "verbose";
     public static final String LOGGING_RESOURCES_NAME = "resources";
 
     public static final String AUTHENTICATION_DISABLE_LOCALHOST_NAME = "disableLocalhostUser";
@@ -206,6 +206,9 @@ public class SettingServiceImpl implements SettingService {
             if ((setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_OUTPUT_NAME)) != null) {
                 auditLoggingSettingsDto.setOutput(AuditLogOutput.valueOf(setting.getValue()));
             }
+            if ((setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_VERBOSE_NAME)) != null) {
+                auditLoggingSettingsDto.setVerbose(Boolean.parseBoolean(setting.getValue()));
+            }
             if ((setting = auditLoggingSettings.get(LOGGING_RESOURCES_NAME)) != null) {
                 ResourceLoggingSettingsDto resources;
                 try {
@@ -253,6 +256,15 @@ public class SettingServiceImpl implements SettingService {
             setting.setName(LOGGING_AUDIT_LOG_OUTPUT_NAME);
         }
         setting.setValue(loggingSettingsDto.getAuditLogs().getOutput().toString());
+        settingRepository.save(setting);
+
+        if (auditLoggingSettings == null || (setting = auditLoggingSettings.get(LOGGING_AUDIT_LOG_VERBOSE_NAME)) == null) {
+            setting = new Setting();
+            setting.setSection(SettingsSection.LOGGING);
+            setting.setCategory(SettingsSectionCategory.AUDIT_LOGGING.getCode());
+            setting.setName(LOGGING_AUDIT_LOG_VERBOSE_NAME);
+        }
+        setting.setValue(String.valueOf(loggingSettingsDto.getAuditLogs().isVerbose()));
         settingRepository.save(setting);
 
         if (auditLoggingSettings == null || (setting = auditLoggingSettings.get(LOGGING_RESOURCES_NAME)) == null) {
