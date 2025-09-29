@@ -129,6 +129,7 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     @Override
     public ComplianceCheckResultDto getComplianceCheckResult(Resource resource, UUID objectUuid) throws NotFoundException {
+        logger.debug("Get Compliance Check Result called for resource={} uuid={}", resource.getLabel(), objectUuid);
         if (!resource.complianceSubject()) {
             throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
         }
@@ -140,8 +141,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                     complianceSubject = certificateRequestRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CertificateRequestEntity.class, objectUuid));
             case CRYPTOGRAPHIC_KEY_ITEM ->
                     complianceSubject = cryptographicKeyItemRepository.findByUuid(objectUuid).orElseThrow(() -> new NotFoundException(CryptographicKeyItem.class, objectUuid));
-            default ->
-                    throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+            default -> throw new ValidationException("Cannot get compliance result for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
         };
 
         return getComplianceCheckResult(resource, objectUuid, complianceSubject.getComplianceResult());
@@ -219,6 +219,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
     public void checkComplianceAsync(List<SecuredUUID> uuids, Resource resource, String type) {
+        logger.debug("CheckComplianceAsync for {} profiles resource={} type={}", uuids.size(), resource, type);
         checkCompliance(uuids, resource, type);
     }
 
@@ -226,6 +227,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
     public void checkCompliance(List<SecuredUUID> uuids, Resource resource, String type) {
+        logger.info("Starting compliance check for {} profiles resource={} type={}", uuids.size(), resource, type);
         IPlatformEnum typeEnum = null;
         if (resource != null) {
             if (!resource.complianceSubject()) {
@@ -240,11 +242,13 @@ public class ComplianceServiceImpl implements ComplianceService {
         ComplianceCheckContext context = new ComplianceCheckContext(true, resource, typeEnum, ruleHandler, getSubjectHandlers(true), complianceApiClient, complianceApiClientV1);
         List<ComplianceProfile> complianceProfiles = complianceProfileRepository.findWithAssociationsByUuidIn(uuids.stream().map(SecuredUUID::getValue).toList()).stream()
                 .filter(p -> !p.getAssociations().isEmpty() && !p.getComplianceRules().isEmpty()).toList();
+        logger.debug("Loaded {} compliance profiles to be checked", complianceProfiles.size());
         for (ComplianceProfile profile : complianceProfiles) {
             // load compliance subjects
             Map<Resource, Set<ComplianceSubject>> complianceSubjects = new EnumMap<>(Resource.class);
             for (ComplianceProfileAssociation association : profile.getAssociations()) {
                 if (!isAssociationResourceCompatible(association.getResource(), resource)) {
+                    logger.debug("Skipping association resource {} for requested resource {}", association.getResource(), resource);
                     continue;
                 }
 
@@ -256,11 +260,14 @@ public class ComplianceServiceImpl implements ComplianceService {
 
             // if no subjects found for any association, skip the profile
             if (complianceSubjects.isEmpty()) {
+                logger.debug("No subjects found for compliance profile {}, skipping", profile.getUuid());
                 continue;
             }
+            logger.debug("Adding compliance profile {} with {} subject resource entries", profile.getUuid(), complianceSubjects.size());
             context.addComplianceProfile(profile, complianceSubjects);
         }
         context.performComplianceCheck();
+        logger.info("Completed compliance check for provided profiles");
     }
 
     @Override
@@ -279,8 +286,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                         complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.RA_PROFILE, objectUuid) > 0;
                 case TOKEN_PROFILE ->
                         complianceProfileAssociationRepository.countByResourceAndObjectUuid(Resource.TOKEN_PROFILE, objectUuid) > 0;
-                default ->
-                        throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
+                default -> throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check".formatted(resource.getLabel()));
             };
             if (!exists) {
                 throw new NotFoundException("Cannot check compliance. %s with UUID %s not found".formatted(resource.getLabel(), objectUuid));
@@ -308,6 +314,7 @@ public class ComplianceServiceImpl implements ComplianceService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)
     public void checkResourceObjectsComplianceAsync(Resource resource, List<UUID> objectUuids) {
+        logger.info("Starting compliance check for resource={} objectCount={}", resource, objectUuids.size());
         if (resource == Resource.CERTIFICATE_REQUEST || (!resource.complianceSubject() && !resource.hasComplianceProfiles())) {
             throw new ValidationException("Cannot check compliance for resource %s. Resource does not support compliance check or does not allow association of compliance profiles".formatted(resource.getLabel()));
         }
@@ -365,6 +372,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             context.addComplianceProfile(profile, complianceProfileSubjectsMap.get(profile.getUuid()));
         }
         context.performComplianceCheck();
+        logger.info("Completed compliance check for resource {} on {} objects", resource, objectUuids.size());
     }
 
     private ComplianceRuleStatus popFailedRuleWithStatus(ComplianceResultRulesDto complianceResultRules, UUID ruleUuid) {

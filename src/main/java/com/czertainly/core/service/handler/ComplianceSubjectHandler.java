@@ -11,6 +11,8 @@ import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -21,6 +23,10 @@ import java.util.UUID;
 @Getter
 public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
+    private static final Logger logger = LoggerFactory.getLogger(ComplianceSubjectHandler.class);
+
+    // If compliance is checked by profiles, the compliance result fro subject is being updated and not built from scratch
+    // This means only rules of chosen compliance profiles that are reevaluated will be partially updated and new compliance status will be calculated
     private final boolean checkByProfiles;
     private final TriggerEvaluator<T> triggerEvaluator;
     private final SecurityFilterRepository<T, UUID> repository;
@@ -74,6 +80,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
         try {
             valid = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), typedSubject);
         } catch (RuleException e) {
+            logger.debug("RuleException while evaluating internal rule {} for subject {}: {}", internalRuleUuid, subject.getUuid(), e.getMessage());
             valid = false;
         }
         if (!valid) {

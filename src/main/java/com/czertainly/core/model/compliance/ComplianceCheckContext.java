@@ -14,11 +14,15 @@ import com.czertainly.core.dao.entity.ComplianceSubject;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.handler.ComplianceSubjectHandler;
 import lombok.Getter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
 
 @Getter
 public class ComplianceCheckContext {
+
+    private static final Logger logger = LoggerFactory.getLogger(ComplianceCheckContext.class);
 
     private final Resource resource;
     private final IPlatformEnum typeEnum;
@@ -71,6 +75,7 @@ public class ComplianceCheckContext {
     }
 
     public void performComplianceCheck() {
+        logger.debug("Starting performComplianceCheck for {} profiles and {} providers", profilesContextMap.size(), providersContextMap.size());
         for (ComplianceCheckProfileContext profileContext : profilesContextMap.values()) {
             for (Map.Entry<Resource, Set<ComplianceSubject>> resourceObjects : profileContext.getComplianceSubjects().entrySet()) {
                 ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler = subjectHandlers.get(resourceObjects.getKey());
@@ -79,7 +84,9 @@ public class ComplianceCheckContext {
                         subjectHandler.initSubjectComplianceResult(subject.getUuid(), subject.getComplianceResult());
                         performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
                         subjectHandler.saveComplianceResult(subject, null);
+                        logger.debug("{} {} compliance check finalized with result: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), subject.getComplianceStatus().getLabel());
                     } catch (Exception e) {
+                        logger.warn("Error checking compliance for {} with UUID {}: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), e.getMessage());
                         subjectHandler.saveComplianceResult(subject, e.getMessage());
                     }
                 }
