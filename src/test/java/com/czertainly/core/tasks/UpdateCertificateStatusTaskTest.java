@@ -12,6 +12,9 @@ import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.messaging.listeners.ValidationListener;
+import com.czertainly.core.messaging.model.ValidationMessage;
+import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.SettingService;
@@ -22,11 +25,11 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.OffsetDateTime;
 import java.util.List;
-import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 
@@ -50,8 +53,14 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     @Autowired
     private SettingService settingService;
 
+    @MockitoBean
+    private ValidationProducer validationProducer;
+
     @Autowired
     private UpdateCertificateStatusTask updateCertificateStatusTask;
+
+    @Autowired
+    private ValidationListener validationListener;
 
     @MockitoSpyBean
     private CertificateService mockedCertificateService;
@@ -117,14 +126,19 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
             return null;
         }).when(mockedCertificateService).validate(any());
 
+        Mockito.doAnswer(invocation -> {
+            Object msg = invocation.getArgument(0);
+            validationListener.processMessage((ValidationMessage) msg);
+            return null; // because produceMessage returns void
+        }).when(validationProducer).produceMessage(Mockito.any());
+
     }
 
     @Test
     void testCertificatesValidationDefaultSettings() {
         OffsetDateTime timeNow = OffsetDateTime.now();
-        ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate and certToRevalidate2
-        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("3"));
         assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate2), timeNow);
     }
 
@@ -133,9 +147,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         PlatformSettingsDto platformSettingsDto = getPlatformSettingsDto(true);
         settingsCache.cacheSettings(SettingsSection.PLATFORM, platformSettingsDto);
         OffsetDateTime timeNow = OffsetDateTime.now();
-        ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert and certToRevalidate2
-        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
         settingsCache.cacheSettings(SettingsSection.PLATFORM,settingService.getPlatformSettings());
         assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2), timeNow);
     }
@@ -192,9 +205,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateRepository.save(certificateWithRaProfileValidationEnabledNull);
 
         OffsetDateTime timeNow = OffsetDateTime.now();
-        ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate notValidatedCert, certToRevalidate, certToRevalidate2, certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
-        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("6"));
         assertCorrectCertificatesHaveBeenValidated(List.of(notValidatedCert, certToRevalidate2, certToRevalidate, certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom, certificateWithRaProfileValidationEnabledNull), timeNow);
 
         settingsCache.cacheSettings(SettingsSection.PLATFORM, getPlatformSettingsDto(false));
@@ -204,9 +216,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         certificateRepository.save(certificateWithRaProfileValidationEnabledDefault);
 
         timeNow = OffsetDateTime.now();
-        scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should validate certificateWithRaProfileValidationEnabledDefault and certificateWithRaProfileValidationEnabledCustom
-        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("2"));
         assertCorrectCertificatesHaveBeenValidated(List.of(certificateWithRaProfileValidationEnabledDefault, certificateWithRaProfileValidationEnabledCustom), timeNow);
         settingsCache.cacheSettings(SettingsSection.PLATFORM, settingService.getPlatformSettings());
     }
@@ -216,9 +227,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     void testExceptionThrown() {
         Mockito.doThrow(MatchException.class).when(mockedCertificateService).validate(any());
         OffsetDateTime timeNow = OffsetDateTime.now();
-        ScheduledTaskResult scheduledTaskResult = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
         // Should not validate any, since exceptions are thrown
-        Assertions.assertTrue(scheduledTaskResult.getResultMessage().contains("0"));
         assertCorrectCertificatesHaveBeenValidated(List.of(), timeNow);
     }
 

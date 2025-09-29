@@ -31,10 +31,16 @@ public class ValidationListener {
             certificates = certificateRepository.findAllByUuidIn(validationMessage.getUuids());
 
             logger.debug("Validating {} certificate(s)", certificates.size());
+            int certificatesValidated = 0;
             for (Certificate certificate : certificates) {
-                certificateHandler.validate(certificate);
+                try {
+                    certificateHandler.validate(certificate);
+                    certificatesValidated++;
+                } catch (Exception ignored) {
+                    // catch only to count number of validated certificates
+                }
             }
-            logger.debug("Certificates validated");
+            logger.debug("Validated {}/{} certificates", certificatesValidated, certificates.size());
         }
 
         if (validationMessage.getDiscoveryUuid() != null) {
