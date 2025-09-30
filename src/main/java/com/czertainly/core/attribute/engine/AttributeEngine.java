@@ -12,6 +12,7 @@ import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.data.AttributeContentData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -30,6 +31,7 @@ import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
@@ -1051,13 +1053,30 @@ public class AttributeEngine {
                 if (contentItem.getData() == null) {
                     throw new AttributeException("Attribute content is malformed and does not contain data", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                 }
-            }
+                if (AttributeContentData.class.isAssignableFrom(attributeDefinition.getContentType().getContentDataClass())) {
+                    try {
+                        AttributeContentData data = (AttributeContentData) ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem.getData(), attributeDefinition.getContentType().getContentDataClass());
+                        data.validate();
+                    } catch (ValidationException e) {
+                        throw new AttributeException(e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                    } catch (IllegalArgumentException e) {
+                        throw new AttributeException("Malformed attribute content data: " + e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                    }
+                }
 
-            // convert content items to its respective content classes
-            try {
-                ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
-            } catch (IllegalArgumentException e) {
-                throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
+                if (!constraintsValidationErrors.isEmpty()) {
+                    throw new AttributeException(constraintsValidationErrors.stream()
+                            .map(ValidationError::getErrorDescription)
+                            .collect(Collectors.joining(" \n")), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                }
+
+                // convert content items to its respective content classes
+                try {
+                    ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
+                } catch (IllegalArgumentException e) {
+                    throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                }
             }
         }
     }

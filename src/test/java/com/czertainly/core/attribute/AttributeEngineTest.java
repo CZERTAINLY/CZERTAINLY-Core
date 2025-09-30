@@ -7,7 +7,10 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.*;
+import com.czertainly.api.model.common.attribute.v2.content.data.CodeBlockAttributeContentData;
+import com.czertainly.api.model.common.attribute.v2.content.data.ProgrammingLanguageEnum;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
@@ -188,6 +191,44 @@ class AttributeEngineTest extends BaseSpringBootTest {
         // the following should not throw any exception, we cannot update read-only attributes
         UUID certificateUuid = certificate.getUuid();
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
+    }
+
+    @Test
+    void validateCodeBlockAttributeContent() throws AttributeException {
+        DataAttribute codeBlockData = new DataAttribute();
+        codeBlockData.setContentType(AttributeContentType.CODEBLOCK);
+        codeBlockData.setUuid(UUID.randomUUID().toString());
+        codeBlockData.setName("testAttribute");
+        codeBlockData.setType(AttributeType.DATA);
+
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Test Label");
+        props.setRequired(true);
+        props.setReadOnly(false);
+        props.setVisible(false);
+        props.setList(false);
+        codeBlockData.setProperties(props);
+        UUID connectorUuid = connectorAuthority.getUuid();
+        List<BaseAttribute> codeBlockDataList = List.of(codeBlockData);
+        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, codeBlockDataList);
+
+        RequestAttributeDto requestAttribute = new RequestAttributeDto();
+        requestAttribute.setUuid(codeBlockData.getUuid());
+        requestAttribute.setName(codeBlockData.getName());
+        requestAttribute.setContentType(codeBlockData.getContentType());
+        requestAttribute.setContent(List.of(new StringAttributeContent("bad content")));
+
+        List<RequestAttributeDto> requestAttributeList = List.of(requestAttribute);
+        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
+
+        CodeBlockAttributeContent attributeContent = new CodeBlockAttributeContent();
+        attributeContent.setData(new CodeBlockAttributeContentData(null, ""));
+        requestAttribute.setContent(List.of(attributeContent));
+        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
+
+        attributeContent.setData(new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "abc"));
+        requestAttribute.setContent(List.of(attributeContent));
+        Assertions.assertDoesNotThrow(() -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
     }
 
     @Test
@@ -411,6 +452,9 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requiredAttribute.setName("requiredAttribute");
         requiredAttribute.setType(AttributeType.DATA);
         requiredAttribute.setContentType(AttributeContentType.STRING);
+        RegexpAttributeConstraint constraint = new RegexpAttributeConstraint();
+        constraint.setData("^[a-zA-Z]+$");
+        requiredAttribute.setConstraints(List.of(constraint));
 
         DataAttributeProperties props = new DataAttributeProperties();
         props.setLabel("Required Label");
@@ -419,7 +463,9 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setVisible(false);
         props.setList(false);
         requiredAttribute.setProperties(props);
-        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(requiredAttribute));
+        UUID connectorUuid = connectorAuthority.getUuid();
+        List<BaseAttribute> requiredAttributeList = List.of(requiredAttribute);
+        attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, requiredAttributeList);
 
         RequestAttributeDto requestAttribute = new RequestAttributeDto();
         requestAttribute.setUuid(UUID.randomUUID().toString());
@@ -428,10 +474,21 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContent("value")));
 
         // Act
-        Executable executable = () -> AttributeEngine.validateRequestDataAttributes(List.of(requiredAttribute), List.of(requestAttribute), true);
+        List<RequestAttributeDto> requestAttributeList = List.of(requestAttribute);
+        Executable executable = () -> AttributeEngine.validateRequestDataAttributes(requiredAttributeList, requestAttributeList, true);
 
         // Assert
         Assertions.assertThrows(ValidationException.class, executable);
+
+        // Test constraints
+
+        requestAttribute.setUuid(requiredAttribute.getUuid());
+        requestAttribute.setName(requiredAttribute.getName());
+        Assertions.assertDoesNotThrow(() -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
+
+        requestAttribute.setContent(List.of(new StringAttributeContent("value123")));
+        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
+
     }
 
     @Test
