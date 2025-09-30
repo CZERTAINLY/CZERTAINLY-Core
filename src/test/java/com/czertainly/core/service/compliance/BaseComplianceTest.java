@@ -78,6 +78,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
     protected final UUID complianceV1GroupUuid = UUID.randomUUID();
     protected final UUID complianceV2RuleUuid = UUID.randomUUID();
     protected final UUID complianceV2Rule2Uuid = UUID.randomUUID();
+    protected final UUID complianceV2RuleKeyUuid = UUID.randomUUID();
     protected final UUID complianceV2GroupUuid = UUID.randomUUID();
     protected final UUID complianceV2Group2Uuid = UUID.randomUUID();
 
@@ -224,6 +225,34 @@ class BaseComplianceTest extends BaseSpringBootTest {
                 }
                 """.formatted(complianceV2Rule2Uuid, complianceV2Group2Uuid, defaultResponses ? CertificateType.X509.getCode() : CertificateType.SSH.getCode());
 
+        String complianceRuleKeyResponse = """
+                {
+                  "uuid": "%s",
+                  "name": "Rule-Key",
+                  "description": "DescriptionKey",
+                  "resource": "keys",
+                  "attributes": [
+                    {
+                        "version": 2,
+                        "uuid": "7ed00886-e706-11ec-8fea-0242ac120002",
+                        "name": "KeyLength",
+                        "description": "Enter the key size of the certificate to be checked",
+                        "type": "data",
+                        "contentType": "integer",
+                        "properties": {
+                            "label": "Key Length",
+                            "visible": true,
+                            "required": true,
+                            "readOnly": false,
+                            "list": false,
+                            "multiSelect": false
+                        }
+                    }
+                  ]
+                }
+                """.formatted(complianceV2RuleKeyUuid);
+
+
         String complianceGroupResponse = """
                 {
                   "uuid": "%s",
@@ -257,9 +286,10 @@ class BaseComplianceTest extends BaseSpringBootTest {
                                         """
                                                 [
                                                   %s,
+                                                  %s,
                                                   %s
                                                 ]
-                                                """.formatted(complianceRuleResponse, complianceRule2Response)
+                                                """.formatted(complianceRuleResponse, complianceRule2Response, complianceRuleKeyResponse)
                                         :
                                         """
                                                 [
@@ -277,6 +307,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
                                                 {
                                                   "rules": [
                                                     %s,
+                                                    %s,
                                                     %s
                                                   ],
                                                   "groups": [
@@ -284,7 +315,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
                                                     %s
                                                   ]
                                                 }
-                                                """.formatted(complianceRuleResponse, complianceRule2Response, complianceGroupResponse, complianceGroup2Response)
+                                                """.formatted(complianceRuleResponse, complianceRule2Response, complianceRuleKeyResponse, complianceGroupResponse, complianceGroup2Response)
                                         :
                                         """
                                                 {
@@ -316,6 +347,12 @@ class BaseComplianceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.aResponse()
                         .withHeader("Content-Type", "application/json")
                         .withBody(complianceRule2Response)
+                        .withStatus(200)));
+
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/rules/%s".formatted(KIND_V2, complianceV2RuleKeyUuid)))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody(complianceRuleKeyResponse)
                         .withStatus(200)));
 
         WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v2/complianceProvider/%s/groups/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}".formatted(KIND_V2)))

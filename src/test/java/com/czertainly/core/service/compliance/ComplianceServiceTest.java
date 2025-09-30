@@ -2,7 +2,10 @@ package com.czertainly.core.service.compliance;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
@@ -10,8 +13,10 @@ import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckRuleDto;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.ComplianceProfileRule;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.CryptographicKeyRepository;
+import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
+import com.czertainly.core.dao.repository.TokenProfileRepository;
 import com.czertainly.core.helpers.CertificateGeneratorHelper;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
@@ -24,6 +29,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -35,10 +41,19 @@ class ComplianceServiceTest extends BaseComplianceTest {
     private ComplianceService complianceService;
 
     @Autowired
-    protected CertificateService certificateService;
+    private CertificateService certificateService;
+
+    @Autowired
+    private TokenProfileRepository tokenProfileRepository;
+
+    @Autowired
+    private TokenInstanceReferenceRepository tokenRepository;
+
+    @Autowired
+    CryptographicKeyRepository cryptographicKeyRepository;
 
     @Test
-    void testCheckCompliance_combinesInternalAndV1V2ProviderRules() throws Exception {
+    void testCheckCompliance() throws Exception {
         // add a V1 provider rule association to the seeded compliance profile
         var v1RuleAssoc = new ComplianceProfileRule();
         v1RuleAssoc.setComplianceProfile(complianceProfile);
@@ -48,6 +63,15 @@ class ComplianceServiceTest extends BaseComplianceTest {
         v1RuleAssoc.setKind(KIND_V1);
         v1RuleAssoc.setComplianceRuleUuid(complianceV1RuleUuid);
         complianceProfileRuleRepository.save(v1RuleAssoc);
+
+        var v2RuleAssoc = new ComplianceProfileRule();
+        v2RuleAssoc.setComplianceProfile(complianceProfile);
+        v2RuleAssoc.setComplianceProfileUuid(complianceProfile.getUuid());
+        v2RuleAssoc.setResource(Resource.CRYPTOGRAPHIC_KEY);
+        v2RuleAssoc.setConnectorUuid(connectorV2.getUuid());
+        v2RuleAssoc.setKind(KIND_V2);
+        v2RuleAssoc.setComplianceRuleUuid(complianceV2RuleKeyUuid);
+        complianceProfileRuleRepository.save(v2RuleAssoc);
 
         var v2GroupAssoc = new ComplianceProfileRule();
         v2GroupAssoc.setComplianceProfile(complianceProfile);
@@ -133,6 +157,91 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate2.getUuid());
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate2.getUuid());
         Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance result status should be Not Compliant");
+
+        // Expect 4 failed rules: 1 internal, 1 v1 provider rule, 2 v2 provider rules (one group with two rules)
+        Assertions.assertEquals(4, complianceCheckResult.getFailedRules().size(), "There should be 4 failed rules");
+
+        complianceService.checkResourceObjectCompliance(Resource.RA_PROFILE, associatedRaProfileUuid);
+
+        // check compliance of cryptographic key
+        TokenInstanceReference token = new TokenInstanceReference();
+        token.setName("Token");
+        token.setAuthor("John Doe");
+        token.setCreated(OffsetDateTime.now());
+        token.setUpdated(OffsetDateTime.now());
+        tokenRepository.save(token);
+
+        TokenProfile tokenProfile = new TokenProfile();
+        tokenProfile.setName("Token Profile 1");
+        tokenProfile.setTokenInstanceReferenceUuid(token.getUuid());
+        tokenProfile.setAuthor("John Doe");
+        tokenProfile.setCreated(OffsetDateTime.now());
+        tokenProfile.setUpdated(OffsetDateTime.now());
+        tokenProfileRepository.save(tokenProfile);
+
+        ComplianceProfileAssociation complianceProfileAssociation = new ComplianceProfileAssociation();
+        complianceProfileAssociation.setComplianceProfileUuid(complianceProfile.getUuid());
+        complianceProfileAssociation.setResource(Resource.TOKEN_PROFILE);
+        complianceProfileAssociation.setObjectUuid(tokenProfile.getUuid());
+        complianceProfileAssociationRepository.save(complianceProfileAssociation);
+
+        CryptographicKey key = cryptographicKeyRepository.findWithAssociationsByUuid(certificate.getKeyUuid()).orElseThrow();
+        CryptographicKeyItem keyItem = key.getItems().iterator().next();
+        key.setTokenProfileUuid(tokenProfile.getUuid());
+        cryptographicKeyRepository.save(key);
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "rules": []
+                                }
+                                """))
+        );
+
+
+        complianceService.checkCompliance(uuids, Resource.CRYPTOGRAPHIC_KEY, null);
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions.assertEquals(ComplianceStatus.NA, complianceCheckResult.getStatus(), "Compliance status should be Not applicable due to incompatible attributes setting");
+
+        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
+        requestAttributeDto.setUuid("7ed00886-e706-11ec-8fea-0242ac120002");
+        requestAttributeDto.setName("KeyLength");
+        requestAttributeDto.setContentType(AttributeContentType.INTEGER);
+        requestAttributeDto.setContent(List.of(new IntegerAttributeContent(2048)));
+        v2RuleAssoc.setAttributes(List.of(requestAttributeDto));
+        complianceProfileRuleRepository.save(v2RuleAssoc);
+
+        complianceService.checkResourceObjectCompliance(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus(), "Compliance status should be Compliant");
+
+        complianceService.checkResourceObjectCompliance(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions.assertEquals(ComplianceStatus.OK, complianceCheckResult.getStatus(), "Compliance status should be Compliant");
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/complianceProvider/%s/compliance".formatted(KIND_V2)))
+                .willReturn(WireMock.aResponse()
+                        .withStatus(200)
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                  "rules": [
+                                    {
+                                      "uuid": "%s",
+                                      "name": "RuleKey",
+                                      "status": "nok"
+                                    }
+                                  ]
+                                }
+                                """.formatted(complianceV2RuleKeyUuid)))
+        );
+
+        complianceService.checkResourceObjectCompliance(Resource.TOKEN_PROFILE, tokenProfile.getUuid());
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
+        Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance status should be Not Compliant");
     }
 
     @Test

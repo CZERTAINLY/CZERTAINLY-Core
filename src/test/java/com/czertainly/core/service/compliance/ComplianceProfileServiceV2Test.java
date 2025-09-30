@@ -16,7 +16,6 @@ import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
 import com.czertainly.core.dao.entity.*;
-import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -498,7 +497,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
         Assertions.assertEquals(2, rules.size());
 
         rules = complianceProfileService.getComplianceRules(connectorV2.getUuid(), KIND_V2, null, null, null);
-        Assertions.assertEquals(2, rules.size());
+        Assertions.assertEquals(3, rules.size());
     }
 
     @Test

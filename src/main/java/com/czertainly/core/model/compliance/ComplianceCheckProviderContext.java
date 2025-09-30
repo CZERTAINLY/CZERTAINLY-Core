@@ -108,6 +108,7 @@ public class ComplianceCheckProviderContext {
                 providerRuleRequest.setAttributes(profileRule.getAttributes());
                 complianceRequestDto.getRules().add(providerRuleRequest);
             }
+            return null;
         }
 
         ComplianceGroupBatchResponseDto providerGroup = rulesGroupsBatchDto.getGroups().get(profileRule.getComplianceGroupUuid());

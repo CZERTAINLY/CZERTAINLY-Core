@@ -13,7 +13,7 @@ public interface CryptographicKeyRepository extends SecurityFilterRepository<Cry
 
     Optional<CryptographicKey> findByUuid(UUID uuid);
 
-    @EntityGraph(attributePaths = {"groups", "owner"})
+    @EntityGraph(attributePaths = {"groups", "owner", "items"})
     Optional<CryptographicKey> findWithAssociationsByUuid(UUID uuid);
 
     Optional<CryptographicKey> findByName(String name);
