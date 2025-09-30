@@ -1211,7 +1211,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
-    public void updateCertificatesStatusScheduled() {
+    public int updateCertificatesStatusScheduled() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
         CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
         boolean platformEnabled = certificateValidationSettings.getEnabled();
@@ -1227,6 +1227,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);
         validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, certificateUuids, null, null, null, null));
+        return certificateUuids.size();
     }
 
     @Override

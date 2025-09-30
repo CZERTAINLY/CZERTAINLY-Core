@@ -169,7 +169,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * Function to update status of certificates by scheduled event
      *
      */
-    void updateCertificatesStatusScheduled();
+    int updateCertificatesStatusScheduled();
 
     /**
      * Update the user uuid of the certificate in the core database
