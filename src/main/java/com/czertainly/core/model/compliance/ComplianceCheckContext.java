@@ -56,7 +56,6 @@ public class ComplianceCheckContext {
         for (ComplianceProfileRule profileRule : complianceProfile.getComplianceRules()) {
             // skip rules that do not match the resource and type
             if (skipProfileRule(profileRule, null)) {
-                // TODO: Should it be added to not applicable rules in compliance result instead?
                 continue;
             }
 
@@ -108,14 +107,12 @@ public class ComplianceCheckContext {
             providerContext.prepareComplianceCheckRequest(subject, resource, subject.getType());
             for (ComplianceProfileRule profileRule : providerRules.getValue()) {
                 // skip rules that do not match the resource and type
-                if (skipProfileRule(profileRule, resource)) {
+                if (skipProfileRule(profileRule, resource)
+                        // skip if rule was already checked for compliance check of this subject
+                        || subjectHandler.wasAlreadyChecked(subject.getUuid(), providerRules.getKey(), profileRule)) {
                     continue;
                 }
 
-                // skip if rule was already checked for compliance check of this subject
-                if (subjectHandler.wasAlreadyChecked(subject.getUuid(), providerRules.getKey(), profileRule)) {
-                    continue;
-                }
                 // add rule to compliance check request, if returns non-null status, it means the rule is not available or not applicable. In case of null, the rule will be checked by the provider.
                 ComplianceRuleStatus ruleStatus = providerContext.addProfileRuleToCheck(profileRule);
                 subjectHandler.addProviderRuleResult(subject.getUuid(), providerRules.getKey(), providerContext.getConnectorUuid(), providerContext.getKind(), profileRule.getComplianceRuleUuid(), profileRule.getComplianceGroupUuid(), ruleStatus);

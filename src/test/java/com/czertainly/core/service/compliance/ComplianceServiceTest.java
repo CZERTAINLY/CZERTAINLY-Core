@@ -358,8 +358,9 @@ class ComplianceServiceTest extends BaseComplianceTest {
 
         // check resource objects compliance validation
         List<UUID> objectUuids = List.of(UUID.randomUUID());
+        UUID objectUuid = objectUuids.getFirst();
         Assertions.assertThrows(ValidationException.class, () -> complianceService.checkResourceObjectsComplianceValidation(Resource.NONE, objectUuids), "Resource cannot be NONE, has to be compliance subject or has compliance profiles");
-        Assertions.assertThrows(ValidationException.class, () -> complianceService.checkResourceObjectCompliance(Resource.NONE, objectUuids.getFirst()), "Resource must be specified");
+        Assertions.assertThrows(ValidationException.class, () -> complianceService.checkResourceObjectCompliance(Resource.NONE, objectUuid), "Resource must be specified");
         Assertions.assertThrows(NotFoundException.class, () -> complianceService.checkResourceObjectsComplianceValidation(Resource.RA_PROFILE, objectUuids), "No RA Profile found with specified UUID");
     }
 }

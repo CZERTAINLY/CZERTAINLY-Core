@@ -190,12 +190,10 @@ public class ComplianceProfileRuleHandler {
                 if (profileRule.getAttributes() != null && !profileRule.getAttributes().isEmpty()) {
                     try {
                         AttributeEngine.validateRequestDataAttributes(attributes, profileRule.getAttributes(), true);
-                    } catch (ValidationException e) {
-                        continue;
+                        matchedProfileRule = profileRule;
+                        break;
+                    } catch (ValidationException ignored) {
                     }
-
-                    matchedProfileRule = profileRule;
-                    break;
                 }
             }
         }

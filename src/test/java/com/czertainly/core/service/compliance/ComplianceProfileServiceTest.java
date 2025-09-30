@@ -391,7 +391,8 @@ class ComplianceProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void removeComplianceProfileTest() {
-        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid())));
+        SecuredUUID uuid = SecuredUUID.fromUUID(complianceProfile.getUuid());
+        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceProfile(uuid));
     }
 
     @Test

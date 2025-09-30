@@ -249,7 +249,7 @@ public class ComplianceServiceImpl implements ComplianceService {
                     continue;
                 }
 
-                List<ComplianceSubject> subjects = getComplianceSubjects(association.getResource(), association.getObjectUuid(), typeEnum);
+                List<ComplianceSubject> subjects = getComplianceSubjects(association.getResource(), association.getObjectUuid());
                 if (!subjects.isEmpty()) {
                     complianceSubjects.computeIfAbsent(getSubjectResouceByAssociationResource(association.getResource()), r -> new HashSet<>()).addAll(subjects);
                 }
@@ -422,7 +422,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         };
     }
 
-    private <T extends ComplianceSubject> List<T> getComplianceSubjects(Resource associationResource, UUID associationObjectUuid, IPlatformEnum type) {
+    private <T extends ComplianceSubject> List<T> getComplianceSubjects(Resource associationResource, UUID associationObjectUuid) {
         // Filter by access control or if user can check compliance, allow listing of objects as subjects for compliance check?
         return (List<T>) switch (associationResource) {
             case CERTIFICATE ->
