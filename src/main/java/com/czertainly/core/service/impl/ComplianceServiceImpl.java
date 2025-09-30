@@ -151,6 +151,9 @@ public class ComplianceServiceImpl implements ComplianceService {
             resultDto.setStatus(ComplianceStatus.NOT_CHECKED);
             return resultDto;
         }
+        if (complianceResult.getProviderRules() == null) {
+            complianceResult.setProviderRules(new ArrayList<>());
+        }
 
         resultDto.setStatus(complianceResult.getStatus());
         resultDto.setTimestamp(complianceResult.getTimestamp());
