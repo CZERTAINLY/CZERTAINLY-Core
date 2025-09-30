@@ -3,6 +3,7 @@ package com.czertainly.core.dao.repository;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -11,6 +12,8 @@ public interface ComplianceProfileRuleRepository extends SecurityFilterRepositor
 
     Optional<ComplianceProfileRule> findByUuid(UUID uuid);
     Optional<ComplianceProfileRule> findByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(UUID complianceProfileUuid, UUID connectorUuid, String kind, UUID providerRuleUuid);
+
+    List<ComplianceProfileRule> findByConnectorUuidAndKindAndComplianceRuleUuid(UUID connectorUuid, String kind, UUID providerRuleUuid);
 
     boolean existsByComplianceProfileUuidAndInternalRuleUuid(UUID complianceProfileUuid, UUID internalRuleUuid);
     boolean existsByComplianceProfileUuidAndConnectorUuidAndKindAndComplianceRuleUuid(UUID complianceProfileUuid, UUID connectorUuid, String kind, UUID providerRuleUuid);

@@ -2,6 +2,7 @@ package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.dao.entity.ComplianceInternalRule;
 import com.czertainly.core.dao.entity.workflows.*;
 
 import java.util.Set;
@@ -20,6 +21,15 @@ public interface ITriggerEvaluator<T> {
      * @return True if all the rules are satisfied, false otherwise
      */
     boolean evaluateRules(TriggerHistory triggerHistory, Set<Rule> rules, T object) throws RuleException;
+
+    /**
+     * Method to evaluate an Internal Rule on an Object
+     *
+     * @param internalRule Internal Rule to be evaluated
+     * @param object   Object to evaluate Internal Rule on
+     * @return True if the Internal Rule is satisfied, false otherwise
+     */
+    boolean evaluateInternalRule(ComplianceInternalRule internalRule, T object) throws RuleException;
 
     /**
      * Method to evaluate a Condition item on an Object

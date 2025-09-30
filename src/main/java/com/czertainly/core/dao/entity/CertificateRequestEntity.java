@@ -1,5 +1,6 @@
 package com.czertainly.core.dao.entity;
 
+import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
@@ -11,7 +12,6 @@ import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
 
-import java.io.Serializable;
 import java.security.NoSuchAlgorithmException;
 import java.util.Base64;
 import java.util.Objects;
@@ -23,7 +23,7 @@ import java.util.UUID;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "certificate_request")
-public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited implements Serializable {
+public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited implements ComplianceSubject {
 
     @Column(name = "certificate_type")
     @Enumerated(EnumType.STRING)
@@ -97,6 +97,21 @@ public class CertificateRequestEntity extends UniquelyIdentifiedAndAudited imple
 
     public byte[] getContentDecoded() {
         return Base64.getDecoder().decode(content);
+    }
+
+    @Override
+    public IPlatformEnum getType() {
+        return certificateType;
+    }
+
+    @Override
+    public IPlatformEnum getFormat() {
+        return certificateRequestFormat;
+    }
+
+    @Override
+    public String getContentData() {
+        return this.content;
     }
 
     @Override
