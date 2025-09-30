@@ -1061,20 +1061,21 @@ public class AttributeEngine {
                         throw new AttributeException(e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                     } catch (IllegalArgumentException e) {
                         throw new AttributeException("Malformed attribute content data: " + e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                    }
+                    List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
+                    if (!constraintsValidationErrors.isEmpty()) {
+                        throw new AttributeException(constraintsValidationErrors.stream()
+                                .map(ValidationError::getErrorDescription)
+                                .collect(Collectors.joining(" \n")), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                    }
                 }
-                List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
-                if (!constraintsValidationErrors.isEmpty()) {
-                    throw new AttributeException(constraintsValidationErrors.stream()
-                            .map(ValidationError::getErrorDescription)
-                            .collect(Collectors.joining(" \n")), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
-                }
-            }
 
-            // convert content items to its respective content classes
-            try {
-                ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
-            } catch (IllegalArgumentException e) {
-                throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                // convert content items to its respective content classes
+                try {
+                    ATTRIBUTES_OBJECT_MAPPER.convertValue(attributeContent, ATTRIBUTES_OBJECT_MAPPER.getTypeFactory().constructCollectionType(List.class, attributeDefinition.getContentType().getContentClass()));
+                } catch (IllegalArgumentException e) {
+                    throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
+                }
             }
         }
     }
