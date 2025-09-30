@@ -193,6 +193,7 @@ public class ComplianceProfileRuleHandler {
                         matchedProfileRule = profileRule;
                         break;
                     } catch (ValidationException ignored) {
+                        // continue to next rule if attributes do not match
                     }
                 }
             }
