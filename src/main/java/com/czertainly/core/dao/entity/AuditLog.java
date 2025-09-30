@@ -161,7 +161,7 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         Class<?> oEffectiveClass = o instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy p ? p.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        AuditLog auditLog = (AuditLog) o;
+        if (!(o instanceof AuditLog auditLog)) return false;
         return getId() != null && Objects.equals(getId(), auditLog.getId());
     }
 

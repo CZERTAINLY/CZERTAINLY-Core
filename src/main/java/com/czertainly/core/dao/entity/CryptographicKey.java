@@ -171,7 +171,7 @@ public class CryptographicKey extends UniquelyIdentifiedAndAudited implements Se
         Class<?> oEffectiveClass = o instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : o.getClass();
         Class<?> thisEffectiveClass = this instanceof HibernateProxy proxy ? proxy.getHibernateLazyInitializer().getPersistentClass() : this.getClass();
         if (thisEffectiveClass != oEffectiveClass) return false;
-        CryptographicKey that = (CryptographicKey) o;
+        if (!(o instanceof CryptographicKey that)) return false;
         return getUuid() != null && Objects.equals(getUuid(), that.getUuid());
     }
 

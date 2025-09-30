@@ -126,7 +126,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CREATE)
     public ComplianceProfileDto createComplianceProfile(ComplianceProfileRequestDto request) throws AlreadyExistException, ConnectorException, NotFoundException, AttributeException {
-        if (complianceProfileRepository.findByName(request.getName()).isPresent()) {
+        if (complianceProfileRepository.existsByName(request.getName())) {
             throw new AlreadyExistException(ComplianceProfile.class, request.getName());
         }
         attributeEngine.validateCustomAttributesContent(Resource.COMPLIANCE_PROFILE, request.getCustomAttributes());
@@ -222,7 +222,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
         Connector connector = connectorRepository.findByUuid(connectorUuid).orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         ConnectorDto connectorDto = connector.mapToDto();
-        FunctionGroupCode complianceFunctionGroup = ruleHandler.validateComplianceProvider(connectorDto, kind);
+        FunctionGroupCode complianceFunctionGroup = ComplianceProfileRuleHandler.validateComplianceProvider(connectorDto, kind);
         if (complianceFunctionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER_V2) {
             List<ComplianceRuleResponseDto> providerRules = resource == null ? complianceApiClient.getComplianceRules(connectorDto, kind, null, null, null) : complianceApiClient.getComplianceRules(connectorDto, kind, resource, type, format);
             for (ComplianceRuleResponseDto providerRule : providerRules) {
@@ -268,7 +268,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
         Connector connector = connectorRepository.findByUuid(connectorUuid).orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         ConnectorDto connectorDto = connector.mapToDto();
-        FunctionGroupCode complianceFunctionGroup = ruleHandler.validateComplianceProvider(connectorDto, kind);
+        FunctionGroupCode complianceFunctionGroup = ComplianceProfileRuleHandler.validateComplianceProvider(connectorDto, kind);
         if (complianceFunctionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER_V2) {
             List<ComplianceGroupResponseDto> providerGroups = complianceApiClient.getComplianceGroups(connectorDto, kind, resource);
             for (ComplianceGroupResponseDto providerGroup : providerGroups) {
@@ -303,7 +303,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public List<ComplianceRuleListDto> getComplianceGroupRules(UUID groupUuid, UUID connectorUuid, String kind) throws NotFoundException, ConnectorException {
         Connector connector = connectorRepository.findByUuid(connectorUuid).orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         ConnectorDto connectorDto = connector.mapToDto();
-        FunctionGroupCode complianceFunctionGroup = ruleHandler.validateComplianceProvider(connectorDto, kind);
+        FunctionGroupCode complianceFunctionGroup = ComplianceProfileRuleHandler.validateComplianceProvider(connectorDto, kind);
         if (complianceFunctionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER_V2) {
             return complianceApiClient.getComplianceGroupRules(connectorDto, kind, groupUuid).stream().map(providerRule -> {
                 ComplianceRuleListDto dto = new ComplianceRuleListDto();
@@ -444,7 +444,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
     public List<ComplianceProfileListDto> getAssociatedComplianceProfiles(Resource resource, UUID associationObjectUuid) {
-        List<ComplianceProfileAssociation> associations = complianceProfileAssociationRepository.findByResourceAndObjectUuid(resource, associationObjectUuid);
+        List<ComplianceProfileAssociation> associations = complianceProfileAssociationRepository.findDistinctByResourceAndObjectUuid(resource, associationObjectUuid);
 
         return associations.stream().map(a -> a.getComplianceProfile().mapToListDto()).toList();
     }

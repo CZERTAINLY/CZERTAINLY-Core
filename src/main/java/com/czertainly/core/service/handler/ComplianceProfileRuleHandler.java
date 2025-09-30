@@ -7,16 +7,15 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.compliance.v2.*;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
-import com.czertainly.api.model.core.compliance.v2.ComplianceGroupDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceProfileDto;
-import com.czertainly.api.model.core.compliance.v2.ComplianceRuleDto;
-import com.czertainly.api.model.core.compliance.v2.ProviderComplianceRulesDto;
+import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
+import com.czertainly.api.model.core.compliance.v2.*;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
@@ -36,6 +35,8 @@ import java.util.stream.Collectors;
 @Component
 @Transactional
 public class ComplianceProfileRuleHandler {
+
+    private static final String NOT_AVAILABLE_RULE_NAME = "<Not Available>";
 
     private ComplianceApiClient complianceApiClient;
     private com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1;
@@ -97,7 +98,7 @@ public class ComplianceProfileRuleHandler {
                     availabilityStatus = ComplianceRuleAvailabilityStatus.UPDATED;
                     updatedReason = "Resource changed from '%s' to '%s'".formatted(complianceProfileRule.getResource().getLabel(), complianceProfileRule.getInternalRule().getResource().getLabel());
                 }
-                dto.getInternalRules().add(complianceProfileRule.getInternalRule().mapToComplianceRuleDto(availabilityStatus, updatedReason));
+                dto.getInternalRules().add(complianceProfileRule.getInternalRule().mapToComplianceRuleDto(complianceProfileRule.getResource(), availabilityStatus, updatedReason));
             } else {
                 String key = "%s|%s".formatted(complianceProfileRule.getConnectorUuid(), complianceProfileRule.getKind());
 
@@ -149,6 +150,59 @@ public class ComplianceProfileRuleHandler {
         return dto;
     }
 
+    public ComplianceCheckRuleDto mapComplianceCheckProviderRuleDto(UUID connectorUuid, String connectorName, String kind, UUID providerRuleUuid, ComplianceRuleStatus status, ComplianceRuleResponseDto providerRule) {
+        ComplianceCheckRuleDto dto = new ComplianceCheckRuleDto();
+        dto.setUuid(providerRuleUuid);
+        dto.setConnectorUuid(connectorUuid);
+        dto.setConnectorName(connectorName);
+        dto.setKind(kind);
+        dto.setStatus(status);
+
+        if (providerRule != null) {
+            dto.setName(providerRule.getName());
+            dto.setDescription(providerRule.getDescription());
+            dto.setResource(providerRule.getResource());
+            if (providerRule.getAttributes() != null && !providerRule.getAttributes().isEmpty()) {
+                mapFromProfileRule(connectorUuid, kind, providerRuleUuid, providerRule.getAttributes(), dto);
+            }
+
+            return dto;
+        }
+
+        mapFromProfileRule(connectorUuid, kind, providerRuleUuid, null, dto);
+        dto.setName(NOT_AVAILABLE_RULE_NAME);
+        if (dto.getResource() == null) {
+            dto.setResource(Resource.NONE);
+        }
+
+        return dto;
+    }
+
+    private void mapFromProfileRule(UUID connectorUuid, String kind, UUID providerRuleUuid, List<BaseAttribute> attributes, ComplianceCheckRuleDto ruleDto) {
+        List<ComplianceProfileRule> profileRules = complianceProfileRuleRepository.findByConnectorUuidAndKindAndComplianceRuleUuid(connectorUuid, kind, providerRuleUuid);
+        if (profileRules.isEmpty()) {
+            return;
+        }
+
+        ComplianceProfileRule matchedProfileRule = profileRules.getFirst();
+        if (attributes != null && !attributes.isEmpty()) {
+            for (ComplianceProfileRule profileRule : profileRules) {
+                if (profileRule.getAttributes() != null && !profileRule.getAttributes().isEmpty()) {
+                    try {
+                        AttributeEngine.validateRequestDataAttributes(attributes, profileRule.getAttributes(), true);
+                        matchedProfileRule = profileRule;
+                        break;
+                    } catch (ValidationException ignored) {
+                        // continue to next rule if attributes do not match
+                    }
+                }
+            }
+        }
+
+        ruleDto.setResource(matchedProfileRule.getResource());
+        ruleDto.setAttributes(AttributeEngine.getRequestDataAttributesContent(attributes, matchedProfileRule.getAttributes()));
+    }
+
     private ComplianceRuleDto mapProviderRuleDto(ComplianceProfileRule complianceProfileRule, ComplianceRuleResponseDto providerRule) throws ValidationException {
         ComplianceRuleDto ruleDto = new ComplianceRuleDto();
         ruleDto.setUuid(complianceProfileRule.getComplianceRuleUuid());
@@ -160,7 +214,7 @@ public class ComplianceProfileRuleHandler {
         }
 
         if (providerRule == null) {
-            ruleDto.setName("N/A");
+            ruleDto.setName(NOT_AVAILABLE_RULE_NAME);
             ruleDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE);
             return ruleDto;
         }
@@ -206,7 +260,7 @@ public class ComplianceProfileRuleHandler {
         groupDto.setResource(complianceProfileRule.getResource());
 
         if (providerGroup == null) {
-            groupDto.setName("N/A");
+            groupDto.setName(NOT_AVAILABLE_RULE_NAME);
             groupDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.NOT_AVAILABLE);
             return groupDto;
         }
@@ -236,7 +290,7 @@ public class ComplianceProfileRuleHandler {
         // handle internal rules
         for (UUID internalRuleUuid : request.getInternalRules()) {
             ComplianceProfileRule profileRule = createComplianceProfileInternalRuleAssoc(complianceProfile.getUuid(), internalRuleUuid);
-            complianceProfileDto.getInternalRules().add(profileRule.getInternalRule().mapToComplianceRuleDto(profileRule.getAvailabilityStatus(), null));
+            complianceProfileDto.getInternalRules().add(profileRule.getInternalRule().mapToComplianceRuleDto(profileRule.getResource(), profileRule.getAvailabilityStatus(), null));
         }
 
         // handle providers rules
@@ -334,7 +388,7 @@ public class ComplianceProfileRuleHandler {
         return complianceProfileRule;
     }
 
-    private ComplianceRulesGroupsBatchDto getComplianceProviderRulesBatch(UUID connectorUuid, String kind, Set<UUID> ruleUuids, Set<UUID> groupUuids, boolean withGroupRules) throws NotFoundException, ConnectorException {
+    public ComplianceRulesGroupsBatchDto getComplianceProviderRulesBatch(UUID connectorUuid, String kind, Set<UUID> ruleUuids, Set<UUID> groupUuids, boolean withGroupRules) throws NotFoundException, ConnectorException {
         Connector connector = connectorRepository.findByUuid(connectorUuid).orElseThrow(() -> new NotFoundException(Connector.class, connectorUuid));
         ConnectorDto connectorDto = connector.mapToDto();
         FunctionGroupCode functionGroup = validateComplianceProvider(connectorDto, kind);
@@ -465,7 +519,7 @@ public class ComplianceProfileRuleHandler {
         }
     }
 
-    public FunctionGroupCode validateComplianceProvider(ConnectorDto connectorDto, String kind) throws ValidationException {
+    public static FunctionGroupCode validateComplianceProvider(ConnectorDto connectorDto, String kind) throws ValidationException {
         FunctionGroupDto functionGroup = connectorDto.getFunctionGroups().stream().filter(fg -> fg.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER_V2) && fg.getKinds().contains(kind)).findFirst().orElse(null);
         if (functionGroup == null) {
             functionGroup = connectorDto.getFunctionGroups().stream().filter(fg -> fg.getFunctionGroupCode().equals(FunctionGroupCode.COMPLIANCE_PROVIDER) && fg.getKinds().contains(kind)).findFirst().orElse(null);
@@ -477,7 +531,7 @@ public class ComplianceProfileRuleHandler {
         return functionGroup.getFunctionGroupCode();
     }
 
-    private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromName(Resource resource, String typeName) {
+    public static <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromName(Resource resource, String typeName) {
         if (typeName == null) {
             return null;
         }
@@ -493,7 +547,7 @@ public class ComplianceProfileRuleHandler {
         }
     }
 
-    private <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromCode(Resource resource, String typeCode) {
+    public static <E extends Enum<E> & IPlatformEnum> E getComplianceRuleTypeFromCode(Resource resource, String typeCode) {
         if (typeCode == null) {
             return null;
         }
@@ -505,7 +559,7 @@ public class ComplianceProfileRuleHandler {
                         throw new ValidationException("Compliance rule with resource '%s' cannot be associated with compliance profile because resource does not support compliance check".formatted(resource.getLabel()));
             };
         } catch (Exception e) {
-            throw new ValidationException("Compliance rule with resource '%s' has not supported type '%s'".formatted(resource.getLabel(), typeCode));
+            throw new ValidationException("Type '%s' is not supported for resource '%s'".formatted(typeCode, resource.getLabel()));
         }
     }
 }

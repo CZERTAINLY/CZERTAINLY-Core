@@ -38,6 +38,15 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findByRaProfile(RaProfile raProfile);
 
+    @EntityGraph(attributePaths = {"certificateContent", "certificateRequestEntity"})
+    List<Certificate> findByUuidInAndArchivedFalse(List<UUID> uuids);
+
+    @EntityGraph(attributePaths = {"certificateContent"})
+    List<Certificate> findByUuidInAndCertificateContentIdNotNullAndArchivedFalse(List<UUID> uuids);
+
+    @EntityGraph(attributePaths = {"certificateContent"})
+    List<Certificate> findByRaProfileUuidAndCertificateContentIdNotNullAndArchivedFalse(UUID raProfileUuid);
+
     List<Certificate> findByKeyUuid(UUID keyUuid);
 
     List<Certificate> findByAltKeyUuid(UUID altKeyUuid);

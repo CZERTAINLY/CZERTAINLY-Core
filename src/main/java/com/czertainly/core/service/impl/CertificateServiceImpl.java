@@ -16,6 +16,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.oid.OidCategory;
@@ -34,7 +35,6 @@ import com.czertainly.core.comparator.SearchFieldDataComparator;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.acme.AcmeAccount;
-import com.czertainly.core.dao.entity.acme.AcmeAccount_;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
@@ -362,8 +362,8 @@ public class CertificateServiceImpl implements CertificateService {
         }
 
         if (certificate.getComplianceResult() != null) {
-            dto.setComplianceResult(complianceService.getComplianceCheckResult(certificate.getComplianceResult()));
-            dto.setNonCompliantRules(dto.getComplianceResult().getFailedRules().stream().map(failedRule -> {
+            ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid(), certificate.getComplianceResult());
+            dto.setNonCompliantRules(complianceCheckResult.getFailedRules().stream().map(failedRule -> {
                 CertificateComplianceResultDto resultDto = new CertificateComplianceResultDto();
                 resultDto.setConnectorName(failedRule.getConnectorName());
                 resultDto.setRuleName(failedRule.getName());
@@ -1887,7 +1887,7 @@ public class CertificateServiceImpl implements CertificateService {
     private void certificateComplianceCheck(Certificate certificate) {
         if (certificate.getRaProfile() != null) {
             try {
-                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
+                complianceService.checkResourceObjectComplianceAsync(Resource.CERTIFICATE, certificate.getUuid());
             } catch (Exception e) {
                 logger.debug("Error when checking compliance: {}", e.getMessage());
             }
@@ -2010,7 +2010,7 @@ public class CertificateServiceImpl implements CertificateService {
             attributeEngine.updateMetadataAttributes(response.getMeta(), new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, certificate.getUuid()));
 
             try {
-                complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
+                complianceService.checkResourceObjectComplianceAsync(Resource.CERTIFICATE, certificate.getUuid());
             } catch (Exception e) {
                 logger.error("Error when checking compliance:", e);
             }
