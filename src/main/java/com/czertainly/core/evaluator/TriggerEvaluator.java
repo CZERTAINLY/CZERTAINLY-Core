@@ -14,6 +14,7 @@ import com.czertainly.api.model.core.search.FilterFieldType;
 import com.czertainly.api.model.core.workflows.ExecutionType;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
+import com.czertainly.core.dao.entity.ComplianceInternalRule;
 import com.czertainly.core.dao.entity.UniquelyIdentifiedObject;
 import com.czertainly.core.dao.entity.workflows.*;
 import com.czertainly.core.enums.FilterField;
@@ -124,6 +125,20 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             logger.debug("No rules from the list have been evaluated, rules are not satisfied for the object.");
         }
         return ruleEvaluated;
+    }
+
+    @Override
+    public boolean evaluateInternalRule(ComplianceInternalRule internalRule, T object) throws RuleException {
+        // if rule has no conditions, return true as it is rule that should be satisfied for all objects
+        if (internalRule.getConditionItems().isEmpty()) {
+            return true;
+        }
+
+        for (ConditionItem conditionItem : internalRule.getConditionItems()) {
+            if (!evaluateConditionItem(conditionItem, object, internalRule.getResource())) return false;
+        }
+
+        return true;
     }
 
     @Override

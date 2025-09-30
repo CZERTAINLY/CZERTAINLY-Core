@@ -128,7 +128,7 @@ public class AuditLogAspect {
             if (isDeleteOperation)
                 affiliatedResourceRecord = new ResourceRecord(logData.affiliatedResource(), deletedAffiliatedObjectsIdentities);
             else
-               affiliatedResourceRecord = constructResourceRecord(true, logData.affiliatedResource(), logData.affiliatedResourceUuids(), logData.affiliatedResourceName());
+                affiliatedResourceRecord = constructResourceRecord(true, logData.affiliatedResource(), logData.affiliatedResourceUuids(), logData.affiliatedResourceName());
             logBuilder.affiliatedResource(affiliatedResourceRecord);
         }
     }
@@ -197,6 +197,7 @@ public class AuditLogAspect {
     }
 
     private List<UUID> getResourceUuidsFromParameter(LogResource logResource, String parameterName, Object parameterValue) {
+        if (parameterValue == null) return null;
         if (logResource != null) {
             if (logResource.uuid()) {
                 if (parameterValue instanceof Optional<?> optional) {
@@ -301,6 +302,7 @@ public class AuditLogAspect {
             String affiliatedResourceName,
             List<UUID> affiliatedResourceUuids,
             Operation operation
-    ) {}
+    ) {
+    }
 
 }

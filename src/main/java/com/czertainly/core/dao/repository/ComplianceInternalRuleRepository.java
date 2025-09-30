@@ -17,6 +17,9 @@ public interface ComplianceInternalRuleRepository extends SecurityFilterReposito
     @EntityGraph(attributePaths = {"conditionItems"})
     Optional<ComplianceInternalRule> findByUuid(UUID uuid);
 
+    @EntityGraph(attributePaths = {"conditionItems"})
+    List<ComplianceInternalRule> findByUuidIn(List<UUID> uuids);
+
     @Override
     @EntityGraph(attributePaths = {"conditionItems"})
     List<ComplianceInternalRule> findAll();
