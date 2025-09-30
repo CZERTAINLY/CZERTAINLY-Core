@@ -1059,7 +1059,8 @@ public class AttributeEngine {
                         data.validate();
                     } catch (ValidationException e) {
                         throw new AttributeException(e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
-                    }
+                    } catch (IllegalArgumentException e) {
+                        throw new AttributeException("Malformed attribute content data: " + e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                 }
                 List<ValidationError> constraintsValidationErrors = AttributeDefinitionUtils.validateConstraints(attributeDefinition.getDefinition(), attributeContent);
                 if (!constraintsValidationErrors.isEmpty()) {
