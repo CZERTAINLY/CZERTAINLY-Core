@@ -146,6 +146,12 @@ class ComplianceServiceTest extends BaseComplianceTest {
         Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, complianceCheckResult.getStatus(), "Compliance result status should be Not checked");
         Assertions.assertEquals(ComplianceStatus.NOT_CHECKED, certificate2.getComplianceStatus(), "Compliance status should be Not checked");
 
+        ComplianceResultDto complianceResult = new ComplianceResultDto();
+        complianceResult.setProviderRules(null);
+        complianceResult.setInternalRules(null);
+        complianceResult.setStatus(ComplianceStatus.NOT_CHECKED);
+        complianceResult.setTimestamp(OffsetDateTime.now());
+        certificate.setComplianceResult(complianceResult);
         certificate.setRaProfileUuid(associatedRaProfileUuid);
         certificateRepository.save(certificate);
         complianceService.checkCompliance(uuids, Resource.CERTIFICATE, null);
@@ -316,6 +322,9 @@ class ComplianceServiceTest extends BaseComplianceTest {
     @Test
     void testMultipleProviders_resultsFromV1AndV2() {
         ComplianceResultDto complianceResult = new ComplianceResultDto();
+        complianceResult.setProviderRules(null);
+        complianceResult.setInternalRules(null);
+        Assertions.assertDoesNotThrow(() -> complianceService.getComplianceCheckResult(Resource.CERTIFICATE, UUID.randomUUID(), complianceResult));
 
         ComplianceResultProviderRulesDto p1 = new ComplianceResultProviderRulesDto();
         p1.setConnectorUuid(connectorV1.getUuid());

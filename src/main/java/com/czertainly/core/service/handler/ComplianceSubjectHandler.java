@@ -15,10 +15,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.OffsetDateTime;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 
 @Getter
 public class ComplianceSubjectHandler<T extends ComplianceSubject> {
@@ -143,6 +140,9 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
         // update compliance result
         ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subjectUuid, k -> new ComplianceResultDto());
+        if (complianceResultDto.getProviderRules() == null) {
+            complianceResultDto.setProviderRules(new ArrayList<>());
+        }
         ComplianceResultProviderRulesDto providerResult = complianceResultDto.getProviderRules().stream().filter(provider -> provider.getConnectorUuid().equals(connectorUuid) && provider.getKind().equals(kind)).findFirst().orElse(null);
         if (providerResult == null) {
             providerResult = new ComplianceResultProviderRulesDto();
@@ -194,14 +194,15 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
         if (status == ComplianceStatus.NOK) {
             return ComplianceStatus.NOK;
         }
-
-        for (ComplianceResultProviderRulesDto providerRules : resultDto.getProviderRules()) {
-            ComplianceStatus providerStatus = calculateComplianceStatus(providerRules);
-            if (providerStatus == ComplianceStatus.NOK) {
-                return ComplianceStatus.NOK;
-            }
-            if (providerStatus == ComplianceStatus.NA) {
-                status = ComplianceStatus.NA;
+        if (resultDto.getProviderRules() != null) {
+            for (ComplianceResultProviderRulesDto providerRules : resultDto.getProviderRules()) {
+                ComplianceStatus providerStatus = calculateComplianceStatus(providerRules);
+                if (providerStatus == ComplianceStatus.NOK) {
+                    return ComplianceStatus.NOK;
+                }
+                if (providerStatus == ComplianceStatus.NA) {
+                    status = ComplianceStatus.NA;
+                }
             }
         }
         return status;
