@@ -48,8 +48,10 @@ import com.czertainly.core.events.handlers.CertificateStatusChangedEventHandler;
 import com.czertainly.core.events.transaction.CertificateValidationEvent;
 import com.czertainly.core.events.transaction.UpdateCertificateHistoryEvent;
 import com.czertainly.core.messaging.model.NotificationRecipient;
+import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
+import com.czertainly.core.messaging.producers.ValidationProducer;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.request.CertificateRequest;
@@ -148,11 +150,17 @@ public class CertificateServiceImpl implements CertificateService {
     private ResourceObjectAssociationService objectAssociationService;
     private CertificateProtocolAssociationRepository certificateProtocolAssociationRepository;
     private ApplicationEventPublisher applicationEventPublisher;
+    private ValidationProducer validationProducer;
 
     /**
      * A map that contains ICertificateValidator implementations mapped to their corresponding certificate type code
      */
     private Map<String, ICertificateValidator> certificateValidatorMap;
+
+    @Autowired
+    public void setValidationProducer(ValidationProducer validationProducer) {
+        this.validationProducer = validationProducer;
+    }
 
     @Autowired
     public void setAcmeAccountRepository(AcmeAccountRepository acmeAccountRepository) {
@@ -860,6 +868,7 @@ public class CertificateServiceImpl implements CertificateService {
             logger.warn("Unable to validate the certificate {}: {}", certificate, e.getMessage());
             newStatus = CertificateValidationStatus.FAILED;
             certificate.setValidationStatus(newStatus);
+            certificate.setStatusValidationTimestamp(OffsetDateTime.now());
             certificateRepository.save(certificate);
         }
 
@@ -1207,7 +1216,6 @@ public class CertificateServiceImpl implements CertificateService {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
         CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
         boolean platformEnabled = certificateValidationSettings.getEnabled();
-        int certificatesUpdated = 0;
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
         long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
@@ -1219,30 +1227,8 @@ public class CertificateServiceImpl implements CertificateService {
         final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, platformEnabled, PageRequest.of(0, maxCertsToValidate));
 
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);
-        for (final UUID certificateUuid : certificateUuids) {
-            Certificate certificate = null;
-            TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-            try {
-                certificate = certificateRepository.findWithAssociationsByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-                validate(certificate);
-                if (certificate.getRaProfileUuid() != null && certificate.getComplianceStatus() == ComplianceStatus.NOT_CHECKED) {
-                    complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate.getUuid());
-                }
-
-                transactionManager.commit(status);
-                ++certificatesUpdated;
-            } catch (NotFoundException e) {
-                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Error: {}", e.getMessage(), e);
-                transactionManager.rollback(status);
-            } catch (Exception e) {
-                logger.warn(MarkerFactory.getMarker("scheduleInfo"), "Scheduled task was unable to update status of the certificate. Certificate {}. Error: {}", certificate, e.getMessage(), e);
-                transactionManager.rollback(status);
-            }
-
-        }
-        logger.info(MarkerFactory.getMarker("scheduleInfo"), "Certificates status updated for {}/{} certificates", certificatesUpdated, certificateUuids.size());
-
-        return certificatesUpdated;
+        validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, certificateUuids, null, null, null, null));
+        return certificateUuids.size();
     }
 
     @Override
