@@ -224,12 +224,18 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
 
 
     @Test
-    void testExceptionThrown() {
-        Mockito.doThrow(MatchException.class).when(mockedCertificateService).validate(any());
-        OffsetDateTime timeNow = OffsetDateTime.now();
+    void testDoNotRevalidateFailed() {
+        Mockito.doAnswer(execution -> {
+            Certificate certificate = execution.getArgument(0);
+            certificate.setStatusValidationTimestamp(OffsetDateTime.now());
+            certificate.setValidationStatus(CertificateValidationStatus.FAILED);
+            certificateRepository.save(certificate);
+            return null;
+        }).when(mockedCertificateService).validate(any());
         updateCertificateStatusTask.performJob(scheduledJobInfo, null);
-        // Should not validate any, since exceptions are thrown
-        assertCorrectCertificatesHaveBeenValidated(List.of(), timeNow);
+        OffsetDateTime timeNow2 = OffsetDateTime.now();
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        Assertions.assertTrue(certificateRepository.findAll().stream().allMatch(certificate -> certificate.getStatusValidationTimestamp() == null || certificate.getStatusValidationTimestamp().isBefore(timeNow2)));
     }
 
     @Test
