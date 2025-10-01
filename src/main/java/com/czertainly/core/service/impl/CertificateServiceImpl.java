@@ -711,7 +711,8 @@ public class CertificateServiceImpl implements CertificateService {
         Certificate certificate = getCertificateEntity(uuid);
         CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
         List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
-        certificateChainResponseDto.setCompleteChain(completeCertificateChain(certificateChain.isEmpty() ? certificate : certificateChain.getLast(), certificateChain));
+        Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
+        certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
         certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
         return certificateChainResponseDto;
     }
