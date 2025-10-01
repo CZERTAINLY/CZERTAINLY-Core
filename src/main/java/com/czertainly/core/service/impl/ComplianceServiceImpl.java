@@ -156,6 +156,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
 
         resultDto.setStatus(complianceResult.getStatus());
+        resultDto.setMessage(complianceResult.getMessage());
         resultDto.setTimestamp(complianceResult.getTimestamp());
         // load internal rules
         if (complianceResult.getInternalRules() != null) {
@@ -163,11 +164,9 @@ public class ComplianceServiceImpl implements ComplianceService {
             failedInternalRulesUuids.addAll(complianceResult.getInternalRules().getNotApplicable());
             failedInternalRulesUuids.addAll(complianceResult.getInternalRules().getNotAvailable());
             internalRuleRepository.findByUuidIn(failedInternalRulesUuids).forEach(internalRule -> {
-                ComplianceRuleStatus status = popFailedRuleWithStatus(complianceResult.getInternalRules(), internalRule.getUuid());
+                ComplianceRuleStatus status = getFailedRuleStatus(complianceResult.getInternalRules(), internalRule.getUuid());
                 resultDto.getFailedRules().add(internalRule.mapToComplianceCheckRuleDto(status));
             });
-
-            // should we handle internal rules that are not existing anymore?
         }
 
         // load provider rules
@@ -186,7 +185,7 @@ public class ComplianceServiceImpl implements ComplianceService {
             }
 
             for (UUID failedRuleUuid : failedProviderRulesUuids) {
-                ComplianceRuleStatus status = popFailedRuleWithStatus(providerRules, failedRuleUuid);
+                ComplianceRuleStatus status = getFailedRuleStatus(providerRules, failedRuleUuid);
                 ComplianceRuleResponseDto providerRule = batchDto.getRules().get(failedRuleUuid);
                 resultDto.getFailedRules().add(ruleHandler.mapComplianceCheckProviderRuleDto(batchDto.getConnectorUuid(), batchDto.getConnectorName(), batchDto.getKind(), failedRuleUuid, status, providerRule));
             }
@@ -380,12 +379,12 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
     }
 
-    private ComplianceRuleStatus popFailedRuleWithStatus(ComplianceResultRulesDto complianceResultRules, UUID ruleUuid) {
-        if (complianceResultRules.getNotCompliant().remove(ruleUuid)) {
+    private ComplianceRuleStatus getFailedRuleStatus(ComplianceResultRulesDto complianceResultRules, UUID ruleUuid) {
+        if (complianceResultRules.getNotCompliant().contains(ruleUuid)) {
             return ComplianceRuleStatus.NOK;
-        } else if (complianceResultRules.getNotApplicable().remove(ruleUuid)) {
+        } else if (complianceResultRules.getNotApplicable().contains(ruleUuid)) {
             return ComplianceRuleStatus.NA;
-        } else if (complianceResultRules.getNotAvailable().remove(ruleUuid)) {
+        } else if (complianceResultRules.getNotAvailable().contains(ruleUuid)) {
             return ComplianceRuleStatus.NOT_AVAILABLE;
         }
         return ComplianceRuleStatus.NOT_AVAILABLE;

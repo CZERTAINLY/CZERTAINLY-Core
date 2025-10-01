@@ -73,6 +73,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
 
     protected UUID internalRuleUuid;
     protected UUID internalRule2Uuid;
+    protected UUID internalRuleInvalidUuid;
     protected final UUID complianceV1RuleUuid = UUID.randomUUID();
     protected final UUID complianceV1Rule2Uuid = UUID.randomUUID();
     protected final UUID complianceV1GroupUuid = UUID.randomUUID();
@@ -98,7 +99,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
         complianceProfile.setDescription("Sample Description");
         complianceProfileRepository.save(complianceProfile);
 
-        createInternalRule();
+        createInternalRules();
         createComplianceProfileAssociations();
 
         AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
@@ -154,12 +155,12 @@ class BaseComplianceTest extends BaseSpringBootTest {
         return connector;
     }
 
-    private void createInternalRule() throws AlreadyExistException {
+    private void createInternalRules() throws AlreadyExistException {
         ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
         conditionItemRequestDto.setFieldSource(FilterFieldSource.PROPERTY);
         conditionItemRequestDto.setFieldIdentifier("KEY_SIZE");
         conditionItemRequestDto.setOperator(FilterConditionOperator.EQUALS);
-        conditionItemRequestDto.setValue(1024);
+        conditionItemRequestDto.setValue(new int[] {1024});
 
         ComplianceInternalRuleRequestDto ruleRequestDto = new ComplianceInternalRuleRequestDto();
         ruleRequestDto.setName("TestInternalRule");
@@ -173,6 +174,12 @@ class BaseComplianceTest extends BaseSpringBootTest {
         ruleRequestDto.setName("TestInternalRule2");
         ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
         internalRule2Uuid = ruleDetailDto.getUuid();
+
+        conditionItemRequestDto.setFieldIdentifier("UNKNOWN_FIELD");
+        conditionItemRequestDto.setValue(true);
+        ruleRequestDto.setName("TestInternalRuleInvalid");
+        ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
+        internalRuleInvalidUuid = ruleDetailDto.getUuid();
     }
 
     private void createComplianceProfileAssociations() {

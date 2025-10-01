@@ -491,7 +491,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     @Test
     void getComplianceRulesTest() throws ConnectorException, NotFoundException {
         var rules = complianceProfileService.getComplianceRules(null, null, null, null, null);
-        Assertions.assertEquals(2, rules.size());
+        Assertions.assertEquals(3, rules.size());
 
         rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
         Assertions.assertEquals(2, rules.size());
