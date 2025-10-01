@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -179,8 +180,9 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificate2.getUuid());
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate2.getUuid());
         Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance result status should be Not Compliant");
-
-        // Expect 4 failed rules: 1 internal, 1 v1 provider rule, 2 v2 provider rules (one group with two rules)
+        certificate2Dto = certificateService.getCertificate(SecuredUUID.fromUUID(certificate2.getUuid()));
+        // Expect 4 failed rules: 1 internal, 1 v1 provide0r rule, 2 v2 provider rules (one group with two rules)
+        Assertions.assertEquals(3, certificate2Dto.getNonCompliantRules().size(), "There should be 3 non-compliant rules, internal skipped");
         Assertions.assertEquals(4, complianceCheckResult.getFailedRules().size(), "There should be 4 failed rules");
 
         complianceService.checkResourceObjectCompliance(Resource.RA_PROFILE, associatedRaProfileUuid);
