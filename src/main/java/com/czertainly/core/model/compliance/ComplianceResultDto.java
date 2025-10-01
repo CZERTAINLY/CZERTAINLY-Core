@@ -11,6 +11,7 @@ import java.io.Serializable;
 import java.time.OffsetDateTime;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -33,4 +34,18 @@ public class ComplianceResultDto implements Serializable {
     @Schema(description = "List of groups", requiredMode = Schema.RequiredMode.NOT_REQUIRED)
     private List<ComplianceResultProviderRulesDto> providerRules = new ArrayList<>();
 
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        ComplianceResultDto that = (ComplianceResultDto) o;
+        return Objects.equals(timestamp, that.timestamp)
+                && Objects.equals(message, that.message)
+                && status == that.status;
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(timestamp, message, status);
+    }
 }

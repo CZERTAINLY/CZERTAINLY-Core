@@ -3,6 +3,7 @@ package com.czertainly.core.model.compliance;
 import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceResponseDto;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceResponseRuleDto;
@@ -93,7 +94,7 @@ public class ComplianceCheckContext {
         }
     }
 
-    private void performSubjectComplianceCheck(ComplianceCheckProfileContext profileContext, ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler, Resource resource, ComplianceSubject subject) throws ConnectorException, NotFoundException {
+    private void performSubjectComplianceCheck(ComplianceCheckProfileContext profileContext, ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler, Resource resource, ComplianceSubject subject) throws ConnectorException, NotFoundException, RuleException {
         for (ComplianceProfileRule profileRule : profileContext.getInternalRules()) {
             // skip rules that do not match the resource and type
             if (skipProfileRule(profileRule, resource)) {

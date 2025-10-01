@@ -51,7 +51,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
      * @param profileRule the profile rule containing the internal rule to be evaluated
      * @param subject     the subject to be evaluated
      */
-    public void evaluateInternalRule(ComplianceProfileRule profileRule, ComplianceSubject subject) {
+    public void evaluateInternalRule(ComplianceProfileRule profileRule, ComplianceSubject subject) throws RuleException {
         T typedSubject = (T) subject;
         if (wasAlreadyChecked(subject.getUuid(), null, profileRule)) {
             return;
@@ -77,8 +77,9 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
         try {
             valid = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), typedSubject);
         } catch (RuleException e) {
-            logger.debug("RuleException while evaluating internal rule {} for subject {}: {}", internalRuleUuid, subject.getUuid(), e.getMessage());
-            valid = false;
+            String message = "Failed evaluating internal rule %s: %s".formatted(profileRule.getInternalRule().getName(), e.getMessage());
+            logger.warn(message);
+            throw new RuleException(message);
         }
         if (!valid) {
             if (complianceResultDto.getInternalRules() == null) {

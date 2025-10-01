@@ -54,6 +54,13 @@ class ComplianceServiceTest extends BaseComplianceTest {
 
     @Test
     void testCheckCompliance() throws Exception {
+        var internalRuleAssoc = new ComplianceProfileRule();
+        internalRuleAssoc.setComplianceProfile(complianceProfile);
+        internalRuleAssoc.setComplianceProfileUuid(complianceProfile.getUuid());
+        internalRuleAssoc.setResource(Resource.CERTIFICATE);
+        internalRuleAssoc.setInternalRuleUuid(internalRuleInvalidUuid);
+        complianceProfileRuleRepository.save(internalRuleAssoc);
+
         // add a V1 provider rule association to the seeded compliance profile
         var v1RuleAssoc = new ComplianceProfileRule();
         v1RuleAssoc.setComplianceProfile(complianceProfile);
@@ -154,6 +161,15 @@ class ComplianceServiceTest extends BaseComplianceTest {
         certificate.setComplianceResult(complianceResult);
         certificate.setRaProfileUuid(associatedRaProfileUuid);
         certificateRepository.save(certificate);
+        complianceService.checkCompliance(uuids, Resource.CERTIFICATE, null);
+
+        // check failed compliance with invalid internal rule and V1 and V2 provider rules
+        complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(ComplianceStatus.FAILED, complianceCheckResult.getStatus(), "Compliance result status should be Failed");
+        Assertions.assertNotNull(complianceCheckResult.getMessage());
+
+        complianceProfileRuleRepository.delete(internalRuleAssoc);
+
         complianceService.checkCompliance(uuids, Resource.CERTIFICATE, null);
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(ComplianceStatus.NOK, complianceCheckResult.getStatus(), "Compliance result status should be Not Compliant");

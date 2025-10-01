@@ -363,7 +363,7 @@ public class CertificateServiceImpl implements CertificateService {
 
         if (certificate.getComplianceResult() != null) {
             ComplianceCheckResultDto complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE, certificate.getUuid(), certificate.getComplianceResult());
-            dto.setNonCompliantRules(complianceCheckResult.getFailedRules().stream().map(failedRule -> {
+            dto.setNonCompliantRules(complianceCheckResult.getFailedRules().stream().filter(rule -> rule.getConnectorUuid() != null).map(failedRule -> {
                 CertificateComplianceResultDto resultDto = new CertificateComplianceResultDto();
                 resultDto.setConnectorName(failedRule.getConnectorName());
                 resultDto.setRuleName(failedRule.getName());
