@@ -709,51 +709,54 @@ public class CertificateServiceImpl implements CertificateService {
     @ExternalAuthorization(resource = Resource.CERTIFICATE, action = ResourceAction.DETAIL)
     public CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
-        return getCertificateChainInternal(certificate, withEndCertificate);
+        CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
+        List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
+        Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
+        certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
+        certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
+        return certificateChainResponseDto;
     }
 
-    private CertificateChainResponseDto getCertificateChainInternal(Certificate certificate, boolean withEndCertificate) {
-        List<CertificateDetailDto> certificateChain = new ArrayList<>();
-        CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
-        certificateChainResponseDto.setCertificates(certificateChain);
-
+    private List<Certificate> getCertificateChainInternal(Certificate certificate, boolean withEndCertificate) {
+        List<Certificate> certificateChain = new ArrayList<>();
         if (certificate.getCertificateContent() == null) {
-            return certificateChainResponseDto;
+            return certificateChain;
         }
-
         if (withEndCertificate) {
-            certificateChain.add(certificate.mapToDto());
+            certificateChain.add(certificate);
         }
+        constructCertificateChainFromInventory(certificate, certificateChain);
+        return certificateChain;
+    }
 
-        Certificate lastCertificate = constructCertificateChain(certificate, certificateChain);
+    private boolean completeCertificateChain(Certificate lastCertificate, List<Certificate> certificateChain) {
         try {
             // if last certificate is self-signed, we presume it is root certificate and we are finished
             if (isSelfSigned(lastCertificate)) {
-                certificateChainResponseDto.setCompleteChain(true);
+                return true;
             } else {
                 // update chain and determine if its issuer was found
                 updateCertificateChain(lastCertificate);
                 if (lastCertificate.getIssuerCertificateUuid() != null) {
                     // construct newly found certificates from chain and do the self-signed check again
-                    lastCertificate = constructCertificateChain(lastCertificate, certificateChain);
-                    certificateChainResponseDto.setCompleteChain(isSelfSigned(lastCertificate));
+                    lastCertificate = constructCertificateChainFromInventory(lastCertificate, certificateChain);
+                    return isSelfSigned(lastCertificate);
                 }
             }
         } catch (CertificateException e) {
             // If it cannot be verified whether certificate is self-signed or updateCertificateChain fails,
             // we end certificate chain building and return partial result
         }
-
-        return certificateChainResponseDto;
+        return false;
     }
 
-    private Certificate constructCertificateChain(Certificate certificate, List<CertificateDetailDto> certificateChain) {
+    private Certificate constructCertificateChainFromInventory(Certificate certificate, List<Certificate> certificateChain) {
         Certificate lastCertificate = certificate;
         // Go up the certificate chain until certificate without issuer is found
         while (lastCertificate.getIssuerCertificateUuid() != null) {
             Certificate issuerCertificate = certificateRepository.findByUuid(lastCertificate.getIssuerCertificateUuid()).orElse(null);
             if (issuerCertificate != null) {
-                certificateChain.add(issuerCertificate.mapToDto());
+                certificateChain.add(issuerCertificate);
                 lastCertificate = issuerCertificate;
             } else {
                 // If issuer certificate does not exist in the inventory, set it and issuer serial number to null
@@ -856,14 +859,15 @@ public class CertificateServiceImpl implements CertificateService {
 
     @Override
     public void validate(Certificate certificate) {
-        CertificateChainResponseDto certificateChainResponse = getCertificateChainInternal(certificate, true);
+        List<Certificate> certificateChain = getCertificateChainInternal(certificate, true);
+        boolean isCompleteChain = !certificateChain.isEmpty() && completeCertificateChain(certificateChain.getLast(), certificateChain);
 
         CertificateValidationStatus newStatus;
         CertificateValidationStatus oldStatus = certificate.getValidationStatus();
         ICertificateValidator certificateValidator = getCertificateValidator(certificate.getCertificateType());
 
         try {
-            newStatus = certificateValidator.validateCertificate(certificate, certificateChainResponse.isCompleteChain());
+            newStatus = certificateValidator.validateCertificate(certificate, isCompleteChain);
         } catch (Exception e) {
             logger.warn("Unable to validate the certificate {}: {}", certificate, e.getMessage());
             newStatus = CertificateValidationStatus.FAILED;
