@@ -32,7 +32,7 @@ public class ValidationListener {
             int certificatesValidated = 0;
             for (Certificate certificate : certificates) {
                 certificateHandler.validate(certificate);
-                if (certificate.getValidationStatus() != CertificateValidationStatus.FAILED && certificate.getValidationStatus() == CertificateValidationStatus.NOT_CHECKED) certificatesValidated++;
+                if (certificate.getValidationStatus() != CertificateValidationStatus.FAILED && certificate.getValidationStatus() != CertificateValidationStatus.NOT_CHECKED) certificatesValidated++;
             }
             logger.debug("Validated {}/{} certificates", certificatesValidated, certificates.size());
         }
