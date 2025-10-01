@@ -11,12 +11,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
 @Component
-@Transactional
 public class ValidationListener {
     private static final Logger logger = LoggerFactory.getLogger(ValidationListener.class);
 
@@ -28,7 +26,7 @@ public class ValidationListener {
     public void processMessage(final ValidationMessage validationMessage) {
         List<Certificate> certificates;
         if (validationMessage.getUuids() != null) {
-            certificates = certificateRepository.findAllByUuidIn(validationMessage.getUuids());
+            certificates = certificateRepository.findAllWithAssociationsByUuidIn(validationMessage.getUuids());
 
             logger.debug("Validating {} certificate(s)", certificates.size());
             int certificatesValidated = 0;

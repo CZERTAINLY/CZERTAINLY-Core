@@ -23,7 +23,8 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
     @EntityGraph(attributePaths = {"certificateContent"})
     Optional<Certificate> findByUuid(UUID uuid);
 
-    List<Certificate> findAllByUuidIn(List<UUID> uuids);
+    @EntityGraph(attributePaths = {"certificateContent", "raProfile"})
+    List<Certificate> findAllWithAssociationsByUuidIn(List<UUID> uuids);
 
     Certificate findFirstByUuidIn(List<UUID> uuids);
 
