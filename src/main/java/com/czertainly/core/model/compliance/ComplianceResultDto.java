@@ -39,13 +39,15 @@ public class ComplianceResultDto implements Serializable {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
         ComplianceResultDto that = (ComplianceResultDto) o;
-        return Objects.equals(timestamp, that.timestamp)
+        return status == that.status
+                && Objects.equals(timestamp, that.timestamp)
                 && Objects.equals(message, that.message)
-                && status == that.status;
+                && Objects.equals(internalRules, that.internalRules)
+                && Objects.equals(providerRules, that.providerRules);
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(timestamp, message, status);
+        return Objects.hash(timestamp, message, status, internalRules, providerRules);
     }
 }
