@@ -859,7 +859,7 @@ public class CertificateServiceImpl implements CertificateService {
     @Override
     public void validate(Certificate certificate) {
         List<Certificate> certificateChain = getCertificateChainInternal(certificate, true);
-        boolean isCompleteChain = completeCertificateChain(certificateChain.getLast(), certificateChain);
+        boolean isCompleteChain = !certificateChain.isEmpty() && completeCertificateChain(certificateChain.getLast(), certificateChain);
 
         CertificateValidationStatus newStatus;
         CertificateValidationStatus oldStatus = certificate.getValidationStatus();
