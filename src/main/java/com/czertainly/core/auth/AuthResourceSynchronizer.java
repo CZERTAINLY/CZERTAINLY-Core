@@ -18,12 +18,12 @@ import java.util.List;
 public class AuthResourceSynchronizer {
 
     private static final Logger logger = LoggerFactory.getLogger(AuthResourceSynchronizer.class);
-    private ResourceListener resourceListener;
+    private ContextRefreshListener contextRefreshListener;
     private ResourceApiClient resourceApiClient;
 
     @Autowired
-    public void setEndpointsListener(ResourceListener resourceListener) {
-        this.resourceListener = resourceListener;
+    public void setEndpointsListener(ContextRefreshListener contextRefreshListener) {
+        this.contextRefreshListener = contextRefreshListener;
     }
 
     @Autowired
@@ -34,7 +34,7 @@ public class AuthResourceSynchronizer {
     @EventListener({ApplicationReadyEvent.class})
     public void register() {
         logger.info("Initiating Endpoints sync");
-        List<ResourceSyncRequestDto> resources = resourceListener.getResources();
+        List<ResourceSyncRequestDto> resources = contextRefreshListener.getResources();
         logger.debug("Resources: {}", resources);
         //Sync API Operation here
         try {

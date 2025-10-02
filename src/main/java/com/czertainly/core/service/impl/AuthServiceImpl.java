@@ -3,7 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.auth.UpdateUserRequestDto;
 import com.czertainly.api.model.core.auth.*;
-import com.czertainly.core.auth.ResourceListener;
+import com.czertainly.core.auth.ContextRefreshListener;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
@@ -29,7 +29,7 @@ public class AuthServiceImpl implements AuthService {
     private ResourceApiClient resourceApiClient;
     private UserManagementService userManagementService;
 
-    private ResourceListener resourceListener;
+    private ContextRefreshListener contextRefreshListener;
 
     @Autowired
     public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
@@ -47,8 +47,8 @@ public class AuthServiceImpl implements AuthService {
     }
 
     @Autowired
-    public void setResourceListener(ResourceListener resourceListener) {
-        this.resourceListener = resourceListener;
+    public void setResourceListener(ContextRefreshListener contextRefreshListener) {
+        this.contextRefreshListener = contextRefreshListener;
     }
 
     @Override
@@ -81,7 +81,7 @@ public class AuthServiceImpl implements AuthService {
 
     private List<Resource> getAllowedResourceListings(UserProfileDto userProfileDto) {
         List<Resource> allowedListings;
-        List<Resource> allListings = resourceListener.getResources().stream()
+        List<Resource> allListings = contextRefreshListener.getResources().stream()
                 .filter(syncResource -> syncResource.getActions().contains(ResourceAction.LIST.getCode()))
                 .map(syncResource -> Resource.findByCode(syncResource.getName().getCode())).sorted(Comparator.comparing(Resource::getCode)).toList();
 
