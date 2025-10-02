@@ -10,12 +10,16 @@ import com.czertainly.api.model.common.attribute.v2.content.StringAttributeConte
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Component
 public class RsaEncryptionAttributes {
+
+    private RsaEncryptionAttributes() {}
 
     public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME = "data_rsaEncScheme"; // this would be OAEP or PKCS1-v1_5 according the RFC 8017
     public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID = "6a93364c-d9d4-11ed-afa1-0242ac120002";
@@ -35,6 +39,7 @@ public class RsaEncryptionAttributes {
     public static final String ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_DESCRIPTION = "Usage of OAEP MGF";
 
 
+    @CoreAttributeDefinitions(operation = "encrypt")
     public static List<BaseAttribute> getRsaEncryptionAttributes() {
         return List.of(
                 buildDataEncryptionScheme(),

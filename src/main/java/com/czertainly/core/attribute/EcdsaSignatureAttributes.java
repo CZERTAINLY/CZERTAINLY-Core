@@ -8,18 +8,23 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Component
 public class EcdsaSignatureAttributes {
+
+    private EcdsaSignatureAttributes(){}
 
     public static final String ATTRIBUTE_DATA_SIG_DIGEST = "data_sigDigest";
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_UUID = "46bfdc2f-a96f-4f5d-a218-d538fde92e6d";
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_LABEL = "Digest Algorithm";
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION = "Select on of the available digest (hash) algorithm";
 
+    @CoreAttributeDefinitions(operation = "sign")
     public static List<BaseAttribute> getEcdsaSignatureAttributes() {
         return List.of(
                 buildDataDigest()

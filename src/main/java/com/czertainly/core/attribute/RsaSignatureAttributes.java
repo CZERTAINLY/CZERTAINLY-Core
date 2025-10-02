@@ -9,12 +9,16 @@ import com.czertainly.api.model.common.attribute.v2.content.StringAttributeConte
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
+@Component
 public class RsaSignatureAttributes {
+
+    private RsaSignatureAttributes(){}
 
     public static final String ATTRIBUTE_DATA_RSA_SIG_SCHEME = "data_rsaSigScheme";
     public static final String ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID = "0b13c68c-4d56-4901-baf1-af859c8f75ee";
@@ -26,6 +30,7 @@ public class RsaSignatureAttributes {
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_LABEL = "Digest Algorithm";
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION = "Select on of the available digest (hash) algorithm";
 
+    @CoreAttributeDefinitions(operation = "sign")
     public static List<BaseAttribute> getRsaSignatureAttributes() {
         return List.of(
                 buildDataRsaSigScheme(),

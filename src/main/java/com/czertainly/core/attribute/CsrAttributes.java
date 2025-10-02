@@ -7,16 +7,11 @@ import com.czertainly.api.model.common.attribute.v2.constraint.BaseAttributeCons
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-import org.bouncycastle.asn1.ASN1ObjectIdentifier;
-import org.bouncycastle.asn1.bc.BCObjectIdentifiers;
-import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
-import org.bouncycastle.asn1.pkcs.PKCSObjectIdentifiers;
-import org.bouncycastle.asn1.x9.X9ObjectIdentifiers;
+import org.springframework.stereotype.Component;
 
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
+@Component
 public class CsrAttributes {
 
     /**
@@ -50,15 +45,14 @@ public class CsrAttributes {
     public static final String STATE_ATTRIBUTE_LABEL = "State";
     public static final String COUNTRY_ATTRIBUTE_LABEL = "Country";
 
-    public CsrAttributes() {
-        throw new IllegalArgumentException("Utility class");
-    }
+    private CsrAttributes() {}
 
     /**
      * Function to get the list of attributes for generating the CSR
      *
      * @return List of attributes for generating the CSR
      */
+    @CoreAttributeDefinitions
     public static List<BaseAttribute> csrAttributes() {
         return List.of(
                 commonNameAttribute(),
@@ -102,7 +96,7 @@ public class CsrAttributes {
         return attributeCoder(
                 ORGANIZATION_UNIT_UUID,
                 ORGANIZATION_UNIT_ATTRIBUTE_NAME,
-                "Organizational Unit",
+                ORGANIZATION_UNIT_ATTRIBUTE_LABEL,
                 ORGANIZATION_UNIT_ATTRIBUTE_LABEL,
                 false,
                 null,
@@ -119,7 +113,7 @@ public class CsrAttributes {
         return attributeCoder(
                 ORGANIZATION_UUID,
                 ORGANIZATION_ATTRIBUTE_NAME,
-                "Organization",
+                ORGANIZATION_ATTRIBUTE_LABEL,
                 ORGANIZATION_ATTRIBUTE_LABEL,
                 false,
                 null,
@@ -136,7 +130,7 @@ public class CsrAttributes {
         return attributeCoder(
                 LOCALITY_UUID,
                 LOCALITY_ATTRIBUTE_NAME,
-                "Locality",
+                LOCALITY_ATTRIBUTE_LABEL,
                 LOCALITY_ATTRIBUTE_LABEL,
                 false,
                 null,
@@ -153,7 +147,7 @@ public class CsrAttributes {
         return attributeCoder(
                 STATE_UUID,
                 STATE_ATTRIBUTE_NAME,
-                "State",
+                STATE_ATTRIBUTE_LABEL,
                 STATE_ATTRIBUTE_LABEL,
                 false,
                 null,
@@ -177,7 +171,7 @@ public class CsrAttributes {
         return attributeCoder(
                 COUNTRY_UUID,
                 COUNTRY_ATTRIBUTE_NAME,
-                "Country",
+                COUNTRY_ATTRIBUTE_LABEL,
                 COUNTRY_ATTRIBUTE_LABEL,
                 false,
                 constraints,
