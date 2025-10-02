@@ -98,7 +98,7 @@ public interface ComplianceService {
      * @param resource Resource of objects checked by compliance
      * @param objectUuid UUID of object to be checked
      */
-    void checkResourceObjectCompliance(Resource resource, UUID objectUuid) throws ConnectorException, NotFoundException;
+    void checkResourceObjectCompliance(Resource resource, UUID objectUuid);
 
 
 }

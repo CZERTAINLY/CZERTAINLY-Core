@@ -12,6 +12,8 @@ import com.czertainly.api.model.connector.v2.CertificateSignRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.*;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -44,7 +46,6 @@ import org.bouncycastle.asn1.x509.Extension;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -72,6 +73,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     private CertificateRepository certificateRepository;
     private LocationService locationService;
     private CertificateService certificateService;
+    private ComplianceService complianceService;
     private CertificateEventHistoryService certificateEventHistoryService;
     private ExtendedAttributeService extendedAttributeService;
     private CertificateApiClient certificateApiClient;
@@ -122,6 +124,11 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Autowired
     public void setCertificateService(CertificateService certificateService) {
         this.certificateService = certificateService;
+    }
+
+    @Autowired
+    public void setComplianceService(ComplianceService complianceService) {
+        this.complianceService = complianceService;
     }
 
     @Autowired
@@ -230,6 +237,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to submit certificate request: " + e.getMessage());
         }
 
+        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+        response.setCertificateData("");
+        response.setUuid(certificate.getUuid());
+
+        // check for compliance of certificate request
+        if (isRequestNotCompliant(UUID.fromString(certificate.getUuid()), certificate.getCertificateRequest().getUuid(), CertificateEvent.ISSUE)) {
+            return response;
+        }
+
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
         actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
@@ -239,9 +255,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         actionMessage.setResourceUuid(UUID.fromString(certificate.getUuid()));
         actionProducer.produceMessage(actionMessage);
 
-        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
-        response.setCertificateData("");
-        response.setUuid(certificate.getUuid());
         return response;
     }
 
@@ -292,7 +305,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
             certificateService.issueRequestedCertificate(certificateUuid, issueCaResponse.getCertificateData(), issueCaResponse.getMeta());
         } catch (Exception e) {
-            handleFailedOrRejectedEvent(e, certificate, null, CertificateState.FAILED, CertificateEvent.ISSUE, new HashMap<>());
+            handleFailedOrRejectedEvent(certificate, null, CertificateState.FAILED, CertificateEvent.ISSUE, new HashMap<>(), e.getMessage());
             throw new CertificateOperationException("Failed to issue certificate with UUID %s: ".formatted(certificateUuid) + e.getMessage());
         }
 
@@ -311,12 +324,27 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         logger.debug("Certificate issued: {}", certificate);
     }
 
-    private void handleFailedOrRejectedEvent(Exception e, Certificate certificate, UUID oldCertificateUuid, CertificateState state, CertificateEvent event, Map<String, Object> additionalInformation) {
+    private boolean isRequestNotCompliant(UUID certificateUuid, UUID certificateRequestUuid, CertificateEvent certificateEvent) throws NotFoundException {
+        // check for compliance of certificate request
+        logger.debug("Checking compliance of certificate request for certificate {}", certificateUuid);
+        complianceService.checkResourceObjectsComplianceValidation(Resource.CERTIFICATE, List.of(certificateUuid));
+        complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificateUuid);
+        ComplianceCheckResultDto complianceResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE_REQUEST, certificateRequestUuid);
+        if (complianceResult.getStatus() == ComplianceStatus.NOK || complianceResult.getStatus() == ComplianceStatus.FAILED) {
+            Certificate newCertificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
+            handleFailedOrRejectedEvent(newCertificate, null, CertificateState.REJECTED, certificateEvent, new HashMap<>(), "Certificate request is not compliant");
+            return true;
+        }
+
+        return false;
+    }
+
+    private void handleFailedOrRejectedEvent(Certificate certificate, UUID oldCertificateUuid, CertificateState state, CertificateEvent event, Map<String, Object> additionalInformation, String message) {
         for (CertificateLocation location : certificate.getLocations()) {
             try {
                 locationService.removeRejectedOrFailedCertificateFromLocationAction(location.getId());
             } catch (ConnectorException | NotFoundException ex) {
-                logger.error("Failed to remove certificate with UUID {} from location with UUID {}: {}", certificate.getUuid(), location.getId().getLocationUuid(), e.getMessage());
+                logger.error("Failed to remove certificate with UUID {} from location with UUID {}: {}", certificate.getUuid(), location.getId().getLocationUuid(), message);
             }
         }
         CertificateState oldState = certificate.getState();
@@ -326,15 +354,19 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         certificateRelationRepository.deleteAll(certificate.getPredecessorRelations());
 
         if (state == CertificateState.FAILED) {
-            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, message, MetaDefinitions.serialize(additionalInformation));
             if (event == CertificateEvent.RENEW)
-                certificateEventHistoryService.addEventHistory(oldCertificateUuid, CertificateEvent.RENEW, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+                certificateEventHistoryService.addEventHistory(oldCertificateUuid, CertificateEvent.RENEW, CertificateEventStatus.FAILED, message, MetaDefinitions.serialize(additionalInformation));
             if (event == CertificateEvent.REKEY)
-                certificateEventHistoryService.addEventHistory(oldCertificateUuid, CertificateEvent.REKEY, CertificateEventStatus.FAILED, e.getMessage(), MetaDefinitions.serialize(additionalInformation));
+                certificateEventHistoryService.addEventHistory(oldCertificateUuid, CertificateEvent.REKEY, CertificateEventStatus.FAILED, message, MetaDefinitions.serialize(additionalInformation));
         }
 
         if (state == CertificateState.REJECTED) {
-            certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_STATE, CertificateEventStatus.SUCCESS, "Certificate state changed from %s to %s.".formatted(oldState.getLabel(), CertificateState.REJECTED.getLabel()), "");
+            if (message == null) {
+                certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.UPDATE_STATE, CertificateEventStatus.SUCCESS, "Certificate state changed from %s to %s.".formatted(oldState.getLabel(), CertificateState.REJECTED.getLabel()), "");
+            } else {
+                certificateEventHistoryService.addEventHistory(certificate.getUuid(), CertificateEvent.ISSUE, CertificateEventStatus.FAILED, message, MetaDefinitions.serialize(additionalInformation));
+            }
         }
     }
 
@@ -364,7 +396,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     @Override
     public void issueCertificateRejectedAction(final UUID certificateUuid) throws NotFoundException {
         final Certificate certificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));
-        handleFailedOrRejectedEvent(null, certificate, null, CertificateState.REJECTED, null, null);
+        handleFailedOrRejectedEvent(certificate, null, CertificateState.REJECTED, null, null, null);
     }
 
     @Override
@@ -402,6 +434,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to submit certificate request for certificate renewal: " + e.getMessage());
         }
 
+        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+        response.setCertificateData("");
+        response.setUuid(newCertificate.getUuid());
+
+        // check for compliance of certificate request
+        if (isRequestNotCompliant(UUID.fromString(newCertificate.getUuid()), newCertificate.getCertificateRequest().getUuid(), CertificateEvent.RENEW)) {
+            return response;
+        }
+
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
         actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
@@ -412,10 +453,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         actionMessage.setResourceUuid(UUID.fromString(newCertificate.getUuid()));
 
         actionProducer.produceMessage(actionMessage);
-
-        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
-        response.setCertificateData("");
-        response.setUuid(newCertificate.getUuid());
         return response;
     }
 
@@ -460,7 +497,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.RENEW, CertificateEventStatus.SUCCESS, "Renewed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
-            handleFailedOrRejectedEvent(e, certificate, oldCertificate.getUuid(), CertificateState.FAILED, CertificateEvent.RENEW, additionalInformation);
+            handleFailedOrRejectedEvent(certificate, oldCertificate.getUuid(), CertificateState.FAILED, CertificateEvent.RENEW, additionalInformation, e.getMessage());
             throw new CertificateOperationException("Failed to renew certificate with UUID %s: ".formatted(certificateUuid) + e.getMessage());
         }
 
@@ -541,6 +578,15 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             throw new CertificateOperationException("Failed to submit certificate request for certificate rekey: " + e.getMessage());
         }
 
+        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
+        response.setCertificateData("");
+        response.setUuid(newCertificate.getUuid());
+
+        // check for compliance of certificate request
+        if (isRequestNotCompliant(UUID.fromString(newCertificate.getUuid()), newCertificate.getCertificateRequest().getUuid(), CertificateEvent.REKEY)) {
+            return response;
+        }
+
         final ActionMessage actionMessage = new ActionMessage();
         actionMessage.setApprovalProfileResource(Resource.RA_PROFILE);
         actionMessage.setApprovalProfileResourceUuid(raProfileUuid.getValue());
@@ -551,10 +597,6 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         actionMessage.setResourceUuid(UUID.fromString(newCertificate.getUuid()));
 
         actionProducer.produceMessage(actionMessage);
-
-        final ClientCertificateDataResponseDto response = new ClientCertificateDataResponseDto();
-        response.setCertificateData("");
-        response.setUuid(newCertificate.getUuid());
         return response;
     }
 
@@ -650,7 +692,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
             additionalInformation.put("New Certificate Serial Number", certificateDetailDto.getSerialNumber());
             certificateEventHistoryService.addEventHistory(oldCertificate.getUuid(), CertificateEvent.REKEY, CertificateEventStatus.SUCCESS, "Rekeyed using RA Profile " + raProfile.getName(), MetaDefinitions.serialize(additionalInformation));
         } catch (Exception e) {
-            handleFailedOrRejectedEvent(e, certificate, oldCertificate.getUuid(), CertificateState.FAILED, CertificateEvent.REKEY, additionalInformation);
+            handleFailedOrRejectedEvent(certificate, oldCertificate.getUuid(), CertificateState.FAILED, CertificateEvent.REKEY, additionalInformation, e.getMessage());
             throw new CertificateOperationException("Failed to rekey certificate with UUID %s: ".formatted(certificateUuid) + e.getMessage());
         }
 

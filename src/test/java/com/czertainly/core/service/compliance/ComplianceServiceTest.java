@@ -4,16 +4,20 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
+import com.czertainly.api.model.client.compliance.v2.ComplianceInternalRuleRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.certificate.CertificateDto;
+import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateType;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckRuleDto;
+import com.czertainly.api.model.core.v2.ClientCertificateRenewRequestDto;
+import com.czertainly.api.model.core.workflows.ConditionItemDto;
+import com.czertainly.api.model.core.workflows.ConditionItemRequestDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.CryptographicKeyRepository;
 import com.czertainly.core.dao.repository.TokenInstanceReferenceRepository;
@@ -22,14 +26,17 @@ import com.czertainly.core.helpers.CertificateGeneratorHelper;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
+import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.CertificateService;
 import com.czertainly.core.service.ComplianceService;
+import com.czertainly.core.service.v2.ClientOperationService;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.security.KeyPair;
 import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.List;
@@ -53,13 +60,16 @@ class ComplianceServiceTest extends BaseComplianceTest {
     @Autowired
     CryptographicKeyRepository cryptographicKeyRepository;
 
+    @Autowired
+    ClientOperationService clientOperationService;
+
     @Test
     void testCheckCompliance() throws Exception {
         var internalRuleAssoc = new ComplianceProfileRule();
         internalRuleAssoc.setComplianceProfile(complianceProfile);
         internalRuleAssoc.setComplianceProfileUuid(complianceProfile.getUuid());
         internalRuleAssoc.setResource(Resource.CERTIFICATE);
-        internalRuleAssoc.setInternalRuleUuid(internalRuleInvalidUuid);
+        internalRuleAssoc.setInternalRuleUuid(internalCertificateInvalidRuleUuid);
         complianceProfileRuleRepository.save(internalRuleAssoc);
 
         // add a V1 provider rule association to the seeded compliance profile
@@ -269,6 +279,71 @@ class ComplianceServiceTest extends BaseComplianceTest {
     }
 
     @Test
+    void testCertificateRequestComplianceCheckBeforeIssue() throws Exception {
+        WireMock.stubFor(WireMock.get(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue/attributes"))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("[]").withStatus(200)));
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue/attributes/validate"))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("true").withStatus(200)));
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathEqualTo("/v2/authorityProvider/authorities/1l/certificates/issue"))
+                .willReturn(WireMock.aResponse()
+                        .withHeader("Content-Type", "application/json")
+                        .withBody("""
+                                {
+                                    "certificateData": "TEST-DATA"
+                                }
+                                """).withStatus(200)));
+
+        var internalRuleAssoc = new ComplianceProfileRule();
+        internalRuleAssoc.setComplianceProfile(complianceProfile);
+        internalRuleAssoc.setComplianceProfileUuid(complianceProfile.getUuid());
+        internalRuleAssoc.setResource(Resource.CERTIFICATE_REQUEST);
+        internalRuleAssoc.setInternalRuleUuid(internalCertificateRequestRuleUuid);
+        complianceProfileRuleRepository.save(internalRuleAssoc);
+
+        var certificateChainInfo = CertificateGeneratorHelper.generateCertificateWithIssuer(KeyAlgorithm.RSA, "CN=Test-Ca-RSA", "CN=Test-EndEntity-RSA", null);
+        UploadCertificateRequestDto uploadRequestDto = new UploadCertificateRequestDto();
+        uploadRequestDto.setCertificate(certificateChainInfo.getEndEntityCertificateBase64Encoded());
+        var certificateDto = certificateService.upload(uploadRequestDto, true);
+        Certificate certWithRsaKey = certificateRepository.findByUuid(UUID.fromString(certificateDto.getUuid())).orElseThrow();
+        certWithRsaKey.setRaProfileUuid(associatedRaProfileUuid);
+        certificateRepository.save(certWithRsaKey);
+
+        KeyPair certWithRsaKeyPair = certificateChainInfo.getEndEntityCertificateKeyPair();
+        String csr = CertificateGeneratorHelper.generateCsrBase64Der(certWithRsaKeyPair.getPrivate(), certWithRsaKeyPair.getPublic(), "CN=Test-EndEntity-RSA", "SHA256WithRSA");
+        ClientCertificateRenewRequestDto renewRequestDto = new ClientCertificateRenewRequestDto();
+        renewRequestDto.setRequest(csr);
+        var response = clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(authorityUuid), SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(), renewRequestDto);
+
+        Certificate renewedCert = certificateRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
+        Assertions.assertEquals(CertificateState.REQUESTED, renewedCert.getState(), "Certificate should be in PENDING_ISSUE state");
+
+        ComplianceInternalRule internalCertificateRequestRule = internalRuleRepository.findByUuid(internalCertificateRequestRuleUuid).orElseThrow();
+        var internalRules = complianceProfileService.getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
+        ConditionItemDto conditionItemDto = internalRules.getFirst().getConditionItems().getFirst();
+
+        ConditionItemRequestDto conditionItemRequestDto = new ConditionItemRequestDto();
+        conditionItemRequestDto.setFieldSource(conditionItemDto.getFieldSource());
+        conditionItemRequestDto.setFieldIdentifier(conditionItemDto.getFieldIdentifier());
+        conditionItemRequestDto.setOperator(conditionItemDto.getOperator());
+        conditionItemRequestDto.setValue(List.of("ECDSA"));
+
+        ComplianceInternalRuleRequestDto requestDto = new ComplianceInternalRuleRequestDto();
+        requestDto.setName("TestInternalRuleCertRequest");
+        requestDto.setResource(Resource.CERTIFICATE_REQUEST);
+        requestDto.setConditionItems(List.of(conditionItemRequestDto));
+        complianceProfileService.updateComplianceInternalRule(internalCertificateRequestRuleUuid, requestDto);
+        response = clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(authorityUuid), SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(), renewRequestDto);
+        renewedCert = certificateRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
+        Assertions.assertEquals(CertificateState.REJECTED, renewedCert.getState(), "Certificate should be in REJECTED state");
+    }
+
+    @Test
     void testGetComplianceCheckResult_withInternalAndProviderRules() {
         // prepare compliance result with one failing internal rule and one failing provider rule (v2)
         ComplianceResultDto complianceResult = new ComplianceResultDto();
@@ -276,7 +351,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceResult.setTimestamp(null);
 
         ComplianceResultRulesDto internal = new ComplianceResultRulesDto();
-        internal.setNotCompliant(new HashSet<>(List.of(internalRuleUuid)));
+        internal.setNotCompliant(new HashSet<>(List.of(internalCertificateRuleUuid)));
         internal.setNotApplicable(new HashSet<>());
         internal.setNotAvailable(new HashSet<>());
         complianceResult.setInternalRules(internal);
@@ -301,7 +376,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         for (ComplianceCheckRuleDto dto : result.getFailedRules()) {
             found.add(dto.getUuid());
         }
-        Assertions.assertTrue(found.contains(internalRuleUuid));
+        Assertions.assertTrue(found.contains(internalCertificateRuleUuid));
         Assertions.assertTrue(found.contains(complianceV2RuleUuid));
     }
 
