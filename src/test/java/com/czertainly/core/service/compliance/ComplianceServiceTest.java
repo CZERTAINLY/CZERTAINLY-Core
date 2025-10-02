@@ -321,7 +321,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         var response = clientOperationService.renewCertificate(SecuredParentUUID.fromUUID(authorityUuid), SecuredUUID.fromUUID(associatedRaProfileUuid), certWithRsaKey.getUuid().toString(), renewRequestDto);
 
         Certificate renewedCert = certificateRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
-        Assertions.assertEquals(CertificateState.REQUESTED, renewedCert.getState(), "Certificate should be in PENDING_ISSUE state");
+        Assertions.assertEquals(CertificateState.REQUESTED, renewedCert.getState(), "Certificate should be in REQUESTED state");
 
         var internalRules = complianceProfileService.getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
         ConditionItemDto conditionItemDto = internalRules.getFirst().getConditionItems().getFirst();
