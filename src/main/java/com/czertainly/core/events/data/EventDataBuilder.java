@@ -3,6 +3,8 @@ package com.czertainly.core.events.data;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.common.events.data.*;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
+import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfile;
@@ -111,6 +113,13 @@ public class EventDataBuilder {
         eventData.setNotBefore(certificate.getNotBefore().toInstant().atZone(ZoneId.systemDefault()));
         eventData.setExpiresAt(certificate.getNotAfter().toInstant().atZone(ZoneId.systemDefault()));
 
+        return eventData;
+    }
+
+    public static CertificateNotCompliantEventData getCertificateNotCompliantEventData(Certificate certificate, ComplianceCheckResultDto checkResultDto) {
+        CertificateNotCompliantEventData eventData = new CertificateNotCompliantEventData();
+        setCertificateEventData(eventData, certificate);
+        eventData.setComplianceCheckResultDto(checkResultDto);
         return eventData;
     }
 

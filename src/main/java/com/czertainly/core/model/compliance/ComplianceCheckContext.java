@@ -83,11 +83,11 @@ public class ComplianceCheckContext {
                     try {
                         subjectHandler.initSubjectComplianceResult(subject.getUuid(), subject.getComplianceResult());
                         performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
-                        subjectHandler.saveComplianceResult(subject, null);
+                        subjectHandler.saveComplianceResult(subject, null, resourceObjects.getKey());
                         logger.debug("{} {} compliance check finalized with result: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), subject.getComplianceStatus().getLabel());
                     } catch (Exception e) {
                         logger.warn("Error checking compliance for {} with UUID {}: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), e.getMessage());
-                        subjectHandler.saveComplianceResult(subject, e.getMessage());
+                        subjectHandler.saveComplianceResult(subject, e.getMessage(), resourceObjects.getKey());
                     }
                 }
             }
