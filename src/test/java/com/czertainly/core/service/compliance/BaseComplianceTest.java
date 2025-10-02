@@ -68,12 +68,14 @@ class BaseComplianceTest extends BaseSpringBootTest {
     private WireMockServer mockServer;
     protected ComplianceProfile complianceProfile;
 
+    protected UUID authorityUuid;
     protected UUID associatedRaProfileUuid;
     protected UUID unassociatedRaProfileUuid;
 
-    protected UUID internalRuleUuid;
-    protected UUID internalRule2Uuid;
-    protected UUID internalRuleInvalidUuid;
+    protected UUID internalCertificateRuleUuid;
+    protected UUID internalCertificateRule2Uuid;
+    protected UUID internalCertificateInvalidRuleUuid;
+    protected UUID internalCertificateRequestRuleUuid;
     protected final UUID complianceV1RuleUuid = UUID.randomUUID();
     protected final UUID complianceV1Rule2Uuid = UUID.randomUUID();
     protected final UUID complianceV1GroupUuid = UUID.randomUUID();
@@ -106,6 +108,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
         authorityInstanceReference.setAuthorityInstanceUuid("1l");
         authorityInstanceReference.setConnector(connectorV2);
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
+        authorityUuid = authorityInstanceReference.getUuid();
 
         RaProfile raProfile = new RaProfile();
         raProfile.setName("TestProfile");
@@ -167,19 +170,26 @@ class BaseComplianceTest extends BaseSpringBootTest {
         ruleRequestDto.setResource(Resource.CERTIFICATE);
         ruleRequestDto.setConditionItems(List.of(conditionItemRequestDto));
         ComplianceRuleListDto ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
-        internalRuleUuid = ruleDetailDto.getUuid();
+        internalCertificateRuleUuid = ruleDetailDto.getUuid();
 
         conditionItemRequestDto.setFieldIdentifier("PRIVATE_KEY");
         conditionItemRequestDto.setValue(true);
         ruleRequestDto.setName("TestInternalRule2");
         ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
-        internalRule2Uuid = ruleDetailDto.getUuid();
+        internalCertificateRule2Uuid = ruleDetailDto.getUuid();
 
         conditionItemRequestDto.setFieldIdentifier("UNKNOWN_FIELD");
         conditionItemRequestDto.setValue(true);
         ruleRequestDto.setName("TestInternalRuleInvalid");
         ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
-        internalRuleInvalidUuid = ruleDetailDto.getUuid();
+        internalCertificateInvalidRuleUuid = ruleDetailDto.getUuid();
+
+        conditionItemRequestDto.setFieldIdentifier("CERT_REQUEST_PUBLIC_KEY_ALGORITHM");
+        conditionItemRequestDto.setValue(List.of("RSA"));
+        ruleRequestDto.setName("TestInternalRuleCertRequest");
+        ruleRequestDto.setResource(Resource.CERTIFICATE_REQUEST);
+        ruleDetailDto = complianceProfileService.createComplianceInternalRule(ruleRequestDto);
+        internalCertificateRequestRuleUuid = ruleDetailDto.getUuid();
     }
 
     private void createComplianceProfileAssociations() {
@@ -205,7 +215,7 @@ class BaseComplianceTest extends BaseSpringBootTest {
         complianceProfileRule3.setComplianceProfile(complianceProfile);
         complianceProfileRule3.setComplianceProfileUuid(complianceProfile.getUuid());
         complianceProfileRule3.setResource(Resource.CERTIFICATE);
-        complianceProfileRule3.setInternalRuleUuid(internalRuleUuid);
+        complianceProfileRule3.setInternalRuleUuid(internalCertificateRuleUuid);
         complianceProfileRuleRepository.save(complianceProfileRule3);
     }
 
