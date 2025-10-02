@@ -710,10 +710,12 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateChainResponseDto getCertificateChain(SecuredUUID uuid, boolean withEndCertificate) throws NotFoundException {
         Certificate certificate = getCertificateEntity(uuid);
         CertificateChainResponseDto certificateChainResponseDto = new CertificateChainResponseDto();
-        List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
-        Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
-        certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
-        certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
+        if (certificate.getCertificateContent() != null) {
+            List<Certificate> certificateChain = getCertificateChainInternal(certificate, withEndCertificate);
+            Certificate lastCertificate = certificateChain.isEmpty() ? certificate : certificateChain.getLast();
+            certificateChainResponseDto.setCompleteChain(completeCertificateChain(lastCertificate, certificateChain));
+            certificateChainResponseDto.setCertificates(certificateChain.stream().map(Certificate::mapToDto).toList());
+        }
         return certificateChainResponseDto;
     }
 
