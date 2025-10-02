@@ -10,6 +10,7 @@ import com.czertainly.api.model.common.attribute.v2.content.StringAttributeConte
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
+import com.czertainly.core.attribute.engine.AttributeOperation;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -39,7 +40,7 @@ public class RsaEncryptionAttributes {
     public static final String ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_DESCRIPTION = "Usage of OAEP MGF";
 
 
-    @CoreAttributeDefinitions(operation = "encrypt")
+    @CoreAttributeDefinitions(operation = AttributeOperation.ENCRYPT)
     public static List<BaseAttribute> getRsaEncryptionAttributes() {
         return List.of(
                 buildDataEncryptionScheme(),
