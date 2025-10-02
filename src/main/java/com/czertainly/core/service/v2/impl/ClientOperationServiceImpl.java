@@ -243,6 +243,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // check for compliance of certificate request
         if (isRequestNotCompliant(UUID.fromString(certificate.getUuid()), certificate.getCertificateRequest().getUuid(), CertificateEvent.ISSUE)) {
+            logger.warn("Certificate request is not compliant, not issuing certificate {}", certificate.getUuid());
             return response;
         }
 
@@ -440,6 +441,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // check for compliance of certificate request
         if (isRequestNotCompliant(UUID.fromString(newCertificate.getUuid()), newCertificate.getCertificateRequest().getUuid(), CertificateEvent.RENEW)) {
+            logger.warn("Certificate request is not compliant, not issuing certificate {} as renewal of certificate {}", newCertificate.getUuid(), oldCertificate.getUuid());
             return response;
         }
 
@@ -584,6 +586,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
         // check for compliance of certificate request
         if (isRequestNotCompliant(UUID.fromString(newCertificate.getUuid()), newCertificate.getCertificateRequest().getUuid(), CertificateEvent.REKEY)) {
+            logger.warn("Certificate request is not compliant, not issuing certificate {} as rekey of certificate {}", newCertificate.getUuid(), oldCertificate.getUuid());
             return response;
         }
 
