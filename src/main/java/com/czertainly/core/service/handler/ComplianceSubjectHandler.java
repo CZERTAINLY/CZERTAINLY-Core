@@ -194,7 +194,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             complianceResultDto.setStatus(ComplianceStatus.FAILED);
         } else {
             complianceResultDto.setStatus(calculateComplianceStatus(complianceResultDto));
-            if (complianceResultDto.getStatus() != subject.getComplianceResult().getStatus() && complianceResultDto.getStatus() == ComplianceStatus.NOK &&  resource== Resource.CERTIFICATE) {
+            if ((subject.getComplianceResult() == null || complianceResultDto.getStatus() != subject.getComplianceResult().getStatus()) && complianceResultDto.getStatus() == ComplianceStatus.NOK &&  resource== Resource.CERTIFICATE) {
                 eventProducer.produceMessage(CertificateNotCompliantEventHandler.constructEventMessages(subject.getUuid()));
             }
         }
