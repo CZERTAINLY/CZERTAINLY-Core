@@ -19,6 +19,9 @@ import java.util.stream.Stream;
 @Component
 public class RsaSignatureAttributes {
 
+    /**
+     * Private constructor to prevent instantiation of utility class.
+     */
     private RsaSignatureAttributes(){}
 
     public static final String ATTRIBUTE_DATA_RSA_SIG_SCHEME = "data_rsaSigScheme";

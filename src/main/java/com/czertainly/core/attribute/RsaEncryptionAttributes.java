@@ -20,6 +20,9 @@ import java.util.stream.Stream;
 @Component
 public class RsaEncryptionAttributes {
 
+    /**
+     * Private constructor to prevent instantiation of utility class.
+     */
     private RsaEncryptionAttributes() {}
 
     public static final String ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME = "data_rsaEncScheme"; // this would be OAEP or PKCS1-v1_5 according the RFC 8017

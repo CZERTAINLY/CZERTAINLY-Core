@@ -18,6 +18,9 @@ import java.util.stream.Stream;
 @Component
 public class EcdsaSignatureAttributes {
 
+    /**
+     * Private constructor to prevent instantiation of utility class.
+     */
     private EcdsaSignatureAttributes(){}
 
     public static final String ATTRIBUTE_DATA_SIG_DIGEST = "data_sigDigest";

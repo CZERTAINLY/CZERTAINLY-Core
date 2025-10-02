@@ -45,6 +45,9 @@ public class CsrAttributes {
     public static final String STATE_ATTRIBUTE_LABEL = "State";
     public static final String COUNTRY_ATTRIBUTE_LABEL = "Country";
 
+    /**
+     * Private constructor to prevent instantiation of utility class.
+     */
     private CsrAttributes() {}
 
     /**
