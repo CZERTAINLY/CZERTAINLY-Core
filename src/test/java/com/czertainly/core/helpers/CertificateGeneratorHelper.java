@@ -83,7 +83,6 @@ public class CertificateGeneratorHelper {
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(true));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.keyCertSign));
 
-//        String signatureAlgorithm = caKeyPair.getPrivate().getAlgorithm() == "RSA" ? "SHA256WithRSA" : "SHA256withECDSA";
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA")
                 .build(caKeyPair.getPrivate());
 
@@ -117,7 +116,6 @@ public class CertificateGeneratorHelper {
         builder.addExtension(Extension.basicConstraints, true, new BasicConstraints(false));
         builder.addExtension(Extension.keyUsage, true, new KeyUsage(KeyUsage.digitalSignature));
 
-//        String signatureAlgorithm = caKeyPair.getPrivate().getAlgorithm() == "RSA" ? "SHA256WithRSA" : "SHA256withECDSA";
         ContentSigner signer = new JcaContentSignerBuilder("SHA256WithRSA")
                 .build(caKeyPair.getPrivate());
 

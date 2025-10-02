@@ -323,7 +323,6 @@ class ComplianceServiceTest extends BaseComplianceTest {
         Certificate renewedCert = certificateRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
         Assertions.assertEquals(CertificateState.REQUESTED, renewedCert.getState(), "Certificate should be in PENDING_ISSUE state");
 
-        ComplianceInternalRule internalCertificateRequestRule = internalRuleRepository.findByUuid(internalCertificateRequestRuleUuid).orElseThrow();
         var internalRules = complianceProfileService.getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
         ConditionItemDto conditionItemDto = internalRules.getFirst().getConditionItems().getFirst();
 
