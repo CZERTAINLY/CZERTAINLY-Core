@@ -9,9 +9,12 @@ import com.czertainly.api.model.connector.compliance.v2.ComplianceResponseDto;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceResponseRuleDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
+import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceSubject;
+import com.czertainly.core.events.handlers.CertificateNotCompliantEventHandler;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.handler.ComplianceSubjectHandler;
 import lombok.Getter;
@@ -38,7 +41,9 @@ public class ComplianceCheckContext {
     private final Map<UUID, ComplianceCheckProfileContext> profilesContextMap = new HashMap<>();
     private final Map<String, ComplianceCheckProviderContext> providersContextMap = new HashMap<>();
 
-    public ComplianceCheckContext(boolean checkByProfiles, Resource resource, IPlatformEnum typeEnum, ComplianceProfileRuleHandler ruleHandler, Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> subjectHandlers, ComplianceApiClient complianceApiClient, com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1) {
+    private final EventProducer eventProducer;
+
+    public ComplianceCheckContext(boolean checkByProfiles, Resource resource, IPlatformEnum typeEnum, ComplianceProfileRuleHandler ruleHandler, Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> subjectHandlers, ComplianceApiClient complianceApiClient, com.czertainly.api.clients.ComplianceApiClient complianceApiClientV1, EventProducer eventProducer) {
         this.checkByProfiles = checkByProfiles;
         this.resource = resource;
         this.typeEnum = typeEnum;
@@ -46,6 +51,7 @@ public class ComplianceCheckContext {
         this.subjectHandlers = subjectHandlers;
         this.complianceApiClient = complianceApiClient;
         this.complianceApiClientV1 = complianceApiClientV1;
+        this.eventProducer = eventProducer;
     }
 
     public void addComplianceProfile(ComplianceProfile complianceProfile, Map<Resource, Set<ComplianceSubject>> complianceSubjects) {
@@ -82,8 +88,12 @@ public class ComplianceCheckContext {
                 for (var subject : resourceObjects.getValue()) {
                     try {
                         subjectHandler.initSubjectComplianceResult(subject.getUuid(), subject.getComplianceResult());
+                        boolean previouslyNonCompliant = subject.getComplianceResult() != null && subject.getComplianceResult().getStatus() == ComplianceStatus.NOK;
                         performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
                         subjectHandler.saveComplianceResult(subject, null, resourceObjects.getKey());
+                        if (!previouslyNonCompliant && subject.getComplianceResult().getStatus() == ComplianceStatus.NOK && resource == Resource.CERTIFICATE) {
+                            eventProducer.produceMessage(CertificateNotCompliantEventHandler.constructEventMessages(subject.getUuid()));
+                        }
                         logger.debug("{} {} compliance check finalized with result: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), subject.getComplianceStatus().getLabel());
                     } catch (Exception e) {
                         logger.warn("Error checking compliance for {} with UUID {}: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), e.getMessage());

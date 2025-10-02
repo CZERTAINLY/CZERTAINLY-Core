@@ -8,22 +8,17 @@ import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceSubject;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
-import com.czertainly.core.events.handlers.CertificateNotCompliantEventHandler;
-import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
 import lombok.Getter;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Component;
 
 import java.time.OffsetDateTime;
 import java.util.*;
 
 @Getter
-@Component
 public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
     private static final Logger logger = LoggerFactory.getLogger(ComplianceSubjectHandler.class);
@@ -38,13 +33,6 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     private final Map<UUID, Map<String, Set<UUID>>> checkedProviderRulesMap = new HashMap<>();
     private final Map<UUID, Map<String, Set<UUID>>> checkedProviderGroupsMap = new HashMap<>();
     private final Map<UUID, ComplianceResultDto> complianceResultsMap = new HashMap<>();
-
-    private EventProducer eventProducer;
-
-    @Autowired
-    public void setEventProducer(EventProducer eventProducer) {
-        this.eventProducer = eventProducer;
-    }
 
     public ComplianceSubjectHandler(boolean checkByProfiles, TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {
         this.checkByProfiles = checkByProfiles;
@@ -194,9 +182,6 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             complianceResultDto.setStatus(ComplianceStatus.FAILED);
         } else {
             complianceResultDto.setStatus(calculateComplianceStatus(complianceResultDto));
-            if ((subject.getComplianceResult() == null || complianceResultDto.getStatus() != subject.getComplianceResult().getStatus()) && complianceResultDto.getStatus() == ComplianceStatus.NOK &&  resource== Resource.CERTIFICATE) {
-                eventProducer.produceMessage(CertificateNotCompliantEventHandler.constructEventMessages(subject.getUuid()));
-            }
         }
 
         typedSubject.setComplianceResult(complianceResultDto);
