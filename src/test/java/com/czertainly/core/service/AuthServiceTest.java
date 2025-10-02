@@ -7,7 +7,7 @@ import com.czertainly.api.model.core.auth.AuthResourceDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.auth.UserProfileDetailDto;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
-import com.czertainly.core.auth.ResourceListener;
+import com.czertainly.core.auth.ContextRefreshListener;
 import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationToken;
 import com.czertainly.core.security.authn.CzertainlyUserDetails;
@@ -45,7 +45,7 @@ class AuthServiceTest extends BaseSpringBootTest {
     private AuthService authService;
 
     @Autowired
-    private ResourceListener resourceListener;
+    private ContextRefreshListener contextRefreshListener;
 
     @BeforeEach
     public void setUp() {
@@ -68,7 +68,7 @@ class AuthServiceTest extends BaseSpringBootTest {
     @Test
     void testAuthResources() {
         List<AuthResourceDto> authResources = authService.getAuthResources();
-        List<ResourceSyncRequestDto> resources = resourceListener.getResources();
+        List<ResourceSyncRequestDto> resources = contextRefreshListener.getResources();
 
         Assertions.assertEquals(resources.size(), authResources.size());
     }
