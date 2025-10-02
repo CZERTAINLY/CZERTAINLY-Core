@@ -39,6 +39,7 @@ public enum ResourceToClass {
     AUTHORITY(Resource.AUTHORITY, AuthorityInstanceReference.class),
     RA_PROFILE(Resource.RA_PROFILE, RaProfile.class),
     CERTIFICATE(Resource.CERTIFICATE, Certificate.class),
+    CERTIFICATE_REQUEST(Resource.CERTIFICATE_REQUEST, CertificateRequestEntity.class),
     GROUP(Resource.GROUP, Group.class),
     COMPLIANCE_PROFILE(Resource.COMPLIANCE_PROFILE, ComplianceProfile.class),
     DISCOVERY(Resource.DISCOVERY, DiscoveryHistory.class),

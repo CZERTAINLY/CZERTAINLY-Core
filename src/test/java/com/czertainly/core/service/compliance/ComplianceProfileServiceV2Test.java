@@ -98,7 +98,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     void updateComplianceProfileTest() throws AttributeException, NotFoundException, ConnectorException {
         ComplianceProfileUpdateRequestDto requestDto = new ComplianceProfileUpdateRequestDto();
         requestDto.setDescription("sampleDescription2");
-        requestDto.setInternalRules(Set.of(internalRuleUuid, internalRule2Uuid));
+        requestDto.setInternalRules(Set.of(internalCertificateRuleUuid, internalCertificateRule2Uuid));
 
         ComplianceRuleRequestDto ruleRequestV1Dto = new ComplianceRuleRequestDto();
         ruleRequestV1Dto.setUuid(complianceV1RuleUuid);
@@ -229,7 +229,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     @Test
     void testDeleteInternalRule() throws Exception {
         // delete associated internal rule
-        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceInternalRule(internalRuleUuid));
+        Assertions.assertThrows(ValidationException.class, () -> complianceProfileService.deleteComplianceInternalRule(internalCertificateRuleUuid));
 
         // create rule to delete
         ComplianceInternalRuleRequestDto createReq = new ComplianceInternalRuleRequestDto();
@@ -296,7 +296,7 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     void deleteRuleTest() throws NotFoundException, ConnectorException {
         ComplianceProfileRulesPatchRequestDto dto = new ComplianceProfileRulesPatchRequestDto();
         dto.setRemoval(true);
-        dto.setRuleUuid(internalRuleUuid);
+        dto.setRuleUuid(internalCertificateRuleUuid);
 
         complianceProfileService.patchComplianceProfileRules(SecuredUUID.fromUUID(complianceProfile.getUuid()), dto);
         ComplianceProfileDto complianceProfileDto = complianceProfileService.getComplianceProfile(SecuredUUID.fromUUID(complianceProfile.getUuid()));
@@ -491,7 +491,10 @@ class ComplianceProfileServiceV2Test extends BaseComplianceTest {
     @Test
     void getComplianceRulesTest() throws ConnectorException, NotFoundException {
         var rules = complianceProfileService.getComplianceRules(null, null, null, null, null);
-        Assertions.assertEquals(3, rules.size());
+        Assertions.assertEquals(4, rules.size());
+
+        rules = complianceProfileService.getComplianceRules(null, null, Resource.CERTIFICATE_REQUEST, null, null);
+        Assertions.assertEquals(1, rules.size());
 
         rules = complianceProfileService.getComplianceRules(connectorV1.getUuid(), KIND_V1, null, null, null);
         Assertions.assertEquals(2, rules.size());

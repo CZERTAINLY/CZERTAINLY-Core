@@ -14,13 +14,17 @@ import org.bouncycastle.cert.ocsp.jcajce.JcaBasicOCSPRespBuilder;
 import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jcajce.spec.MLKEMParameterSpec;
 import org.bouncycastle.jcajce.spec.SLHDSAParameterSpec;
+import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.ContentSigner;
 import org.bouncycastle.operator.DigestCalculator;
 import org.bouncycastle.operator.DigestCalculatorProvider;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
 import org.bouncycastle.operator.jcajce.JcaDigestCalculatorProviderBuilder;
+import org.bouncycastle.pkcs.PKCS10CertificationRequest;
+import org.bouncycastle.pkcs.jcajce.JcaPKCS10CertificationRequestBuilder;
 import org.bouncycastle.pqc.jcajce.spec.FalconParameterSpec;
 
+import javax.security.auth.x500.X500Principal;
 import java.math.BigInteger;
 import java.security.*;
 import java.security.cert.CertificateEncodingException;
@@ -34,6 +38,13 @@ import java.util.Date;
 public class CertificateGeneratorHelper {
 
     private CertificateGeneratorHelper() {
+    }
+
+    public static String generateCsrBase64Der(PrivateKey privateKey, PublicKey publicKey, String subjectDN, String signatureAlgorithm) throws Exception {
+        PKCS10CertificationRequest csr = new JcaPKCS10CertificationRequestBuilder(new X500Principal(subjectDN), publicKey)
+                .build(new JcaContentSignerBuilder(signatureAlgorithm).setProvider(BouncyCastleProvider.PROVIDER_NAME).build(privateKey));
+        byte[] der = csr.getEncoded();
+        return Base64.getEncoder().encodeToString(der);
     }
 
     public static CertificateChainInfo generateCertificateWithIssuer(KeyAlgorithm algorithm, String issuerDn, String subjectDn, String ocspUrl) throws Exception {

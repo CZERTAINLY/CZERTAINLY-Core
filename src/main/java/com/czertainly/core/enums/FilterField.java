@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.cryptography.key.KeyState;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.enums.CertificateProtocol;
+import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.oid.OidCategory;
@@ -36,6 +37,7 @@ public enum FilterField {
     COMMON_NAME(Resource.CERTIFICATE, null, null, Certificate_.commonName, "Common Name", SearchFieldTypeEnum.STRING),
     SERIAL_NUMBER(Resource.CERTIFICATE, null, null, Certificate_.serialNumber, "Serial Number", SearchFieldTypeEnum.STRING),
     RA_PROFILE_NAME(Resource.CERTIFICATE, Resource.RA_PROFILE, List.of(Certificate_.raProfile), RaProfile_.name, "RA Profile", SearchFieldTypeEnum.LIST, null, null, true, null),
+    CERTIFICATE_TYPE(Resource.CERTIFICATE, null, null, Certificate_.certificateType, "Type", SearchFieldTypeEnum.LIST, CertificateType.class),
     CERTIFICATE_STATE(Resource.CERTIFICATE, null, null, Certificate_.state, "State", SearchFieldTypeEnum.LIST, CertificateState.class),
     CERTIFICATE_VALIDATION_STATUS(Resource.CERTIFICATE, null, null, Certificate_.validationStatus, "Validation status", SearchFieldTypeEnum.LIST, CertificateValidationStatus.class),
     COMPLIANCE_STATUS(Resource.CERTIFICATE, null, null, Certificate_.complianceStatus, "Compliance Status", SearchFieldTypeEnum.LIST, ComplianceStatus.class),
@@ -72,6 +74,19 @@ public enum FilterField {
     SCEP_PROFILE(Resource.CERTIFICATE, Resource.SCEP_PROFILE, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.scepProfile), ScepProfile_.name, "SCEP Profile", SearchFieldTypeEnum.LIST),
     CMP_PROFILE(Resource.CERTIFICATE, Resource.CMP_PROFILE, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.cmpProfile), CmpProfile_.name, "CMP Profile", SearchFieldTypeEnum.LIST),
     ACME_ACCOUNT(Resource.CERTIFICATE, Resource.ACME_ACCOUNT, List.of(Certificate_.protocolAssociation, CertificateProtocolAssociation_.acmeAccount), AcmeAccount_.accountId, "ACME Account", SearchFieldTypeEnum.LIST),
+
+    // Certificate Request
+    CERT_REQUEST_COMMON_NAME(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.commonName, "Common Name", SearchFieldTypeEnum.STRING),
+    CERT_REQUEST_CERTIFICATE_TYPE(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.certificateType, "Certificate Type", SearchFieldTypeEnum.LIST, CertificateType.class),
+    CERT_REQUEST_FORMAT(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.certificateRequestFormat, "Format", SearchFieldTypeEnum.LIST, CertificateRequestFormat.class),
+    CERT_REQUEST_SUBJECT_DN(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.subjectDn, "Subject DN", SearchFieldTypeEnum.STRING),
+    CERT_REQUEST_PUBLIC_KEY_ALGORITHM(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.publicKeyAlgorithm, "Public Key Algorithm", SearchFieldTypeEnum.LIST),
+    CERT_REQUEST_ALT_PUBLIC_KEY_ALGORITHM(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.altPublicKeyAlgorithm, "Alternative Public Key Algorithm", SearchFieldTypeEnum.LIST),
+    CERT_REQUEST_SIGNATURE_ALGORITHM(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.signatureAlgorithm, "Signature Algorithm", SearchFieldTypeEnum.LIST),
+    CERT_REQUEST_ALT_SIGNATURE_ALGORITHM(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.altSignatureAlgorithm, "Alternative Signature Algorithm", SearchFieldTypeEnum.LIST),
+    CERT_REQUEST_COMPLIANCE_STATUS(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.complianceStatus, "Compliance Status", SearchFieldTypeEnum.LIST, ComplianceStatus.class),
+    CERT_REQUEST_KEY_USAGE(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.keyUsage, "Key Usage", SearchFieldTypeEnum.LIST, CertificateKeyUsage.class),
+    CERT_REQUEST_SUBJECT_ALTERNATIVE_NAMES(Resource.CERTIFICATE_REQUEST, null, null, CertificateRequestEntity_.subjectAlternativeNames, "Subject Alternative Name", SearchFieldTypeEnum.STRING),
 
     // Cryptographic Key
     CKI_NAME(Resource.CRYPTOGRAPHIC_KEY, null, null, CryptographicKeyItem_.name, "Name", SearchFieldTypeEnum.STRING),

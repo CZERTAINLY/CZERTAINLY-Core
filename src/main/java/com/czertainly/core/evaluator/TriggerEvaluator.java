@@ -135,7 +135,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         }
 
         for (ConditionItem conditionItem : internalRule.getConditionItems()) {
-            if (!evaluateConditionItem(conditionItem, object, internalRule.getResource())) return false;
+            if (!evaluateConditionItem(conditionItem, object, internalRule.getResource())) {
+                return false;
+            }
         }
 
         return true;
