@@ -88,7 +88,6 @@ public class ComplianceCheckContext {
                         subjectHandler.initSubjectComplianceResult(subject);
                         performSubjectComplianceCheck(profileContext, subjectHandler, resourceObjects.getKey(), subject);
                     } catch (Exception e) {
-                        // TODO: handle failed subjects when provider does not retrieve batch, set failed and then skip it from calculation
                         logger.warn("Error checking compliance of {} with UUID {} by profile {}: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), profileContext.getName(), e.getMessage());
                         subjectHandler.finalizeComplianceCheck(subject.getUuid(), e.getMessage());
                     }
