@@ -2,7 +2,6 @@ package com.czertainly.core.model.compliance;
 
 import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.connector.compliance.ComplianceRequestRulesDto;
@@ -38,6 +37,7 @@ public class ComplianceCheckProviderContext {
 
     private final ComplianceRulesBatchRequestDto rulesBatchRequestDto = new ComplianceRulesBatchRequestDto();
     private ComplianceRulesGroupsBatchDto rulesGroupsBatchDto;
+    private ConnectorException failedStatusException;
 
     private ComplianceRequestDto complianceRequestDto;
     private com.czertainly.api.model.connector.compliance.ComplianceRequestDto complianceRequestDtoV1;
@@ -60,11 +60,18 @@ public class ComplianceCheckProviderContext {
      * @param resource Resource of the compliance subject (null if not applicable)
      * @param type     Type of the compliance subject (null if not applicable)
      * @throws ConnectorException If there is an error communicating with the connector
-     * @throws NotFoundException  If the connector or rules are not found
      */
-    public void prepareComplianceCheckRequest(ComplianceSubject subject, Resource resource, IPlatformEnum type) throws ConnectorException, NotFoundException {
+    public void prepareComplianceCheckRequestForSubject(ComplianceSubject subject, Resource resource, IPlatformEnum type) throws ConnectorException {
         if (rulesGroupsBatchDto == null) {
-            rulesGroupsBatchDto = ruleHandler.getComplianceProviderRulesBatch(connectorUuid, kind, rulesBatchRequestDto.getRuleUuids(), rulesBatchRequestDto.getGroupUuids(), rulesBatchRequestDto.isWithGroupRules());
+            if (failedStatusException != null) {
+                throw failedStatusException;
+            }
+            try {
+                rulesGroupsBatchDto = ruleHandler.getComplianceProviderRulesBatch(connectorUuid, kind, rulesBatchRequestDto.getRuleUuids(), rulesBatchRequestDto.getGroupUuids(), rulesBatchRequestDto.isWithGroupRules());
+            } catch (Exception e) {
+                failedStatusException = new ConnectorException(e.getMessage(), e);
+                throw failedStatusException;
+            }
         }
 
         if (functionGroup == FunctionGroupCode.COMPLIANCE_PROVIDER) {
@@ -82,14 +89,14 @@ public class ComplianceCheckProviderContext {
 
 
     /**
-     * Adds a compliance profile rule to the compliance check request.
+     * Adds a provider compliance profile rule to the compliance check request.
      *
      * @param profileRule Compliance profile rule to be added to check request
      * @return null if the rule/group was added successfully
      * ComplianceRuleStatus.NA if the rule is not applicable (e.g. resource/type do not match)
      * ComplianceRuleStatus.NOT_AVAILABLE if the rule/group is not available in the provider
      */
-    public ComplianceRuleStatus addProfileRuleToCheck(ComplianceProfileRule profileRule) {
+    public ComplianceRuleStatus addProviderRuleToCheck(ComplianceProfileRule profileRule) {
         if (profileRule.getComplianceRuleUuid() != null) {
             ComplianceRuleResponseDto providerRule = rulesGroupsBatchDto.getRules().get(profileRule.getComplianceRuleUuid());
             ComplianceRuleAvailabilityStatus availabilityStatus = getRuleAvailabilityStatus(profileRule, providerRule);

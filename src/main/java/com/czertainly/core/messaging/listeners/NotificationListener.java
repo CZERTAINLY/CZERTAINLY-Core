@@ -243,7 +243,7 @@ public class NotificationListener {
     private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
         List<NotificationRecipient> recipients = new ArrayList<>();
         switch (event) {
-            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING -> {
+            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING, CERTIFICATE_NOT_COMPLIANT -> {
                 NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));
@@ -470,6 +470,11 @@ public class NotificationListener {
                 CertificateExpiringEventData data = (CertificateExpiringEventData)  eventData;
                 yield new InternalNotificationEventData("Certificate identified as '%s' with serial number '%s' issued by '%s' is expiring on %s"
                         .formatted(data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn(), data.getExpiresAt()), null);
+            }
+            case CERTIFICATE_NOT_COMPLIANT -> {
+                CertificateNotCompliantEventData data = (CertificateNotCompliantEventData) eventData;
+                yield new InternalNotificationEventData("Certificate identified as '%s' with serial number '%s' issued by '%s' is not compliant"
+                        .formatted(data.getSubjectDn(), data.getSerialNumber(), data.getIssuerDn()), null);
             }
             case DISCOVERY_FINISHED -> {
                 DiscoveryFinishedEventData data = (DiscoveryFinishedEventData) eventData;

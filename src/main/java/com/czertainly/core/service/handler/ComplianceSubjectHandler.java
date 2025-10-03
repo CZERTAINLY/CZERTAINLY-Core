@@ -1,12 +1,14 @@
 package com.czertainly.core.service.handler;
 
 import com.czertainly.api.exception.RuleException;
+import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleStatus;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceSubject;
 import com.czertainly.core.dao.repository.SecurityFilterRepository;
 import com.czertainly.core.evaluator.TriggerEvaluator;
+import com.czertainly.core.model.compliance.ComplianceCheckSubjectContext;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.core.model.compliance.ComplianceResultRulesDto;
@@ -25,40 +27,41 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     // If compliance is checked by profiles, the compliance result fro subject is being updated and not built from scratch
     // This means only rules of chosen compliance profiles that are reevaluated will be partially updated and new compliance status will be calculated
     private final boolean checkByProfiles;
+    private final Resource resource;
     private final TriggerEvaluator<T> triggerEvaluator;
     private final SecurityFilterRepository<T, UUID> repository;
 
-    private final Map<UUID, Set<UUID>> checkedInternalRulesMap = new HashMap<>();
-    private final Map<UUID, Map<String, Set<UUID>>> checkedProviderRulesMap = new HashMap<>();
-    private final Map<UUID, Map<String, Set<UUID>>> checkedProviderGroupsMap = new HashMap<>();
-    private final Map<UUID, ComplianceResultDto> complianceResultsMap = new HashMap<>();
+    private final Map<UUID, ComplianceCheckSubjectContext<T>> subjectContexts = new HashMap<>();
 
-    public ComplianceSubjectHandler(boolean checkByProfiles, TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {
+    public ComplianceSubjectHandler(boolean checkByProfiles, Resource resource, TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {
         this.checkByProfiles = checkByProfiles;
+        this.resource = resource;
         this.triggerEvaluator = triggerEvaluator;
         this.repository = repository;
     }
 
-    public void initSubjectComplianceResult(UUID subjectUuid, ComplianceResultDto existingResult) {
-        if (checkByProfiles && existingResult != null) {
-            complianceResultsMap.put(subjectUuid, existingResult);
-        }
+    public void initSubjectComplianceResult(ComplianceSubject subject) {
+        subjectContexts.computeIfAbsent(subject.getUuid(), uuid -> {
+            T typedSubject = (T) subject;
+            ComplianceResultDto initialComplianceResult = checkByProfiles && subject.getComplianceResult() != null ? subject.getComplianceResult() : new ComplianceResultDto();
+            return new ComplianceCheckSubjectContext<>(typedSubject, initialComplianceResult);
+        });
     }
 
     /**
      * Evaluate internal rule for the given subject. If the rule was already checked for the subject, it will be skipped.
      *
+     * @param subjectUuid UUID of the subject being evaluated
      * @param profileRule the profile rule containing the internal rule to be evaluated
-     * @param subject     the subject to be evaluated
      */
-    public void evaluateInternalRule(ComplianceProfileRule profileRule, ComplianceSubject subject) throws RuleException {
-        T typedSubject = (T) subject;
-        if (wasAlreadyChecked(subject.getUuid(), null, profileRule)) {
+    public void evaluateInternalRule(UUID subjectUuid, ComplianceProfileRule profileRule) throws RuleException {
+        if (wasAlreadyChecked(subjectUuid, null, profileRule)) {
             return;
         }
 
         UUID internalRuleUuid = profileRule.getInternalRuleUuid();
-        ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subject.getUuid(), k -> new ComplianceResultDto());
+        ComplianceCheckSubjectContext<T> subjectContext = subjectContexts.get(subjectUuid);
+        ComplianceResultDto complianceResultDto = subjectContext.getComplianceResult();
         if (checkByProfiles && complianceResultDto.getInternalRules() != null) {
             // remove if compliance rule result exists to avoid duplicates and be rewritten by current result
             complianceResultDto.getInternalRules().getNotCompliant().remove(internalRuleUuid);
@@ -75,7 +78,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
 
         boolean valid;
         try {
-            valid = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), typedSubject);
+            valid = triggerEvaluator.evaluateInternalRule(profileRule.getInternalRule(), subjectContext.getComplianceSubject());
         } catch (RuleException e) {
             String message = "Failed evaluating internal rule %s: %s".formatted(profileRule.getInternalRule().getName(), e.getMessage());
             logger.warn(message);
@@ -87,7 +90,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             }
             complianceResultDto.getInternalRules().getNotCompliant().add(internalRuleUuid);
         }
-        checkedInternalRulesMap.get(subject.getUuid()).add(internalRuleUuid);
+        subjectContext.getCheckedInternalRules().add(internalRuleUuid);
     }
 
     /**
@@ -101,15 +104,16 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     public boolean wasAlreadyChecked(UUID subjectUuid, String providerKey, ComplianceProfileRule profileRule) {
         UUID checkedUuid;
         Set<UUID> checkedSet;
+        ComplianceCheckSubjectContext<T> subjectContext = subjectContexts.get(subjectUuid);
         if (profileRule.getInternalRuleUuid() != null) {
             checkedUuid = profileRule.getInternalRuleUuid();
-            checkedSet = checkedInternalRulesMap.computeIfAbsent(subjectUuid, k -> new java.util.HashSet<>());
+            checkedSet = subjectContext.getCheckedInternalRules();
         } else if (profileRule.getComplianceRuleUuid() != null) {
             checkedUuid = profileRule.getComplianceRuleUuid();
-            checkedSet = checkedProviderRulesMap.computeIfAbsent(subjectUuid, k -> new java.util.HashMap<>()).computeIfAbsent(providerKey, k -> new java.util.HashSet<>());
+            checkedSet = subjectContext.getCheckedProviderRulesMap().computeIfAbsent(providerKey, k -> new HashSet<>());
         } else {
             checkedUuid = profileRule.getComplianceGroupUuid();
-            checkedSet = checkedProviderGroupsMap.computeIfAbsent(subjectUuid, k -> new java.util.HashMap<>()).computeIfAbsent(providerKey, k -> new java.util.HashSet<>());
+            checkedSet = subjectContext.getCheckedProviderGroupsMap().computeIfAbsent(providerKey, k -> new HashSet<>());
         }
 
         return checkedSet.contains(checkedUuid);
@@ -128,19 +132,20 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
      * @param ruleStatus    status returned by the provider for the evaluated rule
      */
     public void addProviderRuleResult(UUID subjectUuid, String providerKey, UUID connectorUuid, String kind, UUID ruleUUid, UUID groupUuid, ComplianceRuleStatus ruleStatus) {
+        ComplianceCheckSubjectContext<T> subjectContext = subjectContexts.get(subjectUuid);
         if (groupUuid != null) {
-            checkedProviderGroupsMap.computeIfAbsent(subjectUuid, k -> new java.util.HashMap<>()).computeIfAbsent(providerKey, k -> new java.util.HashSet<>()).add(groupUuid);
+            subjectContext.getCheckedProviderGroupsMap().computeIfAbsent(providerKey, k -> new HashSet<>()).add(groupUuid);
             return;
         }
 
-        checkedProviderRulesMap.computeIfAbsent(subjectUuid, k -> new java.util.HashMap<>()).computeIfAbsent(providerKey, k -> new java.util.HashSet<>()).add(ruleUUid);
+        subjectContext.getCheckedProviderRulesMap().computeIfAbsent(providerKey, k -> new HashSet<>()).add(ruleUUid);
         if (ruleStatus == null || (ruleStatus == ComplianceRuleStatus.OK && !checkByProfiles)) {
             // rule will be checked by the provider, do not update compliance result
             return;
         }
 
         // update compliance result
-        ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subjectUuid, k -> new ComplianceResultDto());
+        ComplianceResultDto complianceResultDto = subjectContext.getComplianceResult();
         if (complianceResultDto.getProviderRules() == null) {
             complianceResultDto.setProviderRules(new ArrayList<>());
         }
@@ -169,11 +174,19 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
      * The method sets the result timestamp, computes the overall compliance status,
      * stores the result on the subject entity and saves it via the repository.
      *
-     * @param subject the subject whose compliance result should be saved
+     * @param subjectUuid the subject UUID whose compliance result should be saved
+     * @param errorMessage optional error message, if provided the compliance status will be set to FAILED
+     * @return the overall compliance status after saving the result
      */
-    public void saveComplianceResult(ComplianceSubject subject, String errorMessage) {
-        T typedSubject = (T) subject;
-        ComplianceResultDto complianceResultDto = complianceResultsMap.computeIfAbsent(subject.getUuid(), k -> new ComplianceResultDto());
+    public ComplianceStatus finalizeComplianceCheck(UUID subjectUuid, String errorMessage) {
+        ComplianceCheckSubjectContext<T> subjectContext = subjectContexts.get(subjectUuid);
+        T complianceSubject = subjectContext.getComplianceSubject();
+
+        if (subjectContext.isFinalized()) {
+            return complianceSubject.getComplianceStatus();
+        }
+
+        ComplianceResultDto complianceResultDto = subjectContext.getComplianceResult();
         complianceResultDto.setTimestamp(OffsetDateTime.now());
         if (errorMessage != null) {
             complianceResultDto.setMessage(errorMessage);
@@ -182,9 +195,13 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
             complianceResultDto.setStatus(calculateComplianceStatus(complianceResultDto));
         }
 
-        typedSubject.setComplianceResult(complianceResultDto);
-        typedSubject.setComplianceStatus(complianceResultDto.getStatus());
-        repository.save(typedSubject);
+        complianceSubject.setComplianceResult(complianceResultDto);
+        complianceSubject.setComplianceStatus(complianceResultDto.getStatus());
+
+        repository.save(subjectContext.getComplianceSubject());
+        subjectContext.setFinalized(true);
+
+        return complianceResultDto.getStatus();
     }
 
     private ComplianceStatus calculateComplianceStatus(ComplianceResultDto resultDto) {

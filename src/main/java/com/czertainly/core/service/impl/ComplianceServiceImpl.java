@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.evaluator.TriggerEvaluator;
+import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.model.compliance.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
@@ -55,6 +56,13 @@ public class ComplianceServiceImpl implements ComplianceService {
     private TriggerEvaluator<CryptographicKeyItem> cryptographicKeyItemTriggerEvaluator;
 
     private ComplianceProfileRuleHandler ruleHandler;
+
+    private EventProducer eventProducer;
+
+    @Autowired
+    public void setEventProducer(EventProducer eventProducer) {
+        this.eventProducer = eventProducer;
+    }
 
 
     @Autowired
@@ -238,7 +246,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
 
         // load compliance profiles
-        ComplianceCheckContext context = new ComplianceCheckContext(true, resource, typeEnum, ruleHandler, getSubjectHandlers(true), complianceApiClient, complianceApiClientV1);
+        ComplianceCheckContext context = new ComplianceCheckContext(resource, typeEnum, ruleHandler, getSubjectHandlers(true), complianceApiClient, complianceApiClientV1, eventProducer);
         List<ComplianceProfile> complianceProfiles = complianceProfileRepository.findWithAssociationsByUuidIn(uuids.stream().map(SecuredUUID::getValue).toList()).stream()
                 .filter(p -> !p.getAssociations().isEmpty() && !p.getComplianceRules().isEmpty()).toList();
         logger.debug("Loaded {} compliance profiles to be checked", complianceProfiles.size());
@@ -323,7 +331,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap = new HashMap<>();
         loadComplianceProfilesFromComplianceSubjects(resource, objectUuids, complianceProfilesMap, complianceProfileSubjectsMap);
 
-        ComplianceCheckContext context = new ComplianceCheckContext(false, null, null, ruleHandler, getSubjectHandlers(false), complianceApiClient, complianceApiClientV1);
+        ComplianceCheckContext context = new ComplianceCheckContext(null, null, ruleHandler, getSubjectHandlers(false), complianceApiClient, complianceApiClientV1, eventProducer);
         for (ComplianceProfile profile : complianceProfilesMap.values()) {
             context.addComplianceProfile(profile, complianceProfileSubjectsMap.get(profile.getUuid()));
         }
@@ -443,9 +451,9 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(boolean checkByProfiles) {
         Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> map = new EnumMap<>(Resource.class);
-        map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, certificateTriggerEvaluator, certificateRepository));
-        map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, certificateRequestTriggerEvaluator, certificateRequestRepository));
-        map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
+        map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE, certificateTriggerEvaluator, certificateRepository));
+        map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE_REQUEST, certificateRequestTriggerEvaluator, certificateRequestRepository));
+        map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
 
         return map;
     }
