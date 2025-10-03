@@ -10,11 +10,13 @@ import java.util.*;
 @Getter
 public class ComplianceCheckProfileContext {
 
+    private final String name;
     private final Map<Resource, Set<ComplianceSubject>> complianceSubjects;
     private final List<ComplianceProfileRule> internalRules = new ArrayList<>();
     private final Map<String, List<ComplianceProfileRule>> providerRulesMapping = new HashMap<>();
 
-    public ComplianceCheckProfileContext(Map<Resource, Set<ComplianceSubject>> complianceSubjects) {
+    public ComplianceCheckProfileContext(String name, Map<Resource, Set<ComplianceSubject>> complianceSubjects) {
+        this.name = name;
         this.complianceSubjects = complianceSubjects;
     }
 

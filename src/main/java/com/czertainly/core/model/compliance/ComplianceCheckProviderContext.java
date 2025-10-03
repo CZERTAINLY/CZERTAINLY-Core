@@ -82,14 +82,14 @@ public class ComplianceCheckProviderContext {
 
 
     /**
-     * Adds a compliance profile rule to the compliance check request.
+     * Adds a provider compliance profile rule to the compliance check request.
      *
      * @param profileRule Compliance profile rule to be added to check request
      * @return null if the rule/group was added successfully
      * ComplianceRuleStatus.NA if the rule is not applicable (e.g. resource/type do not match)
      * ComplianceRuleStatus.NOT_AVAILABLE if the rule/group is not available in the provider
      */
-    public ComplianceRuleStatus addProfileRuleToCheck(ComplianceProfileRule profileRule) {
+    public ComplianceRuleStatus addProviderRuleToCheck(ComplianceProfileRule profileRule) {
         if (profileRule.getComplianceRuleUuid() != null) {
             ComplianceRuleResponseDto providerRule = rulesGroupsBatchDto.getRules().get(profileRule.getComplianceRuleUuid());
             ComplianceRuleAvailabilityStatus availabilityStatus = getRuleAvailabilityStatus(profileRule, providerRule);

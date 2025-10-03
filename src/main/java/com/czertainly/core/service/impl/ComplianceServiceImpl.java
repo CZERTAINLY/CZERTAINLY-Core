@@ -246,7 +246,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         }
 
         // load compliance profiles
-        ComplianceCheckContext context = new ComplianceCheckContext(true, resource, typeEnum, ruleHandler, getSubjectHandlers(true), complianceApiClient, complianceApiClientV1, eventProducer);
+        ComplianceCheckContext context = new ComplianceCheckContext(resource, typeEnum, ruleHandler, getSubjectHandlers(true), complianceApiClient, complianceApiClientV1, eventProducer);
         List<ComplianceProfile> complianceProfiles = complianceProfileRepository.findWithAssociationsByUuidIn(uuids.stream().map(SecuredUUID::getValue).toList()).stream()
                 .filter(p -> !p.getAssociations().isEmpty() && !p.getComplianceRules().isEmpty()).toList();
         logger.debug("Loaded {} compliance profiles to be checked", complianceProfiles.size());
@@ -331,7 +331,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         Map<UUID, Map<Resource, Set<ComplianceSubject>>> complianceProfileSubjectsMap = new HashMap<>();
         loadComplianceProfilesFromComplianceSubjects(resource, objectUuids, complianceProfilesMap, complianceProfileSubjectsMap);
 
-        ComplianceCheckContext context = new ComplianceCheckContext(false, null, null, ruleHandler, getSubjectHandlers(false), complianceApiClient, complianceApiClientV1, eventProducer);
+        ComplianceCheckContext context = new ComplianceCheckContext(null, null, ruleHandler, getSubjectHandlers(false), complianceApiClient, complianceApiClientV1, eventProducer);
         for (ComplianceProfile profile : complianceProfilesMap.values()) {
             context.addComplianceProfile(profile, complianceProfileSubjectsMap.get(profile.getUuid()));
         }
