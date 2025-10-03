@@ -453,7 +453,7 @@ public class ComplianceServiceImpl implements ComplianceService {
         Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> map = new EnumMap<>(Resource.class);
         map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE, certificateTriggerEvaluator, certificateRepository));
         map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE_REQUEST, certificateRequestTriggerEvaluator, certificateRequestRepository));
-        map.put(Resource.CRYPTOGRAPHIC_KEY_ITEM, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
+        map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
 
         return map;
     }
