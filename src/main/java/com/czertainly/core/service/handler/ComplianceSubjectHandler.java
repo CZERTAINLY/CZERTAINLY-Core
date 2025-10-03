@@ -182,9 +182,14 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
      * @param errorMessage optional error message, if provided the compliance status will be set to FAILED
      * @return the overall compliance status after saving the result
      */
-    public ComplianceStatus saveComplianceResult(UUID subjectUuid, String errorMessage) {
+    public ComplianceStatus finalizeComplianceCheck(UUID subjectUuid, String errorMessage) {
         ComplianceCheckSubjectContext<T> subjectContext = subjectContexts.get(subjectUuid);
         T complianceSubject = subjectContext.getComplianceSubject();
+
+        if (subjectContext.isFinalized()) {
+            return complianceSubject.getComplianceStatus();
+        }
+
         ComplianceResultDto complianceResultDto = subjectContext.getComplianceResult();
         complianceResultDto.setTimestamp(OffsetDateTime.now());
         if (errorMessage != null) {
@@ -198,6 +203,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
         complianceSubject.setComplianceStatus(complianceResultDto.getStatus());
 
         repository.save(subjectContext.getComplianceSubject());
+        subjectContext.setFinalized(true);
 
         return complianceResultDto.getStatus();
     }

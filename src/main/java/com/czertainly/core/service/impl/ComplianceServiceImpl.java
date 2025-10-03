@@ -451,9 +451,9 @@ public class ComplianceServiceImpl implements ComplianceService {
 
     private Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> getSubjectHandlers(boolean checkByProfiles) {
         Map<Resource, ComplianceSubjectHandler<? extends ComplianceSubject>> map = new EnumMap<>(Resource.class);
-        map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, certificateTriggerEvaluator, certificateRepository));
-        map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, certificateRequestTriggerEvaluator, certificateRequestRepository));
-        map.put(Resource.CRYPTOGRAPHIC_KEY, new ComplianceSubjectHandler<>(checkByProfiles, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
+        map.put(Resource.CERTIFICATE, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE, certificateTriggerEvaluator, certificateRepository));
+        map.put(Resource.CERTIFICATE_REQUEST, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CERTIFICATE_REQUEST, certificateRequestTriggerEvaluator, certificateRequestRepository));
+        map.put(Resource.CRYPTOGRAPHIC_KEY_ITEM, new ComplianceSubjectHandler<>(checkByProfiles, Resource.CRYPTOGRAPHIC_KEY_ITEM, cryptographicKeyItemTriggerEvaluator, cryptographicKeyItemRepository));
 
         return map;
     }

@@ -90,7 +90,7 @@ public class ComplianceCheckContext {
                     } catch (Exception e) {
                         // TODO: handle failed subjects when provider does not retrieve batch, set failed and then skip it from calculation
                         logger.warn("Error checking compliance of {} with UUID {} by profile {}: {}", resourceObjects.getKey().getLabel(), subject.getUuid(), profileContext.getName(), e.getMessage());
-                        subjectHandler.saveComplianceResult(subject.getUuid(), e.getMessage());
+                        subjectHandler.finalizeComplianceCheck(subject.getUuid(), e.getMessage());
                     }
                 }
             }
@@ -101,7 +101,7 @@ public class ComplianceCheckContext {
             for (var subjectContext : subjectHandler.getSubjectContexts().values()) {
                 UUID subjectUuid = subjectContext.getComplianceSubject().getUuid();
                 ComplianceStatus originalStatus = subjectContext.getComplianceSubject().getComplianceStatus();
-                ComplianceStatus newStatus = subjectHandler.saveComplianceResult(subjectUuid, null);
+                ComplianceStatus newStatus = subjectHandler.finalizeComplianceCheck(subjectUuid, null);
                 if (subjectHandler.getResource() == Resource.CERTIFICATE && originalStatus != ComplianceStatus.NOK && newStatus == ComplianceStatus.NOK) {
                     eventProducer.produceMessage(CertificateNotCompliantEventHandler.constructEventMessages(subjectUuid));
                 }
