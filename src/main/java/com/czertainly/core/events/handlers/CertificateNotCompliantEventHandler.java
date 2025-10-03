@@ -16,6 +16,7 @@ import org.springframework.stereotype.Component;
 
 import java.util.UUID;
 
+@SuppressWarnings("java:S6830")
 @Component(ResourceEvent.Codes.CERTIFICATE_NOT_COMPLIANT)
 public class CertificateNotCompliantEventHandler extends CertificateEventsHandler {
 

@@ -15,7 +15,6 @@ import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.notifications.*;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -244,7 +243,7 @@ public class NotificationListener {
     private List<NotificationRecipient> getDefaultRecipients(ResourceEvent event, Object data, Resource resource, UUID objectUuid) {
         List<NotificationRecipient> recipients = new ArrayList<>();
         switch (event) {
-            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING -> {
+            case CERTIFICATE_STATUS_CHANGED, CERTIFICATE_ACTION_PERFORMED, CERTIFICATE_EXPIRING, CERTIFICATE_NOT_COMPLIANT -> {
                 NameAndUuidDto ownerInfo = resourceObjectAssociationService.getOwner(resource, objectUuid);
                 if (ownerInfo != null) {
                     recipients.add(new NotificationRecipient(RecipientType.USER, UUID.fromString(ownerInfo.getUuid())));

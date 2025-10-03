@@ -3,7 +3,6 @@ package com.czertainly.core.events.data;
 import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.common.events.data.*;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
-import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.entity.Approval;

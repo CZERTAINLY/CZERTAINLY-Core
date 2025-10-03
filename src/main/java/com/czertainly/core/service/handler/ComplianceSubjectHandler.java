@@ -30,7 +30,7 @@ public class ComplianceSubjectHandler<T extends ComplianceSubject> {
     private final Resource resource;
     private final TriggerEvaluator<T> triggerEvaluator;
     private final SecurityFilterRepository<T, UUID> repository;
-    
+
     private final Map<UUID, ComplianceCheckSubjectContext<T>> subjectContexts = new HashMap<>();
 
     public ComplianceSubjectHandler(boolean checkByProfiles, Resource resource, TriggerEvaluator<T> triggerEvaluator, SecurityFilterRepository<T, UUID> repository) {

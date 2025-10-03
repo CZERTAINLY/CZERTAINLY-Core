@@ -2,7 +2,6 @@ package com.czertainly.core.model.compliance;
 
 import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.RuleException;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.connector.compliance.v2.ComplianceResponseDto;
