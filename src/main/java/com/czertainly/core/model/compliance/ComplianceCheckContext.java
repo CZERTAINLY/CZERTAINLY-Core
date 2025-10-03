@@ -109,7 +109,7 @@ public class ComplianceCheckContext {
         }
     }
 
-    private void performSubjectComplianceCheck(ComplianceCheckProfileContext profileContext, ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler, Resource resource, ComplianceSubject subject) throws ConnectorException, NotFoundException, RuleException {
+    private void performSubjectComplianceCheck(ComplianceCheckProfileContext profileContext, ComplianceSubjectHandler<? extends ComplianceSubject> subjectHandler, Resource resource, ComplianceSubject subject) throws ConnectorException, RuleException {
         for (ComplianceProfileRule profileRule : profileContext.getInternalRules()) {
             // skip rules that do not match the resource and type
             if (skipProfileRule(profileRule, resource)) {
@@ -120,7 +120,7 @@ public class ComplianceCheckContext {
 
         for (var providerRules : profileContext.getProviderRulesMapping().entrySet()) {
             ComplianceCheckProviderContext providerContext = providersContextMap.get(providerRules.getKey());
-            providerContext.prepareComplianceCheckRequest(subject, resource, subject.getType());
+            providerContext.prepareComplianceCheckRequestForSubject(subject, resource, subject.getType());
             for (ComplianceProfileRule profileRule : providerRules.getValue()) {
                 // skip rules that do not match the resource and type
                 if (skipProfileRule(profileRule, resource)
