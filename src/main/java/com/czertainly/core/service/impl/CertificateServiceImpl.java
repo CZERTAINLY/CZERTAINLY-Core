@@ -1654,6 +1654,8 @@ public class CertificateServiceImpl implements CertificateService {
             uploadCertificateKey(null, certificate, x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId()));
         }
 
+        updateCertificateChain(certificate);
+
         certificate = certificateRepository.save(certificate);
 
         for (CertificateRelation relation : certificate.getPredecessorRelations()) {
