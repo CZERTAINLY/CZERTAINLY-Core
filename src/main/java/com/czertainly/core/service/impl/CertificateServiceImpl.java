@@ -1862,14 +1862,14 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
-        if (certificate.getIssuerSerialNumber() == null) {
+        if ((certificate.getSubjectType() == CertificateSubjectType.END_ENTITY || certificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA) && certificate.getIssuerSerialNumber() == null) {
             try {
                 updateCertificateChain(certificate);
             } catch (CertificateException e) {
                 // Leave issuer SN null
             }
         }
-        if (sourceCertificate.getIssuerSerialNumber() == null) {
+        if ((certificate.getSubjectType() == CertificateSubjectType.END_ENTITY || certificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA) && sourceCertificate.getIssuerSerialNumber() == null) {
             try {
                 updateCertificateChain(sourceCertificate);
             } catch (CertificateException e) {
