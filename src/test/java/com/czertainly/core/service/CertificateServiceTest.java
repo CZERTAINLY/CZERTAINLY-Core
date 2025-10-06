@@ -733,7 +733,10 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificateService.associateCertificates(certificateUuid, sourceCertificate2.getUuid());
         UUID certificate3Uuid = sourceCertificate3.getUuid();
         certificate.setState(CertificateState.REVOKED);
+        certificate.setIssuerSerialNumber(null);
+        sourceCertificate3.setIssuerSerialNumber(null);
         certificateRepository.save(certificate);
+        certificateRepository.save(sourceCertificate3);
         certificateService.associateCertificates(certificateUuid, certificate3Uuid);
         Assertions.assertThrows(ValidationException.class, () -> certificateService.associateCertificates(certificate3Uuid, certificateUuid));
 
