@@ -800,6 +800,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setIssuerSerialNumber(commonIssuer.getSerialNumber());
         certificate.setSubjectDnNormalized("2.5.4.3=hybrid-with-csr2");
         certificate.setIssuerDnNormalized(commonIssuer.getSubjectDnNormalized());
+        certificate.setSubjectType(CertificateSubjectType.INTERMEDIATE_CA);
         CertificateRelation relation = new CertificateRelation();
         relation.setRelationType(CertificateRelationType.PENDING);
         relation.setSuccessorCertificate(notIssued);
