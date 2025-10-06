@@ -1654,8 +1654,6 @@ public class CertificateServiceImpl implements CertificateService {
             uploadCertificateKey(null, certificate, x509Cert.getExtensionValue(Extension.subjectAltPublicKeyInfo.getId()));
         }
 
-        updateCertificateChain(certificate);
-
         certificate = certificateRepository.save(certificate);
 
         for (CertificateRelation relation : certificate.getPredecessorRelations()) {
@@ -1853,7 +1851,7 @@ public class CertificateServiceImpl implements CertificateService {
         return successorCertificateState == CertificateState.ISSUED || successorCertificateState == CertificateState.REVOKED;
     }
 
-    private static CertificateRelationType determineRelationType(Certificate certificate, Certificate associatedCertificate) {
+    private CertificateRelationType determineRelationType(Certificate certificate, Certificate associatedCertificate) {
         if (sameDnsAndIssuerSN(certificate, associatedCertificate)) {
             if (Objects.equals(certificate.getPublicKeyFingerprint(), associatedCertificate.getPublicKeyFingerprint()) && Objects.equals(certificate.getAltKeyFingerprint(), associatedCertificate.getAltKeyFingerprint()))
                 return CertificateRelationType.RENEWAL;
@@ -1863,7 +1861,21 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
-    private static boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
+    private boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
+        if (certificate.getIssuerSerialNumber() == null) {
+            try {
+                updateCertificateChain(certificate);
+            } catch (CertificateException e) {
+                // Leave issuer SN null
+            }
+        }
+        if (sourceCertificate.getIssuerSerialNumber() == null) {
+            try {
+                updateCertificateChain(sourceCertificate);
+            } catch (CertificateException e) {
+                // Leave issuer SN null
+            }
+        }
         return Objects.equals(certificate.getIssuerDnNormalized(), sourceCertificate.getIssuerDnNormalized()) && Objects.equals(certificate.getSubjectDnNormalized(), sourceCertificate.getSubjectDnNormalized()) && Objects.equals(certificate.getIssuerSerialNumber(), sourceCertificate.getIssuerSerialNumber());
     }
 
