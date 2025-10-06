@@ -816,6 +816,18 @@ class CertificateServiceTest extends BaseSpringBootTest {
 
         CertificateRelationsDto relationsDto = certificateService.getCertificateRelations(notIssued.getUuid());
         Assertions.assertEquals(CertificateRelationType.REKEY, relationsDto.getPredecessorCertificates().getFirst().getRelationType());
+
+        // Throw exception in update certificate chain
+        notIssued.setCertificateContent(null);
+        certificateRepository.save(notIssued);
+        certificate.setIssuerSerialNumber(null);
+        certificateRepository.save(certificate);
+        relation.setRelationType(CertificateRelationType.PENDING);
+        certificateRelationRepository.save(relation);
+        certificateService.issueRequestedCertificate(notIssued.getUuid(), content, null);
+
+        relationsDto = certificateService.getCertificateRelations(notIssued.getUuid());
+        Assertions.assertEquals(CertificateRelationType.REPLACEMENT, relationsDto.getPredecessorCertificates().getFirst().getRelationType());
     }
 
     @NotNull

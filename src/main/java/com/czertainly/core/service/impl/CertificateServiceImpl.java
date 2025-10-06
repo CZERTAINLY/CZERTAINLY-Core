@@ -1869,7 +1869,7 @@ public class CertificateServiceImpl implements CertificateService {
                 // Leave issuer SN null
             }
         }
-        if ((certificate.getSubjectType() == CertificateSubjectType.END_ENTITY || certificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA) && sourceCertificate.getIssuerSerialNumber() == null) {
+        if ((sourceCertificate.getSubjectType() == CertificateSubjectType.END_ENTITY || sourceCertificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA) && sourceCertificate.getIssuerSerialNumber() == null) {
             try {
                 updateCertificateChain(sourceCertificate);
             } catch (CertificateException e) {
