@@ -413,8 +413,8 @@ public class CertificateUtil {
         modal.setIssuerDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true), issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true), subjectDnPrincipalEncoded).toString());
         CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
-        if (subjectType == CertificateSubjectType.ROOT_CA || subjectType == CertificateSubjectType.SELF_SIGNED_END_ENTITY) modal.setIssuerSerialNumber(certificate.getSerialNumber().toString(16));
-        
+        if (subjectType == CertificateSubjectType.ROOT_CA || subjectType == CertificateSubjectType.SELF_SIGNED_END_ENTITY) modal.setIssuerSerialNumber(modal.getSerialNumber());
+
         List<String> extendedKeyUsage = null;
         try {
             extendedKeyUsage = certificate.getExtendedKeyUsage();
