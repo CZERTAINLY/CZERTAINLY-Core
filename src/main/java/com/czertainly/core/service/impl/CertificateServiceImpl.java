@@ -1862,14 +1862,14 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     private boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
-        if ((certificate.getSubjectType() == CertificateSubjectType.END_ENTITY || certificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA) && certificate.getIssuerSerialNumber() == null) {
+        if (isNotSelfSigned(certificate) && certificate.getIssuerSerialNumber() == null) {
             try {
                 updateCertificateChain(certificate);
             } catch (CertificateException e) {
                 // Leave issuer SN null
             }
         }
-        if ((sourceCertificate.getSubjectType() == CertificateSubjectType.END_ENTITY || sourceCertificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA) && sourceCertificate.getIssuerSerialNumber() == null) {
+        if (isNotSelfSigned(sourceCertificate) && sourceCertificate.getIssuerSerialNumber() == null) {
             try {
                 updateCertificateChain(sourceCertificate);
             } catch (CertificateException e) {
@@ -1877,6 +1877,10 @@ public class CertificateServiceImpl implements CertificateService {
             }
         }
         return Objects.equals(certificate.getIssuerDnNormalized(), sourceCertificate.getIssuerDnNormalized()) && Objects.equals(certificate.getSubjectDnNormalized(), sourceCertificate.getSubjectDnNormalized()) && Objects.equals(certificate.getIssuerSerialNumber(), sourceCertificate.getIssuerSerialNumber());
+    }
+
+    private static boolean isNotSelfSigned(Certificate certificate) {
+        return certificate.getSubjectType() == CertificateSubjectType.END_ENTITY || certificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA;
     }
 
     @Override
