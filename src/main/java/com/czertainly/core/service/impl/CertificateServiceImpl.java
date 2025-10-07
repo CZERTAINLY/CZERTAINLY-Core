@@ -1020,7 +1020,7 @@ public class CertificateServiceImpl implements CertificateService {
 
     private void uploadCertificateKey(PublicKey publicKey, Certificate certificate, byte[] altPublicKeyEncoded) {
         UUID keyUuid;
-        if (certificate.getKeyUuid() == null) {
+        if (publicKey != null && certificate.getKeyUuid() == null) {
             keyUuid = cryptographicKeyService.findKeyByFingerprint(certificate.getPublicKeyFingerprint());
             if (keyUuid == null) {
                 keyUuid = cryptographicKeyService.uploadCertificatePublicKey("certKey_" + Objects.requireNonNullElse(certificate.getCommonName(), certificate.getSerialNumber()), publicKey, certificate.getKeySize(), certificate.getPublicKeyFingerprint());
@@ -1851,7 +1851,7 @@ public class CertificateServiceImpl implements CertificateService {
         return successorCertificateState == CertificateState.ISSUED || successorCertificateState == CertificateState.REVOKED;
     }
 
-    private static CertificateRelationType determineRelationType(Certificate certificate, Certificate associatedCertificate) {
+    private CertificateRelationType determineRelationType(Certificate certificate, Certificate associatedCertificate) {
         if (sameDnsAndIssuerSN(certificate, associatedCertificate)) {
             if (Objects.equals(certificate.getPublicKeyFingerprint(), associatedCertificate.getPublicKeyFingerprint()) && Objects.equals(certificate.getAltKeyFingerprint(), associatedCertificate.getAltKeyFingerprint()))
                 return CertificateRelationType.RENEWAL;
@@ -1861,8 +1861,26 @@ public class CertificateServiceImpl implements CertificateService {
         }
     }
 
-    private static boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
+    private boolean sameDnsAndIssuerSN(Certificate certificate, Certificate sourceCertificate) {
+        if (isNotSelfSigned(certificate) && certificate.getIssuerSerialNumber() == null) {
+            try {
+                updateCertificateChain(certificate);
+            } catch (CertificateException e) {
+                // Leave issuer SN null
+            }
+        }
+        if (isNotSelfSigned(sourceCertificate) && sourceCertificate.getIssuerSerialNumber() == null) {
+            try {
+                updateCertificateChain(sourceCertificate);
+            } catch (CertificateException e) {
+                // Leave issuer SN null
+            }
+        }
         return Objects.equals(certificate.getIssuerDnNormalized(), sourceCertificate.getIssuerDnNormalized()) && Objects.equals(certificate.getSubjectDnNormalized(), sourceCertificate.getSubjectDnNormalized()) && Objects.equals(certificate.getIssuerSerialNumber(), sourceCertificate.getIssuerSerialNumber());
+    }
+
+    private static boolean isNotSelfSigned(Certificate certificate) {
+        return certificate.getSubjectType() == CertificateSubjectType.END_ENTITY || certificate.getSubjectType() == CertificateSubjectType.INTERMEDIATE_CA;
     }
 
     @Override
