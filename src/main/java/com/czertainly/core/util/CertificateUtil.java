@@ -143,7 +143,7 @@ public class CertificateUtil {
         return keyUsageIndex >= 0 && keyUsageIndex < keyUsage.length && keyUsage[keyUsageIndex];
     }
 
-    public static CertificateSubjectType getCertificateSubjectType(X509Certificate certificate, boolean subjectDnEqualsIssuerDn, Certificate modal) {
+    public static CertificateSubjectType getCertificateSubjectType(X509Certificate certificate, boolean subjectDnEqualsIssuerDn) {
         boolean selfSigned = false;
         if (subjectDnEqualsIssuerDn) {
             try {
@@ -156,7 +156,6 @@ public class CertificateUtil {
         }
 
         int bcValue = certificate.getBasicConstraints();
-        if (selfSigned) modal.setIssuerSerialNumber(certificate.getSerialNumber().toString(16));
         // Certificate is Certificate Authority if Basic Constraint Value is positive, otherwise it is End Entity
         if (bcValue >= 0) {
             return selfSigned ? CertificateSubjectType.ROOT_CA : CertificateSubjectType.INTERMEDIATE_CA;
@@ -413,8 +412,9 @@ public class CertificateUtil {
         setIssuerDNParams(modal, X500Name.getInstance(new CzertainlyX500NameStyle(false), issuerDnPrincipalEncoded));
         modal.setIssuerDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true), issuerDnPrincipalEncoded).toString());
         modal.setSubjectDnNormalized(X500Name.getInstance(new CzertainlyX500NameStyle(true), subjectDnPrincipalEncoded).toString());
-        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()), modal);
-
+        CertificateSubjectType subjectType = CertificateUtil.getCertificateSubjectType(certificate, modal.getSubjectDnNormalized().equals(modal.getIssuerDnNormalized()));
+        if (subjectType == CertificateSubjectType.ROOT_CA || subjectType == CertificateSubjectType.SELF_SIGNED_END_ENTITY) modal.setIssuerSerialNumber(certificate.getSerialNumber().toString(16));
+        
         List<String> extendedKeyUsage = null;
         try {
             extendedKeyUsage = certificate.getExtendedKeyUsage();
