@@ -187,7 +187,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                 (root, cb) -> cb.desc(root.get("createdAt"))
         );
 
-        List<CryptographicKeyItem> filteredKeys = cryptographicKeyItemRepository.findFullByUuidIn(filteredKeyUuids);
+        List<CryptographicKeyItem> filteredKeys = cryptographicKeyItemRepository.findFullByUuidInOrderByCreatedAtDesc(filteredKeyUuids);
 
         List<Integer> associationsCounts = cryptographicKeyItemRepository.getCountsOfAssociations(filteredKeyUuids);
 

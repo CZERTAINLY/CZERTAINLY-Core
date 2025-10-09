@@ -25,7 +25,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
     List<CryptographicKeyItem> findByUuidIn(List<UUID> uuids);
 
     @EntityGraph(attributePaths = {"key", "key.tokenProfile", "key.groups", "key.owner"})
-    List<CryptographicKeyItem> findFullByUuidIn(List<UUID> uuids);
+    List<CryptographicKeyItem> findFullByUuidInOrderByCreatedAtDesc(List<UUID> uuids);
 
     List<CryptographicKeyItem> findByKeyUuidIn(List<UUID> keyUuids);
 
@@ -56,6 +56,7 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
                     OR c.altKeyUuid = ck.uuid
                 WHERE cki.uuid IN :uuids
                 GROUP BY cki.uuid
+                ORDER BY cki.createdAt DESC
             """)
     List<Integer> getCountsOfAssociations(@Param("uuids") List<UUID> uuids);
 

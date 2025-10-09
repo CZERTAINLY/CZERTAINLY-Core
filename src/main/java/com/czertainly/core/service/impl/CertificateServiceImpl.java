@@ -327,7 +327,7 @@ public class CertificateServiceImpl implements CertificateService {
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(request);
         final List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
-        final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidIn(certificateUuids);
+        final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidInOrderByCreatedDesc(certificateUuids);
         final List<CertificateDto> listedKeyDTOs = certificates.stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
