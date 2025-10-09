@@ -24,6 +24,9 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
     @EntityGraph(attributePaths = {"key", "key.tokenProfile"})
     List<CryptographicKeyItem> findByUuidIn(List<UUID> uuids);
 
+    @EntityGraph(attributePaths = {"key", "key.tokenProfile", "key.groups", "key.owner"})
+    List<CryptographicKeyItem> findFullByUuidIn(List<UUID> uuids);
+
     List<CryptographicKeyItem> findByKeyUuidIn(List<UUID> keyUuids);
 
     List<CryptographicKeyItem> findByKeyReferenceUuid(UUID keyReferenceUuid);
@@ -43,4 +46,17 @@ public interface CryptographicKeyItemRepository extends SecurityFilterRepository
             ) ON CONFLICT (fingerprint) DO NOTHING
             """, nativeQuery = true)
     void insertWithFingerprintConflictResolve(@Param("cki") CryptographicKeyItem keyItem);
+
+    @Query(value = """
+            SELECT COUNT(c.uuid)
+                FROM CryptographicKeyItem cki
+                JOIN cki.key ck
+                LEFT JOIN Certificate c
+                    ON c.keyUuid = ck.uuid
+                    OR c.altKeyUuid = ck.uuid
+                WHERE cki.uuid IN :uuids
+                GROUP BY cki.uuid
+            """)
+    List<Integer> getCountsOfAssociations(@Param("uuids") List<UUID> uuids);
+
 }
