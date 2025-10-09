@@ -56,6 +56,7 @@ import java.security.PublicKey;
 import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 
 import static java.util.function.Predicate.not;
 
@@ -178,11 +179,27 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
-        final List<KeyItemDto> listedKeyDtos = cryptographicKeyItemRepository.findUsingSecurityFilter(filter,
-                        List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("createdAt")))
-                .stream()
-                .map(CryptographicKeyItem::mapToSummaryDto)
+
+        List<UUID> filteredKeyUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(
+                filter,
+                additionalWhereClause,
+                p,
+                (root, cb) -> cb.desc(root.get("createdAt"))
+        );
+
+        List<CryptographicKeyItem> filteredKeys = cryptographicKeyItemRepository.findFullByUuidInOrderByCreatedAtDesc(filteredKeyUuids);
+
+        List<Integer> associationsCounts = cryptographicKeyItemRepository.getCountsOfAssociations(filteredKeyUuids);
+
+        List<KeyItemDto> listedKeyDtos = IntStream.range(0, filteredKeys.size())
+                .mapToObj(i -> {
+                    CryptographicKeyItem cki = filteredKeys.get(i);
+                    KeyItemDto dto = cki.mapToSummaryDto();
+                    dto.setAssociations(associationsCounts.get(i));
+                    return dto;
+                })
                 .toList();
+
 
         final Long maxItems = cryptographicKeyItemRepository.countUsingSecurityFilter(filter, additionalWhereClause);
         final CryptographicKeyResponseDto responseDto = new CryptographicKeyResponseDto();

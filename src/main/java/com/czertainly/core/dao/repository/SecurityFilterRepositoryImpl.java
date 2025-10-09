@@ -90,6 +90,16 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
+    public List<UUID> findUuidsUsingSecurityFilter(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final Pageable p, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+        final CriteriaQuery<UUID> cr = createCriteriaBuilderUuid(filter, additionalWhereClause, order);
+        if (p != null) {
+            return entityManager.createQuery(cr).setFirstResult((int) p.getOffset()).setMaxResults(p.getPageSize()).getResultList();
+        } else {
+            return entityManager.createQuery(cr).getResultList();
+        }
+    }
+
+    @Override
     public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
@@ -195,6 +205,22 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         cr.select(root).distinct(true);
 
         fetchAssociations(root, fetchAssociations);
+
+        if (order != null) {
+            cr.orderBy(order.apply(root, cb));
+        }
+
+        final List<Predicate> predicates = getPredicates(filter, additionalWhereClause, root, cb, cr);
+        return predicates.isEmpty() ? cr : cr.where(predicates.toArray(new Predicate[]{}));
+    }
+
+    private CriteriaQuery<UUID> createCriteriaBuilderUuid(final SecurityFilter filter, final TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, final BiFunction<Root<T>, CriteriaBuilder, Order> order) {
+        final Class<T> entity = this.entityInformation.getJavaType();
+        final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
+        final CriteriaQuery<UUID> cr = cb.createQuery(UUID.class);
+        final Root<T> root = cr.from(entity);
+
+        cr.select(root.get("uuid"));
 
         if (order != null) {
             cr.orderBy(order.apply(root, cb));
