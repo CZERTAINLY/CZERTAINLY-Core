@@ -162,6 +162,11 @@ public class LoggingHelper {
         return ipAddress;
     }
 
+    /**
+     * Method to format object identities for CSV format
+     * @param items object identities to convert
+     * @return list of object identities formatted as [{name;uuid};{name;uuid};...;{name:uuid}]
+     */
     public static String formatResourceObjectForCsv(List<ResourceObjectIdentity> items) {
         if (items == null || items.isEmpty()) return "";
         String result = items.stream()
