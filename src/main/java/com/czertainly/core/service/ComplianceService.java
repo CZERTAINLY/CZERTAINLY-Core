@@ -4,12 +4,8 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
-import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
-import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
-import org.springframework.transaction.annotation.Propagation;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
@@ -88,6 +84,7 @@ public interface ComplianceService {
 
     /**
      * Check compliance on specified resource object as system user (no user context)
+     * Warning: This method should be used only when running compliance check as part of system operations since it bypasses permissions.
      *
      * @param resource Resource of objects checked by compliance
      * @param objectUuid UUID of object to be checked
