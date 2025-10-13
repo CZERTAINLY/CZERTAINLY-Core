@@ -318,6 +318,12 @@ public class ComplianceServiceImpl implements ComplianceService {
     }
 
     @Override
+    @Transactional(propagation = Propagation.NOT_SUPPORTED)
+    public void checkResourceObjectComplianceAsSystem(Resource resource, UUID objectUuid) {
+        checkResourceObjectsComplianceAsync(resource, List.of(objectUuid));
+    }
+
+    @Override
     @Async
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.CHECK_COMPLIANCE)

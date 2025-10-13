@@ -329,7 +329,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         // check for compliance of certificate request
         logger.debug("Checking compliance of certificate request for certificate {}", certificateUuid);
         complianceService.checkResourceObjectsComplianceValidation(Resource.CERTIFICATE, List.of(certificateUuid));
-        complianceService.checkResourceObjectCompliance(Resource.CERTIFICATE, certificateUuid);
+        complianceService.checkResourceObjectComplianceAsSystem(Resource.CERTIFICATE, certificateUuid);
         ComplianceCheckResultDto complianceResult = complianceService.getComplianceCheckResult(Resource.CERTIFICATE_REQUEST, certificateRequestUuid);
         if (complianceResult.getStatus() == ComplianceStatus.NOK || complianceResult.getStatus() == ComplianceStatus.FAILED) {
             Certificate newCertificate = certificateRepository.findByUuid(certificateUuid).orElseThrow(() -> new NotFoundException(Certificate.class, certificateUuid));

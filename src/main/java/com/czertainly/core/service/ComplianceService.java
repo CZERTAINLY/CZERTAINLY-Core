@@ -83,6 +83,15 @@ public interface ComplianceService {
     void checkResourceObjectComplianceAsync(Resource resource, UUID objectUuid);
 
     /**
+     * Check compliance on specified resource object as system user (no user context)
+     * Warning: This method should be used only when running compliance check as part of system operations since it bypasses permissions.
+     *
+     * @param resource Resource of objects checked by compliance
+     * @param objectUuid UUID of object to be checked
+     */
+    void checkResourceObjectComplianceAsSystem(Resource resource, UUID objectUuid);
+
+    /**
      * Check compliance on specified resource objects
      *
      * @param resource Resource of objects checked by compliance
