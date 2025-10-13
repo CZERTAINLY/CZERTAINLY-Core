@@ -3,7 +3,6 @@ package com.czertainly.core.logging;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
-import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.fasterxml.jackson.annotation.JsonPropertyOrder;
 import lombok.Builder;
 
