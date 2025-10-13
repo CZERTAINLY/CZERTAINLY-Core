@@ -18,6 +18,7 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -56,6 +57,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogService.class, null, null);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
+    public static final String ERROR_SERIALIZATION = "ERROR_SERIALIZATION";
 
     static {
         MAPPER.findAndRegisterModules();
@@ -120,10 +122,10 @@ public class AuditLogServiceImpl implements AuditLogService {
                     builder.timestamp(a.getTimestamp());
                     builder.module(a.getModule());
                     builder.resource(a.getResource());
-                    builder.resourceObjects(a.getLogRecord().resource().objects());
+                    builder.resourceObjects(LoggingHelper.formatResourceObjectForCsv(a.getLogRecord().resource().objects()));
                     builder.affiliatedResource(a.getAffiliatedResource());
                     if (a.getLogRecord().affiliatedResource() != null) {
-                        builder.affiliatedObjects(a.getLogRecord().affiliatedResource().objects());
+                        builder.affiliatedObjects(LoggingHelper.formatResourceObjectForCsv(a.getLogRecord().affiliatedResource().objects()));
                     }
                     builder.actorType(a.getActorType());
                     builder.actorAuthMethod(a.getActorAuthMethod());
@@ -140,13 +142,13 @@ public class AuditLogServiceImpl implements AuditLogService {
                     try {
                         builder.operationData(MAPPER.writeValueAsString(a.getLogRecord().operationData()));
                     } catch (JsonProcessingException e) {
-                        builder.operationData("ERROR_SERIALIZATION");
+                        builder.operationData(ERROR_SERIALIZATION);
                     }
 
                     try {
                         builder.additionalData(MAPPER.writeValueAsString(a.getLogRecord().additionalData()));
                     } catch (JsonProcessingException e) {
-                        builder.additionalData("ERROR_SERIALIZATION");
+                        builder.additionalData(ERROR_SERIALIZATION);
                     }
 
                     return builder.build();

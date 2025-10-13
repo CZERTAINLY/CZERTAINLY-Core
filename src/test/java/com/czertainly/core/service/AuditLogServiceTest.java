@@ -81,6 +81,8 @@ class AuditLogServiceTest extends BaseSpringBootTest {
     @Test
     void testExportAuditLog() {
         auditLogController.listAuditLogs(new SearchRequestDto());
+        settingController.getPlatformSettings();
+
         ExportResultDto result = auditLogService.exportAuditLogs(List.of());
 
         Assertions.assertDoesNotThrow(() -> {

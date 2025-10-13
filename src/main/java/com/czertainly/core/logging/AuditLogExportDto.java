@@ -9,7 +9,6 @@ import lombok.Builder;
 
 import java.io.Serializable;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.UUID;
 
 @Builder
@@ -25,9 +24,9 @@ public record AuditLogExportDto(
         OffsetDateTime timestamp,
         Module module,
         Resource resource,
-        List<ResourceObjectIdentity> resourceObjects,
+        String resourceObjects,
         Resource affiliatedResource,
-        List<ResourceObjectIdentity> affiliatedObjects,
+        String affiliatedObjects,
         ActorType actorType,
         AuthMethod actorAuthMethod,
         UUID actorUuid,
