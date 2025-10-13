@@ -57,7 +57,6 @@ public class AuditLogServiceImpl implements AuditLogService {
     private static final LoggerWrapper logger = new LoggerWrapper(AuditLogService.class, null, null);
 
     private static final ObjectMapper MAPPER = new ObjectMapper();
-    public static final String ERROR_SERIALIZATION = "ERROR_SERIALIZATION";
 
     static {
         MAPPER.findAndRegisterModules();
@@ -142,13 +141,13 @@ public class AuditLogServiceImpl implements AuditLogService {
                     try {
                         builder.operationData(MAPPER.writeValueAsString(a.getLogRecord().operationData()));
                     } catch (JsonProcessingException e) {
-                        builder.operationData(ERROR_SERIALIZATION);
+                        builder.operationData("ERROR_SERIALIZATION");
                     }
 
                     try {
                         builder.additionalData(MAPPER.writeValueAsString(a.getLogRecord().additionalData()));
                     } catch (JsonProcessingException e) {
-                        builder.additionalData(ERROR_SERIALIZATION);
+                        builder.additionalData("ERROR_SERIALIZATION");
                     }
 
                     return builder.build();
