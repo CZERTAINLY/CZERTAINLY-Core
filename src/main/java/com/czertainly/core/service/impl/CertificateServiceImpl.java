@@ -326,7 +326,9 @@ public class CertificateServiceImpl implements CertificateService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(request);
-        final List<CertificateDto> listedKeyDTOs = certificateRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created"))).stream().map(Certificate::mapToListDto).toList();
+        final List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
+        final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidInOrderByCreatedDesc(certificateUuids);
+        final List<CertificateDto> listedKeyDTOs = certificates.stream().map(Certificate::mapToListDto).toList();
         final Long maxItems = certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
 
         final CertificateResponseDto responseDto = new CertificateResponseDto();
