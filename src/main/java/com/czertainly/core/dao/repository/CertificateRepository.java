@@ -113,8 +113,10 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
 
     List<Certificate> findBySubjectDnNormalized(String issuerDnNormalized);
 
+    @EntityGraph(attributePaths = {"certificateContent", "raProfile"})
     List<Certificate> findByValidationStatusAndCertificateContentDiscoveryCertificatesDiscoveryUuid(CertificateValidationStatus validationStatus, UUID discoveryUuid);
 
+    @EntityGraph(attributePaths = {"certificateContent", "raProfile"})
     List<Certificate> findByValidationStatusAndLocationsLocationUuid(CertificateValidationStatus validationStatus, UUID locationUuid);
 
     @Modifying
