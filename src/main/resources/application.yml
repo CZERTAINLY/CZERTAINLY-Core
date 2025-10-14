@@ -128,12 +128,14 @@ spring:
           preferred_duration_jdbc_type: INTERVAL_SECOND
   # RabbitMQ configuration
   rabbitmq:
+    connection-timeout: 10000
     host: ${RABBITMQ_HOST}
     listener:
       simple:
         default-requeue-rejected: false
     password: ${RABBITMQ_PASSWORD}
     port: ${RABBITMQ_PORT:5672}
+    requested-heartbeat: 30
     username: ${RABBITMQ_USERNAME}
     virtual-host: ${RABBITMQ_VHOST:czertainly}
   threads:

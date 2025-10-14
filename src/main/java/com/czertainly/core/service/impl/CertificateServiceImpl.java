@@ -115,6 +115,10 @@ import java.util.stream.Collectors;
 @Service(Resource.Codes.CERTIFICATE)
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
+
+    // calculated that batch processing will fit in one hour, based on average processing time of 3 seconds per certificate
+    // batch size will prevent bloating size of enqueued message and better utilize parallel processing
+    private static final int VALIDATION_BATCH_SIZE = 1000;
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 
@@ -1235,8 +1239,17 @@ public class CertificateServiceImpl implements CertificateService {
         final List<UUID> certificateUuids = certificateRepository.findCertificatesToCheckStatus(before, skipStatuses, platformEnabled, PageRequest.of(0, maxCertsToValidate));
 
         logger.info(MarkerFactory.getMarker("scheduleInfo"), "Scheduled certificate status update. Batch size {}/{} certificates", certificateUuids.size(), totalCertificates);
-        validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, certificateUuids, null, null, null, null));
+        sendValidationBatches(certificateUuids); // send in batches
         return certificateUuids.size();
+    }
+
+    private void sendValidationBatches(List<UUID> certificateUuids) {
+        if (certificateUuids == null || certificateUuids.isEmpty()) return;
+        final int size = certificateUuids.size();
+        for (int i = 0; i < size; i += VALIDATION_BATCH_SIZE) {
+            List<UUID> batch = certificateUuids.subList(i, Math.min(i + VALIDATION_BATCH_SIZE, size));
+            validationProducer.produceMessage(new ValidationMessage(Resource.CERTIFICATE, batch, null, null, null, null));
+        }
     }
 
     @Override
