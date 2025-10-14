@@ -13,6 +13,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
 
 import java.util.List;
+import java.util.stream.Collectors;
 
 public class LoggingHelper {
 
@@ -159,6 +160,19 @@ public class LoggingHelper {
             ipAddress = ipAddress.split(",")[0];
         }
         return ipAddress;
+    }
+
+    /**
+     * Method to format object identities for CSV format
+     * @param items object identities to convert
+     * @return list of object identities formatted as [{name;uuid};{name;uuid};...;{name:uuid}]
+     */
+    public static String formatResourceObjectForCsv(List<ResourceObjectIdentity> items) {
+        if (items == null || items.isEmpty()) return "";
+        String result = items.stream()
+                .map(i -> String.format("{%s;%s}", i.name(), i.uuid() == null ? null : i.uuid().toString()))
+                .collect(Collectors.joining(";"));
+        return "[%s]".formatted(result);
     }
 
 }

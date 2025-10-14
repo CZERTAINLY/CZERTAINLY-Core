@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.core.logging.AuditLogExportDto;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -115,10 +116,10 @@ public class AuditLog implements Serializable, DtoMapper<AuditLogDto> {
         builder.module(module);
         builder.resource(resource);
         builder.timestamp(timestamp);
-        builder.resourceObjects(logRecord.resource().objects());
+        builder.resourceObjects(LoggingHelper.formatResourceObjectForCsv(logRecord.resource().objects()));
         builder.affiliatedResource(affiliatedResource);
         if (logRecord.affiliatedResource() != null) {
-            builder.affiliatedObjects(logRecord.affiliatedResource().objects());
+            builder.affiliatedObjects(LoggingHelper.formatResourceObjectForCsv(logRecord.affiliatedResource().objects()));
         }
         builder.actorType(actorType);
         builder.actorAuthMethod(actorAuthMethod);

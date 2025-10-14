@@ -18,6 +18,7 @@ import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.logging.AuditLogExportDto;
 import com.czertainly.core.logging.LoggerWrapper;
+import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -120,10 +121,10 @@ public class AuditLogServiceImpl implements AuditLogService {
                     builder.timestamp(a.getTimestamp());
                     builder.module(a.getModule());
                     builder.resource(a.getResource());
-                    builder.resourceObjects(a.getLogRecord().resource().objects());
+                    builder.resourceObjects(LoggingHelper.formatResourceObjectForCsv(a.getLogRecord().resource().objects()));
                     builder.affiliatedResource(a.getAffiliatedResource());
                     if (a.getLogRecord().affiliatedResource() != null) {
-                        builder.affiliatedObjects(a.getLogRecord().affiliatedResource().objects());
+                        builder.affiliatedObjects(LoggingHelper.formatResourceObjectForCsv(a.getLogRecord().affiliatedResource().objects()));
                     }
                     builder.actorType(a.getActorType());
                     builder.actorAuthMethod(a.getActorAuthMethod());

@@ -5,12 +5,17 @@ import com.czertainly.api.interfaces.core.web.SettingController;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
-import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
+import com.czertainly.api.model.core.logging.enums.*;
+import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
+import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.settings.logging.AuditLoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
+import com.czertainly.core.dao.entity.AuditLog;
 import com.czertainly.core.dao.repository.AuditLogRepository;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.messaging.listeners.AuditLogsListener;
@@ -28,7 +33,12 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 import java.io.File;
 import java.io.FileOutputStream;
+import java.io.Serializable;
+import java.time.OffsetDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 
 @SpringBootTest
 class AuditLogServiceTest extends BaseSpringBootTest {
@@ -81,6 +91,26 @@ class AuditLogServiceTest extends BaseSpringBootTest {
     @Test
     void testExportAuditLog() {
         auditLogController.listAuditLogs(new SearchRequestDto());
+        settingController.getPlatformSettings();
+
+        AuditLog auditLog = new AuditLog();
+        auditLog.setLogRecord(LogRecord.builder()
+                .resource(ResourceRecord.builder()
+                        .objects(List.of(new ResourceObjectIdentity("name", UUID.randomUUID()))).build())
+                .affiliatedResource(ResourceRecord.builder()
+                        .objects(List.of(new ResourceObjectIdentity("name", UUID.randomUUID()))).build())
+                .build());
+        auditLog.setTimestamp(OffsetDateTime.now());
+        auditLog.setLoggedAt(OffsetDateTime.now());
+        auditLog.setModule(Module.AUTH);
+        auditLog.setActorAuthMethod(AuthMethod.NONE);
+        auditLog.setActorType(ActorType.CORE);
+        auditLog.setResource(com.czertainly.api.model.core.auth.Resource.CERTIFICATE);
+        auditLog.setAffiliatedResource(com.czertainly.api.model.core.auth.Resource.AUDIT_LOG);
+        auditLog.setVersion("1");
+        auditLog.setOperation(Operation.LOGOUT);
+        auditLog.setOperationResult(OperationResult.SUCCESS);
+        auditLogRepository.save(auditLog);
         ExportResultDto result = auditLogService.exportAuditLogs(List.of());
 
         Assertions.assertDoesNotThrow(() -> {
