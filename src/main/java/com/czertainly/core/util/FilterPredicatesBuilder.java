@@ -364,8 +364,28 @@ public class FilterPredicatesBuilder {
         try {
             Pattern.compile(regex);
         } catch (PatternSyntaxException e) {
-            throw new ValidationException("Input is not a valid regex.");
+            throw new ValidationException("Input is not a valid regex: " + e.getMessage());
         }
+
+        // Literals \Q, \R, \G, ... are forbidden, but \\Q, \\R, \\G, ... should stay allowed
+        if (containsUnescapedSlashFollowedBy(regex, "QRGhHzXV")) {
+            throw new ValidationException("Literal quote sequences \\Q, \\R, \\G, \\h, \\H, \\z, \\X, \\V are not supported in PostgreSQL POSIX regex");
+        }
+    }
+
+    private static boolean containsUnescapedSlashFollowedBy(String s, String chars) {
+        for (int i = 0; i < s.length() - 1; i++) {
+            if (s.charAt(i) != '\\') continue;
+            char next = s.charAt(i + 1);
+            if (chars.indexOf(next) < 0) continue;
+            // count backslashes immediately before s.charAt(i)
+            int j = i - 1;
+            int count = 0;
+            while (j >= 0 && s.charAt(j) == '\\') { count++; j--; }
+            // if count is even -> this backslash is not escaped
+            if ((count % 2) == 0) return true;
+        }
+        return false;
     }
 
 
