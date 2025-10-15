@@ -368,7 +368,7 @@ public class FilterPredicatesBuilder {
         }
 
         // Literals \Q, \R, \G, ... are forbidden, but \\Q, \\R, \\G, ... should stay allowed
-        if (regex.matches(".*(?<!\\\\)\\\\[QRGhHzXV].*")) {
+        if (regex.matches(".*(?<!\\\\)(\\\\\\\\)*\\\\[QRGhHzXV].*")) {
             throw new ValidationException("Literal quote sequences \\Q, \\R, \\G, \\h, \\H, \\z, \\X, \\V are not supported in PostgreSQL POSIX regex");
         }
     }
