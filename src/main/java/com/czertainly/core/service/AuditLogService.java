@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.AuditLogResponseDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
@@ -44,7 +45,7 @@ public interface AuditLogService {
      */
     List<SearchFieldDataByGroupDto> getSearchableFieldInformationByGroup();
 
-    void log(LogRecord logRecord);
+    void log(LogRecord logRecord, AuditLogOutput logOutput);
 
     void logAuthentication(Operation operation, OperationResult operationResult, String message, String authData);
 }

@@ -12,6 +12,7 @@ import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.core.logging.AuditLogEnhancer;
 import com.czertainly.core.logging.LogResource;
+import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.core.messaging.model.AuditLogMessage;
@@ -47,6 +48,9 @@ public class AuditLogAspect {
 
     private AuditLogEnhancer auditLogEnhancer;
 
+    private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);
+
+
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
         this.auditLogEnhancer = auditLogEnhancer;
@@ -65,6 +69,8 @@ public class AuditLogAspect {
             return joinPoint.proceed();
         }
 
+        AuditLogOutput output = loggingSettingsDto.getAuditLogs().getOutput();
+
         MethodSignature signature = (MethodSignature) joinPoint.getSignature();
         AuditLogged annotation = signature.getMethod().getAnnotation(AuditLogged.class);
 
@@ -79,6 +85,10 @@ public class AuditLogAspect {
 
         LogData logData = constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), loggingSettingsDto.getAuditLogs().isVerbose());
         Resource resource = logData.resource();
+
+        if (logger.isLogFiltered(true, annotation.module(), resource, null)) {
+            return joinPoint.proceed();
+        }
 
         List<ResourceObjectIdentity> deletedObjectsIdentities = new ArrayList<>();
         List<ResourceObjectIdentity> deletedAffiliatedObjectsIdentities = new ArrayList<>();
@@ -112,7 +122,7 @@ public class AuditLogAspect {
             addDataFromResponse(logBuilder, result);
             setResourceRecords(logData, isDeleteOperation, deletedObjectsIdentities, annotation, logBuilder, deletedAffiliatedObjectsIdentities);
             logBuilder.timestamp(OffsetDateTime.now());
-            auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build()));
+            auditLogsProducer.produceMessage(new AuditLogMessage(logBuilder.build(), output));
         }
     }
 

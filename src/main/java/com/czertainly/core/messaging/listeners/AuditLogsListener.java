@@ -47,7 +47,7 @@ public class AuditLogsListener {
                 .operationResult(logRecord.operationResult())
                 .resource(new ResourceRecord(logRecord.resource().type(), auditLogEnhancer.enrichObjectIdentities(logRecord.resource().objects(), logRecord.resource().type())))
                 .affiliatedResource(logRecord.affiliatedResource() == null ? null : new ResourceRecord(logRecord.affiliatedResource().type(), auditLogEnhancer.enrichObjectIdentities(logRecord.affiliatedResource().objects(), logRecord.affiliatedResource().type())));
-        auditLogService.log(builder.build());
+        auditLogService.log(builder.build(), auditLogMessage.getAuditLogOutput());
     }
 
 }
