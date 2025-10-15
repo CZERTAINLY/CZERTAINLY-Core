@@ -206,8 +206,6 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     private void handleAuditLogging(LogRecord logRecord, AuditLogOutput savedOutput) {
-        if (LoggingHelper.isLogFilteredBasedOnResult(logRecord.operationResult(), logger.getLogger().isInfoEnabled(), logger.getLogger().isErrorEnabled()))
-            return;
         AuditLogOutput output = savedOutput;
         if (savedOutput == null) {
             LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
