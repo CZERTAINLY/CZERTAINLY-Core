@@ -85,7 +85,9 @@ public class LoggerWrapper {
     }
 
     public boolean isLogFiltered(boolean audited, Module module, Resource resource, OperationResult result) {
-        if (LoggingHelper.isLogFilteredBasedOnResult(result, logger.isInfoEnabled(), logger.isErrorEnabled())) return true;
+        if (result != null && ((result == OperationResult.SUCCESS && !logger.isInfoEnabled()) || (result == OperationResult.FAILURE && !logger.isErrorEnabled()))) {
+            return true;
+        }
         return LoggingHelper.isLogFilteredBasedOnModuleAndResource(audited, module, resource);
     }
 

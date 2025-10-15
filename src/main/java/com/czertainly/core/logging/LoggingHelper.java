@@ -197,8 +197,4 @@ public class LoggingHelper {
         return audited ? loggingSettings.getAuditLogs() : loggingSettings.getEventLogs();
     }
 
-    public static boolean isLogFilteredBasedOnResult(OperationResult result, boolean infoEnabled, boolean errorEnabled) {
-        return (result == OperationResult.SUCCESS && !infoEnabled) || (result == OperationResult.FAILURE && !errorEnabled);
-    }
-
 }
