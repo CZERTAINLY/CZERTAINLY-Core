@@ -252,9 +252,6 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 final UUID profileRuleUuid = rows.getObject("uuid", UUID.class);
                 final UUID complianceRuleUuid = rows.getObject("compliance_rule_uuid", UUID.class);
                 final String ruleAttributesJson = rows.getString("attributes");
-                if (ruleAttributesJson == null || ruleAttributesJson.isBlank() || ruleAttributesJson.equals("[]")) {
-                    continue;
-                }
 
                 List<RequestAttributeDto> profileRuleAttributes = null;
                 try {
