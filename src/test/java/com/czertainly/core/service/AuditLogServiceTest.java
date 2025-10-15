@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.core.audit.ExportResultDto;
 import com.czertainly.api.model.core.logging.enums.*;
 import com.czertainly.api.model.core.logging.enums.Module;
+import com.czertainly.api.model.core.logging.records.ActorRecord;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
@@ -119,6 +120,24 @@ class AuditLogServiceTest extends BaseSpringBootTest {
                 fos.flush();
             }
         });
+    }
+
+    @Test
+    void testLogWithOutput() {
+        LogRecord logRecord = LogRecord.builder()
+                .actor(ActorRecord.builder().authMethod(AuthMethod.CERTIFICATE).type(ActorType.USER).build())
+                .resource(ResourceRecord.builder().type(com.czertainly.api.model.core.auth.Resource.USER).build())
+                .timestamp(OffsetDateTime.now())
+                .module(Module.AUTH)
+                .version("1")
+                .operation(Operation.LOGOUT)
+                .operationResult(OperationResult.SUCCESS)
+                .build();
+        Assertions.assertDoesNotThrow(() -> auditLogService.log(logRecord, null));
+        Assertions.assertDoesNotThrow(() -> auditLogService.log(logRecord, AuditLogOutput.CONSOLE));
+        Assertions.assertDoesNotThrow(() -> auditLogService.log(logRecord, AuditLogOutput.DATABASE));
+        Assertions.assertDoesNotThrow(() -> auditLogService.log(logRecord, AuditLogOutput.ALL));
+        Assertions.assertDoesNotThrow(() -> auditLogService.log(logRecord, AuditLogOutput.NONE));
     }
 
     @Test
