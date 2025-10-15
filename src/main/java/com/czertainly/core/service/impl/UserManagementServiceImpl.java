@@ -200,7 +200,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .source(LoggingHelper.getSourceInfo())
                     .resource(ResourceRecord.builder().type(Resource.USER).objects(List.of(new ResourceObjectIdentity(null, UUID.fromString(userUuid)))).build())
                     .message("User with UUID %s has been %s".formatted(userUuid, actionName))
-                    .build()));
+                    .build(), null));
         }
     }
 
