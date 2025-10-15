@@ -6,10 +6,6 @@ import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
-import com.czertainly.api.model.core.settings.SettingsSection;
-import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
-import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
-import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -89,15 +85,8 @@ public class LoggerWrapper {
     }
 
     public boolean isLogFiltered(boolean audited, Module module, Resource resource, OperationResult result) {
-        if (result != null && ((result == OperationResult.SUCCESS && !logger.isInfoEnabled()) || (result == OperationResult.FAILURE && !logger.isErrorEnabled()))) {
-            return true;
-        }
-
-        ResourceLoggingSettingsDto settings = getLoggingSettings(audited);
-        if (settings.getIgnoredModules().contains(module) || (!settings.isLogAllModules() && !settings.getLoggedModules().contains(module))) {
-            return true;
-        }
-        return settings.getIgnoredResources().contains(resource) || (!settings.isLogAllResources() && !settings.getLoggedResources().contains(resource));
+        if (LoggingHelper.isLogFilteredBasedOnResult(result, logger.isInfoEnabled(), logger.isErrorEnabled())) return true;
+        return LoggingHelper.isLogFilteredBasedOnModuleAndResource(audited, module, resource);
     }
 
     public LogRecord buildLogRecord(boolean audited, Module module, Resource resource, Operation operation, OperationResult operationResult, Serializable operationData, String message, Map<String, Object> additionalData) {
@@ -125,11 +114,4 @@ public class LoggerWrapper {
                 .resource(new ResourceRecord(resource, null));
     }
 
-    private ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {
-        LoggingSettingsDto loggingSettings = SettingsCache.getSettings(SettingsSection.LOGGING);
-        if (loggingSettings == null) {
-            return new ResourceLoggingSettingsDto();
-        }
-        return audited ? loggingSettings.getAuditLogs() : loggingSettings.getEventLogs();
-    }
 }

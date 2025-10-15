@@ -12,7 +12,6 @@ import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.core.logging.AuditLogEnhancer;
 import com.czertainly.core.logging.LogResource;
-import com.czertainly.core.logging.LoggerWrapper;
 import com.czertainly.core.logging.LoggingHelper;
 import com.czertainly.api.model.core.logging.Loggable;
 import com.czertainly.core.messaging.model.AuditLogMessage;
@@ -47,9 +46,6 @@ public class AuditLogAspect {
     private AuditLogsProducer auditLogsProducer;
 
     private AuditLogEnhancer auditLogEnhancer;
-
-    private static final LoggerWrapper logger = new LoggerWrapper(AuditLogAspect.class, null, null);
-
 
     @Autowired
     public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
@@ -86,7 +82,7 @@ public class AuditLogAspect {
         LogData logData = constructLogData(annotation, logBuilder, signature.getMethod().getParameters(), joinPoint.getArgs(), loggingSettingsDto.getAuditLogs().isVerbose());
         Resource resource = logData.resource();
 
-        if (logger.isLogFiltered(true, annotation.module(), resource, null)) {
+        if (LoggingHelper.isLogFilteredBasedOnModuleAndResource(true, annotation.module(), resource)) {
             return joinPoint.proceed();
         }
 

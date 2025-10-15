@@ -199,13 +199,15 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
 
         LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message, additionalData);
-        if (logger.isLogFiltered(true, logRecord.module(), logRecord.resource().type(), null)) {
+        if (LoggingHelper.isLogFilteredBasedOnModuleAndResource(true, logRecord.module(), logRecord.resource().type())) {
             return;
         }
         log(logRecord, null);
     }
 
     private void handleAuditLogging(LogRecord logRecord, AuditLogOutput savedOutput) {
+        if (LoggingHelper.isLogFilteredBasedOnResult(logRecord.operationResult(), logger.getLogger().isInfoEnabled(), logger.getLogger().isErrorEnabled()))
+            return;
         AuditLogOutput output = savedOutput;
         if (savedOutput == null) {
             LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
