@@ -10,12 +10,15 @@ import com.czertainly.api.model.core.auth.*;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
+import com.czertainly.api.model.core.logging.enums.AuditLogOutput;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.LogRecord;
 import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.logging.LoggerWrapper;
@@ -29,6 +32,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.CertificateUtil;
 import com.czertainly.core.util.OAuth2Util;
 import com.nimbusds.jwt.SignedJWT;
@@ -189,7 +193,9 @@ public class UserManagementServiceImpl implements UserManagementService {
             OAuth2Util.endUserSession(entry.getValue());
             sessionRepository.deleteById(entry.getKey());
         }
-        if (!userSessions.isEmpty()) {
+        if (!userSessions.isEmpty() && !logger.isLogFiltered(true, Module.AUTH, Resource.USER, OperationResult.SUCCESS)) {
+            LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
+            AuditLogOutput output = loggingSettingsDto == null ? null : loggingSettingsDto.getAuditLogs().getOutput();
             auditLogsProducer.produceMessage(new AuditLogMessage(LogRecord.builder()
                     .version(schemaVersion)
                     .operation(Operation.LOGOUT)
@@ -200,7 +206,7 @@ public class UserManagementServiceImpl implements UserManagementService {
                     .source(LoggingHelper.getSourceInfo())
                     .resource(ResourceRecord.builder().type(Resource.USER).objects(List.of(new ResourceObjectIdentity(null, UUID.fromString(userUuid)))).build())
                     .message("User with UUID %s has been %s".formatted(userUuid, actionName))
-                    .build()));
+                    .build(), output));
         }
     }
 

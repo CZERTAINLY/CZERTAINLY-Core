@@ -179,8 +179,8 @@ public class AuditLogServiceImpl implements AuditLogService {
     }
 
     @Override
-    public void log(LogRecord logRecord) {
-        handleAuditLogging(logRecord);
+    public void log(LogRecord logRecord, AuditLogOutput output) {
+        handleAuditLogging(logRecord, output);
     }
 
     @Override
@@ -199,27 +199,31 @@ public class AuditLogServiceImpl implements AuditLogService {
         }
 
         LogRecord logRecord = logger.buildLogRecord(true, module, resource, operation, operationResult, null, message, additionalData);
-        log(logRecord);
-    }
-
-    private void handleAuditLogging(LogRecord logRecord) {
-        if (logger.isLogFiltered(true, logRecord.module(), logRecord.resource().type(), null)) {
+        if (LoggingHelper.isLogFilteredBasedOnModuleAndResource(true, logRecord.module(), logRecord.resource().type())) {
             return;
         }
+        log(logRecord, null);
+    }
 
-        LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
-        if (loggingSettingsDto == null || (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.NONE)) {
+    private void handleAuditLogging(LogRecord logRecord, AuditLogOutput savedOutput) {
+        AuditLogOutput output = savedOutput;
+        if (savedOutput == null) {
+            LoggingSettingsDto loggingSettingsDto = SettingsCache.getSettings(SettingsSection.LOGGING);
+            if (loggingSettingsDto != null) output = loggingSettingsDto.getAuditLogs().getOutput();
+        }
+
+        if (output == null || output == AuditLogOutput.NONE) {
             return;
         }
 
         // log to DB
-        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.DATABASE) {
+        if (output == AuditLogOutput.ALL || output == AuditLogOutput.DATABASE) {
             AuditLog auditLog = AuditLog.fromLogRecord(logRecord);
             auditLogRepository.save(auditLog);
         }
 
         // log to output
-        if (loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.ALL || loggingSettingsDto.getAuditLogs().getOutput() == AuditLogOutput.CONSOLE) {
+        if (output == AuditLogOutput.ALL || output == AuditLogOutput.CONSOLE) {
             logger.logAudited(logRecord);
         }
     }

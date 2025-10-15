@@ -3,11 +3,16 @@ package com.czertainly.core.logging;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.ActorType;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
+import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
 import com.czertainly.api.model.core.logging.records.ActorRecord;
 import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.api.model.core.logging.records.SourceRecord;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.logging.LoggingSettingsDto;
+import com.czertainly.api.model.core.settings.logging.ResourceLoggingSettingsDto;
+import com.czertainly.core.settings.SettingsCache;
 import com.czertainly.core.util.NullUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.MDC;
@@ -173,6 +178,22 @@ public class LoggingHelper {
                 .map(i -> String.format("{%s;%s}", i.name(), i.uuid() == null ? null : i.uuid().toString()))
                 .collect(Collectors.joining(";"));
         return "[%s]".formatted(result);
+    }
+
+    public static boolean isLogFilteredBasedOnModuleAndResource(boolean audited, Module module, Resource resource) {
+        ResourceLoggingSettingsDto settings = getLoggingSettings(audited);
+        if (settings.getIgnoredModules().contains(module) || (!settings.isLogAllModules() && !settings.getLoggedModules().contains(module))) {
+            return true;
+        }
+        return settings.getIgnoredResources().contains(resource) || (!settings.isLogAllResources() && !settings.getLoggedResources().contains(resource));
+    }
+
+    private static ResourceLoggingSettingsDto getLoggingSettings(boolean audited) {
+        LoggingSettingsDto loggingSettings = SettingsCache.getSettings(SettingsSection.LOGGING);
+        if (loggingSettings == null) {
+            return new ResourceLoggingSettingsDto();
+        }
+        return audited ? loggingSettings.getAuditLogs() : loggingSettings.getEventLogs();
     }
 
 }
