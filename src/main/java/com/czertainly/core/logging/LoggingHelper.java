@@ -5,7 +5,6 @@ import com.czertainly.api.model.core.logging.enums.ActorType;
 import com.czertainly.api.model.core.logging.enums.AuthMethod;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
-import com.czertainly.api.model.core.logging.enums.OperationResult;
 import com.czertainly.api.model.core.logging.records.ActorRecord;
 import com.czertainly.api.model.core.logging.records.ResourceObjectIdentity;
 import com.czertainly.api.model.core.logging.records.ResourceRecord;
