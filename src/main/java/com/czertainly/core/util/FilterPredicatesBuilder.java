@@ -35,7 +35,6 @@ public class FilterPredicatesBuilder {
 
     public static final String EMPTY_JSON_ARRAY = "[]";
     public static final String NULL_JSON_ARRAY = "[null]";
-    public static final List<String> POSIX_FORBIDDEN_QUOTE_SEQUENCES = List.of("Q", "R", "G", "h", "H", "z", "X", "V");
 
     private FilterPredicatesBuilder() {
         throw new IllegalStateException("Static utility class");
@@ -368,10 +367,10 @@ public class FilterPredicatesBuilder {
             throw new ValidationException("Input is not a valid regex: " + e.getMessage());
         }
 
-        for (CharSequence forbiddenLiteral : POSIX_FORBIDDEN_QUOTE_SEQUENCES)
-            if (regex.matches(".*(?<!\\\\)\\\\%s.*".formatted(forbiddenLiteral))) {
-                throw new ValidationException("Literal quote sequence \\%s is not supported in PostgreSQL POSIX regex".formatted(forbiddenLiteral));
-            }
+        // Literals \Q, \R, \G, ... are forbidden, but \\Q, \\R, \\G, ... should stay allowed
+        if (regex.matches(".*(?<!\\\\)\\\\[QRGhHzXV].*")) {
+            throw new ValidationException("Literal quote sequences \\Q, \\R, \\G, \\h, \\H, \\z, \\X, \\V are not supported in PostgreSQL POSIX regex");
+        }
     }
 
 
