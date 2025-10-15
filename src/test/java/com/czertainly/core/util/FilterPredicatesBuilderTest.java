@@ -640,6 +640,11 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.MATCHES, "[abc"))); // invalid regex
         Assertions.assertThrows(ValidationException.class, () -> certificateService.listCertificates(securityFilter, searchRequestDto));
 
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.MATCHES, "\\Qabc"))); // invalid regex in postgres
+        Assertions.assertThrows(ValidationException.class, () -> certificateService.listCertificates(securityFilter, searchRequestDto));
+
+        searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, FilterField.COMMON_NAME.name(), FilterConditionOperator.MATCHES, "\\\\Qabc"))); // double escape should pass
+        Assertions.assertDoesNotThrow(() -> certificateService.listCertificates(securityFilter, searchRequestDto));
     }
 
     @Test
