@@ -1,14 +1,19 @@
 package db.migration;
 
 import com.czertainly.api.exception.CertificateOperationException;
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.model.compliance.ComplianceResultProviderRulesDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DatabaseMigration;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
@@ -33,6 +38,12 @@ import java.util.*;
 public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigration {
 
     private static final Logger logger = LoggerFactory.getLogger(V202507311051__MigrateToComplianceProfilesV2.class);
+
+    private static final ObjectMapper mapper = Jackson2ObjectMapperBuilder.json()
+            .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
+            .modules(new JavaTimeModule())
+            .serializationInclusion(JsonInclude.Include.NON_NULL)
+            .build();
 
     @Override
     public Integer getChecksum() {
@@ -147,101 +158,185 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
         try (final Statement statement = context.getConnection().createStatement();
              final PreparedStatement updateCertComplianceResultStatement = context.getConnection().prepareStatement("UPDATE certificate SET compliance_result = ?::jsonb WHERE uuid = ?");
              final PreparedStatement insertProfileAssocStatement = context.getConnection().prepareStatement("INSERT INTO compliance_profile_association(uuid, compliance_profile_uuid, resource, object_uuid) VALUES (?,?,?,?)");
+             final PreparedStatement updateProfileRuleAssocStatement = context.getConnection().prepareStatement("UPDATE compliance_profile_rule SET attributes = ?::jsonb WHERE uuid = ?");
              final PreparedStatement insertProfileGroupAssocStatement = context.getConnection().prepareStatement("INSERT INTO compliance_profile_rule(uuid, compliance_profile_uuid, compliance_group_uuid) VALUES (?,?,?)")) {
 
-            // migrate RA profile associations
-            int count = 0;
-            try (ResultSet rows = statement.executeQuery("SELECT ra_profile_uuid, compliance_profile_uuid FROM ra_profile_2_compliance_profile")) {
-                while (rows.next()) {
-                    final UUID raPofileUuid = rows.getObject("ra_profile_uuid", UUID.class);
-                    final UUID compliancePofileUuid = rows.getObject("compliance_profile_uuid", UUID.class);
-
-                    insertProfileAssocStatement.setObject(1, UUID.randomUUID());
-                    insertProfileAssocStatement.setObject(2, compliancePofileUuid);
-                    insertProfileAssocStatement.setString(3, Resource.RA_PROFILE.name());
-                    insertProfileAssocStatement.setObject(4, raPofileUuid);
-                    insertProfileAssocStatement.addBatch();
-                    ++count;
-                }
-            }
-            logger.debug("Executing batch insert with {} compliance profile associations.", count);
-            insertProfileAssocStatement.executeBatch();
-
-            // migrate compliance groups to compliance profile associations
-            count = 0;
-            try (ResultSet rows = statement.executeQuery("SELECT profile_uuid, group_uuid FROM compliance_profile_2_compliance_group")) {
-                while (rows.next()) {
-                    final UUID groupUuid = rows.getObject("group_uuid", UUID.class);
-                    final UUID compliancePofileUuid = rows.getObject("profile_uuid", UUID.class);
-
-                    insertProfileGroupAssocStatement.setObject(1, UUID.randomUUID());
-                    insertProfileGroupAssocStatement.setObject(2, compliancePofileUuid);
-                    insertProfileGroupAssocStatement.setObject(3, groupUuid);
-                    insertProfileGroupAssocStatement.addBatch();
-                    ++count;
-                }
-            }
-            logger.debug("Executing batch insert with {} compliance profile group associations.", count);
-            insertProfileGroupAssocStatement.executeBatch();
-
-            // update all provider compliance rules to set connector UUID and kind
-            String updateComplianceProfileRules = """
-                    UPDATE compliance_profile_rule
-                    SET connector_uuid = (SELECT r.connector_uuid FROM compliance_rule AS r WHERE r.uuid = compliance_profile_rule.compliance_rule_uuid),
-                        kind = (SELECT r.kind FROM compliance_rule AS r WHERE r.uuid = compliance_profile_rule.compliance_rule_uuid)
-                    WHERE compliance_rule_uuid IS NOT NULL;
-                    
-                    UPDATE compliance_profile_rule
-                    SET resource = 'CERTIFICATE',
-                        connector_uuid = (SELECT g.connector_uuid FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid),
-                        kind = (SELECT g.kind FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid)
-                    WHERE compliance_group_uuid IS NOT NULL;
-                    """;
-
-            count = statement.executeUpdate(updateComplianceProfileRules);
-            logger.debug("Updated {} compliance profile rules associations to set connector UUID and kind.", count);
-
-            // migrate compliance results
-            count = 0;
-            ObjectMapper mapper = Jackson2ObjectMapperBuilder.json()
-                    .featuresToDisable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, DeserializationFeature.FAIL_ON_MISSING_EXTERNAL_TYPE_ID_PROPERTY)
-                    .modules(new JavaTimeModule())
-                    .serializationInclusion(JsonInclude.Include.NON_NULL)
-                    .build();
-            OffsetDateTime complianceTimestamp = OffsetDateTime.now();
-
+            // create map of rule UUID to connector UUID and kind
             Map<UUID, String> ruleConnectorKindMap = new HashMap<>();
-            try (ResultSet rulesRows = statement.executeQuery("SELECT uuid, connector_uuid, kind FROM compliance_rule")) {
+            Map<UUID, Map<String, DataAttribute>> ruleAttributesMap = new HashMap<>();
+            try (ResultSet rulesRows = statement.executeQuery("SELECT uuid, connector_uuid, kind, attributes FROM compliance_rule")) {
                 while (rulesRows.next()) {
-                    ruleConnectorKindMap.put(rulesRows.getObject("uuid", UUID.class), rulesRows.getString("connector_uuid") + "|" + rulesRows.getString("kind"));
-                }
-            }
+                    UUID ruleUuid = rulesRows.getObject("uuid", UUID.class);
+                    ruleConnectorKindMap.put(ruleUuid, rulesRows.getString("connector_uuid") + "|" + rulesRows.getString("kind"));
 
-            try (ResultSet certificatesRows = statement.executeQuery("SELECT uuid, compliance_status, compliance_result FROM certificate WHERE compliance_result IS NOT NULL")) {
-                while (certificatesRows.next()) {
-                    final UUID certificateUuid = certificatesRows.getObject("uuid", UUID.class);
-                    final ComplianceStatus complianceStatus = ComplianceStatus.valueOf(certificatesRows.getString("compliance_status"));
-                    String complianceResult = certificatesRows.getString("compliance_result");
-                    try {
-                        Map<String, List<String>> complianceResultOld = mapper.readValue(complianceResult, HashMap.class);
-                        ComplianceResultDto complianceResultDto = new ComplianceResultDto();
-                        complianceResultDto.setTimestamp(complianceTimestamp);
-                        complianceResultDto.setStatus(complianceStatus);
-                        complianceResultDto.setProviderRules(getComplianceResultProviderRules(ruleConnectorKindMap, complianceResultOld));
-
-                        updateCertComplianceResultStatement.setString(1, mapper.writeValueAsString(complianceResultDto));
-                        updateCertComplianceResultStatement.setObject(2, certificateUuid);
-                        updateCertComplianceResultStatement.addBatch();
-                        ++count;
-                    } catch (JsonProcessingException e) {
-                        throw new CertificateOperationException("Failed to parse compliance result for certificate with UUID " + certificateUuid);
+                    String attributesStr = rulesRows.getString("attributes");
+                    if (attributesStr != null && !attributesStr.isBlank()) {
+                        try {
+                            Map<String, DataAttribute> attributes = Arrays.stream(mapper.readValue(attributesStr, BaseAttribute[].class))
+                                    .filter(DataAttribute.class::isInstance)
+                                    .collect(HashMap::new, (m, a) -> m.put(a.getName(), (DataAttribute) a), HashMap::putAll);
+                            ruleAttributesMap.put(ruleUuid, attributes);
+                        } catch (JsonProcessingException ignored) {
+                            logger.warn("Skipping invalid attributes of compliance rule with UUID {}.", ruleUuid);
+                        }
                     }
                 }
             }
 
-            logger.debug("Executing batch update of compliance result for {} certificates.", count);
-            updateCertComplianceResultStatement.executeBatch();
+            migrateRaProfileAssociations(statement, insertProfileAssocStatement);
+            migrateComplianceGroupsToProfileAssociations(statement, insertProfileGroupAssocStatement);
+            migrateComplianceProfileRuleAttributes(ruleAttributesMap, statement, updateProfileRuleAssocStatement);
+            migrateCertificateComplianceResults(ruleConnectorKindMap, statement, updateCertComplianceResultStatement);
         }
+    }
+
+    private void migrateRaProfileAssociations(final Statement statement, final PreparedStatement insertProfileAssocStatement) throws SQLException {
+        int count = 0;
+        try (ResultSet rows = statement.executeQuery("SELECT ra_profile_uuid, compliance_profile_uuid FROM ra_profile_2_compliance_profile")) {
+            while (rows.next()) {
+                final UUID raPofileUuid = rows.getObject("ra_profile_uuid", UUID.class);
+                final UUID compliancePofileUuid = rows.getObject("compliance_profile_uuid", UUID.class);
+
+                insertProfileAssocStatement.setObject(1, UUID.randomUUID());
+                insertProfileAssocStatement.setObject(2, compliancePofileUuid);
+                insertProfileAssocStatement.setString(3, Resource.RA_PROFILE.name());
+                insertProfileAssocStatement.setObject(4, raPofileUuid);
+                insertProfileAssocStatement.addBatch();
+                ++count;
+            }
+        }
+        logger.debug("Executing batch insert with {} compliance profile associations.", count);
+        insertProfileAssocStatement.executeBatch();
+    }
+
+    private void migrateComplianceGroupsToProfileAssociations(final Statement statement, final PreparedStatement insertProfileGroupAssocStatement) throws SQLException {
+        // migrate compliance groups to compliance profile associations
+        int count = 0;
+        try (ResultSet rows = statement.executeQuery("SELECT profile_uuid, group_uuid FROM compliance_profile_2_compliance_group")) {
+            while (rows.next()) {
+                final UUID groupUuid = rows.getObject("group_uuid", UUID.class);
+                final UUID compliancePofileUuid = rows.getObject("profile_uuid", UUID.class);
+
+                insertProfileGroupAssocStatement.setObject(1, UUID.randomUUID());
+                insertProfileGroupAssocStatement.setObject(2, compliancePofileUuid);
+                insertProfileGroupAssocStatement.setObject(3, groupUuid);
+                insertProfileGroupAssocStatement.addBatch();
+                ++count;
+            }
+        }
+        logger.debug("Executing batch insert with {} compliance profile group associations.", count);
+        insertProfileGroupAssocStatement.executeBatch();
+
+        // update all provider compliance rules to set connector UUID and kind
+        String updateComplianceProfileRules = """
+                UPDATE compliance_profile_rule
+                SET connector_uuid = (SELECT r.connector_uuid FROM compliance_rule AS r WHERE r.uuid = compliance_profile_rule.compliance_rule_uuid),
+                    kind = (SELECT r.kind FROM compliance_rule AS r WHERE r.uuid = compliance_profile_rule.compliance_rule_uuid)
+                WHERE compliance_rule_uuid IS NOT NULL;
+                
+                UPDATE compliance_profile_rule
+                SET resource = 'CERTIFICATE',
+                    connector_uuid = (SELECT g.connector_uuid FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid),
+                    kind = (SELECT g.kind FROM compliance_group AS g WHERE g.uuid = compliance_profile_rule.compliance_group_uuid)
+                WHERE compliance_group_uuid IS NOT NULL;
+                """;
+
+        count = statement.executeUpdate(updateComplianceProfileRules);
+        logger.debug("Updated {} compliance profile rules associations to set connector UUID and kind.", count);
+    }
+
+    private void migrateComplianceProfileRuleAttributes(Map<UUID, Map<String, DataAttribute>> ruleAttributesMap, final Statement statement, final PreparedStatement updateProfileRuleAssocStatement) throws SQLException {
+        int count = 0;
+        try (ResultSet rows = statement.executeQuery("SELECT uuid, compliance_rule_uuid, attributes FROM compliance_profile_rule WHERE compliance_rule_uuid IS NOT NULL AND attributes IS NOT NULL")) {
+            while (rows.next()) {
+                final UUID profileRuleUuid = rows.getObject("uuid", UUID.class);
+                final UUID complianceRuleUuid = rows.getObject("compliance_rule_uuid", UUID.class);
+                final String ruleAttributesJson = rows.getString("attributes");
+
+                List<RequestAttributeDto> profileRuleAttributes = null;
+                try {
+                    profileRuleAttributes = mapper.readValue(ruleAttributesJson, new TypeReference<>() {
+                    });
+                } catch (JsonProcessingException ignored) {
+                    logger.warn("Skipping invalid attributes, compliance profile rule with UUID {} will be saved without attributes", profileRuleUuid);
+                }
+
+                Map<String, DataAttribute> ruleAttributes = ruleAttributesMap.get(complianceRuleUuid);
+                if (profileRuleAttributes != null) {
+                    if (ruleAttributes == null) {
+                        profileRuleAttributes = null;
+                    } else {
+                        updatedRuleRequestAttributes(profileRuleAttributes, ruleAttributes);
+                    }
+                }
+
+                String ruleAttributesJsonUpdated = null;
+                try {
+                    ruleAttributesJsonUpdated = profileRuleAttributes == null ? null : mapper.writeValueAsString(profileRuleAttributes);
+                } catch (JsonProcessingException ignored) {
+                    logger.warn("Cannot serialize updated attributes, compliance profile rule with UUID {} and original attributes {} will be saved without attributes", profileRuleUuid, ruleAttributesJson);
+                }
+
+                updateProfileRuleAssocStatement.setString(1, ruleAttributesJsonUpdated);
+                updateProfileRuleAssocStatement.setObject(2, profileRuleUuid);
+                updateProfileRuleAssocStatement.addBatch();
+                ++count;
+            }
+        }
+        logger.debug("Executing batch update with {} compliance profile rule associations with attributes.", count);
+        updateProfileRuleAssocStatement.executeBatch();
+    }
+
+    private void updatedRuleRequestAttributes(List<RequestAttributeDto> profileRuleAttributes, Map<String, DataAttribute> ruleAttributes) {
+        for (RequestAttributeDto profileRuleAttribute : profileRuleAttributes) {
+            if (profileRuleAttribute.getUuid() != null && profileRuleAttribute.getContentType() != null) {
+                // skip full attributes
+                continue;
+            }
+
+            DataAttribute ruleAttribute = ruleAttributes.get(profileRuleAttribute.getName());
+            if (ruleAttribute != null) {
+                profileRuleAttribute.setUuid(ruleAttribute.getUuid());
+                profileRuleAttribute.setContentType(ruleAttribute.getContentType());
+            } else {
+                if (profileRuleAttribute.getUuid() == null) {
+                    profileRuleAttribute.setUuid(UUID.randomUUID().toString());
+                }
+                if (profileRuleAttribute.getContentType() == null) {
+                    profileRuleAttribute.setContentType(AttributeDefinitionUtils.deriveAttributeContentTypeFromContent(profileRuleAttribute.getContent()));
+                }
+            }
+        }
+    }
+
+    private void migrateCertificateComplianceResults(final Map<UUID, String> ruleConnectorKindMap, final Statement statement, final PreparedStatement updateCertComplianceResultStatement) throws SQLException, CertificateOperationException {
+        int count = 0;
+        OffsetDateTime complianceTimestamp = OffsetDateTime.now();
+
+        try (ResultSet certificatesRows = statement.executeQuery("SELECT uuid, compliance_status, compliance_result FROM certificate WHERE compliance_result IS NOT NULL")) {
+            while (certificatesRows.next()) {
+                final UUID certificateUuid = certificatesRows.getObject("uuid", UUID.class);
+                final ComplianceStatus complianceStatus = ComplianceStatus.valueOf(certificatesRows.getString("compliance_status"));
+                String complianceResult = certificatesRows.getString("compliance_result");
+                try {
+                    Map<String, List<String>> complianceResultOld = mapper.readValue(complianceResult, HashMap.class);
+                    ComplianceResultDto complianceResultDto = new ComplianceResultDto();
+                    complianceResultDto.setTimestamp(complianceTimestamp);
+                    complianceResultDto.setStatus(complianceStatus);
+                    complianceResultDto.setProviderRules(getComplianceResultProviderRules(ruleConnectorKindMap, complianceResultOld));
+
+                    updateCertComplianceResultStatement.setString(1, mapper.writeValueAsString(complianceResultDto));
+                    updateCertComplianceResultStatement.setObject(2, certificateUuid);
+                    updateCertComplianceResultStatement.addBatch();
+                    ++count;
+                } catch (JsonProcessingException e) {
+                    throw new CertificateOperationException("Failed to parse compliance result for certificate with UUID " + certificateUuid);
+                }
+            }
+        }
+
+        logger.debug("Executing batch update of compliance result for {} certificates.", count);
+        updateCertComplianceResultStatement.executeBatch();
     }
 
     private List<ComplianceResultProviderRulesDto> getComplianceResultProviderRules(Map<UUID, String> ruleConnectorKindMap, Map<String, List<String>> complianceResultOld) {
