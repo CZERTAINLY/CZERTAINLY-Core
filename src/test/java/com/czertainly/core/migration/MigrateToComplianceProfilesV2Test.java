@@ -1,8 +1,11 @@
 package com.czertainly.core.migration;
 
+import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.util.BaseSpringBootTest;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import db.migration.V202507311051__MigrateToComplianceProfilesV2;
 import org.flywaydb.core.api.migration.Context;
@@ -21,6 +24,7 @@ import javax.sql.DataSource;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.List;
 import java.util.UUID;
 
 @Transactional
@@ -157,9 +161,18 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
                 
                         INSERT INTO compliance_rule (name, uuid, kind, decommissioned, certificate_type, description, group_uuid, connector_uuid) VALUES ('e_mp_modulus_must_be_2048_bits_or_more', '40f08544-ddc1-11ec-9378-34cff65c6ee3', 'x509', false, 'X509', 'RSA keys must have modulus size of at least 2048 bits', '52350df6-ddb2-11ec-9d64-0242ac120002', '80490584-ec68-48af-915e-9d2aed8ee471');
                         INSERT INTO compliance_rule (name, uuid, kind, decommissioned, certificate_type, description, group_uuid, connector_uuid) VALUES ('e_algorithm_identifier_improper_encoding', '40f084cc-ddc1-11ec-9d7f-34cff65c6ee3', 'x509', false, 'X509', 'Encoded AlgorithmObjectIdentifier objects inside a SubjectPublicKeyInfo field MUST comply with specified byte sequences.', NULL, '80490584-ec68-48af-915e-9d2aed8ee471');
+                        INSERT INTO compliance_rule (name,uuid,kind,decommissioned,certificate_type,"attributes",description,group_uuid,connector_uuid) VALUES
+                             ('cus_public_key_algorithm','6dcf0d44-ddc3-11ec-9d64-0242ac120002'::uuid,'x509',false,'X509','[{"uuid":"166b5cf52-63f2-11ec-90d6-0242ac120013","name":"condition","content":[{"reference":"Equals","data":"Equals"},{"reference":"NotEquals","data":"NotEquals"}],"type":"data","contentType":"string","properties":{"label":"Condition","visible":true,"group":null,"required":true,"readOnly":false,"list":true,"multiSelect":false}},{"uuid":"166b5cf52-63f2-11ec-90d6-0242ac120003","name":"algorithm","content":[{"reference":"RSA","data":"RSA"},{"reference":"DSA","data":"DSA"},{"reference":"ECDSA","data":"ECDSA"}],"type":"data","contentType":"string","properties":{"label":"Public Key Algorithm","visible":true,"group":null,"required":true,"readOnly":false,"list":true,"multiSelect":true}}]','Public key algorithm of the certificate',NULL,'80490584-ec68-48af-915e-9d2aed8ee471'::uuid),
+                             ('cus_key_length','7ed00480-e706-11ec-8fea-0242ac120002'::uuid,'x509',false,'X509','[{"uuid":"7ed00782-e706-11ec-8fea-0242ac120002","name":"condition","content":[{"reference":"Equals","data":"Equals"},{"reference":"NotEquals","data":"NotEquals"},{"reference":"Greater","data":"Greater"},{"reference":"Lesser","data":"Lesser"}],"type":"data","contentType":"string","properties":{"label":"Condition","visible":true,"group":null,"required":true,"readOnly":false,"list":true,"multiSelect":false}},{"uuid":"7ed00886-e706-11ec-8fea-0242ac120002","name":"length","type":"data","contentType":"integer","properties":{"label":"Key Length","visible":true,"group":null,"required":true,"readOnly":false,"list":false,"multiSelect":false}}]','Public Key length of the certificate should be',NULL,'80490584-ec68-48af-915e-9d2aed8ee471'::uuid);
                 
                         INSERT INTO compliance_profile_rule (uuid, i_author, i_cre, i_upd, compliance_profile_uuid, rule_uuid) VALUES ('cc9a2fc0-dcc7-49a2-ad57-ce3559a3ee71', 'superadmin', '2023-11-30 16:34:32.338669', '2023-11-30 16:34:32.338669', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '40f08544-ddc1-11ec-9378-34cff65c6ee3');
                         INSERT INTO compliance_profile_rule (uuid, i_author, i_cre, i_upd, compliance_profile_uuid, rule_uuid) VALUES ('ab5e89fd-d6a8-460c-a397-c173f6043aed', 'superadmin', '2025-07-17 21:10:15.965651', '2025-07-17 21:10:15.965651', '44ce3ecf-ecd5-43cc-a836-8171b42ca2af', '40f084cc-ddc1-11ec-9d7f-34cff65c6ee3');
+                        INSERT INTO compliance_profile_rule (uuid,i_author,i_cre,i_upd,"attributes",compliance_profile_uuid,rule_uuid) VALUES
+                        	 ('1a3dbb1e-76e7-4814-9610-772400e85115'::uuid,'adminadmin','2022-10-17 14:26:13.871','2022-10-17 14:26:13.871','[{"content":[{"reference":"Equals","data":"Equals"}]},{"name":"algorithm","content":[{"reference":"RSA","data":"RSA"}]}]','44ce3ecf-ecd5-43cc-a836-8171b42ca2af'::uuid,'40f08544-ddc1-11ec-9378-34cff65c6ee3'::uuid),
+                        	 ('5645599d-8017-432f-ad42-8abba2b0b528'::uuid,'adminadmin','2022-10-17 14:26:13.871','2022-10-17 14:26:13.871','[{"name":"condition","content":[{"reference":"Equals","data":"Equals"}]},{"name":"algorithm","content":[{"reference":"RSA","data":"RSA"}]}]','44ce3ecf-ecd5-43cc-a836-8171b42ca2af'::uuid,'40f08544-ddc1-11ec-9378-34cff65c6ee3'::uuid),
+                        	 ('b5025c93-9cb0-424e-8258-01a092c2d6a8'::uuid,'adminadmin','2022-10-17 14:26:13.871','2022-10-17 14:26:13.871','[{"name":"condition","content":[{"reference":"Equals","data":"Equals"}]},{"name":"algorithm","content":[{"reference":"RSA","data":"RSA"}]}]','44ce3ecf-ecd5-43cc-a836-8171b42ca2af'::uuid,'6dcf0d44-ddc3-11ec-9d64-0242ac120002'::uuid),
+                        	 ('5388720e-0146-4f2d-8ca7-a1dff7e9fad7'::uuid,'adminadmin','2023-06-21 13:57:46.127','2023-06-21 13:57:46.127','[{"uuid":"7ed00782-e706-11ec-8fea-0242ac120002","name":"condition","contentType":"string","content":[{"reference":"Greater","data":"Greater"}]},{"uuid":"7ed00886-e706-11ec-8fea-0242ac120002","name":"length","contentType":"integer","content":[{"reference":null,"data":"2050"}]}]','44ce3ecf-ecd5-43cc-a836-8171b42ca2af'::uuid,'7ed00480-e706-11ec-8fea-0242ac120002'::uuid);
+                
                 """;
 
         try (Statement statement = context.getConnection().createStatement()) {
@@ -181,16 +194,57 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
     }
 
     private void assertMigratedDataPresence() throws Exception {
+        // verify RA profile associations were migrated
         try (Statement statement = dataSource.getConnection().createStatement();
              ResultSet resultSet = statement.executeQuery("SELECT * FROM compliance_profile_association WHERE resource = 'RA_PROFILE'")) {
             Assertions.assertTrue(resultSet.next());
             Assertions.assertEquals("9e834b25-3c44-4251-8745-3bd8c0d99ff4", resultSet.getObject("object_uuid").toString());
         }
 
+        // verify compliance profile group association was migrated
         try (Statement statement = dataSource.getConnection().createStatement();
              ResultSet resultSet = statement.executeQuery("SELECT * FROM compliance_profile_rule WHERE compliance_group_uuid = '52350996-ddb2-11ec-9d64-0242ac120002'")) {
             Assertions.assertTrue(resultSet.next());
             Assertions.assertEquals(UUID.fromString("44ce3ecf-ecd5-43cc-a836-8171b42ca2af"), resultSet.getObject("compliance_profile_uuid", UUID.class));
+        }
+
+        // verify nullified attributes in compliance profile rules
+        try (Statement statement = dataSource.getConnection().createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT attributes FROM compliance_profile_rule WHERE uuid = '1a3dbb1e-76e7-4814-9610-772400e85115' OR uuid = '5645599d-8017-432f-ad42-8abba2b0b528'")) {
+
+            int count = 0;
+            while (resultSet.next()) {
+                Assertions.assertNull(resultSet.getString("attributes"));
+                count++;
+            }
+            Assertions.assertEquals(2, count);
+        }
+
+        try (Statement statement = dataSource.getConnection().createStatement();
+             ResultSet resultSet = statement.executeQuery("SELECT attributes FROM compliance_profile_rule WHERE uuid = 'b5025c93-9cb0-424e-8258-01a092c2d6a8'")) {
+            Assertions.assertTrue(resultSet.next());
+
+            String ruleAttributesJson = resultSet.getString("attributes");
+            Assertions.assertNotNull(ruleAttributesJson);
+            List<RequestAttributeDto> profileRuleAttributes = objectMapper.readValue(ruleAttributesJson, new TypeReference<>() {
+            });
+
+            Assertions.assertEquals(2, profileRuleAttributes.size());
+            for (RequestAttributeDto profileRuleAttribute : profileRuleAttributes) {
+                if (profileRuleAttribute.getName().equals("condition")) {
+                    Assertions.assertEquals(1, profileRuleAttribute.getContent().size());
+                    Assertions.assertEquals("Equals", profileRuleAttribute.getContent().getFirst().getData());
+                    Assertions.assertEquals("166b5cf52-63f2-11ec-90d6-0242ac120013", profileRuleAttribute.getUuid());
+                    Assertions.assertEquals(AttributeContentType.STRING, profileRuleAttribute.getContentType());
+                } else if (profileRuleAttribute.getName().equals("algorithm")) {
+                    Assertions.assertEquals(1, profileRuleAttribute.getContent().size());
+                    Assertions.assertEquals("RSA", profileRuleAttribute.getContent().getFirst().getData());
+                    Assertions.assertEquals("166b5cf52-63f2-11ec-90d6-0242ac120003", profileRuleAttribute.getUuid());
+                    Assertions.assertEquals(AttributeContentType.STRING, profileRuleAttribute.getContentType());
+                } else {
+                    Assertions.fail("Unexpected attribute name: " + profileRuleAttribute.getName());
+                }
+            }
         }
 
         // verify certificate compliance_result was migrated to new JSON structure
