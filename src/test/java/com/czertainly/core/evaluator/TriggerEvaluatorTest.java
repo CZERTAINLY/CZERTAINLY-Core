@@ -678,6 +678,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(certificate);
         Assertions.assertEquals(raProfile.getName(), certificateDetailDto.getRaProfile().getName());
+        mockServer.shutdown();
     }
 
     @Test
