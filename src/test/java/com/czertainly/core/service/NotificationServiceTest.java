@@ -82,7 +82,7 @@ class NotificationServiceTest extends BaseSpringBootTest {
         // all notifications that are present in DB are send to bulk delete, but deleted should be only those of logged user
         Assertions.assertEquals(3, notificationRecipientRepository.findAll().size());
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     private void setupAuthServiceMock() {

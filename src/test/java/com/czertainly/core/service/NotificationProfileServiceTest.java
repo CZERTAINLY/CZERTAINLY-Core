@@ -129,7 +129,7 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         notificationInstanceReferenceRepository.save(instance);
         Assertions.assertDoesNotThrow(() -> notificationListener.processMessage(notificationMessage));
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     @Test
@@ -169,7 +169,7 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(originalNotificationProfile.getVersion(), olderVersion.getVersion());
         Assertions.assertEquals(originalNotificationProfile.getRecipientType(), olderVersion.getRecipientType());
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     @Test
