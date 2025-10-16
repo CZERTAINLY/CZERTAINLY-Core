@@ -315,6 +315,8 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         }
         Assertions.assertTrue(matched);
         Assertions.assertTrue(matchedHybrid);
+
+        mockServer.stop();
     }
 
     @Test

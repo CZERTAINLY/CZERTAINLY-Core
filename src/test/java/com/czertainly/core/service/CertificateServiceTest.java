@@ -35,6 +35,7 @@ import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
 import org.bouncycastle.operator.OperatorCreationException;
 import org.jetbrains.annotations.NotNull;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -214,6 +215,11 @@ class CertificateServiceTest extends BaseSpringBootTest {
         keyStore.load(keyStoreStream, "123456".toCharArray());
 
         x509Cert = (X509Certificate) keyStore.getCertificate("1");
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockServer.stop();
     }
 
     @Test

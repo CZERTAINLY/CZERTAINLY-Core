@@ -27,6 +27,7 @@ import com.nimbusds.jose.crypto.RSASSASigner;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.gen.RSAKeyGenerator;
 import org.bouncycastle.operator.OperatorCreationException;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -106,11 +107,12 @@ class AcmeServiceTest extends BaseSpringBootTest {
     private String nonAcmeB64UrlCertificate;
     private Certificate certificate;
     private AcmeOrder order1;
+    WireMockServer mockServer;
 
     @BeforeEach
     void setUp() throws JOSEException, NoSuchAlgorithmException, CertificateException, SignatureException, InvalidKeyException, NoSuchProviderException, OperatorCreationException {
         // prepare mock server
-        WireMockServer mockServer = new WireMockServer(0);
+        mockServer = new WireMockServer(0);
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
@@ -281,6 +283,11 @@ class AcmeServiceTest extends BaseSpringBootTest {
 
         nonAcmeCertificateContent.setCertificate(nonAcmeCertificate);
         certificateContentRepository.save(nonAcmeCertificateContent);
+    }
+
+    @AfterEach
+    void tearDown() {
+        mockServer.stop();
     }
 
     @Test

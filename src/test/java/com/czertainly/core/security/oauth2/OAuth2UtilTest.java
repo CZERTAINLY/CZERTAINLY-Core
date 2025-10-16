@@ -121,6 +121,7 @@ class OAuth2UtilTest {
             // Mocked endpoint 404
             Assertions.assertDoesNotThrow(() -> OAuth2Util.endUserSession(session));
         }
+        mockServer.stop();
     }
 
 
