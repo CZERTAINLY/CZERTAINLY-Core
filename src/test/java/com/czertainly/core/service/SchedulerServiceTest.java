@@ -348,7 +348,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
         ScheduledJobsResponseDto listResponse = schedulerService.listScheduledJobs(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(0, listResponse.getTotalItems());
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
 }

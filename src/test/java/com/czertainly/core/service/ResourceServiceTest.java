@@ -65,7 +65,6 @@ class ResourceServiceTest extends BaseSpringBootTest {
     @AfterEach
     void tearDown() {
         mockServer.stop();
-        mockServer.shutdown();
     }
 
     @BeforeEach

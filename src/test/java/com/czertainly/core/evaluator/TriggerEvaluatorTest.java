@@ -633,7 +633,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Assertions.assertNotNull(owner);
         Assertions.assertEquals("ownerName", owner.getName());
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     @Test
@@ -678,7 +678,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         CertificateDetailDto certificateDetailDto = certificateService.getCertificate(certificate.getSecuredUuid());
         Assertions.assertNotNull(certificate);
         Assertions.assertEquals(raProfile.getName(), certificateDetailDto.getRaProfile().getName());
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     @Test

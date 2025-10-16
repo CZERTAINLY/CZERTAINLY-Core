@@ -347,7 +347,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         discovery = discoveryRepository.findByUuid(discovery.getUuid()).orElseThrow();
         Assertions.assertEquals(DiscoveryStatus.COMPLETED, discovery.getStatus());
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     @Test
@@ -479,7 +479,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         Assertions.assertNotNull(pendingNotification);
         Assertions.assertEquals(1, pendingNotification.getRepetitions(), "Second notification should be suppressed");
 
-        mockServer.shutdown();
+        mockServer.stop();
     }
 
     private List<UUID> prepareDataAndMockServer(WireMockServer mockServer, Group group, UUID ownerUuid, UUID roleUuid) throws NotFoundException, AlreadyExistException {
