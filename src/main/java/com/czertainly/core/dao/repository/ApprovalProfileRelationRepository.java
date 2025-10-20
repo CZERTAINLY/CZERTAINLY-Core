@@ -2,6 +2,7 @@ package com.czertainly.core.dao.repository;
 
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.ApprovalProfileRelation;
+import org.springframework.data.jpa.repository.EntityGraph;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -13,6 +14,7 @@ public interface ApprovalProfileRelationRepository extends SecurityFilterReposit
 
     Optional<List<ApprovalProfileRelation>> findByResourceUuid(final UUID resourceUuid);
 
+    @EntityGraph(attributePaths = {"approvalProfile", "approvalProfile.approvalProfileVersions"})
     Optional<List<ApprovalProfileRelation>> findByResourceUuidAndResource(final UUID resourceUuid, final Resource resource);
 
 }
