@@ -26,5 +26,5 @@ public interface AcmeOrderRepository extends SecurityFilterRepository<AcmeOrder,
             WHERE ac.acmeAccount = :acmeAccount AND ac.expires <= :expires AND ac.status != ?#{T(com.czertainly.api.model.core.acme.OrderStatus).INVALID}
             AND ac.status != ?#{T(com.czertainly.api.model.core.acme.OrderStatus).VALID}
             """)
-    int invalidateExpiredOrders(AcmeAccount acmeAccount, Date expires);
+    Integer invalidateExpiredOrders(AcmeAccount acmeAccount, Date expires);
 }

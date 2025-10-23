@@ -112,7 +112,7 @@ public class ExternalMethodAuthorizationManager extends AbstractExternalAuthoriz
 
         // evaluate if objects owners equal to principal
         if (resource.hasOwner()) {
-            long ownerCount = ownerAssociationRepository.countByOwnerUuidAndResourceAndObjectUuidIn(UUID.fromString(principal.getUserUuid()), resource, objectUUIDs.stream().filter(u -> u.getValue() != null).map(SecuredUUID::getValue).toList());
+            Long ownerCount = ownerAssociationRepository.countByOwnerUuidAndResourceAndObjectUuidIn(UUID.fromString(principal.getUserUuid()), resource, objectUUIDs.stream().filter(u -> u.getValue() != null).map(SecuredUUID::getValue).toList());
             if (ownerCount == objectUUIDs.size()) {
                 return new AuthorizationDecision(true);
             }

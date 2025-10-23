@@ -18,7 +18,7 @@ public interface CertificateContentRepository extends SecurityFilterRepository<C
             	AND
             	NOT EXISTS (SELECT 1 FROM DiscoveryCertificate dc WHERE dc.certificateContentId = cc.id)
             """)
-    int deleteUnusedCertificateContents();
+    Integer deleteUnusedCertificateContents();
 
     @Modifying
     @Query(value = """
@@ -27,6 +27,6 @@ public interface CertificateContentRepository extends SecurityFilterRepository<C
             ON CONFLICT (fingerprint)
             DO NOTHING
             """, nativeQuery = true)
-    int insertWithFingerprintConflictResolve(String fingerprint, String content);
+    void insertWithFingerprintConflictResolve(String fingerprint, String content);
 
 }

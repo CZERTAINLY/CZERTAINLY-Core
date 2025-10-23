@@ -82,7 +82,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
              WHERE c.certificateContentId IS NOT NULL AND c.validationStatus NOT IN :skipStatuses AND c.archived = false
              AND ((rp.validationEnabled is NULL AND :platformEnabled = true) OR (rp.validationEnabled = true))
             """)
-    long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("platformEnabled") boolean platformEnabled);
+    Long countCertificatesToCheckStatus(@Param("skipStatuses") List<CertificateValidationStatus> skipStatuses, @Param("platformEnabled") boolean platformEnabled);
 
 
     // Select certificates which have content, and they are not revoked, expired (since these statuses cannot change) or archived
@@ -156,7 +156,7 @@ public interface CertificateRepository extends SecurityFilterRepository<Certific
             ON CONFLICT (fingerprint)
             DO NOTHING
             """, nativeQuery = true)
-    int insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
+    Integer insertWithFingerprintConflictResolve(@Param("cert") Certificate certificate);
 
     @Query("""
              SELECT c.uuid

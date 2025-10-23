@@ -265,9 +265,9 @@ public class TriggerServiceImpl implements TriggerService {
 
     @Override
     public void deleteTriggerAssociations(Resource resource, UUID associationObjectUuid) {
-        long deletedAssociations = triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, associationObjectUuid);
+        Long deletedAssociations = triggerAssociationRepository.deleteByResourceAndObjectUuid(Resource.DISCOVERY, associationObjectUuid);
         logger.debug("Deleted {} trigger associations for {} with UUID {}.", deletedAssociations, resource.getLabel(), associationObjectUuid);
-        long deletedHistoryRecords = triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);
+        Long deletedHistoryRecords = triggerHistoryRepository.deleteByTriggerAssociationObjectUuid(associationObjectUuid);
         logger.debug("Deleted {} trigger history items for {} with UUID {}.", deletedHistoryRecords, resource.getLabel(), associationObjectUuid);
     }
 

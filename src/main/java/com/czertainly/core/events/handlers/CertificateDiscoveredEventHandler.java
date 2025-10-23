@@ -278,7 +278,7 @@ public class CertificateDiscoveredEventHandler extends EventHandler<Certificate>
 
         // report progress
         if (certIndex % MAXIMUM_PARALLELISM == 0) {
-            long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
+            Long currentCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscoveredAndProcessed(discovery, true, true);
             discovery.setMessage(String.format("Processed %d %% of newly discovered certificates (%d / %d)", (int) ((currentCount / (double) totalCount) * 100), currentCount, totalCount));
             discoveryRepository.save(discovery);
         }

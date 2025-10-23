@@ -1144,7 +1144,7 @@ public class CertificateServiceImpl implements CertificateService {
         certificateEntity.setCertificateContent(certificateContent);
         CertificateUtil.prepareIssuedCertificate(certificateEntity, x509Cert);
 
-        int countInserted = certificateRepository.insertWithFingerprintConflictResolve(certificateEntity);
+        Integer countInserted = certificateRepository.insertWithFingerprintConflictResolve(certificateEntity);
         certificateEntity = certificateRepository.findByFingerprint(fingerprint).orElseThrow(() -> new NotFoundException(Certificate.class, fingerprint));
 
         // certificate was actually inserted
@@ -1230,7 +1230,7 @@ public class CertificateServiceImpl implements CertificateService {
         CertificateValidationSettingsDto certificateValidationSettings = platformSettings.getCertificates().getValidation();
         boolean platformEnabled = certificateValidationSettings.getEnabled();
         List<CertificateValidationStatus> skipStatuses = List.of(CertificateValidationStatus.REVOKED, CertificateValidationStatus.EXPIRED);
-        long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
+        Long totalCertificates = certificateRepository.countCertificatesToCheckStatus(skipStatuses, platformEnabled);
         int maxCertsToValidate = Math.max(100, Math.round(totalCertificates / (float) 24));
 
         OffsetDateTime before = null;

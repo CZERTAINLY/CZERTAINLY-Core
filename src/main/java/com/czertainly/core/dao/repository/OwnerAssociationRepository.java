@@ -13,9 +13,9 @@ public interface OwnerAssociationRepository extends JpaRepository<OwnerAssociati
     // owner associations
     OwnerAssociation findByResourceAndObjectUuid(Resource resource, UUID objectUuid);
 
-    long deleteByOwnerUuid(UUID ownerUuid);
+    Long deleteByOwnerUuid(UUID ownerUuid);
 
-    long deleteByResourceAndObjectUuidAndOwnerUuidNotNull(Resource resource, UUID objectUuid);
+    Long deleteByResourceAndObjectUuidAndOwnerUuidNotNull(Resource resource, UUID objectUuid);
 
-    long countByOwnerUuidAndResourceAndObjectUuidIn(UUID ownerUuid, Resource resource, List<UUID> objectUuids);
+    Long countByOwnerUuidAndResourceAndObjectUuidIn(UUID ownerUuid, Resource resource, List<UUID> objectUuids);
 }

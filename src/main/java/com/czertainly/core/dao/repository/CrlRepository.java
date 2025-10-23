@@ -28,6 +28,6 @@ public interface CrlRepository extends SecurityFilterRepository<Crl, Long>
             ON CONFLICT (issuer_dn, serial_number)
             DO NOTHING
             """, nativeQuery = true)
-    int insertWithIssuerConflictResolve(@Param("crl") Crl crl);
+    void insertWithIssuerConflictResolve(@Param("crl") Crl crl);
 
 }

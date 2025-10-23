@@ -97,7 +97,7 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     @Override
     public void removeGroup(Resource resource, UUID objectUuid, UUID groupUuid) {
         if (groupUuid != null) {
-            long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuidAndGroupUuid(resource, objectUuid, groupUuid);
+            Long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuidAndGroupUuid(resource, objectUuid, groupUuid);
             if (associationsDeleted == 0) {
                 logger.debug("Group {} not associated to {} with UUID {}", groupUuid, resource.getLabel(), objectUuid);
             } else {
@@ -109,7 +109,7 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     @Override
     public void removeGroupAssociations(UUID groupUuid) {
         if (groupUuid != null) {
-            long associationsDeleted = groupAssociationRepository.deleteByGroupUuid(groupUuid);
+            Long associationsDeleted = groupAssociationRepository.deleteByGroupUuid(groupUuid);
             logger.debug("Removed {} group associations of group UUID {}", associationsDeleted, groupUuid);
         }
     }
@@ -160,7 +160,7 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     @Override
     public void removeOwnerAssociations(UUID ownerUuid) {
         if (ownerUuid != null) {
-            long associationsDeleted = ownerAssociationRepository.deleteByOwnerUuid(ownerUuid);
+            Long associationsDeleted = ownerAssociationRepository.deleteByOwnerUuid(ownerUuid);
             logger.debug("Removed {} owner associations of owner UUID {}", associationsDeleted, ownerUuid);
         }
     }
@@ -187,7 +187,7 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     private void removeGroups(Resource resource, UUID objectUuid) {
-        long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuid(resource, objectUuid);
+        Long associationsDeleted = groupAssociationRepository.deleteByResourceAndObjectUuid(resource, objectUuid);
         logger.debug("Removed {} groups from {} with UUID {}", associationsDeleted, resource.getLabel(), objectUuid);
     }
 
@@ -213,7 +213,7 @@ public class ResourceObjectAssociationServiceImpl implements ResourceObjectAssoc
     }
 
     private void removeOwner(Resource resource, UUID objectUuid) {
-        long associationsDeleted = ownerAssociationRepository.deleteByResourceAndObjectUuidAndOwnerUuidNotNull(resource, objectUuid);
+        Long associationsDeleted = ownerAssociationRepository.deleteByResourceAndObjectUuidAndOwnerUuidNotNull(resource, objectUuid);
         if (associationsDeleted == 0) {
             logger.debug("Owner not associated to {} with UUID {}", resource.getLabel(), objectUuid);
         } else {
