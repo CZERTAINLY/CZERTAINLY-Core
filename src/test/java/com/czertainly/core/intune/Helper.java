@@ -37,18 +37,20 @@ import static org.mockito.Mockito.when;
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.net.MalformedURLException;
+import java.net.URISyntaxException;
 import java.util.Properties;
 import java.util.concurrent.ExecutionException;
 
 import javax.naming.ServiceUnavailableException;
 
-import org.apache.http.HttpEntity;
-import org.apache.http.StatusLine;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpUriRequest;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
+
+import org.apache.hc.client5.http.ClientProtocolException;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.core5.http.HttpEntity;
+import org.apache.hc.core5.http.message.StatusLine;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 
@@ -114,21 +116,23 @@ public class Helper
     
     public Properties properties;
     
-    public Helper() throws ClientProtocolException, IOException, ServiceUnavailableException, IllegalArgumentException, InterruptedException, ExecutionException
+    public Helper() throws IOException, ServiceUnavailableException, IllegalArgumentException, InterruptedException, ExecutionException
     {
         when(httpBuilder.build()).thenReturn(httpClient);
 
         when(httpClient.execute(
-            argThat(new ArgumentMatcher<HttpUriRequest>() {
-                @Override
-                public boolean matches(HttpUriRequest resp) {
-                    if(resp == null)
-                        return false;
-                    return resp.getURI().getHost().equals(MSAL_URL);
-                }})))
+            argThat((ArgumentMatcher<HttpUriRequest>) resp -> {
+                if(resp == null)
+                    return false;
+                try {
+                    return resp.getUri().getHost().equals(MSAL_URL);
+                } catch (URISyntaxException e) {
+                    return false;
+                }
+            })))
         .thenReturn(msalResponse);
         
-        when(msalResponse.getStatusLine())
+        when(new StatusLine(msalResponse))
             .thenReturn(msalStatus);
         when(msalStatus.getStatusCode())
             .thenReturn(200);
@@ -140,18 +144,20 @@ public class Helper
             .thenReturn((long)GOOD_MSAL_SERVICE_DISCOVERY_RESPONSE.length());
 
         when(httpClient.execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        if(resp == null)
-                            return false;
-                        return resp.getURI().getHost().equals(GRAPH_URL);
-                    }})))
+                argThat((ArgumentMatcher<HttpUriRequest>) resp -> {
+                    if(resp == null)
+                        return false;
+                    try {
+                        return resp.getUri().getHost().equals(GRAPH_URL);
+                    } catch (URISyntaxException e) {
+                        return false;
+                    }
+                })))
             .thenReturn(graphResponse);
         
         when(graphResponse.getEntity())
             .thenReturn(graphResponseEntity);
-        when(graphResponse.getStatusLine())
+        when(new StatusLine(graphResponse))
             .thenReturn(graphStatus);
         when(graphStatus.getStatusCode())
             .thenReturn(200);
@@ -161,18 +167,20 @@ public class Helper
             .thenReturn((long)GOOD_GRAPH_SERVICE_DISCOVERY_RESPONSE.length());
 
         when(httpClient.execute(
-                argThat(new ArgumentMatcher<HttpUriRequest>() {
-                    @Override
-                    public boolean matches(HttpUriRequest resp) {
-                        if(resp == null)
-                            return false;
-                        return resp.getURI().getHost().equals(SERVICE_URL);
-                    }})))
+                argThat((ArgumentMatcher<HttpUriRequest>) resp -> {
+                    if(resp == null)
+                        return false;
+                    try {
+                        return resp.getUri().getHost().equals(SERVICE_URL);
+                    } catch (URISyntaxException e) {
+                        return false;
+                    }
+                })))
             .thenReturn(intuneResponse);
         
         when(intuneResponse.getEntity())
             .thenReturn(intuneResponseEntity);
-        when(intuneResponse.getStatusLine())
+        when(new StatusLine(intuneResponse))
             .thenReturn(intuneStatus);
         when(intuneStatus.getStatusCode())
             .thenReturn(200);

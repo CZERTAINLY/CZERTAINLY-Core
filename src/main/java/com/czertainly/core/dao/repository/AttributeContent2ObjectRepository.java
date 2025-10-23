@@ -112,24 +112,24 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     @Query("UPDATE AttributeContent2Object aco SET aco.connectorUuid = NULL WHERE aco.connectorUuid = ?1")
     void removeConnectorByConnectorUuid(UUID connectorUuid);
 
-    long deleteByObjectTypeAndObjectUuid(Resource objectType, UUID objectUuid);
+    Integer deleteByObjectTypeAndObjectUuid(Resource objectType, UUID objectUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndObjectTypeAndObjectUuid(AttributeType attributeType, Resource objectType, UUID objectUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndObjectTypeAndObjectUuid(AttributeType attributeType, Resource objectType, UUID objectUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidInAndObjectTypeAndObjectUuid(AttributeType attributeType, List<UUID> allowedDefinitionUuids, Resource objectType, UUID objectUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidInAndObjectTypeAndObjectUuid(AttributeType attributeType, List<UUID> allowedDefinitionUuids, Resource objectType, UUID objectUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidNotInAndObjectTypeAndObjectUuid(AttributeType attributeType, List<UUID> forbiddenDefinitionUuids, Resource objectType, UUID objectUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionUuidNotInAndObjectTypeAndObjectUuid(AttributeType attributeType, List<UUID> forbiddenDefinitionUuids, Resource objectType, UUID objectUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionUuid(UUID definitionUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionUuid(UUID definitionUuid);
 
-    long deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(Resource objectType, UUID objectUuid, UUID definitionUuid);
+    Integer deleteByObjectTypeAndObjectUuidAndAttributeContentItemAttributeDefinitionUuid(Resource objectType, UUID objectUuid, UUID definitionUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
 
-    long deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, String purpose, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
+    Integer deleteByAttributeContentItemAttributeDefinitionTypeAndAttributeContentItemAttributeDefinitionOperationAndPurposeAndConnectorUuidAndObjectTypeAndObjectUuidAndSourceObjectTypeAndSourceObjectUuid(AttributeType attributeType, String operation, String purpose, UUID connectorUuid, Resource objectType, UUID objectUuid, Resource sourceObjectType, UUID sourceObjectUuid);
 
 }
