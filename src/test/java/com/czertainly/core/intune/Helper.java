@@ -44,13 +44,11 @@ import java.util.concurrent.ExecutionException;
 import javax.naming.ServiceUnavailableException;
 
 
-import org.apache.hc.client5.http.ClientProtocolException;
 import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
 import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
 import org.apache.hc.core5.http.HttpEntity;
-import org.apache.hc.core5.http.message.StatusLine;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 
@@ -102,15 +100,12 @@ public class Helper
     HttpClientBuilder httpBuilder = mock(HttpClientBuilder.class);
     HttpEntity graphResponseEntity = mock(HttpEntity.class);
     CloseableHttpResponse graphResponse = mock(CloseableHttpResponse.class);
-    StatusLine graphStatus = mock(StatusLine.class);
-    
+
     CloseableHttpResponse msalResponse = mock(CloseableHttpResponse.class);
     HttpEntity msalResponseEntity = mock(HttpEntity.class);
-    StatusLine msalStatus = mock(StatusLine.class);
 
     CloseableHttpResponse intuneResponse = mock(CloseableHttpResponse.class);
     HttpEntity intuneResponseEntity = mock(HttpEntity.class);
-    StatusLine intuneStatus = mock(StatusLine.class);
     ADALClientWrapper adal;
     MSALClientWrapper msal;
     
@@ -131,10 +126,8 @@ public class Helper
                 }
             })))
         .thenReturn(msalResponse);
-        
-        when(new StatusLine(msalResponse))
-            .thenReturn(msalStatus);
-        when(msalStatus.getStatusCode())
+
+        when(msalResponse.getCode())
             .thenReturn(200);
         when(msalResponse.getEntity())
             .thenReturn(msalResponseEntity);
@@ -157,9 +150,7 @@ public class Helper
         
         when(graphResponse.getEntity())
             .thenReturn(graphResponseEntity);
-        when(new StatusLine(graphResponse))
-            .thenReturn(graphStatus);
-        when(graphStatus.getStatusCode())
+        when(graphResponse.getCode())
             .thenReturn(200);
         when(graphResponseEntity.getContent())
             .thenReturn(new ByteArrayInputStream(GOOD_GRAPH_SERVICE_DISCOVERY_RESPONSE.getBytes()));
@@ -180,9 +171,7 @@ public class Helper
         
         when(intuneResponse.getEntity())
             .thenReturn(intuneResponseEntity);
-        when(new StatusLine(intuneResponse))
-            .thenReturn(intuneStatus);
-        when(intuneStatus.getStatusCode())
+        when(intuneResponse.getCode())
             .thenReturn(200);
         when(intuneResponseEntity.getContent())
             .thenReturn(new ByteArrayInputStream(VALID_SCEP_RESPONSE.getBytes()));

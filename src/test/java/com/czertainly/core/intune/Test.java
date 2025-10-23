@@ -147,7 +147,7 @@ public class Test
     {
         Helper helper = new Helper();
         
-        when(helper.intuneStatus.getStatusCode())
+        when(helper.intuneResponse.getCode())
             .thenReturn(401);
         
         IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);

@@ -477,13 +477,9 @@ class IntuneClient
             jsonResult = objectMapper.readTree(canonicalFormat);
             
             StatusLine statusLine = new StatusLine(response);
-            if (statusLine == null)
-            {
-                throw new IntuneClientException("ActivityId: " + activityId + " Unable to retrieve status line from intune response");
-            }
-            
-            int statusCode = statusLine.getStatusCode();
-            if(statusCode < 200 || statusCode >= 300)
+
+            int statusCode = response.getCode();
+            if (statusCode < 200 || statusCode >= 300)
             {
                 String msg = "Request to: " + requestUrl + " returned: " + statusLine;
                 IntuneClientHttpErrorException ex = new IntuneClientHttpErrorException(statusLine, jsonResult, activityId);
