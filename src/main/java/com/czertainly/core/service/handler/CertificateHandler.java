@@ -153,7 +153,7 @@ public class CertificateHandler {
         }
 
         // report progress
-        long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
+        Long currentCount = discoveryCertificateRepository.countByDiscovery(discovery);
         discovery.setMessage(String.format("Downloaded %d %% of discovered certificates from provider (%d / %d)", (int) ((currentCount / (double) discovery.getConnectorTotalCertificatesDiscovered()) * 100), currentCount, discovery.getConnectorTotalCertificatesDiscovered()));
         discoveryRepository.save(discovery);
     }

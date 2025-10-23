@@ -40,19 +40,20 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayInputStream;
+import java.net.URISyntaxException;
 import java.net.UnknownHostException;
 import java.util.UUID;
 
 import javax.naming.ServiceUnavailableException;
 
-import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
 
 public class Test 
 {
     @org.junit.jupiter.api.Test
-    public void TestValidationSuccess() throws IntuneScepServiceException, Exception 
+    public void TestValidationSuccess() throws Exception
     {
         Helper helper = new Helper();
         
@@ -70,14 +71,22 @@ public class Test
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }}));
 
         verify(helper.httpClient, times(1)).execute(
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }}));
     }
 
@@ -108,14 +117,22 @@ public class Test
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
 
             verify(helper.httpClient, times(1)).execute(
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
             
             assertTrue(e.getParsedErrorCode() == IntuneScepServiceException.ErrorCode.ChallengeDecodingError);
@@ -130,7 +147,7 @@ public class Test
     {
         Helper helper = new Helper();
         
-        when(helper.intuneStatus.getStatusCode())
+        when(helper.intuneResponse.getCode())
             .thenReturn(401);
         
         IntuneScepServiceClient client = new IntuneScepServiceClient(helper.properties, helper.msal, helper.adal, helper.httpBuilder);
@@ -150,14 +167,22 @@ public class Test
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
 
             verify(helper.httpClient, times(1)).execute(
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
             return;
         }
@@ -192,14 +217,22 @@ public class Test
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
 
             verify(helper.httpClient, times(0)).execute(
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
             return;
         }
@@ -237,14 +270,22 @@ public class Test
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.GRAPH_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.GRAPH_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
 
             verify(helper.httpClient, times(0)).execute(
                     argThat(new ArgumentMatcher<HttpUriRequest>() {
                         @Override
                         public boolean matches(HttpUriRequest resp) {
-                            return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                            try {
+                                return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                            } catch (URISyntaxException ex) {
+                                return false;
+                            }
                         }}));
             return;
         }
@@ -253,7 +294,7 @@ public class Test
     }
     
     @org.junit.jupiter.api.Test
-    public void TestServiceMapClearMockito() throws IntuneScepServiceException, Exception 
+    public void TestServiceMapClearMockito() throws IntuneScepServiceException, Exception
     {
         Helper helper = new Helper();
 
@@ -263,7 +304,11 @@ public class Test
                     public boolean matches(HttpUriRequest resp) {
                         if(resp == null)
                             return false;
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }})))
         .thenThrow(new UnknownHostException());
         
@@ -291,14 +336,22 @@ public class Test
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }}));
 
         verify(helper.httpClient, times(1)).execute(
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }}));
         
         // do this so the result doesn't get cached
@@ -308,9 +361,13 @@ public class Test
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        if(resp == null)
+                        if (resp == null)
                             return false;
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }})))
             .thenReturn(helper.intuneResponse);
         
@@ -325,14 +382,22 @@ public class Test
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }}));
 
         verify(helper.httpClient, times(2)).execute(
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }}));
     }
 }

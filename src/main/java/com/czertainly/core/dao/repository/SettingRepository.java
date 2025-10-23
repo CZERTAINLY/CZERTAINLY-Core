@@ -1,8 +1,6 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.core.settings.SettingsSection;
-import com.czertainly.api.model.core.settings.SettingsSectionCategory;
 import com.czertainly.core.dao.entity.Setting;
 import org.springframework.stereotype.Repository;
 
@@ -21,7 +19,7 @@ public interface SettingRepository extends SecurityFilterRepository<Setting, UUI
 
     Setting findBySectionAndCategoryAndName(SettingsSection section, String category, String name);
 
-    long deleteBySectionAndCategory(SettingsSection section, String category);
+    void deleteBySectionAndCategory(SettingsSection section, String category);
 
-    long deleteBySectionAndCategoryAndName(SettingsSection section, String category, String name);
+    Long deleteBySectionAndCategoryAndName(SettingsSection section, String category, String name);
 }

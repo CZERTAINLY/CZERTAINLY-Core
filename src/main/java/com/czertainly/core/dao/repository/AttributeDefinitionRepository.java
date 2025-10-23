@@ -36,7 +36,7 @@ public interface AttributeDefinitionRepository extends SecurityFilterRepository<
     @Query("UPDATE AttributeDefinition ad SET ad.connectorUuid = NULL WHERE ad.type = ?1 AND ad.connectorUuid = ?2")
     void removeConnectorByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
-    long deleteByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
+    Long deleteByTypeAndConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
     @Query("""
             SELECT DISTINCT new com.czertainly.core.model.SearchFieldObject(

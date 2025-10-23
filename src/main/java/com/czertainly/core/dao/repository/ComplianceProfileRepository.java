@@ -23,7 +23,7 @@ public interface ComplianceProfileRepository extends SecurityFilterRepository<Co
 
     List<ComplianceProfile> findDistinctByComplianceRulesConnectorUuid(UUID connectorUuid);
 
-    long countByComplianceRulesInternalRuleUuid(UUID internalRuleUuid);
+    Long countByComplianceRulesInternalRuleUuid(UUID internalRuleUuid);
 
     @Query("SELECT DISTINCT cp.name FROM ComplianceProfile cp JOIN cp.complianceRules r WHERE r.internalRule.uuid = :internalRuleUuid")
     List<String> findNamesByComplianceRulesInternalRuleUuid(@Param("internalRuleUuid") UUID internalRuleUuid);

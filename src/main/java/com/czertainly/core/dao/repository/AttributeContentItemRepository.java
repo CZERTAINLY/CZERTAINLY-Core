@@ -6,7 +6,6 @@ import com.czertainly.core.dao.entity.AttributeContentItem;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -14,7 +13,7 @@ public interface AttributeContentItemRepository extends JpaRepository<AttributeC
 
     AttributeContentItem findByJsonAndAttributeDefinitionUuid(BaseAttributeContent<?> attributeContent, UUID definitionUuid);
 
-    long deleteByAttributeDefinitionUuid(UUID definitionUuid);
-    long deleteByAttributeDefinitionTypeAndAttributeDefinitionConnectorUuid(AttributeType attributeType, UUID connectorUuid);
+    void deleteByAttributeDefinitionUuid(UUID definitionUuid);
+    void deleteByAttributeDefinitionTypeAndAttributeDefinitionConnectorUuid(AttributeType attributeType, UUID connectorUuid);
 
 }

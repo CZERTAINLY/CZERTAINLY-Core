@@ -6,6 +6,7 @@ import com.czertainly.api.model.core.acme.Problem;
 import com.czertainly.core.service.acme.AcmeConstants;
 import com.czertainly.core.util.AcmeJsonProcessor;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.gson.Gson;
 import com.nimbusds.jose.JOSEException;
 import com.nimbusds.jose.JWSHeader;
 import com.nimbusds.jose.JWSObject;
@@ -157,7 +158,7 @@ public class AcmeJwsRequest {
     }
 
     public JWK getOldKeyJWK() throws ParseException {
-        return jwsPayload.toJSONObject().get("oldKey") != null ? JWK.parse(jwsPayload.toJSONObject().get("oldKey").toString()) : null;
+        return jwsPayload.toJSONObject().get("oldKey") != null ? JWK.parse(new Gson().toJsonTree(jwsPayload.toJSONObject().get("oldKey")).toString()) : null;
     }
 
 }

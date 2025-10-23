@@ -262,7 +262,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         }
 
         // check notification profiles referencing notification instance
-        long referencesCount = notificationProfileVersionRepository.countByNotificationInstanceRefUuid(notificationInstanceRef.getUuid());
+        Long referencesCount = notificationProfileVersionRepository.countByNotificationInstanceRefUuid(notificationInstanceRef.getUuid());
         if (referencesCount > 0) {
             throw new ValidationException("Cannot delete notification instance. %d notification profile version(s) are referencing this notification instance".formatted(referencesCount));
         }

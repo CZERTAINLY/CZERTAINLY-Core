@@ -133,7 +133,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     public AcmeAccountResponseDto getAcmeAccount(SecuredParentUUID acmeProfileUuid, SecuredUUID uuid) throws NotFoundException {
         AcmeAccount acmeAccount = getAcmeAccountEntity(uuid);
 
-        int invalidatedExpiredOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
+        Integer invalidatedExpiredOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
         acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + invalidatedExpiredOrders);
         acmeAccountRepository.save(acmeAccount);
 

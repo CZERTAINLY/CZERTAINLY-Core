@@ -39,6 +39,7 @@ import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.*;
 
 import java.io.ByteArrayInputStream;
+import java.net.URISyntaxException;
 import java.util.UUID;
 import java.util.List;
 import java.util.ArrayList;
@@ -47,7 +48,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.gson.Gson;
 import com.google.gson.JsonArray;
-import org.apache.http.client.methods.HttpUriRequest;
+import org.apache.hc.client5.http.classic.methods.HttpUriRequest;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentMatcher;
 import org.mockito.ArgumentMatchers;
@@ -91,7 +92,11 @@ public class RevocationTests {
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }
                 }));
 
@@ -99,7 +104,11 @@ public class RevocationTests {
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }
                 }));
 
@@ -146,7 +155,11 @@ public class RevocationTests {
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.MSAL_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.MSAL_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }
                 }));
 
@@ -154,7 +167,11 @@ public class RevocationTests {
                 argThat(new ArgumentMatcher<HttpUriRequest>() {
                     @Override
                     public boolean matches(HttpUriRequest resp) {
-                        return resp.getURI().getHost().equals(Helper.SERVICE_URL);
+                        try {
+                            return resp.getUri().getHost().equals(Helper.SERVICE_URL);
+                        } catch (URISyntaxException e) {
+                            return false;
+                        }
                     }
                 }));
     }

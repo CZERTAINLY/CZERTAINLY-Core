@@ -33,7 +33,7 @@ package com.czertainly.core.intune.scepvalidation;
 import java.util.UUID;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import org.apache.http.StatusLine;
+import org.apache.hc.core5.http.message.StatusLine;
 
 public class IntuneClientHttpErrorException extends IntuneClientException
 {

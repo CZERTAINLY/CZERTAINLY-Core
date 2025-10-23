@@ -372,7 +372,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     public void deleteComplianceInternalRule(UUID internalRuleUuid) throws NotFoundException {
         ComplianceInternalRule internalRule = internalRuleRepository.findByUuid(internalRuleUuid).orElseThrow(() -> new NotFoundException(ComplianceInternalRule.class, internalRuleUuid));
 
-        long associatedProfilesCount = complianceProfileRepository.countByComplianceRulesInternalRuleUuid(internalRuleUuid);
+        Long associatedProfilesCount = complianceProfileRepository.countByComplianceRulesInternalRuleUuid(internalRuleUuid);
         if (associatedProfilesCount > 0) {
             List<String> profileNames = complianceProfileRepository.findNamesByComplianceRulesInternalRuleUuid(internalRuleUuid);
             throw new ValidationException("Cannot delete the compliance internal rule as it is associated to compliance profiles: %s".formatted(String.join(", ", profileNames)));
