@@ -6,7 +6,11 @@ import com.czertainly.api.model.client.approval.ApprovalDetailDto;
 import com.czertainly.api.model.client.approval.ApprovalResponseDto;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDetailDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRequestDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalProfileUpdateRequestDto;
+import com.czertainly.api.model.client.approvalprofile.ApprovalStepDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.auth.UserProfileDto;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfile;
@@ -14,10 +18,12 @@ import com.czertainly.core.dao.repository.ApprovalRepository;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.util.AuthHelper;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.A;
 
 import java.util.Optional;
 import java.util.UUID;
@@ -48,6 +54,23 @@ class ApprovalServiceTest extends ApprovalProfileData {
 
         final ApprovalResponseDto responseDto = approvalService.listApprovals(SecurityFilter.create(), new PaginationRequestDto());
         Assertions.assertEquals(4, responseDto.getApprovals().size());
+    }
+
+    @Test
+    void testListUserApprovals() throws NotFoundException, AlreadyExistException {
+        final UserProfileDto userProfileDto = AuthHelper.getUserProfile();
+        ApprovalProfileRequestDto approvalProfileUpdateRequestDto = new ApprovalProfileRequestDto();
+        ApprovalStepDto approvalStepDto = new ApprovalStepDto();
+        approvalStepDto.setOrder(1);
+        approvalStepDto.setUserUuid(UUID.fromString(userProfileDto.getUser().getUuid()));
+        approvalStepDto.setRequiredApprovals(1);
+        approvalProfileUpdateRequestDto.getApprovalSteps().add(approvalStepDto);
+        ApprovalProfile approvalProfile1 = approvalProfileService.createApprovalProfile(approvalProfileUpdateRequestDto);
+
+        approvalService.createApproval(approvalProfile1.getTheLatestApprovalProfileVersion(), Resource.CERTIFICATE, ResourceAction.CREATE, UUID.randomUUID(), UUID.fromString(userProfileDto.getUser().getUuid()), null);
+        ApprovalResponseDto responseDto = approvalService.listUserApprovals(SecurityFilter.create(), true, new PaginationRequestDto());
+        Assertions.assertEquals(1, responseDto.getApprovals().size());
+
     }
 
     @Test
