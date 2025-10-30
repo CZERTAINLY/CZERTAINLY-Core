@@ -52,31 +52,31 @@ import javax.net.ssl.SSLSocketFactory;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.gson.JsonParser;
-import org.apache.http.HttpEntity;
-import org.apache.http.HttpHost;
-import org.apache.http.StatusLine;
-import org.apache.http.auth.AuthScope;
-import org.apache.http.auth.Credentials;
-import org.apache.http.auth.UsernamePasswordCredentials;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.CredentialsProvider;
-import org.apache.http.client.methods.CloseableHttpResponse;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.config.Registry;
-import org.apache.http.config.RegistryBuilder;
-import org.apache.http.conn.HttpClientConnectionManager;
-import org.apache.http.conn.socket.ConnectionSocketFactory;
-import org.apache.http.conn.socket.PlainConnectionSocketFactory;
-import org.apache.http.conn.ssl.DefaultHostnameVerifier;
-import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
-import org.apache.http.entity.StringEntity;
-import org.apache.http.impl.client.BasicCredentialsProvider;
-import org.apache.http.impl.client.CloseableHttpClient;
-import org.apache.http.impl.client.HttpClientBuilder;
-import org.apache.http.impl.client.HttpClients;
-import org.apache.http.impl.conn.BasicHttpClientConnectionManager;
-import org.apache.http.util.EntityUtils;
+import org.apache.hc.client5.http.auth.AuthScope;
+import org.apache.hc.client5.http.auth.Credentials;
+import org.apache.hc.client5.http.auth.UsernamePasswordCredentials;
+import org.apache.hc.client5.http.classic.methods.HttpGet;
+import org.apache.hc.client5.http.classic.methods.HttpPost;
+import org.apache.hc.client5.http.impl.auth.BasicCredentialsProvider;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpResponse;
+import org.apache.hc.client5.http.impl.classic.HttpClientBuilder;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.BasicHttpClientConnectionManager;
+import org.apache.hc.client5.http.io.HttpClientConnectionManager;
+import org.apache.hc.client5.http.socket.ConnectionSocketFactory;
+import org.apache.hc.client5.http.socket.PlainConnectionSocketFactory;
+import org.apache.hc.client5.http.ssl.DefaultHostnameVerifier;
+import org.apache.hc.client5.http.ssl.SSLConnectionSocketFactory;
+import org.apache.hc.core5.http.HttpEntity;
+
+import org.apache.hc.core5.http.HttpHost;
+import org.apache.hc.core5.http.ParseException;
+import org.apache.hc.core5.http.config.Registry;
+import org.apache.hc.core5.http.config.RegistryBuilder;
+import org.apache.hc.core5.http.io.entity.EntityUtils;
+import org.apache.hc.core5.http.io.entity.StringEntity;
+import org.apache.hc.core5.http.message.StatusLine;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -112,7 +112,7 @@ class IntuneClient
     protected String proxyUser = null;
     protected String proxyPass = null;
     
-    private HashMap<String,String> serviceMap = new HashMap<String,String>();
+    private final HashMap<String,String> serviceMap = new HashMap<>();
     
     private static final Logger log = LoggerFactory.getLogger(IntuneClient.class);
     
@@ -219,7 +219,7 @@ class IntuneClient
             throw new IllegalArgumentException("The argument 'factory' is missing.");
         }
         
-        this.log.info("Setting SSL Socket Factory");
+        log.info("Setting SSL Socket Factory");
         
         this.msalAuthClient.SetSslSocketFactory(factory);
         this.adalAuthClient.SetSslSocketFactory(factory);
@@ -228,8 +228,7 @@ class IntuneClient
                
         this.httpClientBuilder = HttpClientBuilder.create();
         SSLConnectionSocketFactory sslConnectionFactory = new SSLConnectionSocketFactory(this.sslSocketFactory, new String[] { "TLSv1.2" }, null, new DefaultHostnameVerifier());
-        this.httpClientBuilder.setSSLSocketFactory(sslConnectionFactory);
-        
+
         setProxy();
         
         Registry<ConnectionSocketFactory> registry = RegistryBuilder.<ConnectionSocketFactory>create()
@@ -255,11 +254,10 @@ class IntuneClient
      * @throws InterruptedException 
      * @throws ServiceUnavailableException 
      * @throws IOException 
-     * @throws ClientProtocolException 
-     * @throws IllegalArgumentException 
+     * @throws IllegalArgumentException
      * @throws IntuneClientException
      */
-    public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
+    public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId) throws ServiceUnavailableException, InterruptedException, ExecutionException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
     {
         //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         return this.PostRequest(serviceName, urlSuffix, apiVersion, json, activityId, null);
@@ -279,11 +277,10 @@ class IntuneClient
      * @throws InterruptedException 
      * @throws ServiceUnavailableException 
      * @throws IOException 
-     * @throws ClientProtocolException 
-     * @throws IllegalArgumentException 
+     * @throws IllegalArgumentException
      * @throws IntuneClientException 
      */
-    public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId, Map<String,String> additionalHeaders) throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
+    public JsonNode PostRequest(String serviceName, String urlSuffix, String apiVersion, JsonNode json, UUID activityId, Map<String,String> additionalHeaders) throws ServiceUnavailableException, InterruptedException, ExecutionException, IOException, AuthenticationException, IllegalArgumentException, IntuneClientException
     {
         //MODIFICATION - Changed the implementation to work with com.fasterxml.jackson.databind.JsonNode instead of org.json.JSONObject
         if(serviceName == null || serviceName.isEmpty())
@@ -311,11 +308,11 @@ class IntuneClient
         if(intuneServiceEndpoint == null || intuneServiceEndpoint.isEmpty())
         {
             IntuneServiceNotFoundException ex = new IntuneServiceNotFoundException(serviceName);
-            this.log.error(ex.getMessage(), ex);
+            IntuneClient.log.error(ex.getMessage(), ex);
             throw ex;
         }
         
-        Set<String> scopes = new HashSet<String>();
+        Set<String> scopes = new HashSet<>();
         scopes.add(this.intuneResourceUrl + "/.default");
         
         String token = this.msalAuthClient.getAccessToken(scopes);
@@ -348,7 +345,7 @@ class IntuneClient
         }
         catch(UnknownHostException e)
         {
-            this.log.error("Failed to contact intune service with URL: " + intuneRequestUrl, e);
+            log.error("Failed to contact intune service with URL: {}", intuneRequestUrl, e);
             serviceMap.clear(); // clear contents in case the service location has changed and we cached the value
             throw e;
         }
@@ -362,7 +359,7 @@ class IntuneClient
         return jsonResult;
     }
     
-    private synchronized String GetServiceEndpoint(String serviceName) throws ServiceUnavailableException, ClientProtocolException, AuthenticationException, InterruptedException, ExecutionException, IOException, IntuneClientException
+    private synchronized String GetServiceEndpoint(String serviceName) throws ServiceUnavailableException, AuthenticationException, InterruptedException, ExecutionException, IOException, IntuneClientException
     {
         if(serviceName == null || serviceName.isEmpty())
         {
@@ -384,8 +381,8 @@ class IntuneClient
         }
         
         // LOG Cache contents
-        this.log.info("Could not find endpoint for service '" + serviceName + "'");
-        this.log.info("ServiceMap: ");
+        log.info("Could not find endpoint for service '" + serviceName + "'");
+        log.info("ServiceMap: ");
         for(Entry<String, String> entry:serviceMap.entrySet())
         {
             this.log.info(entry.getKey() + ":" + entry.getValue());
@@ -394,7 +391,7 @@ class IntuneClient
         return null;
     }
     
-    private void RefreshServiceMap() throws ServiceUnavailableException, InterruptedException, ExecutionException, ClientProtocolException, IOException, AuthenticationException, IntuneClientException
+    private void RefreshServiceMap() throws ServiceUnavailableException, InterruptedException, ExecutionException, IOException, AuthenticationException, IntuneClientException
     {
         String graphRequest = "";
         String token = "";
@@ -469,7 +466,7 @@ class IntuneClient
             {
                 httpEntityStr = EntityUtils.toString(httpEntity);
             }
-            catch(IllegalArgumentException|IOException e)
+            catch(IllegalArgumentException | IOException | ParseException e)
             {
                 throw new IntuneClientException("ActivityId: " + activityId + " Unable to convert httpEntity from response to string", e);
             }
@@ -479,14 +476,10 @@ class IntuneClient
             String canonicalFormat = JsonParser.parseString(httpEntityStr).toString();
             jsonResult = objectMapper.readTree(canonicalFormat);
             
-            StatusLine statusLine = response.getStatusLine();
-            if(statusLine == null)
-            {
-                throw new IntuneClientException("ActivityId: " + activityId + " Unable to retrieve status line from intune response");
-            }
-            
-            int statusCode = statusLine.getStatusCode();
-            if(statusCode < 200 || statusCode >= 300)
+            StatusLine statusLine = new StatusLine(response);
+
+            int statusCode = response.getCode();
+            if (statusCode < 200 || statusCode >= 300)
             {
                 String msg = "Request to: " + requestUrl + " returned: " + statusLine;
                 IntuneClientHttpErrorException ex = new IntuneClientHttpErrorException(statusLine, jsonResult, activityId);
@@ -535,8 +528,8 @@ class IntuneClient
                this.log.info("Setting Proxy to use Basic Authentication.");
                
                // Setting proxy auth for Intune HttpClient
-               Credentials credentials = new UsernamePasswordCredentials(proxyUser, proxyPass);
-               CredentialsProvider credsProvider = new BasicCredentialsProvider();
+               Credentials credentials = new UsernamePasswordCredentials(proxyUser, proxyPass.toCharArray());
+               BasicCredentialsProvider credsProvider = new BasicCredentialsProvider();
                credsProvider.setCredentials(new AuthScope(proxyHost, proxyPort), credentials);
                httpClientBuilder.setDefaultCredentialsProvider(credsProvider);
                  

@@ -82,8 +82,8 @@ public class ApprovalServiceImpl implements ApprovalService {
             final Join joinApprovalRecipient = root.join("approvalRecipients", JoinType.LEFT);
             final Predicate statusPredicate = joinApprovalRecipient.get("status").in(prepareApprovalRecipientStatuses(withHistory));
             final Predicate userUuidPredicate = cb.equal(joinApprovalRecipient.get("approvalStep").get("userUuid"), UUID.fromString(userProfileDto.getUser().getUuid()));
-            final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).toList());
-            final Predicate groupUuidPredicate = joinApprovalRecipient.get("approvalStep").get("groupUuid").in(userProfileDto.getUser().getGroups().stream().map(NameAndUuidDto::getUuid).toList());
+            final Predicate roleUuidPredicate = joinApprovalRecipient.get("approvalStep").get("roleUuid").in(userProfileDto.getRoles() == null ? List.of() : userProfileDto.getRoles().stream().map(role -> UUID.fromString(role.getUuid())).toList());
+            final Predicate groupUuidPredicate = joinApprovalRecipient.get("approvalStep").get("groupUuid").in(userProfileDto.getUser().getGroups().stream().map(dto -> UUID.fromString(dto.getUuid())).toList());
             return cb.and(statusPredicate, cb.or(userUuidPredicate, roleUuidPredicate, groupUuidPredicate));
         };
         return listOfApprovals(securityFilter, additionalWhereClause, paginationRequestDto);

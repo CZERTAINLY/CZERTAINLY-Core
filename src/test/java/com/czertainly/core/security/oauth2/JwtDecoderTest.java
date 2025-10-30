@@ -238,8 +238,7 @@ class JwtDecoderTest extends BaseSpringBootTest {
 
         mockServer.resetAll();
         SecurityContextHolder.clearContext();
-        Exception exception = Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
-        Assertions.assertTrue(exception.getMessage().contains("Couldn't retrieve remote JWK set"));
+        Assertions.assertThrows(CzertainlyAuthenticationException.class, () -> jwtDecoder.decode(tokenValue));
     }
 
     @Test

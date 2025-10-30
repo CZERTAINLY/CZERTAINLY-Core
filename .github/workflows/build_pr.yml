@@ -9,11 +9,11 @@ jobs:
     name: Build
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           java-version: 21
           distribution: 'temurin'
@@ -32,19 +32,19 @@ jobs:
         run: echo "${{ github.event.pull_request.number }}" > pr-number.txt
       # Upload PR number artifact
       - name: Upload PR number artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: pr-number
           path: pr-number.txt
       # Upload compiled classes
       - name: Upload Compiled Classes
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: compiled-classes
           path: target/classes
       # Upload Jacoco XML report(s)
       - name: Upload Coverage Reports
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: coverage-reports
           path: target/site/jacoco/jacoco.xml

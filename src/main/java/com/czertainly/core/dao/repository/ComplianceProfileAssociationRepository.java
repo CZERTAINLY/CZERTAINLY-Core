@@ -16,12 +16,12 @@ public interface ComplianceProfileAssociationRepository extends SecurityFilterRe
     @EntityGraph(attributePaths = {"complianceProfile"})
     List<ComplianceProfileAssociation> findDistinctByResourceAndObjectUuid(Resource resource, UUID associationObjectUuid);
 
-    long countByResourceAndObjectUuid(Resource resource, UUID associationObjectUuid);
+    Long countByResourceAndObjectUuid(Resource resource, UUID associationObjectUuid);
 
-    long deleteByComplianceProfileUuid(UUID complianceProfileUuid);
+    void deleteByComplianceProfileUuid(UUID complianceProfileUuid);
 
     boolean existsByComplianceProfileUuidAndResourceAndObjectUuid(UUID complianceProfileUuid, Resource resource, UUID associationObjectUuid);
 
-    long deleteByComplianceProfileUuidAndResourceAndObjectUuid(UUID complianceProfileUuid, Resource resource, UUID associationObjectUuid);
+    void deleteByComplianceProfileUuidAndResourceAndObjectUuid(UUID complianceProfileUuid, Resource resource, UUID associationObjectUuid);
 
 }

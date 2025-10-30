@@ -24,6 +24,6 @@ public interface CrlEntryRepository extends SecurityFilterRepository<CrlEntry, L
             ON CONFLICT (crl_uuid,serial_number)
             DO NOTHING
             """, nativeQuery = true)
-    int insertWithIdConflictResolve(UUID crlUuid, String serialNumber, Date revocationDate, String revocationReason);
+    void insertWithIdConflictResolve(UUID crlUuid, String serialNumber, Date revocationDate, String revocationReason);
 
 }

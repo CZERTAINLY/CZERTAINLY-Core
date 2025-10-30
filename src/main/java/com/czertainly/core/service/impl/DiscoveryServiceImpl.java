@@ -204,7 +204,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         // Page number for the user always starts from 1. But for JPA, page number starts from 0
         Pageable p = PageRequest.of(pageNumber > 1 ? pageNumber - 1 : 0, itemsPerPage);
         List<DiscoveryCertificate> certificates;
-        long maxItems;
+        Long maxItems;
         if (newlyDiscovered == null) {
             certificates = discoveryCertificateRepository.findByDiscovery(discoveryHistory, p);
             maxItems = discoveryCertificateRepository.countByDiscovery(discoveryHistory);
@@ -231,10 +231,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     public void deleteDiscovery(SecuredUUID uuid) throws NotFoundException {
         DiscoveryHistory discovery = discoveryRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(DiscoveryHistory.class, uuid));
-        long certsDeleted = discoveryCertificateRepository.deleteByDiscovery(discovery);
+        Long certsDeleted = discoveryCertificateRepository.deleteByDiscovery(discovery);
         logger.debug("Deleted {} discovery certificates", certsDeleted);
 
-        int certContentsDeleted = certificateContentRepository.deleteUnusedCertificateContents();
+        Integer certContentsDeleted = certificateContentRepository.deleteUnusedCertificateContents();
         logger.debug("Deleted {} unused certificate contents", certContentsDeleted);
 
         attributeEngine.deleteAllObjectAttributeContent(Resource.DISCOVERY, discovery.getUuid());
@@ -366,7 +366,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         } catch (DiscoveryException e) {
             logger.error(e.getMessage());
         }
-        int downloadedCertificatesCount = (int) discoveryCertificateRepository.countByDiscovery(discovery);
+        int downloadedCertificatesCount = discoveryCertificateRepository.countByDiscovery(discovery).intValue();
         discovery.setTotalCertificatesDiscovered(downloadedCertificatesCount);
 
         // process duplicates
@@ -388,7 +388,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
         }
         String preProcessingMessage = discovery.getStatus() == DiscoveryStatus.IN_PROGRESS ? null : discovery.getMessage();
-        long newlyDiscoveredCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discovery, true);
+        Long newlyDiscoveredCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discovery, true);
         if (newlyDiscoveredCount == 0) {
             if (discovery.getStatus() == DiscoveryStatus.IN_PROGRESS) {
                 discovery.setStatus(DiscoveryStatus.COMPLETED);

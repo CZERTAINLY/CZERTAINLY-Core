@@ -431,7 +431,7 @@ public class AcmeServiceImpl implements AcmeService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.ACCOUNT_DOES_NOT_EXIST);
         }
 
-        int invalidatedOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
+        Integer invalidatedOrders = acmeOrderRepository.invalidateExpiredOrders(acmeAccount, new Date());
         acmeAccount.setFailedOrders(acmeAccount.getFailedOrders() + invalidatedOrders);
         acmeAccountRepository.save(acmeAccount);
 

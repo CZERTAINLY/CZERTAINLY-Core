@@ -160,7 +160,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.DELETE)
     public void purgeAuditLogs(final List<SearchFilterRequestDto> filters) {
         final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaDelete<AuditLog>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cd) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cd, root, filters);
-        final int deletedCount = auditLogRepository.deleteUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
+        final Integer deletedCount = auditLogRepository.deleteUsingSecurityFilter(SecurityFilter.create(), additionalWhereClause);
         logger.getLogger().debug("Deleted {} audit logs", deletedCount);
     }
 

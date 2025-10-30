@@ -14,17 +14,17 @@ import java.util.UUID;
 @Repository
 public interface DiscoveryCertificateRepository extends SecurityFilterRepository<DiscoveryCertificate, Long> {
     Optional<DiscoveryCertificate> findByUuid(UUID uuid);
-    long deleteByDiscovery(DiscoveryHistory history);
+    Long deleteByDiscovery(DiscoveryHistory history);
 
     List<DiscoveryCertificate> findByDiscovery(DiscoveryHistory history, Pageable pagable);
 
     @EntityGraph(attributePaths = {"certificateContent"})
     List<DiscoveryCertificate> findByDiscoveryUuidAndNewlyDiscovered(UUID discoveryUuid, boolean newlyDiscovered, Pageable pageable);
 
-    long countByDiscovery(DiscoveryHistory history);
+    Long countByDiscovery(DiscoveryHistory history);
 
-    long countByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered);
-    long countByDiscoveryAndNewlyDiscoveredAndProcessed(DiscoveryHistory history, boolean newlyDiscovered, boolean processed);
+    Long countByDiscoveryAndNewlyDiscovered(DiscoveryHistory history, boolean newlyDiscovered);
+    Long countByDiscoveryAndNewlyDiscoveredAndProcessed(DiscoveryHistory history, boolean newlyDiscovered, boolean processed);
     List<DiscoveryCertificate> findByCertificateContent(CertificateContent certificateContent);
 
 }
