@@ -69,7 +69,7 @@ Operations can be automated by the `Core`, but also can be performed manually by
 | `JDBC_PASSWORD`                   | Password to access the database                                     | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
 | `DB_SCHEMA`                       | Database schema to use                                              | ![](https://img.shields.io/badge/-NO-red.svg)      | `core`              |
 | `PORT`                            | Port where the service is exposed                                   | ![](https://img.shields.io/badge/-NO-red.svg)      | `8080`              |
-| `HEADER_NAME`                     | Name of the header where the certificate of the client can be found | ![](https://img.shields.io/badge/-NO-red.svg)      | `X-APP-CERTIFICATE` |
+| `HEADER_NAME`                     | Name of the header where the certificate of the client can be found | ![](https://img.shields.io/badge/-NO-red.svg)      | `ssl-client-cert` |
 | `HEADER_ENABLED`                  | True if the certificate should be get from the header               | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
 | `TS_PASSWORD`                     | Password for the trusted certificate store                          | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
 | `OPA_BASE_URL`                    | Base URL of the Open Policy Agent                                   | ![](https://img.shields.io/badge/-YES-success.svg) | `N/A`               |
