@@ -363,6 +363,13 @@
 
     <repositories>
         <repository>
+            <id>github</id>
+            <url>https://maven.pkg.github.com/czertainly/*</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
+        </repository>
+        <repository>
             <id>central-portal</id>
             <url>https://central.sonatype.com/repository/maven-snapshots/</url>
         </repository>
