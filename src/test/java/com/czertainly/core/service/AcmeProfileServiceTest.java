@@ -15,10 +15,12 @@ import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.AuthorityInstanceReference;
+import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.ProtocolCertificateAssociations;
+import com.czertainly.core.dao.entity.RaProfile;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
-import com.czertainly.core.dao.repository.AcmeProfileRepository;
-import com.czertainly.core.dao.repository.ProtocolCertificateAssociationsRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -43,6 +45,12 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
+    @Autowired
+    private RaProfileRepository raProfileRepository;
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
+    ConnectorRepository connectorRepository;
 
     private AcmeProfile acmeProfile;
     private CustomAttribute domainAttr;
@@ -162,6 +170,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     void testEditAcmeProfile() throws ConnectorException, AttributeException, NotFoundException {
 
         acmeProfile.setEnabled(false);
+        setUpOldConnector();
         acmeProfileRepository.save(acmeProfile);
 
         AcmeProfileEditRequestDto request = new AcmeProfileEditRequestDto();
@@ -181,6 +190,18 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         dto = acmeProfileService.editAcmeProfile(acmeProfile.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
         Assertions.assertNotNull(dto.getCertificateAssociations());
+    }
+
+    private void setUpOldConnector() {
+        Connector connector = new Connector();
+        connectorRepository.save(connector);
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
+        authorityInstanceReference.setConnectorUuid(connector.getUuid());
+        authorityInstanceReferenceRepository.save(authorityInstanceReference);
+        RaProfile raProfile = new RaProfile();
+        raProfile.setAuthorityInstanceReference(authorityInstanceReference);
+        raProfileRepository.save(raProfile);
+        acmeProfile.setRaProfile(raProfile);
     }
 
     @Test
