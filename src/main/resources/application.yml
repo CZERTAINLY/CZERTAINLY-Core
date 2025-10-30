@@ -89,7 +89,7 @@ server:
   ssl:
     # Client certificate HTTP header name
     certificate-header-enabled: ${HEADER_ENABLED}
-    certificate-header-name: ${HEADER_NAME:X-APP-CERTIFICATE}
+    certificate-header-name: ${HEADER_NAME:ssl-client-cert}
     client-auth: want
     enabled: ${SSL_ENABLE:false}
     trust-store: ${TS_PATH}
