@@ -8,6 +8,7 @@ import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFacto
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
+import org.springframework.boot.autoconfigure.amqp.SimpleRabbitListenerContainerFactoryConfigurer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.util.backoff.ExponentialBackOff;
@@ -86,10 +87,15 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public SimpleRabbitListenerContainerFactory validationListenerContainerFactory(ConnectionFactory connectionFactory) {
+    public SimpleRabbitListenerContainerFactory validationListenerContainerFactory(SimpleRabbitListenerContainerFactoryConfigurer configurer, ConnectionFactory connectionFactory) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+
+        configurer.configure(factory, connectionFactory);
+
         factory.setConnectionFactory(connectionFactory);
         factory.setPrefetchCount(1);
+        factory.setMissingQueuesFatal(false);
+        factory.setMismatchedQueuesFatal(false);
 
         ExponentialBackOff backOff = new ExponentialBackOff(1000L, 2.0);
         backOff.setMaxInterval(10000L);
