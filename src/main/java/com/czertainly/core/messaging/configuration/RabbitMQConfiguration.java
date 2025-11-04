@@ -10,6 +10,7 @@ import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConverter;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.util.backoff.ExponentialBackOff;
 
 @Configuration
 public class RabbitMQConfiguration {
@@ -50,7 +51,9 @@ public class RabbitMQConfiguration {
     }
 
     @Bean
-    public Queue queueAuditLogs() { return new Queue(RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, true); }
+    public Queue queueAuditLogs() {
+        return new Queue(RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, true);
+    }
 
     @Bean
     public Binding eventQueueBinding() {
@@ -87,6 +90,11 @@ public class RabbitMQConfiguration {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setPrefetchCount(1);
+
+        ExponentialBackOff backOff = new ExponentialBackOff(1000L, 2.0);
+        backOff.setMaxInterval(10000L);
+        factory.setRecoveryBackOff(backOff);
+
         return factory;
     }
 
