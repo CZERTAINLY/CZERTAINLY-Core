@@ -134,6 +134,11 @@ spring:
     listener:
       simple:
         default-requeue-rejected: false
+        # Do not stop the container if queues are briefly missing/mismatched on broker restart
+        missing-queues-fatal: false
+        mismatched-queues-fatal: false
+        prefetch: 3
+        recovery-interval: 5000
         retry:
           enabled: true
           initial-interval: 3000

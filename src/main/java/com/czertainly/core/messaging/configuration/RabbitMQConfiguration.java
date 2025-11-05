@@ -86,22 +86,4 @@ public class RabbitMQConfiguration {
         return BindingBuilder.bind(queueAuditLogs()).to(czertainlyExchange()).with(RabbitMQConstants.AUDIT_LOGS_ROUTING_KEY);
     }
 
-    @Bean
-    public SimpleRabbitListenerContainerFactory validationListenerContainerFactory(SimpleRabbitListenerContainerFactoryConfigurer configurer, ConnectionFactory connectionFactory) {
-        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-
-        configurer.configure(factory, connectionFactory);
-
-        factory.setConnectionFactory(connectionFactory);
-        factory.setPrefetchCount(1);
-        factory.setMissingQueuesFatal(false);
-        factory.setMismatchedQueuesFatal(false);
-
-        ExponentialBackOff backOff = new ExponentialBackOff(1000L, 2.0);
-        backOff.setMaxInterval(10000L);
-        factory.setRecoveryBackOff(backOff);
-
-        return factory;
-    }
-
 }

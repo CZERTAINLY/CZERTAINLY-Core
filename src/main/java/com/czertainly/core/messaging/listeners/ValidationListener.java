@@ -22,7 +22,7 @@ public class ValidationListener {
 
     private CertificateHandler certificateHandler;
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_VALIDATION_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.validation}", containerFactory = "validationListenerContainerFactory")
+    @RabbitListener(queues = RabbitMQConstants.QUEUE_VALIDATION_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.validation}")
     public void processMessage(final ValidationMessage validationMessage) {
         List<Certificate> certificates;
         if (validationMessage.getUuids() != null) {
