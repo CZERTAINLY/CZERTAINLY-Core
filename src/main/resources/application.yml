@@ -153,8 +153,8 @@ spring:
   threads:
     virtual:
       enabled: true
-#  transaction:
-#    default-timeout: 10
+  transaction:
+    default-timeout: 16
 messaging:
   concurrency:
     actions: 10
