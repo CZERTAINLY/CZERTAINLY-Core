@@ -82,12 +82,4 @@ public class RabbitMQConfiguration {
         return BindingBuilder.bind(queueAuditLogs()).to(czertainlyExchange()).with(RabbitMQConstants.AUDIT_LOGS_ROUTING_KEY);
     }
 
-    @Bean
-    public SimpleRabbitListenerContainerFactory validationListenerContainerFactory(ConnectionFactory connectionFactory) {
-        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
-        factory.setConnectionFactory(connectionFactory);
-        factory.setPrefetchCount(1);
-        return factory;
-    }
-
 }
