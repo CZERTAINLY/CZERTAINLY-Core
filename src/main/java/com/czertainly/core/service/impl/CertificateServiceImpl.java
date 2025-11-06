@@ -116,10 +116,9 @@ import java.util.stream.Collectors;
 @Transactional
 public class CertificateServiceImpl implements CertificateService {
 
-    // calculated that batch processing will take less than 30 minutes even under more load to prevent consumer timeout.
-    // Based on average processing time of 3 seconds per certificate with extensions and revocation check under common conditions.
     // batch size will prevent bloating size of enqueued message and better utilize parallel processing
-    private static final int VALIDATION_BATCH_SIZE = 200;
+    // NOTE: improve handling of large batches vs many produced messages to queue
+    private static final int VALIDATION_BATCH_SIZE = 10;
     private static final String UNDEFINED_CERTIFICATE_OBJECT_NAME = "undefined";
     private static final Logger logger = LoggerFactory.getLogger(CertificateServiceImpl.class);
 

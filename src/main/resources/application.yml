@@ -133,6 +133,17 @@ spring:
     listener:
       simple:
         default-requeue-rejected: false
+        # Do not stop the container if queues are briefly missing/mismatched on broker restart
+        missing-queues-fatal: false
+        mismatched-queues-fatal: false
+        prefetch: 3
+        recovery-interval: 5000
+        retry:
+          enabled: true
+          initial-interval: 3000
+          max-attempts: 3
+          max-interval: 10000
+          multiplier: 2
     password: ${RABBITMQ_PASSWORD}
     port: ${RABBITMQ_PORT:5672}
     requested-heartbeat: 30
@@ -141,6 +152,8 @@ spring:
   threads:
     virtual:
       enabled: true
+  transaction:
+    default-timeout: 20
 
 messaging:
   concurrency:
