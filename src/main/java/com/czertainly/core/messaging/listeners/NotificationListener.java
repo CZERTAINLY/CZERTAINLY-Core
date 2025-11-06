@@ -227,7 +227,7 @@ public class NotificationListener {
         }
 
         OffsetDateTime now = OffsetDateTime.now();
-        return (notificationProfileVersion.getFrequency() == null || pendingNotification.getLastSentAt() == null || Duration.between(pendingNotification.getLastSentAt(), now).toNanos() > notificationProfileVersion.getFrequency().toNanos())
+        return (notificationProfileVersion.getFrequency() == null || pendingNotification.getLastSentAt() == null || Duration.between(pendingNotification.getLastSentAt(), now).compareTo(notificationProfileVersion.getFrequency()) > 0)
                 && (notificationProfileVersion.getRepetitions() == null || pendingNotification.getRepetitions() < notificationProfileVersion.getRepetitions());
     }
 
