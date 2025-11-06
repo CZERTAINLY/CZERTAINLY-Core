@@ -35,9 +35,9 @@ public class PendingNotification  extends ResourceObjectAssociation {
     @Enumerated(EnumType.STRING)
     private ResourceEvent event;
 
-    @Column(name = "last_sent_at", nullable = false, updatable = false)
     @UpdateTimestamp
-    protected OffsetDateTime lastSentAt;
+    @Column(name = "last_sent_at", nullable = false)
+    private OffsetDateTime lastSentAt;
 
     @Column(name = "repetitions", nullable = false)
     private int repetitions;
