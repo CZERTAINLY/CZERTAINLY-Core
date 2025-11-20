@@ -7,6 +7,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -178,7 +179,7 @@ public class ComplianceProfileRuleHandler {
         return dto;
     }
 
-    private void mapFromProfileRule(UUID connectorUuid, String kind, UUID providerRuleUuid, List<BaseAttributeV2> attributes, ComplianceCheckRuleDto ruleDto) {
+    private void mapFromProfileRule(UUID connectorUuid, String kind, UUID providerRuleUuid, List<BaseAttribute> attributes, ComplianceCheckRuleDto ruleDto) {
         List<ComplianceProfileRule> profileRules = complianceProfileRuleRepository.findByConnectorUuidAndKindAndComplianceRuleUuid(connectorUuid, kind, providerRuleUuid);
         if (profileRules.isEmpty()) {
             return;

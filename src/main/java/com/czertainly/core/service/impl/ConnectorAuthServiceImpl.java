@@ -13,6 +13,8 @@ import com.czertainly.api.model.common.attribute.v2.content.FileAttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -129,10 +131,10 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<BaseAttribute> getCertificateAttributes() {
-        List<BaseAttributeV2> attrs = new ArrayList<>();
+    public List<DataAttributeV3> getCertificateAttributes() {
+        List<DataAttributeV3> attrs = new ArrayList<>();
 
-        DataAttributeV2 keyStoreType = new DataAttributeV2();
+        DataAttributeV3 keyStoreType = new DataAttributeV3();
         keyStoreType.setUuid("e334e055-900e-43f1-aedc-54e837028de0");
         keyStoreType.setName(ATTRIBUTE_KEYSTORE_TYPE);
         keyStoreType.setType(AttributeType.DATA);
@@ -145,15 +147,15 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         kstProperties.setVisible(true);
         keyStoreType.setProperties(kstProperties);
 
-        List<BaseAttributeContentV2> base = new ArrayList<>();
+        List<BaseAttributeContentV3> base = new ArrayList<>();
         SUPPORTED_KEY_STORE_TYPES.forEach(e -> {
-            base.add(new StringAttributeContentV2(e));
+            base.add(new StringAttributeContentV3(e));
         });
 
         keyStoreType.setContent(base);
         attrs.add(keyStoreType);
 
-        DataAttributeV2 keyStore = new DataAttributeV2();
+        DataAttributeV3 keyStore = new DataAttributeV3();
         keyStore.setUuid("6df7ace9-c501-4d58-953c-f8d53d4fb378");
         keyStore.setName(ATTRIBUTE_KEYSTORE);
         keyStore.setType(AttributeType.DATA);
@@ -167,7 +169,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         attrs.add(keyStore);
 
-        DataAttributeV2 keyStorePassword = new DataAttributeV2();
+        DataAttributeV3 keyStorePassword = new DataAttributeV3();
         keyStorePassword.setUuid("d975fe42-9d09-4740-a362-fc26f98e55ea");
         keyStorePassword.setName(ATTRIBUTE_KEYSTORE_PASSWORD);
         keyStorePassword.setType(AttributeType.DATA);
@@ -181,7 +183,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         attrs.add(keyStorePassword);
 
-        DataAttributeV2 trustStoreType = new DataAttributeV2();
+        DataAttributeV3 trustStoreType = new DataAttributeV3();
         trustStoreType.setUuid("c4454807-805a-44e2-81d1-94b56e993786");
         trustStoreType.setName(ATTRIBUTE_TRUSTSTORE_TYPE);
         trustStoreType.setType(AttributeType.DATA);
@@ -197,7 +199,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         trustStoreType.setContent(base);
         attrs.add(trustStoreType);
 
-        DataAttributeV2 trustStore = new DataAttributeV2();
+        DataAttributeV3 trustStore = new DataAttributeV3();
         trustStore.setUuid("6a245220-eaf4-44cb-9079-2228ad9264f5");
         trustStore.setName(ATTRIBUTE_TRUSTSTORE);
         trustStore.setType(AttributeType.DATA);
@@ -211,7 +213,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         attrs.add(trustStore);
 
-        DataAttributeV2 trustStorePassword = new DataAttributeV2();
+        DataAttributeV3 trustStorePassword = new DataAttributeV3();
         trustStorePassword.setUuid("85a874da-1413-4770-9830-4188a37c95ee");
         trustStorePassword.setName(ATTRIBUTE_TRUSTSTORE_PASSWORD);
         trustStorePassword.setType(AttributeType.DATA);
@@ -268,10 +270,10 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<BaseAttribute> getApiKeyAuthAttributes() {
-        List<BaseAttributeV2> attrs = new ArrayList<>();
+    public List<DataAttributeV3> getApiKeyAuthAttributes() {
+        List<DataAttributeV3> attrs = new ArrayList<>();
 
-        DataAttributeV2 apiKeyHeader = new DataAttributeV2();
+        DataAttributeV3 apiKeyHeader = new DataAttributeV3();
         apiKeyHeader.setUuid("705ccbfb-1d81-402a-ae67-8d38f159b240");
         apiKeyHeader.setName(ATTRIBUTE_API_KEY_HEADER);
         apiKeyHeader.setType(AttributeType.DATA);
@@ -284,14 +286,15 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         apiKeyHeader.setProperties(properties);
 
         String headerReference = "X-API-KEY";
-        StringAttributeContentV2 header = new StringAttributeContentV2();
+        StringAttributeContentV3 header = new StringAttributeContentV3();
         header.setReference(headerReference);
         header.setData(headerReference);
+        header.setContentType(AttributeContentType.STRING);
 
         apiKeyHeader.setContent(List.of(header));
         attrs.add(apiKeyHeader);
 
-        DataAttributeV2 apiKey = new DataAttributeV2();
+        DataAttributeV3 apiKey = new DataAttributeV3();
         apiKey.setUuid("989dafd6-d18c-41f1-b68d-285c56d6331e");
         apiKey.setName(ATTRIBUTE_API_KEY);
         apiKey.setType(AttributeType.DATA);
@@ -315,7 +318,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<BaseAttribute> getJWTAuthAttributes() {
+    public List<DataAttributeV3> getJWTAuthAttributes() {
         throw new ValidationException(ValidationError.create("Auth type JWT not implemented yet"));
     }
 

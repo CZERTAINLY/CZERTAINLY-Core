@@ -839,8 +839,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
         }
 
-        List<DataAttributeV2> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
-        List<DataAttributeV2> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
+        List<BaseAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
+        List<BaseAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
 
         // check if this location already has a CertificateLocation for `certificate`
         CertificateLocation certificateLocation = location.getCertificates().stream()
@@ -912,8 +912,8 @@ public class LocationServiceImpl implements LocationService {
             throw new LocationException("Failed to get Attributes for Location: " + location.getName() + ". Location not found");
         }
 
-        List<DataAttributeV2> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
-        List<DataAttributeV2> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
+        List<BaseAttribute> mergedPushAttributes = AttributeDefinitionUtils.mergeAttributes(fullPushAttributes, pushAttributes);
+        List<BaseAttribute> mergedCsrAttributes = AttributeDefinitionUtils.mergeAttributes(fullCsrAttributes, csrAttributes);
 
         CertificateLocation certificateLocation = new CertificateLocation();
         certificateLocation.setLocation(location);

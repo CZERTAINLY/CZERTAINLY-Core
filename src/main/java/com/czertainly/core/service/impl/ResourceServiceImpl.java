@@ -5,6 +5,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
@@ -103,7 +104,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resource, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContentV2> attributeContentItems) throws NotFoundException, AttributeException {
+    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resource, SecuredUUID objectUuid, UUID attributeUuid, List<? extends BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
         logger.info("Updating the attribute {} for resource {} with value {}", attributeUuid, resource, attributeUuid);
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (!resource.hasCustomAttributes() || resourceExtensionService == null)
