@@ -9,7 +9,7 @@ import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -137,13 +137,13 @@ public class LocationManagementControllerImpl implements LocationManagementContr
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "push", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttributeV2> listPushAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, String locationUuid) throws NotFoundException, LocationException {
+    public List<BaseAttribute> listPushAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, String locationUuid) throws NotFoundException, LocationException {
         return locationService.listPushAttributes(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "csr", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttributeV2> listCsrAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, String locationUuid) throws NotFoundException, LocationException {
+    public List<BaseAttribute> listCsrAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, String locationUuid) throws NotFoundException, LocationException {
         return locationService.listCsrAttributes(SecuredParentUUID.fromString(entityUuid), SecuredUUID.fromString(locationUuid));
     }
 

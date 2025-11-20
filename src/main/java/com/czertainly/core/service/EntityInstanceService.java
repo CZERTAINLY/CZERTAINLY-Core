@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -63,12 +63,13 @@ public interface EntityInstanceService extends ResourceExtensionService {
 
     /**
      * List Location Attributes supported by  Entity instance
+     *
      * @param entityUuid UUID of Entity instance
      * @return List of Location Attributes supported by Entity instance
-     * @throws NotFoundException when Entity instance with given UUID is not found
+     * @throws NotFoundException  when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to get Location Attributes
      */
-    List<BaseAttributeV2> listLocationAttributes(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
+    List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws NotFoundException, ConnectorException;
 
     /**
      * Validate Location Attributes for Entity instance

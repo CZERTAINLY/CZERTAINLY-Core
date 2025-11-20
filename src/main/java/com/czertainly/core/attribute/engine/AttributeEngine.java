@@ -127,9 +127,12 @@ public class AttributeEngine {
 
         // filter definitions that are not allowed for user
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
-            return relations.stream().filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> r.getAttributeDefinition().getDefinition()).toList();
+            return relations.stream()
+                    .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
+                    .map(r -> (CustomAttributeV3) r.getAttributeDefinition().getDefinition())
+                    .toList();
         } else {
-            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> r.getAttributeDefinition().getDefinition()).toList();
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> (CustomAttributeV3) r.getAttributeDefinition().getDefinition()).toList();
         }
     }
 
@@ -297,12 +300,12 @@ public class AttributeEngine {
         return attributeDefinition;
     }
 
-    public void validateUpdateDataAttributes(UUID connectorUuid, String operation, List<BaseAttribute> attributes, List<RequestAttributeDto> requestAttributes) throws AttributeException {
+    public void validateUpdateDataAttributes(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttributeDto> requestAttributes) throws AttributeException {
         updateDataAttributeDefinitions(connectorUuid, operation, attributes);
         validateDataAttributesContent(connectorUuid, operation, attributes, requestAttributes);
     }
 
-    private void validateDataAttributesContent(UUID connectorUuid, String operation, List<BaseAttribute> attributes, List<RequestAttributeDto> requestAttributes) throws ValidationException {
+    private void validateDataAttributesContent(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttributeDto> requestAttributes) throws ValidationException {
         logger.debug("Validating data attributes: {}", attributes);
         if (attributes == null) {
             attributes = new ArrayList<>();
@@ -341,7 +344,7 @@ public class AttributeEngine {
         }
     }
 
-    public void updateDataAttributeDefinitions(UUID connectorUuid, String operation, List<BaseAttribute> attributes) throws AttributeException {
+    public void updateDataAttributeDefinitions(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes) throws AttributeException {
         if (attributes == null) {
             return;
         }

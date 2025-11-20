@@ -4,7 +4,7 @@ import com.czertainly.api.clients.NotificationInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -202,7 +202,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
-    public List<DataAttributeV2> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(connectorUuid));
         return notificationInstanceApiClient.listMappingAttributes(connector.mapToDto(), kind);
     }

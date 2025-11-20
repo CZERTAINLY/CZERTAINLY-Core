@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
@@ -12,6 +13,7 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.core.util.ObjectAccessControlMapper;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
@@ -71,7 +73,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
 
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private BaseAttributeV2 definition;
+    private BaseAttribute definition;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -145,7 +147,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     }
 
     public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
-        CustomAttributeV2 attribute = (CustomAttributeV2) this.definition;
+        CustomAttributeV3 attribute = (CustomAttributeV3) this.definition;
         CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());

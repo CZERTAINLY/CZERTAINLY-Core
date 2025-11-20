@@ -3,6 +3,7 @@ package com.czertainly.core.service.v2.impl;
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -34,7 +35,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public List<BaseAttributeV2> listIssueCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listIssueCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.listIssueCertificateAttributes(
@@ -66,14 +67,14 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         certificateApiClient.validateIssueCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), attributes);
 
         // get definitions from connector
-        List<BaseAttributeV2> definitions = certificateApiClient.listIssueCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
+        List<BaseAttribute> definitions = certificateApiClient.listIssueCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_ISSUE, definitions, attributes);
     }
 
     @Override
-    public List<BaseAttributeV2> listRevokeCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listRevokeCertificateAttributes(RaProfile raProfile) throws ConnectorException, NotFoundException {
         validateLegacyConnector(raProfile.getAuthorityInstanceReference().getConnector());
 
         return certificateApiClient.listRevokeCertificateAttributes(
@@ -106,7 +107,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
         certificateApiClient.validateRevokeCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(), attributes);
 
         // get definitions from connector
-        List<BaseAttributeV2> definitions = certificateApiClient.listRevokeCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
+        List<BaseAttribute> definitions = certificateApiClient.listRevokeCertificateAttributes(connectorDto, raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(raProfile.getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, definitions, attributes);

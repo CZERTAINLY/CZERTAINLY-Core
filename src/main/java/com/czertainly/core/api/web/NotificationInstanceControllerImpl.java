@@ -6,7 +6,7 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.NotificationInstanceController;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
@@ -74,7 +74,7 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     }
 
     @Override
-    public List<DataAttributeV2> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         return notificationInstanceService.listMappingAttributes(connectorUuid, kind);
     }
 

@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.core.auth.Resource;
@@ -525,7 +526,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
     private boolean evaluateConditionOnAttribute(ResponseAttributeDto attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
         AttributeContentType contentType = attributeDto.getContentType();
-        for (BaseAttributeContentV2 attributeContent : attributeDto.getContent()) {
+        for (BaseAttributeContent attributeContent : attributeDto.getContent()) {
             Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();
             try {
                 if (Boolean.TRUE.equals(fieldTypeToOperatorActionMap.get(contentTypeToFieldType(contentType)).get(operator).apply(attributeValue, conditionValue)))

@@ -3,7 +3,7 @@ package com.czertainly.core.api.v2.client;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
@@ -87,7 +87,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttributeV2> listIssueCertificateAttributes(
+    public List<BaseAttribute> listIssueCertificateAttributes(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
@@ -104,7 +104,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttributeV2> listRevokeCertificateAttributes(
+    public List<BaseAttribute> listRevokeCertificateAttributes(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));

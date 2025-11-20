@@ -11,6 +11,7 @@ import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
@@ -289,7 +290,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
-    public List<BaseAttributeV2> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+    public List<BaseAttribute> listPushAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -306,7 +307,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.ANY, parentResource = Resource.ENTITY, parentAction = ResourceAction.ANY)
-    public List<BaseAttributeV2> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
+    public List<BaseAttribute> listCsrAttributes(SecuredParentUUID entityUuid, SecuredUUID locationUuid) throws NotFoundException, LocationException {
         Location location = locationRepository.findByUuidAndEnabledIsTrue(locationUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(Location.class, locationUuid));
 
@@ -828,8 +829,8 @@ public class LocationServiceImpl implements LocationService {
     private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes, List<MetadataAttributeV2> certificateMetadata) throws LocationException, AttributeException {
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
         //stored in the database
-        List<BaseAttributeV2> fullPushAttributes;
-        List<BaseAttributeV2> fullCsrAttributes;
+        List<BaseAttribute> fullPushAttributes;
+        List<BaseAttribute> fullCsrAttributes;
         try {
             fullPushAttributes = listPushAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
             fullCsrAttributes = listCsrAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
@@ -901,8 +902,8 @@ public class LocationServiceImpl implements LocationService {
 
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
         //stored in the database
-        List<BaseAttributeV2> fullPushAttributes;
-        List<BaseAttributeV2> fullCsrAttributes;
+        List<BaseAttribute> fullPushAttributes;
+        List<BaseAttribute> fullCsrAttributes;
         try {
             fullPushAttributes = listPushAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
             fullCsrAttributes = listCsrAttributes(SecuredParentUUID.fromUUID(location.getEntityInstanceReferenceUuid()), SecuredUUID.fromString(location.getUuid().toString()));
@@ -1005,7 +1006,7 @@ public class LocationServiceImpl implements LocationService {
         entityInstanceApiClient.validateLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid(), attributes);
 
         // list definitions
-        List<BaseAttributeV2> definitions = entityInstanceApiClient.listLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid());
+        List<BaseAttribute> definitions = entityInstanceApiClient.listLocationAttributes(connectorDto, entityInstanceRef.getEntityInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(entityInstanceRef.getConnectorUuid(), null, definitions, attributes);

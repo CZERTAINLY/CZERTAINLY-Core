@@ -3,7 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
@@ -115,7 +115,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    List<BaseAttributeV2> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * Validate the token Profile attributes
@@ -132,5 +132,5 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @throws NotFoundException  when the token instance is not found
      * @throws ConnectorException when there are issues with connector communication or error from connector
      */
-    List<BaseAttributeV2> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 }

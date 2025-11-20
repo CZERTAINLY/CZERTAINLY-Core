@@ -4,6 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
 import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
@@ -23,5 +24,5 @@ public interface NotificationInstanceService {
 
     void deleteNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException;
 
-    List<DataAttributeV2> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException;
+    List<BaseAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException;
 }
