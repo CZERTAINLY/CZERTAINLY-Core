@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity.workflows;
 
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.ExecutionItemDto;
 import com.czertainly.core.dao.converter.ObjectToJsonConverter;
@@ -61,7 +61,7 @@ public class ExecutionItem extends UniquelyIdentified {
         if (fieldSource != FilterFieldSource.CUSTOM) {
             executionItemDto.setData((Serializable) data);
         } else {
-            List<BaseAttributeContent> contentItems = AttributeDefinitionUtils.convertContentItemsFromObject(data);
+            List<BaseAttributeContentV2> contentItems = AttributeDefinitionUtils.convertContentItemsFromObject(data);
             executionItemDto.setData((Serializable) (contentItems.size() == 1 ? contentItems.get(0).getData().toString() : contentItems.stream().map(i -> i.getData().toString()).toList()));
         }
 

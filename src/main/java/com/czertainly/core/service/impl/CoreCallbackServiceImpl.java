@@ -1,11 +1,10 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
-import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
@@ -26,7 +25,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
     private CredentialService credentialService;
 
     @Override
-    public List<ObjectAttributeContent> coreGetCredentials(RequestAttributeCallback callback) throws ValidationException {
+    public List<ObjectAttributeContentV2> coreGetCredentials(RequestAttributeCallback callback) throws ValidationException {
         if (callback.getPathVariable() == null ||
                 callback.getPathVariable().get(CREDENTIAL_KIND_PATH_VARIABLE) == null) {
             throw new ValidationException(ValidationError.create("Required path variable credentialKind not found in callback."));
@@ -35,9 +34,9 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
         String kind = callback.getPathVariable().get(CREDENTIAL_KIND_PATH_VARIABLE).toString();
         List<NameAndUuidDto> credentialDataList = credentialService.listCredentialsCallback(SecurityFilter.create(), kind);
 
-        List<ObjectAttributeContent> jsonContent = new ArrayList<>();
+        List<ObjectAttributeContentV2> jsonContent = new ArrayList<>();
         for (NameAndUuidDto credentialData : credentialDataList) {
-            ObjectAttributeContent content = new ObjectAttributeContent(credentialData.getName(), credentialData);
+            ObjectAttributeContentV2 content = new ObjectAttributeContentV2(credentialData.getName(), credentialData);
             jsonContent.add(content);
         }
 

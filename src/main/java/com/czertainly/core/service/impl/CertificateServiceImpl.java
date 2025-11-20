@@ -7,9 +7,9 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -1646,7 +1646,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
+    public CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttributeV2> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {

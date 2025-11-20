@@ -5,14 +5,14 @@ import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallbackMapping;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -187,14 +187,14 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
-    public void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException {
+    public void loadFullCredentialData(List<DataAttributeV2> attributes) throws NotFoundException {
         // TODO: necessary to load full credentials this way?
         if (attributes == null || attributes.isEmpty()) {
             logger.warn("Given Attributes are null or empty");
             return;
         }
 
-        for (DataAttribute attribute : attributes) {
+        for (DataAttributeV2 attribute : attributes) {
             if (!AttributeContentType.CREDENTIAL.equals(attribute.getContentType())) {
                 logger.trace("Attribute not of type {} but {}.", AttributeContentType.CREDENTIAL, attribute.getType());
                 continue;
@@ -205,7 +205,7 @@ public class CredentialServiceImpl implements CredentialService {
 
             CredentialAttributeContentData credentialAttributeContentData = credential.mapToCredentialContent();
             credentialAttributeContentData.setAttributes(attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()));
-            attribute.setContent(List.of(new CredentialAttributeContent(credentialId.getName(), credentialAttributeContentData)));
+            attribute.setContent(List.of(new CredentialAttributeContentV2(credentialId.getName(), credentialAttributeContentData)));
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
@@ -237,16 +237,16 @@ public class CredentialServiceImpl implements CredentialService {
                                     credentialUuid = ((NameAndUuidDto) bodyKeyValue).getUuid();
                                 } else if (bodyKeyValue instanceof CredentialDto) {
                                     credentialUuid = ((CredentialDto) bodyKeyValue).getUuid();
-                                } else if (bodyKeyValue instanceof CredentialAttributeContent) {
-                                    credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
-                                } else if (bodyKeyValue instanceof List<?> list && list.get(0) instanceof CredentialAttributeContent) {
-                                    credentialUuid = ((List<CredentialAttributeContent>) bodyKeyValue).get(0).getData().getUuid();
+                                } else if (bodyKeyValue instanceof CredentialAttributeContentV2) {
+                                    credentialUuid = ((List<CredentialAttributeContentV2>) bodyKeyValue).get(0).getData().getUuid();
+                                } else if (bodyKeyValue instanceof List<?> list && list.get(0) instanceof CredentialAttributeContentV2) {
+                                    credentialUuid = ((List<CredentialAttributeContentV2>) bodyKeyValue).get(0).getData().getUuid();
                                 } else if (bodyKeyValue instanceof Map<?,?> map) {
                                     if(map.containsKey("uuid")) {
                                         credentialUuid = (String) map.get("uuid");
                                     } else {
                                         try {
-                                            credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContent.class)).getData()).get("uuid");
+                                            credentialUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContentV2.class)).getData()).get("uuid");
                                         } catch (Exception e) {
                                             logger.error(e.getMessage(), e);
                                             throw new ValidationException(ValidationError.create(

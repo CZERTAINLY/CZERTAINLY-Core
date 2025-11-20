@@ -1,9 +1,9 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -61,7 +61,7 @@ public class JsonSerializationTest {
     public void testDeserializeRAProfileAttributes() {
         String attrData = "[{\"name\": \"tokenType\", \"content\": [{\"data\": \"PEM\"}]}, {\"name\": \"description\", \"content\": [{\"data\": \"DEMO RA Profile\"}]}, {\"name\": \"endEntityProfile\", \"content\": [{\"reference\": \"DemoTLSServerEndEntityProfile\", \"data\": {\"id\": 0, \"name\": \"DemoTLSServerEndEntityProfile\"}}]}, {\"name\": \"certificateProfile\", \"content\": [{\"reference\": \"DemoTLSServerEECertificateProfile\", \"data\": {\"id\": 0, \"name\": \"DemoTLSServerEECertificateProfile\"}}]}, {\"name\": \"certificationAuthority\", \"content\": [{\"reference\": \"DemoServerSubCA\", \"data\": {\"id\": 0, \"name\": \"DemoServerSubCA\"}}]}, {\"name\": \"sendNotifications\", \"content\": [{\"data\": false}]}, {\"name\": \"keyRecoverable\", \"content\": [{\"data\": true}]}]";
 
-        List<BaseAttribute> attrs = AttributeDefinitionUtils.deserialize(attrData, BaseAttribute.class);
+        List<BaseAttributeV2> attrs = AttributeDefinitionUtils.deserialize(attrData, BaseAttributeV2.class);
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 
@@ -76,11 +76,11 @@ public class JsonSerializationTest {
         CredentialAttributeContentData credential = new CredentialAttributeContentData();
         credential.setName("test");
 
-        List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("credential", List.of(new CredentialAttributeContent("test", credential))));
+        List<DataAttributeV2> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("credential", List.of(new CredentialAttributeContentV2("test", credential))));
 
         String serialized = AttributeDefinitionUtils.serialize(attrs);
 
-        List<DataAttribute> deserialized = AttributeDefinitionUtils.deserialize(serialized, DataAttribute.class);
+        List<DataAttributeV2> deserialized = AttributeDefinitionUtils.deserialize(serialized, DataAttributeV2.class);
 
         CredentialAttributeContentData value = AttributeDefinitionUtils.getCredentialContent("credential", AttributeDefinitionUtils.getClientAttributes(deserialized));
         Assertions.assertNotNull(value);

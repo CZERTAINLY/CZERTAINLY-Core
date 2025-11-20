@@ -5,7 +5,8 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -29,7 +30,7 @@ public interface CryptographicOperationService {
      * @return List of attributes for Cipher Attributes
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    List<BaseAttribute> listCipherAttributes(
+    List<BaseAttributeV3<?>> listCipherAttributes(
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,
@@ -80,7 +81,7 @@ public interface CryptographicOperationService {
      * @return List of attributes for the Signature Algorithm
      * @throws NotFoundException when the token instance with the specified UUID is not found
      */
-    List<BaseAttribute> listSignatureAttributes(
+    List<BaseAttributeV3<?>> listSignatureAttributes(
             SecuredParentUUID tokenInstanceUuid,
             SecuredUUID tokenProfileUUID,
             UUID uuid,

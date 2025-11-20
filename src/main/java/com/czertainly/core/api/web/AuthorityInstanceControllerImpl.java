@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestD
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.logging.enums.Module;

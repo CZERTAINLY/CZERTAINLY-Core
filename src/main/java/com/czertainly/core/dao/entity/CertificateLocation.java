@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import jakarta.persistence.*;
 import lombok.*;
@@ -41,19 +41,19 @@ public class CertificateLocation implements Serializable {
     @Column(name = "with_key")
     private boolean withKey;
 
-    public List<DataAttribute> getPushAttributes() {
-        return AttributeDefinitionUtils.deserialize(pushAttributes, DataAttribute.class);
+    public List<DataAttributeV2> getPushAttributes() {
+        return AttributeDefinitionUtils.deserialize(pushAttributes, DataAttributeV2.class);
     }
 
-    public void setPushAttributes(List<DataAttribute> pushAttributes) {
+    public void setPushAttributes(List<DataAttributeV2> pushAttributes) {
         this.pushAttributes = AttributeDefinitionUtils.serialize(pushAttributes);
     }
 
-    public List<DataAttribute> getCsrAttributes() {
-        return AttributeDefinitionUtils.deserialize(csrAttributes, DataAttribute.class);
+    public List<DataAttributeV2> getCsrAttributes() {
+        return AttributeDefinitionUtils.deserialize(csrAttributes, DataAttributeV2.class);
     }
 
-    public void setCsrAttributes(List<DataAttribute> csrAttributes) {
+    public void setCsrAttributes(List<DataAttributeV2> csrAttributes) {
         this.csrAttributes = AttributeDefinitionUtils.serialize(csrAttributes);
     }
 

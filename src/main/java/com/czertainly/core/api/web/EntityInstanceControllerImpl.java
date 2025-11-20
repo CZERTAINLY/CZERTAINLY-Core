@@ -11,7 +11,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -89,7 +89,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid) throws ConnectorException, NotFoundException {
         return entityInstanceService.listLocationAttributes(SecuredUUID.fromString(entityUuid));
     }
 

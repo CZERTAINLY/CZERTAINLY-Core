@@ -5,8 +5,6 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
@@ -15,15 +13,11 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
@@ -147,7 +141,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
-    List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource);
+    List<CustomAttributeV3> getResourceAttributes(SecurityFilter filter, Resource resource);
 
     /**
      * Function to validate if the custom attributes contains the correct information

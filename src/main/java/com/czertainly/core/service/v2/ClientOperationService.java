@@ -2,7 +2,7 @@ package com.czertainly.core.service.v2;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.v2.*;
 import com.czertainly.core.model.auth.CertificateProtocolInfo;
@@ -18,7 +18,7 @@ import java.util.UUID;
 
 public interface ClientOperationService {
 
-    List<BaseAttribute> listIssueCertificateAttributes(
+    List<BaseAttributeV2> listIssueCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid
     ) throws ConnectorException, NotFoundException;
@@ -94,7 +94,7 @@ public interface ClientOperationService {
             boolean isApproved
     ) throws NotFoundException, CertificateOperationException;
 
-    List<BaseAttribute> listRevokeCertificateAttributes(
+    List<BaseAttributeV2> listRevokeCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException;
 

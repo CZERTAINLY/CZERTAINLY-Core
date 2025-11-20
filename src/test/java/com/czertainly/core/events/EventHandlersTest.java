@@ -12,7 +12,7 @@ import com.czertainly.api.model.client.notification.NotificationProfileDetailDto
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.events.data.EventData;
@@ -215,7 +215,7 @@ class EventHandlersTest extends BaseSpringBootTest {
         discovery = discoveryRepository.save(discovery);
 
         // register custom attribute
-        CustomAttribute certificateDomainAttr = new CustomAttribute();
+        CustomAttributeV2 certificateDomainAttr = new CustomAttributeV2();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
         certificateDomainAttr.setName("domain");
         certificateDomainAttr.setType(AttributeType.CUSTOM);

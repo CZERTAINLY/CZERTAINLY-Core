@@ -11,7 +11,6 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateReq
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -35,13 +34,13 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     private AttributeDefinitionRepository attributeDefinitionRepository;
 
     private AttributeDefinition definition;
-    private CustomAttribute attribute;
-    private MetadataAttribute metaAttribute;
+    private CustomAttributeV2 attribute;
+    private MetadataAttributeV2 metaAttribute;
     private AttributeDefinition metaDefinition;
 
     @BeforeEach
     public void setUp() {
-        attribute = new CustomAttribute();
+        attribute = new CustomAttributeV2();
         attribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba06e");
         attribute.setName("attribute");
         attribute.setDescription("Attribute");
@@ -56,7 +55,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
         urlProperties.setMultiSelect(false);
         attribute.setProperties(urlProperties);
 
-        metaAttribute = new MetadataAttribute();
+        metaAttribute = new MetadataAttributeV2();
         metaAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba07e");
         metaAttribute.setName("attribute1");
         metaAttribute.setDescription("Attribute1");
@@ -235,7 +234,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     public void testUpdateResource() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<BaseAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        List<BaseAttributeV2> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals(attribute.getUuid(), attributes.get(0).getUuid());
     }
@@ -248,7 +247,7 @@ public class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     public void testGetResourceAttributesWithValue() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<BaseAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        List<BaseAttributeV2> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
     }
 }

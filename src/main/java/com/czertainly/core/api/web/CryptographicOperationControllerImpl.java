@@ -4,7 +4,8 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CryptographicOperationsController;
 import com.czertainly.api.model.client.cryptography.operations.*;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -114,7 +115,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "signature", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listSignatureAttributes(
+    public List<BaseAttributeV3<?>> listSignatureAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
@@ -132,7 +133,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "cipher", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listCipherAttributes(
+    public List<BaseAttributeV3<?>> listCipherAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,

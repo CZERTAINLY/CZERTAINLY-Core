@@ -9,7 +9,7 @@ import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestD
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -151,7 +151,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), request.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
@@ -195,7 +195,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), ref.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();

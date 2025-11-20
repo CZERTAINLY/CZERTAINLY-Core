@@ -10,9 +10,9 @@ import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -411,7 +411,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         dtoRequest.setKind(discovery.getKind());
 
         // Load complete credential data
-        List<DataAttribute> dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
+        List<DataAttributeV2> dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
                 AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
         credentialService.loadFullCredentialData(dataAttributes);
         dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -527,8 +527,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
         // categorize certs and collect metadata definitions
-        List<MetadataAttribute> metadataDefinitions = new ArrayList<>();
-        Map<String, Set<BaseAttributeContent>> metadataContentsMapping = new HashMap<>();
+        List<MetadataAttributeV2> metadataDefinitions = new ArrayList<>();
+        Map<String, Set<BaseAttributeContentV2>> metadataContentsMapping = new HashMap<>();
         List<DiscoveryProviderCertificateDataDto> discoveredCertificates = new ArrayList<>();
         response.getCertificateData().forEach(c -> {
             if (uniqueCertificateContents.contains(c.getBase64Content())) {
@@ -538,8 +538,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 uniqueCertificateContents.add(c.getBase64Content());
             }
 
-            for (MetadataAttribute m : c.getMeta()) {
-                Set<BaseAttributeContent> metadataContents = metadataContentsMapping.get(m.getUuid());
+            for (MetadataAttributeV2 m : c.getMeta()) {
+                Set<BaseAttributeContentV2> metadataContents = metadataContentsMapping.get(m.getUuid());
                 if (metadataContents == null) {
                     metadataDefinitions.add(m);
                     metadataContents = new HashSet<>();
@@ -589,7 +589,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         futures.clear();
     }
 
-    private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttribute> metadata) {
+    private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttributeV2> metadata) {
         discovery.setStatus(status);
         if (connectorStatus != null) discovery.setConnectorStatus(connectorStatus);
         if (message != null) discovery.setMessage(message);

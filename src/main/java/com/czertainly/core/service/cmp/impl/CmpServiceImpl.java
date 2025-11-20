@@ -4,7 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.cmp.PkiMessageError;
 import com.czertainly.api.interfaces.core.cmp.error.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -355,9 +355,9 @@ public class CmpServiceImpl implements CmpService {
             LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid().toString(), cmpProfile.getName());
 
             String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpIssueCertificateAttributes() : null;
-            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
+            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttributeV2.class));
             String revokeAttributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpRevokeCertificateAttributes() : null;
-            revokeAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(revokeAttributesJson, DataAttribute.class));
+            revokeAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(revokeAttributesJson, DataAttributeV2.class));
         } else {
             cmpProfile = cmpProfileRepository.findByName(profileName).orElse(null);
             if (cmpProfile == null) {

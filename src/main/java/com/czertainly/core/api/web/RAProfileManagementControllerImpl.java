@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -228,13 +228,13 @@ public class RAProfileManagementControllerImpl implements RAProfileManagementCon
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "revoke", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listRevokeCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listRevokeCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return raProfileService.listRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "issue", affiliatedResource = Resource.RA_PROFILE, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listIssueCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listIssueCertificateAttributes(String authorityUuid, @LogResource(uuid = true, affiliated = true) String raProfileUuid) throws ConnectorException, NotFoundException {
         return raProfileService.listIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid));
     }
 

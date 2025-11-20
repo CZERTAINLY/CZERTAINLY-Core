@@ -6,9 +6,9 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
@@ -46,12 +46,12 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private CmpProfile cmpProfile;
-    private CustomAttribute domainAttr;
+    private CustomAttributeV2 domainAttr;
     private RequestAttributeDto domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
-        domainAttr = new CustomAttribute();
+        domainAttr = new CustomAttributeV2();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);
@@ -65,7 +65,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
-        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContent("test")));
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV2("test")));
 
         cmpProfile = new CmpProfile();
         cmpProfile.setDescription("sample description");

@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.connector.cryptography.enums.TokenInstanceStatus;
 import com.czertainly.api.model.connector.cryptography.token.TokenInstanceStatusDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -156,7 +156,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), FunctionGroupCode.CRYPTOGRAPHY_PROVIDER, request.getAttributes(), request.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceRequestDto tokenInstanceRequestDto =
@@ -216,7 +216,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         }
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceRequestDto tokenInstanceRequestDto =
@@ -312,7 +312,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public List<BaseAttribute> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listTokenProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Listing token profile attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);
@@ -335,7 +335,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.ANY)
-    public List<BaseAttribute> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listTokenInstanceActivationAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         logger.info("Listing token instance activation attributes of token instance with uuid: {}", uuid);
         TokenInstanceReference tokenInstanceReference = getTokenInstanceReferenceEntity(uuid);
         logger.debug("Token instance detail: {}", tokenInstanceReference);

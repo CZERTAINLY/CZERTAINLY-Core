@@ -1,7 +1,7 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -83,7 +83,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setName(this.name);
         dto.setUrl(this.url);
         dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttributeV2.class)));
         dto.setStatus(this.status);
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();

@@ -2,12 +2,15 @@ package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
 import com.czertainly.core.attribute.engine.AttributeOperation;
@@ -44,7 +47,7 @@ public class RsaEncryptionAttributes {
 
 
     @CoreAttributeDefinitions(operation = AttributeOperation.ENCRYPT)
-    public static List<BaseAttribute> getRsaEncryptionAttributes() {
+    public static List<BaseAttributeV3<?>> getRsaEncryptionAttributes() {
         return List.of(
                 buildDataEncryptionScheme(),
                 buildDataOaepHash(),
@@ -52,9 +55,9 @@ public class RsaEncryptionAttributes {
         );
     }
 
-    public static BaseAttribute buildDataEncryptionScheme() {
+    public static BaseAttributeV3<?> buildDataEncryptionScheme() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV3 attribute = new DataAttributeV3();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_ENC_SCHEME_DESCRIPTION);
@@ -62,7 +65,7 @@ public class RsaEncryptionAttributes {
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(
                 Stream.of(RsaEncryptionScheme.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV3(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
         // create properties
@@ -77,9 +80,9 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static BaseAttribute buildDataOaepMgf() {
+    public static BaseAttributeV3<?> buildDataOaepMgf() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV3 attribute = new DataAttributeV3();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_DESCRIPTION);
@@ -97,9 +100,9 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static BaseAttribute buildDataOaepHash() {
+    public static BaseAttributeV3<?> buildDataOaepHash() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV3 attribute = new DataAttributeV3();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_HASH_DESCRIPTION);
@@ -107,7 +110,7 @@ public class RsaEncryptionAttributes {
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV3(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
         // create properties
@@ -128,7 +131,7 @@ public class RsaEncryptionAttributes {
         attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 
@@ -138,7 +141,7 @@ public class RsaEncryptionAttributes {
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 
@@ -148,7 +151,7 @@ public class RsaEncryptionAttributes {
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         attribute.setContentType(AttributeContentType.BOOLEAN);
-        attribute.setContent(List.of(new BooleanAttributeContent(value)));
+        attribute.setContent(List.of(new BooleanAttributeContentV2(value)));
         return attribute;
     }
 }

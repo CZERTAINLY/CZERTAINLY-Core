@@ -4,7 +4,7 @@ import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
@@ -163,7 +163,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         return extendedAttributeService.listIssueCertificateAttributes(raProfile);
@@ -844,7 +844,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
@@ -1133,7 +1133,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 throw new CertificateException("CRMF format is not supported for CSR generation");
             }
             // get definitions
-            List<BaseAttribute> definitions = CsrAttributes.csrAttributes();
+            List<BaseAttributeV2> definitions = CsrAttributes.csrAttributes();
 
             // validate and update definitions of certificate request attributes with attribute engine
             attributeEngine.validateUpdateDataAttributes(null, null, definitions, csrAttributes);

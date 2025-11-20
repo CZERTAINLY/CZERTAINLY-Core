@@ -5,7 +5,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
@@ -128,9 +128,9 @@ public interface RaProfileService extends ResourceExtensionService {
      */
     void bulkRemoveAssociatedCmpProfile(List<SecuredUUID> uuids);
 
-    List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttributeV2> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
+    List<BaseAttributeV2> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
     /**
      * Save the RA Profile entity to the database

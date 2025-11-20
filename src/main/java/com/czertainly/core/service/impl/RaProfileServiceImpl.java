@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.connector.authority.CaCertificatesRequestDto;
 import com.czertainly.api.model.connector.authority.CaCertificatesResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
@@ -305,8 +305,8 @@ public class RaProfileServiceImpl implements RaProfileService {
         extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
-        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
-        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getRevokeCertificateAttributes())));
+        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
+        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getRevokeCertificateAttributes())));
         raProfileProtocolAttribute.setRaProfile(raProfile);
         raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
 
@@ -342,7 +342,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
-        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
+        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
         raProfileProtocolAttribute.setRaProfile(raProfile);
         raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
 
@@ -411,14 +411,14 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
         raProfileProtocolAttribute.setCmpIssueCertificateAttributes(
                 AttributeDefinitionUtils.serialize(
-                        attributeEngine.getDataAttributesByContent(
+                        attributeEngine.getDataAttributesV2ByContent(
                                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                                 request.getIssueCertificateAttributes())
                 )
         );
         raProfileProtocolAttribute.setCmpRevokeCertificateAttributes(
                 AttributeDefinitionUtils.serialize(
-                        attributeEngine.getDataAttributesByContent(
+                        attributeEngine.getDataAttributesV2ByContent(
                                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                                 request.getRevokeCertificateAttributes())
                 )
@@ -467,14 +467,14 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
-    public List<BaseAttribute> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         return extendedAttributeService.listRevokeCertificateAttributes(raProfile);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.ANY)
-    public List<BaseAttribute> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID uuid) throws ConnectorException, NotFoundException {
         RaProfile raProfile = getRaProfileEntity(uuid);
         return extendedAttributeService.listIssueCertificateAttributes(raProfile);
     }
@@ -694,7 +694,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         }
 
         // list definitions
-        List<BaseAttribute> definitions = authorityInstanceApiClient.listRAProfileAttributes(connectorDto, authorityInstanceRef.getAuthorityInstanceUuid());
+        List<BaseAttributeV2> definitions = authorityInstanceApiClient.listRAProfileAttributes(connectorDto, authorityInstanceRef.getAuthorityInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(authorityInstanceRef.getConnectorUuid(), null, definitions, attributes);

@@ -8,9 +8,9 @@ import com.czertainly.api.model.client.notification.NotificationProfileDetailDto
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
@@ -555,7 +555,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
         CustomAttributeDefinitionDetailDto customAttribute = attributeService.createCustomAttribute(customAttributeRequest);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, newCertificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data")));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, newCertificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContentV2("ref", "data1"), new StringAttributeContentV2("ref", "data")));
 
         ConditionItem newCondition = new ConditionItem();
         newCondition.setFieldSource(FilterFieldSource.CUSTOM);
@@ -572,11 +572,11 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connectorRepository.save(connector);
         UUID connectorUuid = connector.getUuid();
-        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
         metadataAttribute.setContentType(AttributeContentType.STRING);
         metadataAttribute.setName("meta");
         metadataAttribute.setUuid(UUID.randomUUID().toString());
-        metadataAttribute.setContent(List.of(new StringAttributeContent("ref", "data")));
+        metadataAttribute.setContent(List.of(new StringAttributeContentV2("ref", "data")));
         metadataAttribute.setType(AttributeType.META);
 
         MetadataAttributeProperties props = new MetadataAttributeProperties();

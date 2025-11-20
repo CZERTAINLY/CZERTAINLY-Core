@@ -13,13 +13,13 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRe
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -104,7 +104,7 @@ public class AttributeServiceImpl implements AttributeService {
             throw new AlreadyExistException("Custom Attribute with same name already exists");
         }
 
-        CustomAttribute attribute = new CustomAttribute();
+        CustomAttributeV2 attribute = new CustomAttributeV2();
         attribute.setType(AttributeType.CUSTOM);
         attribute.setContentType(request.getContentType());
         attribute.setName(request.getName());
@@ -134,7 +134,7 @@ public class AttributeServiceImpl implements AttributeService {
             throw new AlreadyExistException("Global Metadata with same name already exists");
         }
 
-        MetadataAttribute attribute = new MetadataAttribute();
+        MetadataAttributeV2 attribute = new MetadataAttributeV2();
         attribute.setType(AttributeType.META);
         attribute.setContentType(request.getContentType());
         attribute.setName(request.getName());
@@ -158,7 +158,7 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update custom attribute with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        CustomAttribute attribute = new CustomAttribute();
+        CustomAttributeV2 attribute = new CustomAttributeV2();
         attribute.setUuid(definition.getUuid().toString());
         attribute.setName(definition.getName());
         attribute.setContentType(definition.getContentType());
@@ -183,7 +183,7 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update global metadata with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndTypeAndGlobalTrue(uuid, AttributeType.META).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        MetadataAttribute attribute = new MetadataAttribute();
+        MetadataAttributeV2 attribute = new MetadataAttributeV2();
         attribute.setUuid(definition.getAttributeUuid().toString());
         attribute.setName(definition.getName());
         attribute.setContentType(definition.getContentType());
@@ -300,7 +300,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.MEMBERS)
-    public List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource) {
+    public List<CustomAttributeV3> getResourceAttributes(SecurityFilter filter, Resource resource) {
         return attributeEngine.getCustomAttributesByResource(resource, filter.getResourceFilter());
     }
 
@@ -312,7 +312,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
-        AttributeDefinition customAttribute = attributeDefinitionRepository.findByUuidAndType(objectUuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(CustomAttribute.class, objectUuid));
+        AttributeDefinition customAttribute = attributeDefinitionRepository.findByUuidAndType(objectUuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(CustomAttributeV2.class, objectUuid));
         return customAttribute.mapToAccessControlObjects();
     }
 

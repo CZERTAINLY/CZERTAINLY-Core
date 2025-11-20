@@ -5,7 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
 import com.czertainly.api.model.core.certificate.CertificateChainResponseDto;
@@ -1145,7 +1145,7 @@ public class AcmeServiceImpl implements AcmeService {
             } else {
                 attributes = acmeAccount.getRaProfile().getProtocolAttribute().getAcmeIssueCertificateAttributes();
             }
-            return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttribute.class));
+            return AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributes, DataAttributeV2.class));
         } else {
             if (isRevoke) {
                 return attributeEngine.getRequestObjectDataAttributesContent(acmeAccount.getAcmeProfile().getRaProfile().getAuthorityInstanceReference().getConnectorUuid(), AttributeOperation.CERTIFICATE_REVOKE, com.czertainly.api.model.core.auth.Resource.ACME_PROFILE, acmeAccount.getAcmeProfile().getUuid());

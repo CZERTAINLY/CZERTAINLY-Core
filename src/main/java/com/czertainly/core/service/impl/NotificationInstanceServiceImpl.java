@@ -4,7 +4,7 @@ import com.czertainly.api.clients.NotificationInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -202,7 +202,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
-    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<DataAttributeV2> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(connectorUuid));
         return notificationInstanceApiClient.listMappingAttributes(connector.mapToDto(), kind);
     }
@@ -216,7 +216,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), FunctionGroupCode.NOTIFICATION_PROVIDER, request.getAttributes(), kind);
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         NotificationProviderInstanceRequestDto notificationInstanceDto = new NotificationProviderInstanceRequestDto();

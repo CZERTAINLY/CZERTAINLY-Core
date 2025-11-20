@@ -4,8 +4,8 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -225,6 +225,7 @@ public interface CertificateService extends ResourceExtensionService  {
 
     /**
      * Get the list of attributes to generate the CSR
+     *
      * @return List of attributes to generate the CSR in core
      */
     List<BaseAttribute> getCsrGenerationAttributes();
@@ -276,7 +277,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param meta Metadata of the certificate
      * @return Certificate detail DTO
      */
-    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException;
+    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttributeV2> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException;
 
     /**
      * List certificates eligible for CA certificate of SCEP requests

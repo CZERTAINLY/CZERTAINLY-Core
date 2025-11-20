@@ -72,10 +72,10 @@ class AttributeEngineTest extends BaseSpringBootTest {
     private UUID authorityDiscoveryUuid;
     private UUID networkDiscoveryUuid;
 
-    CustomAttribute orderNoCustomAttribute;
-    CustomAttribute departmentCustomAttribute;
-    CustomAttribute expirationDateCustomAttribute;
-    private MetadataAttribute networkDiscoveryMeta;
+    CustomAttributeV2 orderNoCustomAttribute;
+    CustomAttributeV2 departmentCustomAttribute;
+    CustomAttributeV2 expirationDateCustomAttribute;
+    private MetadataAttributeV2 networkDiscoveryMeta;
 
     @BeforeEach
     void setUp() throws AttributeException, NotFoundException {
@@ -146,7 +146,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testMetadataContentReplacement() throws AttributeException {
-        networkDiscoveryMeta.setContent(List.of(new StringAttributeContent("localhost:1443"), new StringAttributeContent("localhost:2443"), new StringAttributeContent("localhost:3443")));
+        networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV2("localhost:1443"), new StringAttributeContentV2("localhost:2443"), new StringAttributeContentV2("localhost:3443")));
         attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
         var mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
         Optional<MetadataResponseDto> metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
@@ -154,7 +154,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         Assertions.assertEquals(4, metadataResponseDto.get().getItems().get(0).getContent().size());
 
         networkDiscoveryMeta.getProperties().setOverwrite(true);
-        networkDiscoveryMeta.setContent(List.of(new StringAttributeContent("TEST", "TEST")));
+        networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV2("TEST", "TEST")));
         attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
         mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
         metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
@@ -169,22 +169,22 @@ class AttributeEngineTest extends BaseSpringBootTest {
         RequestAttributeDto departmentAttributeDto = new RequestAttributeDto();
         departmentAttributeDto.setUuid(departmentCustomAttribute.getUuid());
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
-        departmentAttributeDto.setContent(List.of(new StringAttributeContent("Sales")));
+        departmentAttributeDto.setContent(List.of(new StringAttributeContentV2("Sales")));
 
         RequestAttributeDto expirationDateAttributeDto = new RequestAttributeDto();
         expirationDateAttributeDto.setUuid(expirationDateCustomAttribute.getUuid());
         expirationDateAttributeDto.setName(expirationDateCustomAttribute.getName());
-        expirationDateAttributeDto.setContent(List.of(new DateAttributeContent(LocalDate.now())));
+        expirationDateAttributeDto.setContent(List.of(new DateAttributeContentV2(LocalDate.now())));
 
         List<RequestAttributeDto> departmentAttributeDtoList = List.of(departmentAttributeDto);
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, departmentAttributeDtoList), "Custom attribute content should not be updated to resource not assigned");
         List<RequestAttributeDto> departmentExpirationDateList = List.of(departmentAttributeDto, expirationDateAttributeDto);
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
 
-        expirationDateAttributeDto.setContent(List.of(new IntegerAttributeContent(100)));
+        expirationDateAttributeDto.setContent(List.of(new IntegerAttributeContentV2(100)));
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, departmentExpirationDateList), "Mismatch between content types");
 
-        expirationDateAttributeDto.setContent(List.of(new DateAttributeContent(LocalDate.EPOCH)));
+        expirationDateAttributeDto.setContent(List.of(new DateAttributeContentV2(LocalDate.EPOCH)));
         List<RequestAttributeDto> expirationDateAttributeDtoList = List.of(expirationDateAttributeDto);
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateCustomAttributesContent(Resource.CERTIFICATE, expirationDateAttributeDtoList), "Missing content for required custom attribute");
 
@@ -195,7 +195,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void validateCodeBlockAttributeContent() throws AttributeException {
-        DataAttribute codeBlockData = new DataAttribute();
+        DataAttributeV2 codeBlockData = new DataAttributeV2();
         codeBlockData.setContentType(AttributeContentType.CODEBLOCK);
         codeBlockData.setUuid(UUID.randomUUID().toString());
         codeBlockData.setName("testAttribute");
@@ -209,19 +209,19 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         codeBlockData.setProperties(props);
         UUID connectorUuid = connectorAuthority.getUuid();
-        List<BaseAttribute> codeBlockDataList = List.of(codeBlockData);
+        List<BaseAttributeV2> codeBlockDataList = List.of(codeBlockData);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, codeBlockDataList);
 
         RequestAttributeDto requestAttribute = new RequestAttributeDto();
         requestAttribute.setUuid(codeBlockData.getUuid());
         requestAttribute.setName(codeBlockData.getName());
         requestAttribute.setContentType(codeBlockData.getContentType());
-        requestAttribute.setContent(List.of(new StringAttributeContent("bad content")));
+        requestAttribute.setContent(List.of(new StringAttributeContentV2("bad content")));
 
         List<RequestAttributeDto> requestAttributeList = List.of(requestAttribute);
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
 
-        CodeBlockAttributeContent attributeContent = new CodeBlockAttributeContent();
+        CodeBlockAttributeContentV2 attributeContent = new CodeBlockAttributeContentV2();
         attributeContent.setData(new CodeBlockAttributeContentData(null, ""));
         requestAttribute.setContent(List.of(attributeContent));
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, codeBlockDataList, requestAttributeList));
@@ -245,12 +245,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         RequestAttributeDto departmentAttributeDto = new RequestAttributeDto();
         departmentAttributeDto.setUuid(departmentCustomAttribute.getUuid());
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
-        departmentAttributeDto.setContent(List.of(new StringAttributeContent("Sales")));
+        departmentAttributeDto.setContent(List.of(new StringAttributeContentV2("Sales")));
 
         RequestAttributeDto orderNoAttributeDto = new RequestAttributeDto();
         orderNoAttributeDto.setUuid(orderNoCustomAttribute.getUuid());
         orderNoAttributeDto.setName(orderNoCustomAttribute.getName());
-        orderNoAttributeDto.setContent(List.of(new FloatAttributeContent(555f)));
+        orderNoAttributeDto.setContent(List.of(new FloatAttributeContentV2(555f)));
         attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto, orderNoAttributeDto));
 
         SecurityResourceFilter filter = new SecurityResourceFilter(List.of(departmentCustomAttribute.getUuid()), List.of(), true);
@@ -285,7 +285,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        departmentCustomAttribute = new CustomAttribute();
+        departmentCustomAttribute = new CustomAttributeV2();
         departmentCustomAttribute.setUuid(UUID.randomUUID().toString());
         departmentCustomAttribute.setName("department");
         departmentCustomAttribute.setType(AttributeType.CUSTOM);
@@ -296,7 +296,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         customProps1.setRequired(true);
         departmentCustomAttribute.setProperties(customProps1);
 
-        orderNoCustomAttribute = new CustomAttribute();
+        orderNoCustomAttribute = new CustomAttributeV2();
         orderNoCustomAttribute.setUuid(UUID.randomUUID().toString());
         orderNoCustomAttribute.setName("order_no");
         orderNoCustomAttribute.setType(AttributeType.CUSTOM);
@@ -306,12 +306,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         customProps2.setLabel("Order number");
         orderNoCustomAttribute.setProperties(customProps2);
 
-        expirationDateCustomAttribute = new CustomAttribute();
+        expirationDateCustomAttribute = new CustomAttributeV2();
         expirationDateCustomAttribute.setUuid(UUID.randomUUID().toString());
         expirationDateCustomAttribute.setName("expiration_date");
         expirationDateCustomAttribute.setType(AttributeType.CUSTOM);
         expirationDateCustomAttribute.setContentType(AttributeContentType.DATE);
-        expirationDateCustomAttribute.setContent(List.of(new DateAttributeContent(LocalDate.EPOCH)));
+        expirationDateCustomAttribute.setContent(List.of(new DateAttributeContentV2(LocalDate.EPOCH)));
 
         CustomAttributeProperties customProps3 = new CustomAttributeProperties();
         customProps3.setLabel("Expiration date");
@@ -325,7 +325,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         RequestAttributeDto departmentAttributeDto = new RequestAttributeDto();
         departmentAttributeDto.setUuid(departmentCustomAttribute.getUuid());
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
-        departmentAttributeDto.setContent(List.of(new StringAttributeContent("Sales")));
+        departmentAttributeDto.setContent(List.of(new StringAttributeContentV2("Sales")));
         attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
     }
 
@@ -343,9 +343,9 @@ class AttributeEngineTest extends BaseSpringBootTest {
         attributeDefinition = attributeDefinitionRepository.findByAttributeUuid(attributeDefinition.getAttributeUuid()).get();
         Assertions.assertEquals(updatedAt.truncatedTo(ChronoUnit.MILLIS), attributeDefinition.getUpdatedAt().truncatedTo(ChronoUnit.MILLIS));
 
-        DataAttribute dataAttribute = new DataAttribute();
+        DataAttributeV2 dataAttribute = new DataAttributeV2();
         dataAttribute.setContentType(AttributeContentType.STRING);
-        dataAttribute.setContent(List.of(new BaseAttributeContent<>("ref", "data")));
+        dataAttribute.setContent(List.of(new BaseAttributeContentV2<>("ref", "data")));
         AttributeDefinition attributeDataDefinition = getAttributeDefinition("nameData", "labelData", AttributeType.DATA, dataAttribute);
         LocalDateTime updatedAtData = attributeDataDefinition.getUpdatedAt();
 
@@ -355,7 +355,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     @NotNull
-    private AttributeDefinition getAttributeDefinition(String name, String label, AttributeType attributeType, BaseAttribute definition) {
+    private AttributeDefinition getAttributeDefinition(String name, String label, AttributeType attributeType, BaseAttributeV2 definition) {
         AttributeDefinition attributeDefinition = new AttributeDefinition();
         attributeDefinition.setName(name);
         attributeDefinition.setAttributeUuid(UUID.randomUUID());
@@ -368,7 +368,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     private void loadMetadata() throws AttributeException {
-        networkDiscoveryMeta = new MetadataAttribute();
+        networkDiscoveryMeta = new MetadataAttributeV2();
         networkDiscoveryMeta.setName("discoverySource");
         networkDiscoveryMeta.setUuid("000043aa-6022-11ed-9b6a-0242ac120002");
         networkDiscoveryMeta.setContentType(AttributeContentType.STRING);
@@ -379,10 +379,10 @@ class AttributeEngineTest extends BaseSpringBootTest {
         metaProps1.setVisible(true);
         metaProps1.setGlobal(true);
         networkDiscoveryMeta.setProperties(metaProps1);
-        networkDiscoveryMeta.setContent(List.of(new StringAttributeContent("localhost:0443")));
+        networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV2("localhost:0443")));
         attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
 
-        MetadataAttribute authorityDiscoveryMeta = new MetadataAttribute();
+        MetadataAttributeV2 authorityDiscoveryMeta = new MetadataAttributeV2();
         authorityDiscoveryMeta.setName("username");
         authorityDiscoveryMeta.setUuid("df2fbaa2-60fd-11ed-9b6a-0242ac120002");
         authorityDiscoveryMeta.setContentType(AttributeContentType.STRING);
@@ -392,16 +392,16 @@ class AttributeEngineTest extends BaseSpringBootTest {
         metaProps2.setLabel("Username");
         metaProps2.setVisible(true);
         authorityDiscoveryMeta.setProperties(metaProps2);
-        authorityDiscoveryMeta.setContent(List.of(new StringAttributeContent("tst-username")));
+        authorityDiscoveryMeta.setContent(List.of(new StringAttributeContentV2("tst-username")));
         attributeEngine.updateMetadataAttribute(authorityDiscoveryMeta, new ObjectAttributeContentInfo(connectorAuthority.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, authorityDiscoveryUuid));
 
-        MetadataAttribute authorityIssueMeta = new MetadataAttribute();
+        MetadataAttributeV2 authorityIssueMeta = new MetadataAttributeV2();
         authorityIssueMeta.setUuid("b42ab690-60fd-11ed-9b6a-0242ac120002");
         authorityIssueMeta.setName("ejbcaUsername");
         authorityIssueMeta.setDescription("EJBCA Username");
         authorityIssueMeta.setType(AttributeType.META);
         authorityIssueMeta.setContentType(AttributeContentType.STRING);
-        authorityIssueMeta.setContent(List.of(new StringAttributeContent("tst-ejbcaUsername==")));
+        authorityIssueMeta.setContent(List.of(new StringAttributeContentV2("tst-ejbcaUsername==")));
         MetadataAttributeProperties metaProps3 = new MetadataAttributeProperties();
         metaProps3.setVisible(true);
         metaProps3.setLabel("EJBCA Username");
@@ -412,7 +412,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     @Test
     void getRequestDataAttributesContentReturnsCorrectResponse() throws AttributeException {
         // Arrange
-        DataAttribute dataAttribute = new DataAttribute();
+        DataAttributeV2 dataAttribute = new DataAttributeV2();
         dataAttribute.setUuid(UUID.randomUUID().toString());
         dataAttribute.setName("testAttribute");
         dataAttribute.setType(AttributeType.DATA);
@@ -431,7 +431,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setUuid(dataAttribute.getUuid());
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContentType(dataAttribute.getContentType());
-        requestAttribute.setContent(List.of(new StringAttributeContent("testValue")));
+        requestAttribute.setContent(List.of(new StringAttributeContentV2("testValue")));
 
         // Act
         List<ResponseAttributeDto> responseAttributes = AttributeEngine.getRequestDataAttributesContent(List.of(dataAttribute), List.of(requestAttribute));
@@ -447,7 +447,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     @Test
     void validateRequestDataAttributesThrowsValidationExceptionForMissingRequiredAttributes() throws AttributeException {
         // Arrange
-        DataAttribute requiredAttribute = new DataAttribute();
+        DataAttributeV2 requiredAttribute = new DataAttributeV2();
         requiredAttribute.setUuid(UUID.randomUUID().toString());
         requiredAttribute.setName("requiredAttribute");
         requiredAttribute.setType(AttributeType.DATA);
@@ -464,14 +464,14 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         requiredAttribute.setProperties(props);
         UUID connectorUuid = connectorAuthority.getUuid();
-        List<BaseAttribute> requiredAttributeList = List.of(requiredAttribute);
+        List<BaseAttributeV2> requiredAttributeList = List.of(requiredAttribute);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, requiredAttributeList);
 
         RequestAttributeDto requestAttribute = new RequestAttributeDto();
         requestAttribute.setUuid(UUID.randomUUID().toString());
         requestAttribute.setName("unrelatedAttribute");
         requestAttribute.setContentType(AttributeContentType.STRING);
-        requestAttribute.setContent(List.of(new StringAttributeContent("value")));
+        requestAttribute.setContent(List.of(new StringAttributeContentV2("value")));
 
         // Act
         List<RequestAttributeDto> requestAttributeList = List.of(requestAttribute);
@@ -486,7 +486,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setName(requiredAttribute.getName());
         Assertions.assertDoesNotThrow(() -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
 
-        requestAttribute.setContent(List.of(new StringAttributeContent("value123")));
+        requestAttribute.setContent(List.of(new StringAttributeContentV2("value123")));
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
 
     }
@@ -494,7 +494,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     @Test
     void validateRequestDataAttributesPassesForValidAttributes() throws AttributeException {
         // Arrange
-        DataAttribute validAttribute = new DataAttribute();
+        DataAttributeV2 validAttribute = new DataAttributeV2();
         validAttribute.setUuid(UUID.randomUUID().toString());
         validAttribute.setName("validAttribute");
         validAttribute.setType(AttributeType.DATA);
@@ -514,7 +514,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setUuid(validAttribute.getUuid());
         requestAttribute.setName(validAttribute.getName());
         requestAttribute.setContentType(validAttribute.getContentType());
-        requestAttribute.setContent(List.of(new StringAttributeContent("validValue")));
+        requestAttribute.setContent(List.of(new StringAttributeContentV2("validValue")));
 
         // Act & Assert
         Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(List.of(validAttribute), List.of(requestAttribute), true));

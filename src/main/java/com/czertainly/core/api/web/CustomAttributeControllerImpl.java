@@ -9,9 +9,10 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
@@ -133,7 +134,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
-    public List<BaseAttribute> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
+    public List<CustomAttributeV3> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
         return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
@@ -149,7 +150,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid,
-            List<BaseAttributeContent> request
+            List<BaseAttributeContentV3<?>> request
     ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(
                 resourceName,

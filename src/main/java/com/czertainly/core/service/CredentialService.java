@@ -4,7 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.credential.CredentialDto;
@@ -32,7 +32,7 @@ public interface CredentialService extends ResourceExtensionService {
 
     void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 
-    void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException;
+    void loadFullCredentialData(List<DataAttributeV2> attributes) throws NotFoundException;
 
     void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback callbackRequest) throws NotFoundException;
 }

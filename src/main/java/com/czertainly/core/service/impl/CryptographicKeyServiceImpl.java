@@ -7,7 +7,7 @@ import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -591,7 +591,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN_PROFILE, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttribute> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listCreateKeyAttributes(UUID tokenInstanceUuid, SecuredParentUUID tokenProfileUuid, KeyRequestType type) throws ConnectorException, NotFoundException {
         logger.debug("Request to list the attributes for creating a new key on Token profile: {}", tokenProfileUuid);
         TokenProfile tokenProfile = tokenProfileRepository.findByUuid(
                         tokenProfileUuid.getValue())
@@ -602,7 +602,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
                         )
                 );
         logger.debug("Token profile details: {}", tokenProfile);
-        List<BaseAttribute> attributes;
+        List<BaseAttributeV2> attributes;
         if (type.equals(KeyRequestType.KEY_PAIR)) {
             attributes = keyManagementApiClient.listCreateKeyPairAttributes(
                     tokenProfile.getTokenInstanceReference().getConnector().mapToDto(),
@@ -959,7 +959,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         ConnectorDto connectorDto = tokenInstanceRef.getConnector().mapToDto();
 
         // validate first by connector and list attributes definitions
-        List<BaseAttribute> definitions;
+        List<BaseAttributeV2> definitions;
         if (type.equals(KeyRequestType.KEY_PAIR)) {
             keyManagementApiClient.validateCreateKeyPairAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
             definitions = keyManagementApiClient.listCreateKeyPairAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());

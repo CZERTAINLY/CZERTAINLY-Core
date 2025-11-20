@@ -8,7 +8,7 @@ import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -160,7 +160,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch, request.getAttributes(), request.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
@@ -200,7 +200,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), ref.getKind());
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
@@ -241,7 +241,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
-    public List<BaseAttribute> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listLocationAttributes(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         final EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
         final Connector connector = entityInstance.getConnector();
         return entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());

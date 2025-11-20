@@ -2,8 +2,8 @@ package db.migration;
 
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
@@ -163,7 +163,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
 
             // create map of rule UUID to connector UUID and kind
             Map<UUID, String> ruleConnectorKindMap = new HashMap<>();
-            Map<UUID, Map<String, DataAttribute>> ruleAttributesMap = new HashMap<>();
+            Map<UUID, Map<String, DataAttributeV2>> ruleAttributesMap = new HashMap<>();
             try (ResultSet rulesRows = statement.executeQuery("SELECT uuid, connector_uuid, kind, attributes FROM compliance_rule")) {
                 while (rulesRows.next()) {
                     UUID ruleUuid = rulesRows.getObject("uuid", UUID.class);
@@ -172,9 +172,9 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     String attributesStr = rulesRows.getString("attributes");
                     if (attributesStr != null && !attributesStr.isBlank()) {
                         try {
-                            Map<String, DataAttribute> attributes = Arrays.stream(mapper.readValue(attributesStr, BaseAttribute[].class))
-                                    .filter(DataAttribute.class::isInstance)
-                                    .collect(HashMap::new, (m, a) -> m.put(a.getName(), (DataAttribute) a), HashMap::putAll);
+                            Map<String, DataAttributeV2> attributes = Arrays.stream(mapper.readValue(attributesStr, BaseAttributeV2[].class))
+                                    .filter(DataAttributeV2.class::isInstance)
+                                    .collect(HashMap::new, (m, a) -> m.put(a.getName(), (DataAttributeV2) a), HashMap::putAll);
                             ruleAttributesMap.put(ruleUuid, attributes);
                         } catch (JsonProcessingException ignored) {
                             logger.warn("Skipping invalid attributes of compliance rule with UUID {}.", ruleUuid);
@@ -245,7 +245,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
         logger.debug("Updated {} compliance profile rules associations to set connector UUID and kind.", count);
     }
 
-    private void migrateComplianceProfileRuleAttributes(Map<UUID, Map<String, DataAttribute>> ruleAttributesMap, final Statement statement, final PreparedStatement updateProfileRuleAssocStatement) throws SQLException {
+    private void migrateComplianceProfileRuleAttributes(Map<UUID, Map<String, DataAttributeV2>> ruleAttributesMap, final Statement statement, final PreparedStatement updateProfileRuleAssocStatement) throws SQLException {
         int count = 0;
         try (ResultSet rows = statement.executeQuery("SELECT uuid, compliance_rule_uuid, attributes FROM compliance_profile_rule WHERE compliance_rule_uuid IS NOT NULL AND attributes IS NOT NULL")) {
             while (rows.next()) {
@@ -261,7 +261,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     logger.warn("Skipping invalid attributes, compliance profile rule with UUID {} will be saved without attributes", profileRuleUuid);
                 }
 
-                Map<String, DataAttribute> ruleAttributes = ruleAttributesMap.get(complianceRuleUuid);
+                Map<String, DataAttributeV2> ruleAttributes = ruleAttributesMap.get(complianceRuleUuid);
                 if (profileRuleAttributes != null) {
                     if (ruleAttributes == null) {
                         profileRuleAttributes = null;
@@ -287,14 +287,14 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
         updateProfileRuleAssocStatement.executeBatch();
     }
 
-    private void updatedRuleRequestAttributes(List<RequestAttributeDto> profileRuleAttributes, Map<String, DataAttribute> ruleAttributes) {
+    private void updatedRuleRequestAttributes(List<RequestAttributeDto> profileRuleAttributes, Map<String, DataAttributeV2> ruleAttributes) {
         for (RequestAttributeDto profileRuleAttribute : profileRuleAttributes) {
             if (profileRuleAttribute.getUuid() != null && profileRuleAttribute.getContentType() != null) {
                 // skip full attributes
                 continue;
             }
 
-            DataAttribute ruleAttribute = ruleAttributes.get(profileRuleAttribute.getName());
+            DataAttributeV2 ruleAttribute = ruleAttributes.get(profileRuleAttribute.getName());
             if (ruleAttribute != null) {
                 profileRuleAttribute.setUuid(ruleAttribute.getUuid());
                 profileRuleAttribute.setContentType(ruleAttribute.getContentType());

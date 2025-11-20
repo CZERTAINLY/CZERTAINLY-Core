@@ -3,10 +3,10 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -143,7 +143,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         // prepare attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid("6e9146a6-da8a-403f-99cb-d5d64d93ce1d");
         attribute.setName("endEntityProfile");
         DataAttributeProperties properties = new DataAttributeProperties();
@@ -164,7 +164,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         raProfile.setEnabled(true);
 
         raProfile = raProfileRepository.save(raProfile);
-        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(new ObjectAttributeContent(new NameAndIdDto(1, "profile")))));
+        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(new ObjectAttributeContentV2(new NameAndIdDto(1, "profile")))));
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
@@ -200,7 +200,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<BaseAttribute> attributes = clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttributeV2> attributes = clientOperationService.listIssueCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
     }
 
@@ -294,7 +294,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/revoke/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<BaseAttribute> attributes = clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
+        List<BaseAttributeV2> attributes = clientOperationService.listRevokeCertificateAttributes(SecuredParentUUID.fromUUID(raProfile.getAuthorityInstanceReferenceUuid()), SecuredUUID.fromUUID(raProfile.getUuid()));
         Assertions.assertNotNull(attributes);
     }
 

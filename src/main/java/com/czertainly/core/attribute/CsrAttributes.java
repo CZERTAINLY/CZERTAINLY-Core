@@ -1,8 +1,8 @@
 package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -56,7 +56,7 @@ public class CsrAttributes {
      * @return List of attributes for generating the CSR
      */
     @CoreAttributeDefinitions
-    public static List<BaseAttribute> csrAttributes() {
+    public static List<BaseAttributeV2> csrAttributes() {
         return List.of(
                 commonNameAttribute(),
                 organizationalUnitAttribute(),
@@ -72,7 +72,7 @@ public class CsrAttributes {
      *
      * @return Common Name Attribute Definition
      */
-    public static DataAttribute commonNameAttribute() {
+    public static DataAttributeV2 commonNameAttribute() {
         List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
                 "Common Name Validation",
                 "Common Name must not exceed 64 characters",
@@ -95,7 +95,7 @@ public class CsrAttributes {
      *
      * @return Organizational Unit Attribute Definition
      */
-    public static DataAttribute organizationalUnitAttribute() {
+    public static DataAttributeV2 organizationalUnitAttribute() {
         return attributeCoder(
                 ORGANIZATION_UNIT_UUID,
                 ORGANIZATION_UNIT_ATTRIBUTE_NAME,
@@ -112,7 +112,7 @@ public class CsrAttributes {
      *
      * @return Organization Attribute Definition
      */
-    public static DataAttribute organizationAttribute() {
+    public static DataAttributeV2 organizationAttribute() {
         return attributeCoder(
                 ORGANIZATION_UUID,
                 ORGANIZATION_ATTRIBUTE_NAME,
@@ -129,7 +129,7 @@ public class CsrAttributes {
      *
      * @return Locality  Attribute Definition
      */
-    public static DataAttribute localityAttribute() {
+    public static DataAttributeV2 localityAttribute() {
         return attributeCoder(
                 LOCALITY_UUID,
                 LOCALITY_ATTRIBUTE_NAME,
@@ -146,7 +146,7 @@ public class CsrAttributes {
      *
      * @return State Attribute Definition
      */
-    public static DataAttribute stateAttribute() {
+    public static DataAttributeV2 stateAttribute() {
         return attributeCoder(
                 STATE_UUID,
                 STATE_ATTRIBUTE_NAME,
@@ -163,7 +163,7 @@ public class CsrAttributes {
      *
      * @return Country Attribute Definition
      */
-    public static DataAttribute countryAttribute() {
+    public static DataAttributeV2 countryAttribute() {
 
         List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
                 "Country Validation",
@@ -183,11 +183,11 @@ public class CsrAttributes {
     }
 
 
-    private static DataAttribute attributeCoder(String uuid, String name,
-                                                String description, String label,
-                                                boolean required, List<BaseAttributeConstraint> constraints,
-                                                AttributeContentType contentType) {
-        DataAttribute attribute = new DataAttribute();
+    private static DataAttributeV2 attributeCoder(String uuid, String name,
+                                                  String description, String label,
+                                                  boolean required, List<BaseAttributeConstraint> constraints,
+                                                  AttributeContentType contentType) {
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(uuid);
         attribute.setName(name);
         attribute.setDescription(description);

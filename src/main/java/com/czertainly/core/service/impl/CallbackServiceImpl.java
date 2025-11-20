@@ -8,10 +8,10 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.GroupAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.auth.Resource;
@@ -214,15 +214,15 @@ public class CallbackServiceImpl implements CallbackService {
             if (attributeDefinition.getName().equals(name)) {
                 switch (attributeDefinition.getType()) {
                     case DATA:
-                        return ((DataAttribute) attributeDefinition).getAttributeCallback();
+                        return ((DataAttributeV2) attributeDefinition).getAttributeCallback();
                     case GROUP:
-                        return ((GroupAttribute) attributeDefinition).getAttributeCallback();
+                        return ((GroupAttributeV2) attributeDefinition).getAttributeCallback();
                 }
             }
         }
 
         // if not present in definitions from connector, search in reference attributes in DB
-        DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
+        DataAttributeV2 referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
         if (referencedAttribute != null) {
             return referencedAttribute.getAttributeCallback();
         }
@@ -243,7 +243,7 @@ public class CallbackServiceImpl implements CallbackService {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
-            List<BaseAttribute> callbackAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
+            List<BaseAttribute> callbackAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttributeV2.class));
             attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, callbackAttributes);
         } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
@@ -259,11 +259,10 @@ public class CallbackServiceImpl implements CallbackService {
      */
     private boolean isGroupAttribute(String name, List<BaseAttribute> attributes) {
         for (BaseAttribute attributeDefinition : attributes) {
-            if (attributeDefinition.getName().equals(name)) {
-                if (attributeDefinition.getType().equals(AttributeType.GROUP)) {
+            if (attributeDefinition.getName().equals(name) && attributeDefinition.getType().equals(AttributeType.GROUP)) {
                     return true;
                 }
-            }
+
         }
         return false;
     }

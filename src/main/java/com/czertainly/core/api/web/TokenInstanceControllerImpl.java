@@ -4,7 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.TokenInstanceController;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
@@ -89,13 +89,13 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "tokenProfile", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listTokenProfileAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listTokenProfileAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException, NotFoundException {
         return tokenInstanceService.listTokenProfileAttributes(SecuredUUID.fromString(uuid));
     }
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "activate", affiliatedResource = Resource.TOKEN, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttribute> listTokenInstanceActivationAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException, NotFoundException {
+    public List<BaseAttributeV2> listTokenInstanceActivationAttributes(@LogResource(uuid = true, affiliated = true) String uuid) throws ConnectorException, NotFoundException {
         return tokenInstanceService.listTokenInstanceActivationAttributes(SecuredUUID.fromString(uuid));
     }
 }

@@ -7,11 +7,11 @@ import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
@@ -188,26 +188,26 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     private void loadMetaData() throws AttributeException {
-        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
         metadataAttribute.setUuid(UUID.randomUUID().toString());
         metadataAttribute.setName("attributeMeta1");
         metadataAttribute.setType(AttributeType.META);
         metadataAttribute.setContentType(AttributeContentType.TEXT);
         metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
-        metadataAttribute.setContent(List.of(new TextAttributeContent("reference-test-1", "data-meta-test-1")));
+        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
         attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.ENTITY, entityInstanceReference.getUuid()));
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        CustomAttribute customAttribute = new CustomAttribute();
+        CustomAttributeV2 customAttribute = new CustomAttributeV2();
         customAttribute.setUuid(UUID.randomUUID().toString());
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        List<BaseAttributeContent> contentItems = List.of(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
+        List<BaseAttributeContentV2> contentItems = List.of(new BaseAttributeContentV2("reference-test-1", "data-custom-test-1"));
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
         requestAttributeDto.setUuid(customAttribute.getUuid());
         requestAttributeDto.setName(customAttribute.getName());

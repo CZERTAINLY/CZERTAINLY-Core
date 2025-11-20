@@ -10,9 +10,9 @@ import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequ
 import com.czertainly.api.model.client.authority.ClientEditEndEntityRequestDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -101,7 +101,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         // prepare attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid("6e9146a6-da8a-403f-99cb-d5d64d93ce1d");
         attribute.setName("endEntityProfile");
         DataAttributeProperties properties = new DataAttributeProperties();
@@ -121,7 +121,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         raProfile.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
         raProfile.setEnabled(true);
 
-        ObjectAttributeContent contentMap = new ObjectAttributeContent();
+        ObjectAttributeContentV2 contentMap = new ObjectAttributeContentV2();
         contentMap.setReference("1");
         contentMap.setData(new NameAndIdDto(1, "profile"));
 

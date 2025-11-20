@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceInternalRuleRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -244,7 +244,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         requestAttributeDto.setUuid("7ed00886-e706-11ec-8fea-0242ac120002");
         requestAttributeDto.setName("KeyLength");
         requestAttributeDto.setContentType(AttributeContentType.INTEGER);
-        requestAttributeDto.setContent(List.of(new IntegerAttributeContent(2048)));
+        requestAttributeDto.setContent(List.of(new IntegerAttributeContentV2(2048)));
         v2RuleAssoc.setAttributes(List.of(requestAttributeDto));
         complianceProfileRuleRepository.save(v2RuleAssoc);
 

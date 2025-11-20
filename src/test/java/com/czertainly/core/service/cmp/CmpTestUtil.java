@@ -1,6 +1,6 @@
 package com.czertainly.core.service.cmp;
 
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
 import com.czertainly.api.model.connector.cryptography.operations.data.SignatureResponseData;
 import com.czertainly.core.service.cmp.mock.CertTestUtil;
@@ -10,7 +10,6 @@ import com.github.tomakehurst.wiremock.common.Json;
 import org.bouncycastle.asn1.*;
 import org.bouncycastle.asn1.cmp.*;
 import org.bouncycastle.asn1.crmf.*;
-import org.bouncycastle.asn1.nist.NISTObjectIdentifiers;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.bouncycastle.asn1.x509.*;
 import org.bouncycastle.cert.CertException;
@@ -21,7 +20,6 @@ import org.bouncycastle.cert.crmf.*;
 import org.bouncycastle.cert.crmf.jcajce.JcaCertificateRequestMessageBuilder;
 import org.bouncycastle.cert.crmf.jcajce.JcePKMACValuesCalculator;
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder;
-import org.bouncycastle.jcajce.spec.MLDSAParameterSpec;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
 import org.bouncycastle.operator.*;
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder;
@@ -84,7 +82,7 @@ public class CmpTestUtil {
                 //v2/authorityProvider/authorities/{uuid}/certificates/issue/attributes
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
                 .willReturn(WireMock.okJson(Json.write(Boolean.TRUE))));
-        List<BaseAttribute> listOfAttributes = new ArrayList<>();
+        List<BaseAttributeV2> listOfAttributes = new ArrayList<>();
         mockServer.stubFor(WireMock
                 .get(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes"))
                 .willReturn(WireMock.okJson(Json.write(listOfAttributes))));

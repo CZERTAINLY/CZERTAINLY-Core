@@ -2,11 +2,12 @@ package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import org.springframework.stereotype.Component;
@@ -29,15 +30,15 @@ public class EcdsaSignatureAttributes {
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION = "Select on of the available digest (hash) algorithm";
 
     @CoreAttributeDefinitions(operation = AttributeOperation.CERTIFICATE_REQUEST_SIGN)
-    public static List<BaseAttribute> getEcdsaSignatureAttributes() {
+    public static List<BaseAttributeV3<?>> getEcdsaSignatureAttributes() {
         return List.of(
                 buildDataDigest()
         );
     }
 
-    public static BaseAttribute buildDataDigest() {
+    public static BaseAttributeV3<?> buildDataDigest() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV3 attribute = new DataAttributeV3();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setDescription(ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION);
@@ -55,7 +56,7 @@ public class EcdsaSignatureAttributes {
         // set content
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV3(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
 
@@ -67,7 +68,7 @@ public class EcdsaSignatureAttributes {
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 

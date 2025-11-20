@@ -10,8 +10,8 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRe
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
@@ -19,8 +19,6 @@ import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -44,9 +42,9 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     private Connector connector;
     private AttributeDefinition definition;
-    private DataAttribute attribute;
-    private MetadataAttribute metaAttribute;
-    private MetadataAttribute connectorMetaAttribute;
+    private DataAttributeV2 attribute;
+    private MetadataAttributeV2 metaAttribute;
+    private MetadataAttributeV2 connectorMetaAttribute;
     private AttributeDefinition metaDefinition;
     private AttributeDefinition connectorMetaDefinition;
 
@@ -58,7 +56,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
-        attribute = new DataAttribute();
+        attribute = new DataAttributeV2();
         attribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba06e");
         attribute.setName("attribute");
         attribute.setDescription("Attribute");
@@ -73,7 +71,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         urlProperties.setMultiSelect(false);
         attribute.setProperties(urlProperties);
 
-        metaAttribute = new MetadataAttribute();
+        metaAttribute = new MetadataAttributeV2();
         metaAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba07e");
         metaAttribute.setName("attribute1");
         metaAttribute.setDescription("Attribute1");
@@ -85,7 +83,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         properties.setGlobal(true);
         metaAttribute.setProperties(properties);
 
-        connectorMetaAttribute = new MetadataAttribute();
+        connectorMetaAttribute = new MetadataAttributeV2();
         connectorMetaAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba08e");
         connectorMetaAttribute.setName("connectorAttribute");
         connectorMetaAttribute.setDescription("Connector Attribute");

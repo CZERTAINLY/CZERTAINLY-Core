@@ -1,7 +1,7 @@
 package com.czertainly.core.auth;
 
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.CoreAttributeDefinitions;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -88,7 +88,7 @@ public class ContextRefreshListener {
         if (m.isAnnotationPresent(CoreAttributeDefinitions.class)) {
             CoreAttributeDefinitions attributeDefinitions = m.getAnnotation(CoreAttributeDefinitions.class);
             try {
-                List<BaseAttribute> attributes = (List<BaseAttribute>) m.invoke(applicationContext.getBean(beanName));
+                List<BaseAttributeV2> attributes = (List<BaseAttributeV2>) m.invoke(applicationContext.getBean(beanName));
                 attributeEngine.updateDataAttributeDefinitions(null, attributeDefinitions.operation(), attributes);
             } catch (IllegalAccessException | ClassCastException | InvocationTargetException e) {
                 LOGGER.error("Cannot retrieve list of attributes from bean {} and method {}: {}", beanName, m.getName(), e.getMessage());

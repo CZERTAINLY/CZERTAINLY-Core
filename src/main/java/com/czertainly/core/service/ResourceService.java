@@ -4,7 +4,8 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -57,7 +58,7 @@ public interface ResourceService {
             Resource resourceName,
             SecuredUUID objectUuid,
             UUID attributeUuid,
-            List<BaseAttributeContent> request
+            List<? extends BaseAttributeContent> request
     ) throws NotFoundException, AttributeException;
 
 

@@ -5,24 +5,21 @@ import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.RaProfile;
 
 import java.util.List;
-import java.util.UUID;
 
 public interface ExtendedAttributeService {
-    List<BaseAttribute> listIssueCertificateAttributes(
+    List<BaseAttributeV2> listIssueCertificateAttributes(
             RaProfile raProfile) throws ConnectorException, NotFoundException;
 
     boolean validateIssueCertificateAttributes(
             RaProfile raProfile,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException;
 
-    List<BaseAttribute> listRevokeCertificateAttributes(
+    List<BaseAttributeV2> listRevokeCertificateAttributes(
             RaProfile raProfile) throws ConnectorException, NotFoundException;
 
     boolean validateRevokeCertificateAttributes(

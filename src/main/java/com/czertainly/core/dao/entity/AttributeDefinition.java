@@ -6,9 +6,9 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
@@ -71,7 +71,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
 
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private BaseAttribute definition;
+    private BaseAttributeV2 definition;
 
     @Column(name = "enabled")
     private Boolean enabled;
@@ -124,7 +124,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
 
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
         CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();
-        CustomAttribute attribute = (CustomAttribute) this.definition;
+        CustomAttributeV2 attribute = (CustomAttributeV2) this.definition;
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());
         dto.setDescription(attribute.getDescription());
@@ -136,7 +136,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
 
     public AttributeDefinitionDto mapToGlobalMetadataDefinitionDto() {
         AttributeDefinitionDto dto = new AttributeDefinitionDto();
-        MetadataAttribute attribute = (MetadataAttribute) this.definition;
+        MetadataAttributeV2 attribute = (MetadataAttributeV2) this.definition;
         dto.setUuid(uuid.toString());
         dto.setName(attribute.getName());
         dto.setContentType(attribute.getContentType());
@@ -145,7 +145,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     }
 
     public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
-        CustomAttribute attribute = (CustomAttribute) this.definition;
+        CustomAttributeV2 attribute = (CustomAttributeV2) this.definition;
         CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());
@@ -169,7 +169,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     }
 
     public GlobalMetadataDefinitionDetailDto mapToGlobalMetadataDefinitionDetailDto() {
-        MetadataAttribute attribute = (MetadataAttribute) this.definition;
+        MetadataAttributeV2 attribute = (MetadataAttributeV2) this.definition;
         GlobalMetadataDefinitionDetailDto dto = new GlobalMetadataDefinitionDetailDto();
         dto.setUuid(uuid.toString());
         dto.setName(attribute.getName());

@@ -5,7 +5,7 @@ import com.czertainly.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
@@ -117,8 +117,8 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setName(acmeProfile.getName());
         dto.setUuid(acmeProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttribute.class)));
-        dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttribute.class)));
+        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttributeV2.class)));
+        dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttributeV2.class)));
         dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                 + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
@@ -136,7 +136,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
                 + ScepServiceImpl.SCEP_URL_PREFIX + "/raProfile/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));
+        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttributeV2.class)));
         return dto;
     }
 
@@ -152,14 +152,14 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
                 AttributeDefinitionUtils.getResponseAttributes(
                         AttributeDefinitionUtils.deserialize(
                                 protocolAttribute.getCmpIssueCertificateAttributes(),
-                                DataAttribute.class)
+                                DataAttributeV2.class)
                 )
         );
         dto.setRevokeCertificateAttributes(
                 AttributeDefinitionUtils.getResponseAttributes(
                         AttributeDefinitionUtils.deserialize(
                                 protocolAttribute.getCmpRevokeCertificateAttributes(),
-                                DataAttribute.class)
+                                DataAttributeV2.class)
                 )
         );
         dto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
