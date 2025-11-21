@@ -807,6 +807,7 @@ class AcmeServiceTest extends BaseSpringBootTest {
         acmeService.finalizeOrder(
                 ACME_PROFILE_NAME, ORDER_ID_VALID,
                 buildFinalizeRequestJSON(requestUri, baseUri), requestUri, false);
+        acmeAccount = acmeAccountRepository.findByUuid(order1.getAcmeAccountUuid()).orElseThrow();
         Assertions.assertEquals(2, acmeAccount.getFailedOrders());
     }
 
