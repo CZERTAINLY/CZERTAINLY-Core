@@ -6,14 +6,15 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -40,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class EntityInstanceSearchTest extends BaseSpringBootTest {
+class EntityInstanceSearchTest extends BaseSpringBootTest {
 
     @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
@@ -135,14 +136,14 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testInsertedData() {
+    void testInsertedData() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(3, responseDto.getEntities().size());
     }
 
     @Test
-    public void testEntityByName() {
+    void testEntityByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_NAME.name(), FilterConditionOperator.EQUALS, "entity-ref-2"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -150,7 +151,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEntityByConnectorName() {
+    void testEntityByConnectorName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_CONNECTOR_NAME.name(), FilterConditionOperator.CONTAINS, "Connector"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -158,7 +159,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEntityByKind() {
+    void testEntityByKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_KIND.name(), FilterConditionOperator.CONTAINS, "test-kind"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -166,7 +167,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByMetadata() {
+    void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.META, "attributeMeta1|TEXT", FilterConditionOperator.CONTAINS, "-meta-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -174,7 +175,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByCustomAttr() {
+    void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.CUSTOM, "attributeCustom1|TEXT", FilterConditionOperator.CONTAINS, "-custom-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -200,14 +201,14 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        CustomAttributeV2 customAttribute = new CustomAttributeV2();
+        CustomAttributeV3 customAttribute = new CustomAttributeV3();
         customAttribute.setUuid(UUID.randomUUID().toString());
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        List<BaseAttributeContentV2> contentItems = List.of(new BaseAttributeContentV2("reference-test-1", "data-custom-test-1"));
+        List<BaseAttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
         requestAttributeDto.setUuid(customAttribute.getUuid());
         requestAttributeDto.setName(customAttribute.getName());

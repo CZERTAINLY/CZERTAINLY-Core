@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -14,6 +15,9 @@ import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -167,14 +171,14 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        CustomAttributeV2 customAttribute = new CustomAttributeV2();
+        CustomAttributeV3 customAttribute = new CustomAttributeV3();
         customAttribute.setUuid(UUID.randomUUID().toString());
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        List<BaseAttributeContentV2> contentItems = List.of(new BaseAttributeContentV2("reference-test-1", "data-custom-test-1"));
+        List<BaseAttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
         requestAttributeDto.setUuid(customAttribute.getUuid());
         requestAttributeDto.setName(customAttribute.getName());

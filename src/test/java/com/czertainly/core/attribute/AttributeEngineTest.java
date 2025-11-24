@@ -6,6 +6,7 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.*;
@@ -14,6 +15,8 @@ import com.czertainly.api.model.common.attribute.v2.content.data.ProgrammingLang
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.DateAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -72,9 +75,9 @@ class AttributeEngineTest extends BaseSpringBootTest {
     private UUID authorityDiscoveryUuid;
     private UUID networkDiscoveryUuid;
 
-    CustomAttributeV2 orderNoCustomAttribute;
-    CustomAttributeV2 departmentCustomAttribute;
-    CustomAttributeV2 expirationDateCustomAttribute;
+    CustomAttributeV3 orderNoCustomAttribute;
+    CustomAttributeV3 departmentCustomAttribute;
+    CustomAttributeV3 expirationDateCustomAttribute;
     private MetadataAttributeV2 networkDiscoveryMeta;
 
     @BeforeEach
@@ -285,7 +288,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        departmentCustomAttribute = new CustomAttributeV2();
+        departmentCustomAttribute = new CustomAttributeV3();
         departmentCustomAttribute.setUuid(UUID.randomUUID().toString());
         departmentCustomAttribute.setName("department");
         departmentCustomAttribute.setType(AttributeType.CUSTOM);
@@ -296,7 +299,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         customProps1.setRequired(true);
         departmentCustomAttribute.setProperties(customProps1);
 
-        orderNoCustomAttribute = new CustomAttributeV2();
+        orderNoCustomAttribute = new CustomAttributeV3();
         orderNoCustomAttribute.setUuid(UUID.randomUUID().toString());
         orderNoCustomAttribute.setName("order_no");
         orderNoCustomAttribute.setType(AttributeType.CUSTOM);
@@ -306,12 +309,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
         customProps2.setLabel("Order number");
         orderNoCustomAttribute.setProperties(customProps2);
 
-        expirationDateCustomAttribute = new CustomAttributeV2();
+        expirationDateCustomAttribute = new CustomAttributeV3();
         expirationDateCustomAttribute.setUuid(UUID.randomUUID().toString());
         expirationDateCustomAttribute.setName("expiration_date");
         expirationDateCustomAttribute.setType(AttributeType.CUSTOM);
         expirationDateCustomAttribute.setContentType(AttributeContentType.DATE);
-        expirationDateCustomAttribute.setContent(List.of(new DateAttributeContentV2(LocalDate.EPOCH)));
+        expirationDateCustomAttribute.setContent(List.of(new DateAttributeContentV3(LocalDate.EPOCH)));
 
         CustomAttributeProperties customProps3 = new CustomAttributeProperties();
         customProps3.setLabel("Expiration date");
@@ -355,7 +358,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     @NotNull
-    private AttributeDefinition getAttributeDefinition(String name, String label, AttributeType attributeType, BaseAttributeV2 definition) {
+    private AttributeDefinition getAttributeDefinition(String name, String label, AttributeType attributeType, BaseAttribute definition) {
         AttributeDefinition attributeDefinition = new AttributeDefinition();
         attributeDefinition.setName(name);
         attributeDefinition.setAttributeUuid(UUID.randomUUID());

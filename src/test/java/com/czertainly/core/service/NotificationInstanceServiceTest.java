@@ -4,7 +4,7 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
@@ -30,7 +30,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import java.util.List;
 import java.util.UUID;
 
-public class NotificationInstanceServiceTest extends BaseSpringBootTest {
+class NotificationInstanceServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private FunctionGroupRepository functionGroupRepository;
@@ -105,7 +105,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         requestDto.setAttributeMappings(List.of());
 
         mockServer.stubFor(WireMock.post(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications"))
+                        WireMock.urlPathMatching("/v1/notificationProvider/notifications"))
                 .willReturn(WireMock.okJson("""
                         {
                             "uuid": "%s",
@@ -143,7 +143,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
         requestDto.setAttributeMappings(List.of());
 
         mockServer.stubFor(WireMock.put(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
                 .willReturn(WireMock.okJson("""
                         {
                             "uuid": "%s",
@@ -174,7 +174,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
     @Test
     void testDeleteNotificationInstance() {
         mockServer.stubFor(WireMock.delete(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
                 .willReturn(WireMock.ok())
         );
 
@@ -199,7 +199,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
     @Test
     void testGetNotificationInstance() throws ConnectorException, NotFoundException {
         mockServer.stubFor(WireMock.get(
-                WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
+                        WireMock.urlPathMatching("/v1/notificationProvider/notifications/%s".formatted(EXISTING_NIR_UUID)))
                 .willReturn(WireMock.okJson("""
                         {
                             "uuid": "%s",
@@ -225,7 +225,7 @@ public class NotificationInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListMappingAttributes() throws ConnectorException, NotFoundException {
-        List<DataAttributeV2> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
+        List<BaseAttribute> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
 
         // Verify the mapping attributes were retrieved successfully
         Assertions.assertNotNull(attributes);

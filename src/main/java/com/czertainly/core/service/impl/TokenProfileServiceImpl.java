@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
@@ -291,7 +292,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         tokenInstanceApiClient.validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
 
         // list definitions
-        List<BaseAttributeV2> definitions = tokenInstanceApiClient.listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
+        List<BaseAttribute> definitions = tokenInstanceApiClient.listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);

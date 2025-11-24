@@ -3,8 +3,8 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.operations.*;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.enums.cryptography.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -185,7 +185,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        List<BaseAttributeV2> attributes = cryptographicOperationService.listCipherAttributes(
+        List<BaseAttributeV3<?>> attributes = cryptographicOperationService.listCipherAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
@@ -230,7 +230,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        List<BaseAttributeV2> attributes = cryptographicOperationService.listSignatureAttributes(
+        List<BaseAttributeV3<?>> attributes = cryptographicOperationService.listSignatureAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),

@@ -4,9 +4,9 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -99,7 +99,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
     @Test
     void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, CertificateException, IOException, EventException {
         // register custom attribute
-        CustomAttributeV2 certificateDomainAttr = new CustomAttributeV2();
+        CustomAttributeV3 certificateDomainAttr = new CustomAttributeV3();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
         certificateDomainAttr.setName("domain");
         certificateDomainAttr.setType(AttributeType.CUSTOM);

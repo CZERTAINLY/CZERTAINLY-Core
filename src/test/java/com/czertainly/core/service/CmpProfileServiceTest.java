@@ -6,10 +6,10 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
@@ -46,12 +46,11 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private CmpProfile cmpProfile;
-    private CustomAttributeV2 domainAttr;
     private RequestAttributeDto domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
-        domainAttr = new CustomAttributeV2();
+        CustomAttributeV3 domainAttr = new CustomAttributeV3();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);

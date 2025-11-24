@@ -1,12 +1,12 @@
 package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -56,7 +56,7 @@ public class CsrAttributes {
      * @return List of attributes for generating the CSR
      */
     @CoreAttributeDefinitions
-    public static List<BaseAttributeV2> csrAttributes() {
+    public static List<BaseAttributeV3<?>> csrAttributes() {
         return List.of(
                 commonNameAttribute(),
                 organizationalUnitAttribute(),
@@ -72,7 +72,7 @@ public class CsrAttributes {
      *
      * @return Common Name Attribute Definition
      */
-    public static DataAttributeV2 commonNameAttribute() {
+    public static DataAttributeV3 commonNameAttribute() {
         List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
                 "Common Name Validation",
                 "Common Name must not exceed 64 characters",
@@ -95,7 +95,7 @@ public class CsrAttributes {
      *
      * @return Organizational Unit Attribute Definition
      */
-    public static DataAttributeV2 organizationalUnitAttribute() {
+    public static DataAttributeV3 organizationalUnitAttribute() {
         return attributeCoder(
                 ORGANIZATION_UNIT_UUID,
                 ORGANIZATION_UNIT_ATTRIBUTE_NAME,
@@ -112,7 +112,7 @@ public class CsrAttributes {
      *
      * @return Organization Attribute Definition
      */
-    public static DataAttributeV2 organizationAttribute() {
+    public static DataAttributeV3 organizationAttribute() {
         return attributeCoder(
                 ORGANIZATION_UUID,
                 ORGANIZATION_ATTRIBUTE_NAME,
@@ -129,7 +129,7 @@ public class CsrAttributes {
      *
      * @return Locality  Attribute Definition
      */
-    public static DataAttributeV2 localityAttribute() {
+    public static DataAttributeV3 localityAttribute() {
         return attributeCoder(
                 LOCALITY_UUID,
                 LOCALITY_ATTRIBUTE_NAME,
@@ -146,7 +146,7 @@ public class CsrAttributes {
      *
      * @return State Attribute Definition
      */
-    public static DataAttributeV2 stateAttribute() {
+    public static DataAttributeV3 stateAttribute() {
         return attributeCoder(
                 STATE_UUID,
                 STATE_ATTRIBUTE_NAME,
@@ -163,7 +163,7 @@ public class CsrAttributes {
      *
      * @return Country Attribute Definition
      */
-    public static DataAttributeV2 countryAttribute() {
+    public static DataAttributeV3 countryAttribute() {
 
         List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
                 "Country Validation",
@@ -183,11 +183,11 @@ public class CsrAttributes {
     }
 
 
-    private static DataAttributeV2 attributeCoder(String uuid, String name,
+    private static DataAttributeV3 attributeCoder(String uuid, String name,
                                                   String description, String label,
                                                   boolean required, List<BaseAttributeConstraint> constraints,
                                                   AttributeContentType contentType) {
-        DataAttributeV2 attribute = new DataAttributeV2();
+        DataAttributeV3 attribute = new DataAttributeV3();
         attribute.setUuid(uuid);
         attribute.setName(name);
         attribute.setDescription(description);

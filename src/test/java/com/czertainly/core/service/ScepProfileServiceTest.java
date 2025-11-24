@@ -6,10 +6,10 @@ import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -78,12 +78,12 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     private ScepProfile scepProfile;
     private CertificateContent certificateContent;
     private Certificate certificate;
-    private CustomAttributeV2 domainAttr;
+    private CustomAttributeV3 domainAttr;
     private RequestAttributeDto domainAttrRequestAttribute;
 
     @BeforeEach
     void setUp() throws AttributeException {
-        domainAttr = new CustomAttributeV2();
+        domainAttr = new CustomAttributeV3();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);

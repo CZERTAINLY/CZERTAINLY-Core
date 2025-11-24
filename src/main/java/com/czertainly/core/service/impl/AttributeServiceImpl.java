@@ -104,7 +104,7 @@ public class AttributeServiceImpl implements AttributeService {
             throw new AlreadyExistException("Custom Attribute with same name already exists");
         }
 
-        CustomAttributeV2 attribute = new CustomAttributeV2();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setType(AttributeType.CUSTOM);
         attribute.setContentType(request.getContentType());
         attribute.setName(request.getName());
@@ -158,7 +158,7 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update custom attribute with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        CustomAttributeV2 attribute = new CustomAttributeV2();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(definition.getUuid().toString());
         attribute.setName(definition.getName());
         attribute.setContentType(definition.getContentType());

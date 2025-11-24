@@ -7,8 +7,6 @@ import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
-import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -158,7 +156,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v1/credentialProvider/[^/]+/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        Map<FunctionGroupCode, Map<String, List<BaseAttributeV2>>> result = connectorService.getAllAttributesOfConnector(connector.getSecuredUuid());
+        Map<FunctionGroupCode, Map<String, List<BaseAttribute>>> result = connectorService.getAllAttributesOfConnector(connector.getSecuredUuid());
         Assertions.assertNotNull(result);
         Assertions.assertEquals(1, result.size());
         Assertions.assertNotNull(result.get(FunctionGroupCode.CREDENTIAL_PROVIDER));
@@ -225,90 +223,6 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
-    }
-
-    @Test
-    void testVersions() throws ConnectorException, NotFoundException {
-        FunctionGroupCode code = FunctionGroupCode.AUTHORITY_PROVIDER;
-        String kind = "kind";
-
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes"))
-                .willReturn(WireMock.okJson("""
-                         [
-                                 {
-                                             "version": 3,
-                                             "uuid": "5c94731f-621e-4851-b40d-b4f4897f0240",
-                                             "name": "usernamePostfix",
-                                             "description": "Optional postfix to be used when generating username",
-                                             "content": [
-                                                 {
-                                                     "reference": "-generated",
-                                                     "data": "-generated",
-                                                     "contentType": "string"
-                                                 }
-                                             ],
-                                             "type": "data",
-                                             "contentType": "string",
-                                             "properties": {
-                                                 "label": "Username Postfix",
-                                                 "visible": true,
-                                                 "group": null,
-                                                 "required": false,
-                                                 "readOnly": false,
-                                                 "list": false,
-                                                 "multiSelect": false
-                                             }
-                                         },
-                                         {
-                                                     "version": 2,
-                                                     "uuid": "5c94731f-621e-4851-b40d-b4f4897f0240",
-                                                     "name": "usernamePostfix",
-                                                     "description": "Optional postfix to be used when generating username",
-                                                     "content": [
-                                                         {
-                                                             "reference": "-generated",
-                                                             "data": "-generated"
-                                                         }
-                                                     ],
-                                                     "type": "data",
-                                                     "contentType": "string",
-                                                     "properties": {
-                                                         "label": "Username Postfix",
-                                                         "visible": true,
-                                                         "group": null,
-                                                         "required": false,
-                                                         "readOnly": false,
-                                                         "list": false,
-                                                         "multiSelect": false
-                                                     }
-                                                 }
-                         ]
-                        """)));
-
-        List<BaseAttribute> attributes = connectorService.testMultVers(connector.getSecuredUuid());
-    }
-
-    @Test
-    void testVersions3() throws ConnectorException, NotFoundException {
-        FunctionGroupCode code = FunctionGroupCode.AUTHORITY_PROVIDER;
-        String kind = "kind";
-
-        mockServer.stubFor(WireMock
-                .get(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes"))
-                .willReturn(WireMock.okJson("""
-                         [
-                        
-                                     {
-                                         "reference": "-generated",
-                                         "data": "-generated",
-                                         "contentType": "string"
-                                     }
-                        
-                         ]
-                        """)));
-
-        List<BaseAttributeContentV3> attributes = connectorService.testContV3(connector.getSecuredUuid());
     }
 
     @Test
@@ -390,7 +304,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
                 .get(WireMock.urlPathMatching("/v1/" + code.getCode() + "/" + kind + "/attributes"))
                 .willReturn(WireMock.okJson("[]")));
 
-        List<BaseAttributeV2> attributes = connectorService.getAttributes(connector.getSecuredUuid(), code, kind);
+        List<BaseAttribute> attributes = connectorService.getAttributes(connector.getSecuredUuid(), code, kind);
         Assertions.assertNotNull(attributes);
     }
 

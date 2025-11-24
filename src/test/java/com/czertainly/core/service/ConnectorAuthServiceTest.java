@@ -4,10 +4,12 @@ import com.czertainly.api.clients.BaseApiClient;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.FileAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.data.FileAttributeContentData;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
@@ -34,13 +36,13 @@ import static com.czertainly.core.util.AttributeDefinitionUtils.createAttributes
 @SpringBootTest
 @Transactional
 @Rollback
-public class ConnectorAuthServiceTest extends BaseSpringBootTest {
+class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private ConnectorAuthService connectorAuthService;
 
     @Test
-    public void testGetAuthenticationTypes() {
+    void testGetAuthenticationTypes() {
         Set<AuthType> types = connectorAuthService.getAuthenticationTypes();
         Assertions.assertNotNull(types);
         Assertions.assertFalse(types.isEmpty());
@@ -48,14 +50,14 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
 
     @Test
-    public void testGetBasicAuthAttributes() {
-        List<BaseAttributeV2> attrs = connectorAuthService.getBasicAuthAttributes();
+    void testGetBasicAuthAttributes() {
+        List<DataAttributeV3> attrs = connectorAuthService.getBasicAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
 
     @Test
-    public void testValidateBasicAuthAttributes() {
+    void testValidateBasicAuthAttributes() {
         List<RequestAttributeDto> attrs = new ArrayList<>();
 
 
@@ -67,14 +69,14 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetCertificateAttributes() {
-        List<BaseAttributeV2> attrs = connectorAuthService.getCertificateAttributes();
+    void testGetCertificateAttributes() {
+        List<DataAttributeV3> attrs = connectorAuthService.getCertificateAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
 
     @Test
-    public void testValidateCertificateAttributes() throws IOException {
+    void testValidateCertificateAttributes() throws IOException {
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         byte[] keyStoreData = keyStoreStream.readAllBytes();
 
@@ -91,14 +93,14 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetApiKeyAuthAttributes() {
-        List<BaseAttributeV2> attrs = connectorAuthService.getApiKeyAuthAttributes();
+    void testGetApiKeyAuthAttributes() {
+        List<DataAttributeV3> attrs = connectorAuthService.getApiKeyAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
 
     @Test
-    public void testValidateApiKeyAuthAttributes() {
+    void testValidateApiKeyAuthAttributes() {
         List<RequestAttributeDto> attrs = new ArrayList<>();
         BaseAttributeContentV2 base = new StringAttributeContentV2();
         base.setData("apiKetTesting");
@@ -114,12 +116,12 @@ public class ConnectorAuthServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetJWTAuthAttributes() {
+    void testGetJWTAuthAttributes() {
         Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.getJWTAuthAttributes());
     }
 
     @Test
-    public void testValidateJWTAuthAttributes() {
+    void testValidateJWTAuthAttributes() {
         Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.validateBasicAuthAttributes(List.of()));
     }
 }

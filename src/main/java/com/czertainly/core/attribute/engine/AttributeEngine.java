@@ -163,7 +163,7 @@ public class AttributeEngine {
                 mapping.put(uuid, attribute);
             }
 
-            attribute.getContent().add(objectDefinitionContent.contentItem());
+            attribute.getContent().add((BaseAttributeContentV2) objectDefinitionContent.contentItem());
         }
 
         return mapping.values().stream().toList();
@@ -248,7 +248,7 @@ public class AttributeEngine {
         }
     }
 
-    public AttributeDefinition updateCustomAttributeDefinition(CustomAttributeV2 customAttribute, List<Resource> resources) throws AttributeException {
+    public AttributeDefinition updateCustomAttributeDefinition(CustomAttributeV3 customAttribute, List<Resource> resources) throws AttributeException {
         validateAttributeDefinition(customAttribute, null);
 
         AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByAttributeUuid(UUID.fromString(customAttribute.getUuid())).orElse(null);
@@ -479,7 +479,7 @@ public class AttributeEngine {
                 mapping.put(uuid, attribute);
             }
 
-            attribute.getContent().add(objectDefinitionContent.contentItem());
+            attribute.getContent().add((BaseAttributeContentV2) objectDefinitionContent.contentItem());
         }
 
         return mapping.values().stream().toList();
@@ -742,7 +742,7 @@ public class AttributeEngine {
         }
     }
 
-    private void validateAttributeDefinition(BaseAttributeV2<?> attribute, UUID connectorUuid) throws AttributeException {
+    private void validateAttributeDefinition(BaseAttribute attribute, UUID connectorUuid) throws AttributeException {
         String connectorUuidStr = connectorUuid == null ? null : connectorUuid.toString();
         if (attribute.getUuid() == null || !UUID_REGEX.matcher(attribute.getUuid()).matches()) {
             throw new AttributeException("Attribute does not have valid UUID", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
@@ -801,7 +801,7 @@ public class AttributeEngine {
         }
     }
 
-    public static void validateRequestDataAttributes(List<BaseAttribute> definitions, List<RequestAttributeDto> requestAttributes, boolean strict) throws ValidationException {
+    public static void validateRequestDataAttributes(List<? extends BaseAttribute> definitions, List<RequestAttributeDto> requestAttributes, boolean strict) throws ValidationException {
         if (definitions == null) {
             definitions = new ArrayList<>();
         }

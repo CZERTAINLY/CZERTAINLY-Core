@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateRenewRequestDto;
@@ -1134,7 +1135,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 throw new CertificateException("CRMF format is not supported for CSR generation");
             }
             // get definitions
-            List<BaseAttributeV2> definitions = CsrAttributes.csrAttributes();
+            List<BaseAttributeV3<?>> definitions = CsrAttributes.csrAttributes();
 
             // validate and update definitions of certificate request attributes with attribute engine
             attributeEngine.validateUpdateDataAttributes(null, null, definitions, csrAttributes);
