@@ -345,9 +345,9 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
 
         // download and create discovered certificates
-        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = List.of();
+        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = new ArrayList<>();
         try {
-            duplicateCertificates = downloadDiscoveredCertificates(context, providerResponse);
+            downloadDiscoveredCertificates(context, providerResponse, duplicateCertificates);
             context.setDiscoveryStatus(DiscoveryStatus.IN_PROGRESS);
             context.setMessage("Discovered certificates downloaded from provider");
         } catch (DiscoveryException e) {
@@ -444,15 +444,14 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         try {
             response = discoveryApiClient.discoverCertificates(context.getConnectorDto(), dtoRequest);
             logger.debug("Discovery start response: name={}, uuid={}, status={}, total={}", discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
-
-            if (response.getUuid() == null) {
-                context.setDiscoveryFailed("Discovery does not have associated discovery object at provider");
-                throw new DiscoveryException(discovery.getName(), context.getMessage());
-            }
-
             discovery.setDiscoveryConnectorReference(response.getUuid());
         } catch (Exception e) {
             context.setDiscoveryFailed("Failed to run discovery at the provider: " + e.getMessage());
+            throw new DiscoveryException(discovery.getName(), context.getMessage());
+        }
+
+        if (response.getUuid() == null) {
+            context.setDiscoveryFailed("Discovery does not have associated discovery object at provider");
             throw new DiscoveryException(discovery.getName(), context.getMessage());
         }
 
@@ -509,7 +508,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         return response;
     }
 
-    private List<DiscoveryProviderCertificateDataDto> downloadDiscoveredCertificates(final DiscoveryContext context, DiscoveryProviderDto response) throws DiscoveryException {
+    private void downloadDiscoveredCertificates(final DiscoveryContext context, DiscoveryProviderDto response, List<DiscoveryProviderCertificateDataDto> duplicateCertificates) throws DiscoveryException {
         int currentPage = 1;
         int currentTotal = 0;
         DiscoveryHistory discovery = context.getDiscoveryHistory();
@@ -522,8 +521,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         List<Future<?>> futures = new ArrayList<>();
         Set<String> uniqueCertificateContents = new HashSet<>();
-        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = new ArrayList<>();
-
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);
@@ -565,7 +562,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 handleDiscoveredCertificatesBatch(futures, discovery.getName());
             }
         }
-        return duplicateCertificates;
     }
 
     private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
