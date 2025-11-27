@@ -30,4 +30,6 @@ SET json =
     )
 WHERE ad.type = 'CUSTOM';
 
+-- migrate custom attributes where they are only as a json column
+
 

@@ -113,7 +113,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstanceReference = getEntityInstanceReferenceEntity(entityUuid);
 
-        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
+        List<ResponseAttributeDto<?>> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
 
         EntityInstanceDto entityInstanceDto = entityInstanceReference.mapToDto();
         entityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ENTITY, entityUuid.getValue()));
@@ -130,7 +130,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         if (attributes.isEmpty() && entityProviderInstanceDto.getAttributes() != null && !entityProviderInstanceDto.getAttributes().isEmpty()) {
             try {
-                List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(entityProviderInstanceDto.getAttributes());
+                List<RequestAttributeDto<?>> requestAttributes = AttributeDefinitionUtils.getClientAttributes(entityProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, entityProviderInstanceDto.getAttributes());
                 attributes = attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid(), requestAttributes);
             } catch (AttributeException e) {
@@ -249,7 +249,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
-    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto<?>> attributes) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
 
         Connector connector = entityInstance.getConnector();

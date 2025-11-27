@@ -262,9 +262,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     private AcmeProfileDto updateAndMapDtoAttributes(AcmeProfile acmeProfile, RaProfile raProfile,
-                                                          List<RequestAttributeDto> issueCertificateAttributes,
-                                                          List<RequestAttributeDto> revokeCertificateAttributes,
-                                                          List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
+                                                          List<RequestAttributeDto<?>> issueCertificateAttributes,
+                                                          List<RequestAttributeDto<?>> revokeCertificateAttributes,
+                                                          List<RequestAttributeDto<?>> customAttributes) throws NotFoundException, AttributeException {
         AcmeProfileDto dto = acmeProfile.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ACME_PROFILE, acmeProfile.getUuid(), customAttributes));
         if (raProfile != null) {

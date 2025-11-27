@@ -3,13 +3,13 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -53,12 +53,11 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     ConnectorRepository connectorRepository;
 
     private AcmeProfile acmeProfile;
-    private CustomAttributeV3 domainAttr;
-    private RequestAttributeDto domainAttrRequestAttribute;
+    private RequestAttributeV3Dto domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
-        domainAttr = new CustomAttributeV3();
+        CustomAttributeV3 domainAttr = new CustomAttributeV3();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);
@@ -68,11 +67,11 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttributeDto();
+        domainAttrRequestAttribute = new RequestAttributeV3Dto();
         domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
-        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV2("test")));
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV3("test")));
 
 
         acmeProfile = new AcmeProfile();

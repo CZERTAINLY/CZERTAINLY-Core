@@ -72,7 +72,7 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
 
     @Column(name = "attributes", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<RequestAttributeDto> attributes;
+    private List<RequestAttributeDto<?>> attributes;
 
     @Transient
     private ComplianceRuleAvailabilityStatus availabilityStatus;

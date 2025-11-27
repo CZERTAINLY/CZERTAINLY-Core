@@ -54,7 +54,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+    public void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto<?>> attributes) throws ConnectorException, AttributeException {
         if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Authority is not available / deleted"));
         }
@@ -93,7 +93,7 @@ public class ExtendedAttributeServiceImpl implements ExtendedAttributeService {
     }
 
     @Override
-    public void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+    public void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto<?>> attributes) throws ConnectorException, AttributeException {
         if (raProfile.getAuthorityInstanceReference().getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Authority is not available / deleted"));
         }

@@ -20,7 +20,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
-                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json)
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version)
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
@@ -33,7 +33,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
-                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json)
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version)
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
@@ -45,7 +45,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
-                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json)
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version)
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
@@ -57,7 +57,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
-                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json)
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version)
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
@@ -69,7 +69,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
-                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json)
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version)
                 FROM AttributeContent2Object aco
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
                 JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
@@ -81,7 +81,7 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
 
     @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContentDetail(
-                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, aco.connectorUuid, c.name, aco.sourceObjectType, aco.sourceObjectUuid, aco.sourceObjectName)
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, aco.connectorUuid, c.name, aco.sourceObjectType, aco.sourceObjectUuid, aco.sourceObjectName, ad.version)
                 FROM AttributeContent2Object aco
                 LEFT JOIN Connector c ON c.uuid = aco.connectorUuid
                 JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid

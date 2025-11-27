@@ -6,17 +6,14 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
-import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -178,7 +175,7 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
         customAttribute.setContentType(AttributeContentType.TEXT);
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        List<BaseAttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        List<AttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
         requestAttributeDto.setUuid(customAttribute.getUuid());
         requestAttributeDto.setName(customAttribute.getName());

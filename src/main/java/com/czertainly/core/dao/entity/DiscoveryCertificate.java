@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;
@@ -69,7 +70,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     @Column(name = "meta", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<MetadataAttributeV2> meta;
+    private List<MetadataAttribute<? extends AttributeContent>> meta;
 
     @Override
     public DiscoveryCertificateDto mapToDto() {

@@ -95,7 +95,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttributeDto<?>> attributes) throws ConnectorException, NotFoundException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }
 }

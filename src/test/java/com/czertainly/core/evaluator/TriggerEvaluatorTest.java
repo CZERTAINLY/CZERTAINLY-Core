@@ -7,6 +7,8 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -583,7 +585,9 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         props.setLabel("Test meta");
         metadataAttribute.setProperties(props);
 
-        attributeEngine.updateMetadataAttributes(List.of(metadataAttribute), new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, newCertificate.getUuid()));
+        List<MetadataAttribute<? extends AttributeContent>> content = new ArrayList<>();
+        content.add(metadataAttribute);
+        attributeEngine.updateMetadataAttributes(content, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, newCertificate.getUuid()));
 
         ConditionItem newCondition = new ConditionItem();
         newCondition.setFieldSource(FilterFieldSource.META);
@@ -644,7 +648,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
+                .willReturn(WireMock.okJson("{\"meta\":[{\"version\": 2,\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"version\": 2, \"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
 
         Connector connector = new Connector();
         connector.setName("authorityInstanceConnector");
@@ -692,12 +696,13 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         LinkedHashMap<String, String> linkedHashSet = new LinkedHashMap<>();
         linkedHashSet.put("data", "data");
         linkedHashSet.put("reference", "ref");
+        linkedHashSet.put("contentType", "string");
         executionItem.setFieldSource(FilterFieldSource.CUSTOM);
         executionItem.setFieldIdentifier("custom|STRING");
         executionItem.setData(List.of(linkedHashSet));
         certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
         List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
+        Assertions.assertEquals(1, responseAttributeDtos.getFirst().getContent().size());
     }
 
     @Test

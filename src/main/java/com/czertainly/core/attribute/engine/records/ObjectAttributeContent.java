@@ -1,6 +1,6 @@
 package com.czertainly.core.attribute.engine.records;
 
-import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 
@@ -12,6 +12,7 @@ public record ObjectAttributeContent(
     String label,
     AttributeType type,
     AttributeContentType contentType,
-    BaseAttributeContent contentItem
+    AttributeContent contentItem,
+    int version
 )
 {}

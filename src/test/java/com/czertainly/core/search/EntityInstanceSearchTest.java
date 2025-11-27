@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -208,7 +208,7 @@ class EntityInstanceSearchTest extends BaseSpringBootTest {
         customAttribute.setContentType(AttributeContentType.TEXT);
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        List<BaseAttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        List<AttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
         requestAttributeDto.setUuid(customAttribute.getUuid());
         requestAttributeDto.setName(customAttribute.getName());

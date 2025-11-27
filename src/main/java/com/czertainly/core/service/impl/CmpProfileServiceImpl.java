@@ -489,9 +489,9 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     private CmpProfileDetailDto updateAndMapDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
-                                     List<RequestAttributeDto> issueCertificateAttributes,
-                                     List<RequestAttributeDto> revokeCertificateAttributes,
-                                     List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
+                                     List<RequestAttributeDto<?>> issueCertificateAttributes,
+                                     List<RequestAttributeDto<?>> revokeCertificateAttributes,
+                                     List<RequestAttributeDto<?>> customAttributes) throws NotFoundException, AttributeException {
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
         dto.setCustomAttributes(
                 attributeEngine.updateObjectCustomAttributesContent(

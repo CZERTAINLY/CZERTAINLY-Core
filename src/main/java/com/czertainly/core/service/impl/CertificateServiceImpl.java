@@ -7,8 +7,9 @@ import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
@@ -1450,10 +1451,10 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDetailDto submitCertificateRequest(
             String certificateRequest,
             CertificateRequestFormat certificateRequestFormat,
-            List<RequestAttributeDto> signatureAttributes,
-            List<RequestAttributeDto> altSignatureAttributes,
-            List<RequestAttributeDto> csrAttributes,
-            List<RequestAttributeDto> issueAttributes,
+            List<RequestAttributeDto<?>> signatureAttributes,
+            List<RequestAttributeDto<?>> altSignatureAttributes,
+            List<RequestAttributeDto<?>> csrAttributes,
+            List<RequestAttributeDto<?>> issueAttributes,
             UUID keyUuid,
             UUID altKeyUuid,
             UUID raProfileUuid,
@@ -1485,9 +1486,9 @@ public class CertificateServiceImpl implements CertificateService {
         Optional<CertificateRequestEntity> certificateRequestOptional =
                 certificateRequestRepository.findByFingerprint(certificateRequestFingerprint);
 
-        List<ResponseAttributeDto> requestAttributes;
-        List<ResponseAttributeDto> requestSignatureAttributes;
-        List<ResponseAttributeDto> requestAltSignatureAttributes;
+        List<ResponseAttributeDto<?>> requestAttributes;
+        List<ResponseAttributeDto<?>> requestSignatureAttributes;
+        List<ResponseAttributeDto<?>> requestAltSignatureAttributes;
         if (certificateRequestOptional.isPresent()) {
             certificateRequestEntity = certificateRequestOptional.get();
             // if no CSR attributes are assigned to CSR, update them with ones provided
@@ -1646,7 +1647,7 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttributeV2> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
+    public CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute<? extends AttributeContent>> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException {
         X509Certificate x509Cert = CertificateUtil.parseCertificate(certificateData);
         String fingerprint = CertificateUtil.getThumbprint(x509Cert);
         if (certificateRepository.findByFingerprint(fingerprint).isPresent()) {

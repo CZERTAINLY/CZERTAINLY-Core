@@ -4,9 +4,9 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
-import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -259,11 +259,11 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         String fieldIdentifierName = split[0];
         // From all Metadata of the object, find those with matching Name and Content Type and evaluate condition on these, return true for the first satisfying attribute, otherwise continue wit next
         List<MetadataResponseDto> metadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(resource, objectUuid));
-        for (List<ResponseMetadataDto> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
-            for (ResponseAttributeDto responseAttributeDto : responseMetadataDtos) {
+        for (List<ResponseMetadataDto<?>> responseMetadataDtos : metadata.stream().map(MetadataResponseDto::getItems).toList()) {
+            for (ResponseMetadataDto<?> responseAttributeDto : responseMetadataDtos) {
                 if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) && fieldAttributeContentType == responseAttributeDto.getContentType()) {
                     // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
-                    if (evaluateConditionOnAttribute(responseAttributeDto, conditionValue, operator))
+                    if (evaluateConditionOnAttribute(responseAttributeDto.toResponseAttribute(), conditionValue, operator))
                         return true;
                 }
             }
@@ -274,8 +274,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
     private boolean evaluateCustomAttributeConditionItem(Resource resource, UUID objectUuid, String fieldIdentifier, Object conditionValue, FilterConditionOperator operator) throws RuleException {
         // If source is Custom Attribute, retrieve custom attributes of this object and find the attribute which has Name equal to Field Identifier
-        List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
-        ResponseAttributeDto attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
+        List<ResponseAttributeDto<?>> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
+        ResponseAttributeDto<?> attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
         if (attributeToCompare == null) return false;
         // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
         return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
@@ -357,7 +357,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             throw new RuleException("Cannot set custom attributes for an object not in database.");
         }
 
-        List<BaseAttributeContentV2> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
+        List<BaseAttributeContentV3<?>> attributeContents = AttributeDefinitionUtils.convertContentItemsFromObject(actionData);
         attributeEngine.updateObjectCustomAttributeContent(resource, objectUuid, null, fieldIdentifier.substring(0, fieldIdentifier.indexOf("|")), attributeContents);
     }
 
@@ -524,9 +524,9 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
-    private boolean evaluateConditionOnAttribute(ResponseAttributeDto attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+    private boolean evaluateConditionOnAttribute(ResponseAttributeDto<?> attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
         AttributeContentType contentType = attributeDto.getContentType();
-        for (BaseAttributeContent attributeContent : attributeDto.getContent()) {
+        for (AttributeContent attributeContent : attributeDto.getContent()) {
             Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();
             try {
                 if (Boolean.TRUE.equals(fieldTypeToOperatorActionMap.get(contentTypeToFieldType(contentType)).get(operator).apply(attributeValue, conditionValue)))

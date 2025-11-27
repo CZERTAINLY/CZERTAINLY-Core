@@ -5,6 +5,8 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -186,7 +188,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setOwner(ownerAssociation);
         certificateRepository.save(certificate);
 
-        List<MetadataAttributeV2> meta = new ArrayList<>();
+        List<MetadataAttribute<? extends AttributeContent>> meta = new ArrayList<>();
         MetadataAttributeV2 tst = new MetadataAttributeV2();
         tst.setType(AttributeType.META);
         tst.setName("Test");

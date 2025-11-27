@@ -26,9 +26,9 @@ public interface ExtendedAttributeService {
             RaProfile raProfile,
             List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException;
 
-    void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException;
+    void mergeAndValidateIssueAttributes(RaProfile raProfile, List<RequestAttributeDto<?>> attributes) throws ConnectorException, AttributeException;
 
-    void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException;
+    void mergeAndValidateRevokeAttributes(RaProfile raProfile, List<RequestAttributeDto<?>> attributes) throws ConnectorException, AttributeException;
 
     void validateLegacyConnector(Connector connector) throws NotFoundException;
 }

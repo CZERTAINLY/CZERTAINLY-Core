@@ -1,6 +1,7 @@
 package com.czertainly.core.migration;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
@@ -226,11 +227,11 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
 
             String ruleAttributesJson = resultSet.getString("attributes");
             Assertions.assertNotNull(ruleAttributesJson);
-            List<RequestAttributeDto> profileRuleAttributes = objectMapper.readValue(ruleAttributesJson, new TypeReference<>() {
+            List<RequestAttributeDto<? extends AttributeContent>> profileRuleAttributes = objectMapper.readValue(ruleAttributesJson, new TypeReference<>() {
             });
 
             Assertions.assertEquals(2, profileRuleAttributes.size());
-            for (RequestAttributeDto profileRuleAttribute : profileRuleAttributes) {
+            for (RequestAttributeDto<? extends AttributeContent> profileRuleAttribute : profileRuleAttributes) {
                 if (profileRuleAttribute.getName().equals("condition")) {
                     Assertions.assertEquals(1, profileRuleAttribute.getContent().size());
                     Assertions.assertEquals("Equals", profileRuleAttribute.getContent().getFirst().getData());

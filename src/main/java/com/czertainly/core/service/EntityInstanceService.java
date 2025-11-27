@@ -78,7 +78,7 @@ public interface EntityInstanceService extends ResourceExtensionService {
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to validate Location Attributes
      */
-    void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> locationAttributes) throws NotFoundException, ConnectorException;
+    void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto<?>> locationAttributes) throws NotFoundException, ConnectorException;
 
     /**
      * Get all possible field to be able to search by customer

@@ -306,8 +306,8 @@ public class RaProfileServiceImpl implements RaProfileService {
         extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
-        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
-        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getRevokeCertificateAttributes())));
+        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
+        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getRevokeCertificateAttributes())));
         raProfileProtocolAttribute.setRaProfile(raProfile);
         raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
 
@@ -343,7 +343,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
-        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serialize(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
+        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
         raProfileProtocolAttribute.setRaProfile(raProfile);
         raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
 
@@ -411,14 +411,14 @@ public class RaProfileServiceImpl implements RaProfileService {
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
         raProfileProtocolAttribute.setCmpIssueCertificateAttributes(
-                AttributeDefinitionUtils.serialize(
+                AttributeDefinitionUtils.serializeData(
                         attributeEngine.getDataAttributesV2ByContent(
                                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                                 request.getIssueCertificateAttributes())
                 )
         );
         raProfileProtocolAttribute.setCmpRevokeCertificateAttributes(
-                AttributeDefinitionUtils.serialize(
+                AttributeDefinitionUtils.serializeData(
                         attributeEngine.getDataAttributesV2ByContent(
                                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                                 request.getRevokeCertificateAttributes())
@@ -681,7 +681,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         return certificateDetailDtos;
     }
 
-    private void mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+    private void mergeAndValidateAttributes(AuthorityInstanceReference authorityInstanceRef, List<RequestAttributeDto<?>> attributes) throws ConnectorException, AttributeException {
         logger.debug("Merging and validating attributes on authority instance {}. Request Attributes are: {}", authorityInstanceRef, attributes);
         if (authorityInstanceRef.getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Authority is not available / deleted"));

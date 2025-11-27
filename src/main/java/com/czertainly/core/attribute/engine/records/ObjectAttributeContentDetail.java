@@ -1,6 +1,6 @@
 package com.czertainly.core.attribute.engine.records;
 
-import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -13,11 +13,12 @@ public record ObjectAttributeContentDetail(
     String label,
     AttributeType type,
     AttributeContentType contentType,
-    BaseAttributeContent contentItem,
+    AttributeContent contentItem,
     UUID connectorUuid,
     String connectorName,
     Resource sourceObjectType,
     UUID sourceObjectUuid,
-    String sourceObjectName
+    String sourceObjectName,
+    int version
 )
 {}

@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.events.data.*;
@@ -299,7 +300,7 @@ public class NotificationListener {
             throw new ValidationException("Notification instance does not have assigned connector");
         }
 
-        List<BaseAttribute> mappingAttributes;
+        List<DataAttribute<?>> mappingAttributes;
         ConnectorDto connector = notificationInstanceReference.getConnector().mapToDto();
         try {
             mappingAttributes = notificationInstanceApiClient.listMappingAttributes(connector, notificationInstanceReference.getKind());
@@ -390,7 +391,7 @@ public class NotificationListener {
     }
 
     private List<RequestAttributeDto> getMappedAttributes(NotificationInstanceReference
-                                                                  notificationInstanceReference, List<BaseAttribute> mappingAttributes, List<ResponseAttributeDto> recipientCustomAttributes) throws
+                                                                  notificationInstanceReference, List<DataAttribute<?>> mappingAttributes, List<ResponseAttributeDto> recipientCustomAttributes) throws
             ValidationException {
         List<RequestAttributeDto> mappedAttributes = new ArrayList<>();
         HashMap<String, ResponseAttributeDto> mappedContent = new HashMap<>();
@@ -399,7 +400,7 @@ public class NotificationListener {
             recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
-        for (BaseAttribute mappingAttributeBase : mappingAttributes) {
+        for (DataAttribute<?> mappingAttributeBase : mappingAttributes) {
             DataAttributeV3 mappingAttribute = (DataAttributeV3) mappingAttributeBase;
             ResponseAttributeDto recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
 

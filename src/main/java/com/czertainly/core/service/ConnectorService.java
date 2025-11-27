@@ -55,9 +55,9 @@ public interface ConnectorService extends ResourceExtensionService {
 
     List<BaseAttribute> getAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, String functionGroupType) throws ConnectorException, NotFoundException;
 
-    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException;
+    void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto<?>> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException;
 
-    void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ConnectorException, AttributeException, NotFoundException;
+    void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto<?>> attributes, String functionGroupType) throws ConnectorException, AttributeException, NotFoundException;
 
     List<BulkActionMessageDto> bulkDeleteConnector(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 

@@ -124,7 +124,7 @@ public interface TokenInstanceService extends ResourceExtensionService {
      * @param attributes attributes to be validated
      * @throws ConnectorException when there are issues with the communication
      */
-    void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException;
+    void validateTokenProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto<?>> attributes) throws ConnectorException, NotFoundException;
 
     /**
      * @param uuid UUID of the concerned token instance

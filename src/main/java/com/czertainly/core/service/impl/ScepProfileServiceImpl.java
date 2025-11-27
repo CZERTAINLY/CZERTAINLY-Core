@@ -255,8 +255,8 @@ public class ScepProfileServiceImpl implements ScepProfileService {
     }
 
     private ScepProfileDetailDto updateAndMapDtoAttributes(ScepProfile scepProfile, RaProfile raProfile,
-                                                     List<RequestAttributeDto> issueCertificateAttributes,
-                                                     List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
+                                                     List<RequestAttributeDto<?>> issueCertificateAttributes,
+                                                     List<RequestAttributeDto<?>> customAttributes) throws NotFoundException, AttributeException {
         ScepProfileDetailDto dto = scepProfile.mapToDetailDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.SCEP_PROFILE, scepProfile.getUuid(), customAttributes));
         if (raProfile != null) {

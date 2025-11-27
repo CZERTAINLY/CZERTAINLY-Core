@@ -5,6 +5,7 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.notification.NotificationInstanceDto;
@@ -225,7 +226,7 @@ class NotificationInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListMappingAttributes() throws ConnectorException, NotFoundException {
-        List<BaseAttribute> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
+        List<DataAttribute<?>> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
 
         // Verify the mapping attributes were retrieved successfully
         Assertions.assertNotNull(attributes);

@@ -30,9 +30,9 @@ public class ProtocolCertificateAssociations extends UniquelyIdentified {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<RequestAttributeDto> customAttributes;
+    private List<RequestAttributeDto<?>> customAttributes;
 
-    public ProtocolCertificateAssociationsDto mapToDto(TriFunction<AttributeType, UUID, List<RequestAttributeDto>, List<ResponseAttributeDto>> convertAttributesFunc) {
+    public ProtocolCertificateAssociationsDto mapToDto(TriFunction<AttributeType, UUID, List<RequestAttributeDto<?>>, List<ResponseAttributeDto<?>>> convertAttributesFunc) {
         ProtocolCertificateAssociationsDto dto = new ProtocolCertificateAssociationsDto();
         dto.setCustomAttributes(convertAttributesFunc.apply(AttributeType.CUSTOM, null, customAttributes));
         dto.setGroupUuids(groupUuids);

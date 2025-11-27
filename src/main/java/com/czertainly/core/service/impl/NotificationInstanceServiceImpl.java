@@ -4,7 +4,7 @@ import com.czertainly.api.clients.NotificationInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -99,7 +99,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     public NotificationInstanceDto getNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = getNotificationInstanceReferenceEntity(uuid);
 
-        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid());
+        List<ResponseAttributeDto<?>> attributes = attributeEngine.getObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid());
 
         NotificationInstanceDto notificationInstanceDto = notificationInstanceReference.mapToDto();
         notificationInstanceDto.setAttributeMappings(notificationInstanceReference.getMappedAttributes()
@@ -120,7 +120,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
         if (attributes.isEmpty() && notificationProviderInstanceDto.getAttributes() != null && !notificationProviderInstanceDto.getAttributes().isEmpty()) {
             try {
-                List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(notificationProviderInstanceDto.getAttributes());
+                List<RequestAttributeDto<?>> requestAttributes = AttributeDefinitionUtils.getClientAttributes(notificationProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(notificationInstanceReference.getConnectorUuid(), null, notificationProviderInstanceDto.getAttributes());
                 attributes = attributeEngine.updateObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid(), requestAttributes);
             } catch (AttributeException e) {
@@ -202,7 +202,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
-    public List<BaseAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<DataAttribute<?>> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(connectorUuid));
         return notificationInstanceApiClient.listMappingAttributes(connector.mapToDto(), kind);
     }

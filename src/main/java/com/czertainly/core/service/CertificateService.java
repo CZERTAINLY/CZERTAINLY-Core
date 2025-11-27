@@ -4,7 +4,8 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
@@ -267,7 +268,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param predecessorCertificateUuid UUID of the predecessor certificate specified in case of renew/rekey operation
      *                                   return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto> signatureAttributes, List<RequestAttributeDto> altSignatureAttributes, List<RequestAttributeDto> csrAttributes, List<RequestAttributeDto> issueAttributes, UUID keyUuid,
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto<?>> signatureAttributes, List<RequestAttributeDto<?>> altSignatureAttributes, List<RequestAttributeDto<?>> csrAttributes, List<RequestAttributeDto<?>> issueAttributes, UUID keyUuid,
                                                   UUID altKeyUuid, UUID raProfileUuid, UUID predecessorCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
 
     /**
@@ -277,7 +278,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param meta Metadata of the certificate
      * @return Certificate detail DTO
      */
-    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttributeV2> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException;
+    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute<? extends AttributeContent>> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException;
 
     /**
      * List certificates eligible for CA certificate of SCEP requests

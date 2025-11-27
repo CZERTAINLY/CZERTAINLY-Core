@@ -146,7 +146,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_CONTENT)
-    public List<ResponseAttributeDto> updateAttributeContentForResource(
+    public List<ResponseAttributeDto<?>> updateAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid,
@@ -162,7 +162,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE_ATTRIBUTE_CONTENT)
-    public List<ResponseAttributeDto> deleteAttributeContentForResource(
+    public List<ResponseAttributeDto<?>> deleteAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid

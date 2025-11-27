@@ -1,7 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.common.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
@@ -36,7 +36,7 @@ class CertificateRequestUtilsTest {
         attributeDto.setUuid(UUID.randomUUID().toString());
         attributeDto.setName(name);
         attributeDto.setContentType(AttributeContentType.STRING);
-        List<BaseAttributeContent> content = new ArrayList<>();
+        List<AttributeContent> content = new ArrayList<>();
         BaseAttributeContentV2 attributeContent = new StringAttributeContentV2(data);
         content.add(attributeContent);
         attributeDto.setContent(content);
