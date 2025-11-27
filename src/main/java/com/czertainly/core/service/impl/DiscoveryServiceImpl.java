@@ -331,6 +331,10 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         DiscoveryProviderDto providerResponse;
         try {
             providerResponse = discoverCertificatesByProvider(context);
+            if (context.getConnectorCertificatesDiscovered() == 0) {
+                context.setDiscoveryStatus(DiscoveryStatus.COMPLETED);
+                return finalizeDiscoveryInTx(context, true, "No certificates discovered at provider");
+            }
             updateDiscoveryStateInTx(context, true);
         } catch (DiscoveryException e) {
             logger.error(e.getMessage());

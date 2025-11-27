@@ -22,7 +22,6 @@ import com.czertainly.core.messaging.listeners.EventListener;
 import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -30,6 +29,8 @@ import com.github.tomakehurst.wiremock.client.WireMock;
 import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
+import java.time.Instant;
+import java.util.Date;
 import java.util.List;
 import java.util.UUID;
 
@@ -278,6 +279,70 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
         certificates = discoveryService.getDiscoveryCertificates(SecuredUUID.fromUUID(discoveryUuid), null, 10, 1);
         Assertions.assertEquals(1, certificates.getCertificates().size());
         Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(persisted, true));
+
+        String discoveryStartResponse = """
+                {
+                    "uuid": "%s",
+                    "name": "integration-provider",
+                    "status": "completed",
+                    "totalCertificatesDiscovered": 0,
+                    "certificateData": [],
+                    "meta": []
+                }
+                """.formatted(PROVIDER_DISCOVERY_UUID);
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/discoveryProvider/discover"))
+                .willReturn(WireMock.okJson(discoveryStartResponse)));
+
+        String discoveryDataResponse = """
+                {
+                     "uuid": "%s",
+                     "name": "integration-provider",
+                     "status": "inProgress",
+                     "totalCertificatesDiscovered": 0,
+                     "certificateData": [],
+                     "meta": []
+                }
+                """.formatted(PROVIDER_DISCOVERY_UUID);
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/" + PROVIDER_DISCOVERY_UUID))
+                .willReturn(WireMock.okJson(discoveryDataResponse)));
+
+        dto.setName("RunDiscoveryLongRunning-" + UUID.randomUUID());
+        discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+
+        discoveryService.runDiscovery(discoveryUuid, null);
+
+        persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.COMPLETED, persisted.getStatus());
+        Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
+
+        discoveryStartResponse = """
+                {
+                    "uuid": "%s",
+                    "name": "integration-provider",
+                    "status": "inProgress",
+                    "totalCertificatesDiscovered": 0,
+                    "certificateData": [],
+                    "meta": []
+                }
+                """.formatted(PROVIDER_DISCOVERY_UUID);
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/discoveryProvider/discover"))
+                .willReturn(WireMock.okJson(discoveryStartResponse)));
+
+        dto.setName("RunDiscoveryLongRunning2-" + UUID.randomUUID());
+        discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+
+        persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        persisted.setStartTime(Date.from(Instant.now().minus(7, java.time.temporal.ChronoUnit.DAYS)));
+        discoveryRepository.save(persisted);
+
+        discoveryService.runDiscovery(discoveryUuid, null);
+
+        persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
     }
 
     private void stubConnectorEndpoints() {
