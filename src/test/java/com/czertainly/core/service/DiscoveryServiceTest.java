@@ -15,8 +15,14 @@ import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.FunctionGroup;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.events.data.DiscoveryResult;
+import com.czertainly.core.events.handlers.CertificateDiscoveredEventHandler;
+import com.czertainly.core.events.handlers.DiscoveryFinishedEventHandler;
+import com.czertainly.core.messaging.listeners.EventListener;
+import com.czertainly.core.messaging.model.EventMessage;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
+import com.czertainly.core.tasks.ScheduledJobInfo;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.MetaDefinitions;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -48,6 +54,9 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
     private FunctionGroupRepository functionGroupRepository;
     @Autowired
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+
+    @Autowired
+    private EventListener eventListener;
 
     private DiscoveryHistory discovery;
     private Connector connector;
@@ -246,9 +255,29 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(DiscoveryStatus.PROCESSING, persisted.getStatus());
         Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscovery(persisted));
 
-        DiscoveryCertificateResponseDto certificates =
-                discoveryService.getDiscoveryCertificates(SecuredUUID.fromUUID(discoveryUuid), null, 10, 1);
+        EventMessage eventMessage = CertificateDiscoveredEventHandler.constructEventMessage(persisted.getUuid(), null, null);
+        eventListener.processMessage(eventMessage);
+        eventMessage = DiscoveryFinishedEventHandler.constructEventMessage(persisted.getUuid(), null, eventMessage.getScheduledJobInfo(), new DiscoveryResult(DiscoveryStatus.PROCESSING, null));
+        eventListener.processMessage(eventMessage);
+
+        DiscoveryCertificateResponseDto certificates = discoveryService.getDiscoveryCertificates(SecuredUUID.fromUUID(discoveryUuid), null, 10, 1);
         Assertions.assertEquals(1, certificates.getCertificates().size());
+        Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(persisted, true));
+
+        persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.COMPLETED, persisted.getStatus());
+
+        dto.setName("RunDiscoveryDuplicated-" + UUID.randomUUID());
+        discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+        discoveryService.runDiscovery(discoveryUuid, null);
+
+        persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.COMPLETED, persisted.getStatus());
+        Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscovery(persisted));
+
+        certificates = discoveryService.getDiscoveryCertificates(SecuredUUID.fromUUID(discoveryUuid), null, 10, 1);
+        Assertions.assertEquals(1, certificates.getCertificates().size());
+        Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(persisted, true));
     }
 
     private void stubConnectorEndpoints() {
@@ -270,18 +299,62 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
 
         String discoveryDataResponse = """
                 {
-                    "uuid": "%s",
-                    "name": "integration-provider",
-                    "status": "completed",
-                    "totalCertificatesDiscovered": 1,
-                    "certificateData": [
-                        {
-                            "uuid": "0279d416-02ed-4415-a8cd-85af3f083222",
-                            "base64Content": "%s",
-                            "meta": []
-                        }
-                    ],
-                    "meta": []
+                     "uuid": "%s",
+                     "name": "integration-provider",
+                     "status": "completed",
+                     "totalCertificatesDiscovered": 1,
+                     "certificateData": [
+                         {
+                             "uuid": "0279d416-02ed-4415-a8cd-85af3f083222",
+                             "base64Content": "%s",
+                             "meta": [
+                                 {
+                                     "version": 2,
+                                     "uuid": "000043aa-6022-11ed-9b6a-0242ac120002",
+                                     "name": "discoverySource",
+                                     "description": "Source from where the certificate is discovered",
+                                     "content": [
+                                         {
+                                             "reference": "https://cnb.cz:443",
+                                             "data": "https://cnb.cz:443"
+                                         }
+                                     ],
+                                     "type": "meta",
+                                     "contentType": "string",
+                                     "properties": {
+                                         "label": "Discovery Source",
+                                         "visible": true,
+                                         "group": null,
+                                         "global": true,
+                                         "overwrite": false
+                                     }
+                                 }
+                             ]
+                         }
+                     ],
+                     "meta": [
+                         {
+                             "version": 2,
+                             "uuid": "872ca286-601f-11ed-9b6a-0242ac120002",
+                             "name": "totalUrls",
+                             "description": "Total number of URLs for the discovery",
+                             "content": [
+                                 {
+                                     "reference": "5",
+                                     "data": 5
+                                 }
+                             ],
+                             "type": "meta",
+                             "contentType": "integer",
+                             "properties": {
+                                 "label": "Total URLs",
+                                 "visible": true,
+                                 "group": null,
+                                 "global": false,
+                                 "overwrite": false
+                             }
+                         }
+                     ]
                 }
                 """.formatted(PROVIDER_DISCOVERY_UUID, CERTIFICATE_BASE64);
 
