@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
+import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
@@ -13,10 +14,7 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Connector2FunctionGroup;
 import com.czertainly.core.dao.entity.DiscoveryHistory;
 import com.czertainly.core.dao.entity.FunctionGroup;
-import com.czertainly.core.dao.repository.Connector2FunctionGroupRepository;
-import com.czertainly.core.dao.repository.ConnectorRepository;
-import com.czertainly.core.dao.repository.DiscoveryRepository;
-import com.czertainly.core.dao.repository.FunctionGroupRepository;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -27,16 +25,23 @@ import org.junit.jupiter.api.*;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.List;
+import java.util.UUID;
 
 class DiscoveryServiceTest extends BaseSpringBootTest {
 
     private static final String DISCOVERY_NAME = "testDiscovery1";
+    private static final String PROVIDER_DISCOVERY_UUID = "4bd64640-be29-4e14-aad8-5c0ffa55c5bd";
+    private static final String CERTIFICATE_BASE64 = "MIIDyjCCArKgAwIBAgIUULw4BO/gvFzW2wMYXRhmz1kPPdAwDQYJKoZIhvcNAQELBQAwZDEUMBIGA1UEAwwLdGVzdGNlcnQuY3oxCzAJBgNVBAYTAkNaMRgwFgYDVQQIDA9DZW50cmFsIEJvaGVtaWExDzANBgNVBAcMBlNsYW7DvTEUMBIGA1UECgwLM0tleUNvbXBhbnkwHhcNMjQxMDIxMTAzMDEyWhcNMjUxMDIxMTAzMDEyWjBkMRQwEgYDVQQDDAt0ZXN0Y2VydC5jejELMAkGA1UEBhMCQ1oxGDAWBgNVBAgMD0NlbnRyYWwgQm9oZW1pYTEPMA0GA1UEBwwGU2xhbsO9MRQwEgYDVQQKDAszS2V5Q29tcGFueTCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAJ112/a4p9sZ4F2fABLGtSBrbp71n/0uG+H/3usEQU8/FIW644ly5hNl8+SloPWryCCxOl+saXTKv62h0HnE/HNFMKlps4wwWNMsTploFKiAW9AbaDtzNrMy9f/orMoZldDZt5dLX8UR3qMmdK8nlqiJOyCAxIS70OsEQC8fGuIMNYeW6eidXGHjvpqApWnGTyA4U1bJWsDWcOIh/LL2ae9nwTJjVrHthrM6Wq6PplaPxEKYABp51UAQLMzY+cJElcKmwQxiK+zOHns7/ocosZVqI2QyxSmG60icabyrIT6HQHKVNzZHkltmduyYun9YZ+nl68YOuNmtSNi1TLMlfGECAwEAAaN0MHIwHQYDVR0OBBYEFOWFJRXdCer5Bpj+9JrquuJ7e5eQMB8GA1UdIwQYMBaAFOWFJRXdCer5Bpj+9JrquuJ7e5eQMA4GA1UdDwEB/wQEAwIFoDAgBgNVHSUBAf8EFjAUBggrBgEFBQcDAQYIKwYBBQUHAwIwDQYJKoZIhvcNAQELBQADggEBAA6AWaBFDAWL8oSBCP3q1s2Gq9QhR2QEBZ5tPOMTN5GpIzXxXdm4nHHBK/pSFABUNmrwQMapvq/y6IZ7hNMdC89MTOsHLD0EVPmHHO4xhzMG08XpJdevTrvktjpt0+ju81ratLg34pvJLeLF7ZL5AxwOl6qKX6RgwHpdBUipAYeeVhTVtQ7FLvakKDwYLiN6YFXuM1+CDAK3fsJ6sZki3uRvLYsUi7bguIQCmCQ0/n+T62Driq6mh1FkFB3sgpSFjfEo3bEaaHzF1YZr6otTYPNzcLCStJ5SYNBXKbw7YKAcYavL6yMNTQ2CjmLVnwjjd3O/Sv1kEhZMu86mHeNZK0I=";
+
 
     @Autowired
     private DiscoveryService discoveryService;
 
     @Autowired
     private DiscoveryRepository discoveryRepository;
+    @Autowired
+    private DiscoveryCertificateRepository discoveryCertificateRepository;
+
     @Autowired
     private ConnectorRepository connectorRepository;
     @Autowired
@@ -55,10 +60,11 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
         mockServer.start();
 
         WireMock.configureFor("localhost", mockServer.port());
+        stubConnectorEndpoints();
 
         connector = new Connector();
         connector.setName("discoveryProviderConnector");
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -182,5 +188,106 @@ class DiscoveryServiceTest extends BaseSpringBootTest {
     void testBulkRemove() throws NotFoundException {
         discoveryService.bulkRemoveDiscovery(List.of(discovery.getSecuredUuid()));
         Assertions.assertThrows(NotFoundException.class, () -> discoveryService.getDiscovery(discovery.getSecuredUuid()));
+    }
+
+    @Test
+    void runDiscoveryWithoutConnector() throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        DiscoveryDto dto = new DiscoveryDto();
+        dto.setName("RunDiscoveryIT-" + UUID.randomUUID());
+        dto.setKind("IpAndPort");
+        dto.setConnectorUuid(connector.getUuid().toString());
+        dto.setAttributes(List.of());
+
+        UUID discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+
+        DiscoveryHistory persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        persisted.setConnectorUuid(UUID.randomUUID());
+        discoveryRepository.save(persisted);
+
+        discoveryService.runDiscovery(discoveryUuid, null);
+        persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
+    void runDiscoveryWithoutConnectorStubEndpoints() throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        DiscoveryDto dto = new DiscoveryDto();
+        dto.setName("RunDiscoveryIT-" + UUID.randomUUID());
+        dto.setKind("IpAndPort");
+        dto.setConnectorUuid(connector.getUuid().toString());
+        dto.setAttributes(List.of());
+
+        UUID discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+
+        mockServer.resetMappings();
+
+        discoveryService.runDiscovery(discoveryUuid, null);
+        DiscoveryHistory persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+
+        Assertions.assertEquals(DiscoveryStatus.FAILED, persisted.getStatus());
+        Assertions.assertEquals(0, discoveryCertificateRepository.countByDiscovery(persisted));
+    }
+
+    @Test
+    void runDiscoveryTest() throws AlreadyExistException, ConnectorException, AttributeException, NotFoundException {
+        DiscoveryDto dto = new DiscoveryDto();
+        dto.setName("RunDiscoveryIT-" + UUID.randomUUID());
+        dto.setKind("IpAndPort");
+        dto.setConnectorUuid(connector.getUuid().toString());
+        dto.setAttributes(List.of());
+
+        UUID discoveryUuid = UUID.fromString(discoveryService.createDiscovery(dto, true).getUuid());
+
+        discoveryService.runDiscovery(discoveryUuid, null);
+
+        DiscoveryHistory persisted = discoveryRepository.findByUuid(discoveryUuid).orElseThrow();
+        Assertions.assertEquals(DiscoveryStatus.PROCESSING, persisted.getStatus());
+        Assertions.assertEquals(1, discoveryCertificateRepository.countByDiscovery(persisted));
+
+        DiscoveryCertificateResponseDto certificates =
+                discoveryService.getDiscoveryCertificates(SecuredUUID.fromUUID(discoveryUuid), null, 10, 1);
+        Assertions.assertEquals(1, certificates.getCertificates().size());
+    }
+
+    private void stubConnectorEndpoints() {
+        WireMock.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes"))
+                .willReturn(WireMock.okJson("[]")));
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/discoveryProvider/[^/]+/attributes/validate"))
+                .willReturn(WireMock.okJson("true")));
+
+        String discoveryStartResponse = """
+                {
+                    "uuid": "%s",
+                    "name": "integration-provider",
+                    "status": "completed",
+                    "totalCertificatesDiscovered": 1,
+                    "certificateData": [],
+                    "meta": []
+                }
+                """.formatted(PROVIDER_DISCOVERY_UUID);
+
+        String discoveryDataResponse = """
+                {
+                    "uuid": "%s",
+                    "name": "integration-provider",
+                    "status": "completed",
+                    "totalCertificatesDiscovered": 1,
+                    "certificateData": [
+                        {
+                            "uuid": "0279d416-02ed-4415-a8cd-85af3f083222",
+                            "base64Content": "%s",
+                            "meta": []
+                        }
+                    ],
+                    "meta": []
+                }
+                """.formatted(PROVIDER_DISCOVERY_UUID, CERTIFICATE_BASE64);
+
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/discoveryProvider/discover"))
+                .willReturn(WireMock.okJson(discoveryStartResponse)));
+        WireMock.stubFor(WireMock.post(WireMock.urlPathMatching("/v1/discoveryProvider/discover/" + PROVIDER_DISCOVERY_UUID))
+                .willReturn(WireMock.okJson(discoveryDataResponse)));
     }
 }
