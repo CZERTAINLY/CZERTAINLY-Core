@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -558,7 +559,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
         CustomAttributeDefinitionDetailDto customAttribute = attributeService.createCustomAttribute(customAttributeRequest);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, newCertificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContentV2("ref", "data1"), new StringAttributeContentV2("ref", "data")));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, newCertificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContentV3("ref", "data1"), new StringAttributeContentV3("ref", "data")));
 
         ConditionItem newCondition = new ConditionItem();
         newCondition.setFieldSource(FilterFieldSource.CUSTOM);
