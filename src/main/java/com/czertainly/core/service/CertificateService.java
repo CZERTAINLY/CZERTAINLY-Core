@@ -1,7 +1,8 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
@@ -268,7 +269,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param predecessorCertificateUuid UUID of the predecessor certificate specified in case of renew/rekey operation
      *                                   return Certificate detail DTO
      */
-    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttributeDto<?>> signatureAttributes, List<RequestAttributeDto<?>> altSignatureAttributes, List<RequestAttributeDto<?>> csrAttributes, List<RequestAttributeDto<?>> issueAttributes, UUID keyUuid,
+    CertificateDetailDto submitCertificateRequest(String csr, CertificateRequestFormat csrFormat, List<RequestAttribute> signatureAttributes, List<RequestAttribute> altSignatureAttributes, List<RequestAttribute> csrAttributes, List<RequestAttribute> issueAttributes, UUID keyUuid,
                                                   UUID altKeyUuid, UUID raProfileUuid, UUID predecessorCertificateUuid, CertificateProtocolInfo protocolInfo) throws NoSuchAlgorithmException, ConnectorException, AttributeException, CertificateRequestException, NotFoundException;
 
     /**

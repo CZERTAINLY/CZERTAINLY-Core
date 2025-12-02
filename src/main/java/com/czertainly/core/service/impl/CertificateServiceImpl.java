@@ -2,8 +2,9 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -1451,10 +1452,10 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDetailDto submitCertificateRequest(
             String certificateRequest,
             CertificateRequestFormat certificateRequestFormat,
-            List<RequestAttributeDto<?>> signatureAttributes,
-            List<RequestAttributeDto<?>> altSignatureAttributes,
-            List<RequestAttributeDto<?>> csrAttributes,
-            List<RequestAttributeDto<?>> issueAttributes,
+            List<RequestAttribute> signatureAttributes,
+            List<RequestAttribute> altSignatureAttributes,
+            List<RequestAttribute> csrAttributes,
+            List<RequestAttribute> issueAttributes,
             UUID keyUuid,
             UUID altKeyUuid,
             UUID raProfileUuid,
@@ -1486,9 +1487,9 @@ public class CertificateServiceImpl implements CertificateService {
         Optional<CertificateRequestEntity> certificateRequestOptional =
                 certificateRequestRepository.findByFingerprint(certificateRequestFingerprint);
 
-        List<ResponseAttributeDto<?>> requestAttributes;
-        List<ResponseAttributeDto<?>> requestSignatureAttributes;
-        List<ResponseAttributeDto<?>> requestAltSignatureAttributes;
+        List<ResponseAttribute> requestAttributes;
+        List<ResponseAttribute> requestSignatureAttributes;
+        List<ResponseAttribute> requestAltSignatureAttributes;
         if (certificateRequestOptional.isPresent()) {
             certificateRequestEntity = certificateRequestOptional.get();
             // if no CSR attributes are assigned to CSR, update them with ones provided

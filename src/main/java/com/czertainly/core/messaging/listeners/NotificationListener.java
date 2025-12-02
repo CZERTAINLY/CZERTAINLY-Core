@@ -2,12 +2,10 @@ package com.czertainly.core.messaging.listeners;
 
 import com.czertainly.api.clients.NotificationInstanceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.events.data.*;
 import com.czertainly.api.model.connector.notification.NotificationProviderNotifyRequestDto;
@@ -18,6 +16,7 @@ import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.AttributeVersionHandler;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.notifications.*;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -32,6 +31,7 @@ import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
+import com.czertainly.core.validation.certificate.ICertificateValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,12 +67,19 @@ public class NotificationListener {
 
     private static final Map<ResourceEvent, String> eventToLegacyNotificationTypeMapping = new EnumMap<>(ResourceEvent.class);
 
+    private Map<String, AttributeVersionHandler<?>> attributeVersionHandlerMap;
+
     static {
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.CERTIFICATE_STATUS_CHANGED, "certificate_status_changed");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, "certificate_action_performed");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.APPROVAL_REQUESTED, "approval_requested");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.APPROVAL_CLOSED, "approval_closed");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.SCHEDULED_JOB_FINISHED, "scheduled_job_completed");
+    }
+
+    @Autowired
+    public void setAttributeVersionHandlerMap(Map<String, AttributeVersionHandler<?>> attributeVersionHandlerMap) {
+        this.attributeVersionHandlerMap = attributeVersionHandlerMap;
     }
 
     @Autowired
@@ -320,7 +327,7 @@ public class NotificationListener {
                     continue;
                 }
 
-                List<ResponseAttributeDto> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(recipient.getRecipientType().getRecipientResource(), recipient.getRecipientUuid());
+                List<ResponseAttribute> recipientCustomAttributes = attributeEngine.getObjectCustomAttributesContent(recipient.getRecipientType().getRecipientResource(), recipient.getRecipientUuid());
 
                 // prepare mapped attributes
                 recipientDto.setMappedAttributes(getMappedAttributes(notificationInstanceReference, mappingAttributes, recipientCustomAttributes));
@@ -390,19 +397,19 @@ public class NotificationListener {
         return recipientDto;
     }
 
-    private List<RequestAttributeDto> getMappedAttributes(NotificationInstanceReference
-                                                                  notificationInstanceReference, List<DataAttribute<?>> mappingAttributes, List<ResponseAttributeDto> recipientCustomAttributes) throws
+    private List<RequestAttribute> getMappedAttributes(NotificationInstanceReference
+                                                               notificationInstanceReference, List<DataAttribute<?>> mappingAttributes, List<ResponseAttribute> recipientCustomAttributes) throws
             ValidationException {
-        List<RequestAttributeDto> mappedAttributes = new ArrayList<>();
-        HashMap<String, ResponseAttributeDto> mappedContent = new HashMap<>();
+        List<RequestAttribute> mappedAttributes = new ArrayList<>();
+        HashMap<String, ResponseAttribute> mappedContent = new HashMap<>();
         for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
-            Optional<ResponseAttributeDto> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
+            Optional<ResponseAttribute> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
             recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
         for (DataAttribute<?> mappingAttributeBase : mappingAttributes) {
             DataAttributeV3 mappingAttribute = (DataAttributeV3) mappingAttributeBase;
-            ResponseAttributeDto recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
+            ResponseAttribute recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
 
             if (recipientCustomAttribute == null) {
                 if (mappingAttribute.getProperties().isRequired()) {
@@ -417,12 +424,9 @@ public class NotificationListener {
                         mappingAttribute.getName(), mappingAttribute.getUuid(), mappingAttribute.getContentType().getLabel()));
             }
 
-            RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-            requestAttributeDto.setUuid(mappingAttribute.getUuid());
-            requestAttributeDto.setName(mappingAttribute.getName());
-            requestAttributeDto.setContentType(mappingAttribute.getContentType());
-            requestAttributeDto.setContent(recipientCustomAttribute.getContent());
-            mappedAttributes.add(requestAttributeDto);
+            RequestAttribute requestAttribute = attributeVersionHandlerMap.get(String.valueOf(mappingAttribute.getVersion()))
+                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType());
+            mappedAttributes.add(requestAttribute);
         }
 
         return mappedAttributes;

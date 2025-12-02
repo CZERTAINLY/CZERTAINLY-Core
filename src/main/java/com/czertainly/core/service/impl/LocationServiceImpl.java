@@ -3,7 +3,8 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
@@ -761,7 +762,7 @@ public class LocationServiceImpl implements LocationService {
 
     // PRIVATE METHODS
 
-    private GenerateCsrResponseDto generateCsrLocation(Location location, List<RequestAttributeDto> csrAttributes, Boolean isRenewalRequest) throws LocationException {
+    private GenerateCsrResponseDto generateCsrLocation(Location location, List<RequestAttribute> csrAttributes, Boolean isRenewalRequest) throws LocationException {
         GenerateCsrRequestDto generateCsrRequestDto = new GenerateCsrRequestDto();
         generateCsrRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
         generateCsrRequestDto.setCsrAttributes(csrAttributes);
@@ -781,7 +782,7 @@ public class LocationServiceImpl implements LocationService {
         return generateCsrResponseDto;
     }
 
-    private ClientCertificateDataResponseDto issueCertificateForLocation(Location location, String csr, List<RequestAttributeDto> issueAttributes, String raProfileUuid, List<RequestAttributeDto> certificateCustomAttributes) throws LocationException {
+    private ClientCertificateDataResponseDto issueCertificateForLocation(Location location, String csr, List<RequestAttribute> issueAttributes, String raProfileUuid, List<RequestAttribute> certificateCustomAttributes) throws LocationException {
         ClientCertificateSignRequestDto clientCertificateSignRequestDto = new ClientCertificateSignRequestDto();
         clientCertificateSignRequestDto.setAttributes(issueAttributes);
         // TODO: support for different types of certificate
@@ -827,7 +828,7 @@ public class LocationServiceImpl implements LocationService {
         return clientCertificateDataResponseDto;
     }
 
-    private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes, List<MetadataAttribute<? extends AttributeContent>> certificateMetadata) throws LocationException, AttributeException {
+    private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes, List<MetadataAttribute<? extends AttributeContent>> certificateMetadata) throws LocationException, AttributeException {
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
         //stored in the database
         List<BaseAttribute> fullPushAttributes;
@@ -867,7 +868,7 @@ public class LocationServiceImpl implements LocationService {
         attributeEngine.updateMetadataAttributes(certificateMetadata, new ObjectAttributeContentInfo(location.getEntityInstanceReference().getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.LOCATION, location.getUuid(), location.getName()));
     }
 
-    private void pushCertificateToLocation(Location location, Certificate certificate, List<RequestAttributeDto> pushAttributes, List<RequestAttributeDto> csrAttributes) throws LocationException, AttributeException {
+    private void pushCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes) throws LocationException, AttributeException {
         PushCertificateRequestDto pushCertificateRequestDto = new PushCertificateRequestDto();
         pushCertificateRequestDto.setCertificate(certificate.getCertificateContent().getContent());
         // TODO: support for different types of certificate
@@ -945,7 +946,7 @@ public class LocationServiceImpl implements LocationService {
         );
     }
 
-    private LocationDetailResponseDto getLocationDetail(EntityInstanceReference entityInstanceReference, List<RequestAttributeDto<?>> requestAttributes, String locationName) throws LocationException {
+    private LocationDetailResponseDto getLocationDetail(EntityInstanceReference entityInstanceReference, List<RequestAttribute> requestAttributes, String locationName) throws LocationException {
         LocationDetailRequestDto locationDetailRequestDto = new LocationDetailRequestDto();
         locationDetailRequestDto.setLocationAttributes(requestAttributes);
         LocationDetailResponseDto locationDetailResponseDto;
@@ -995,7 +996,7 @@ public class LocationServiceImpl implements LocationService {
         locationRepository.save(location);
     }
 
-    private void mergeAndValidateAttributes(EntityInstanceReference entityInstanceRef, List<RequestAttributeDto<?>> attributes) throws ConnectorException, AttributeException {
+    private void mergeAndValidateAttributes(EntityInstanceReference entityInstanceRef, List<RequestAttribute> attributes) throws ConnectorException, AttributeException {
         logger.debug("Merging and validating attributes on entity instance {}. Request Attributes are: {}", entityInstanceRef, attributes);
         if (entityInstanceRef.getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Entity is not available / deleted"));
@@ -1132,7 +1133,7 @@ public class LocationServiceImpl implements LocationService {
                 removeCertificateRequestDto);
     }
 
-    private void validateLocationCreation(EntityInstanceReference entityInstance, List<RequestAttributeDto<?>> requestDto) throws ValidationException {
+    private void validateLocationCreation(EntityInstanceReference entityInstance, List<RequestAttribute> requestDto) throws ValidationException {
 
         for (Location location : locationRepository.findByEntityInstanceReference(entityInstance)) {
             List<DataAttribute<?>> locationAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, entityInstance.getConnectorUuid(), null, Resource.LOCATION, location.getUuid());

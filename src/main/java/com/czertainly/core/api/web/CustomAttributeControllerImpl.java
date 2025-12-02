@@ -4,13 +4,12 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.CustomAttributeController;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
@@ -146,7 +145,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.UPDATE_ATTRIBUTE_CONTENT)
-    public List<ResponseAttributeDto<?>> updateAttributeContentForResource(
+    public List<ResponseAttribute> updateAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid,
@@ -162,7 +161,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.DELETE_ATTRIBUTE_CONTENT)
-    public List<ResponseAttributeDto<?>> deleteAttributeContentForResource(
+    public List<ResponseAttribute> deleteAttributeContentForResource(
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid

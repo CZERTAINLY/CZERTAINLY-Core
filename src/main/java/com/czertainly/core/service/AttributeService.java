@@ -150,7 +150,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param resource   Resource to which the custom attributes should be validated for
      * @throws ValidationException Thrown if the validation fails
      */
-//    void validateCustomAttributes(List<RequestAttributeDto> attributes, Resource resource) throws ValidationException;
+//    void validateCustomAttributes(List<RequestAttribute> attributes, Resource resource) throws ValidationException;
 
     /**
      * Create the content for the attribute
@@ -159,7 +159,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param attributes List of custom attributes
      * @param resource   Resource for the attribute and value
      */
-//    void createAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) throws NotFoundException, AttributeException;
+//    void createAttributeContent(UUID objectUuid, List<RequestAttribute> attributes, Resource resource) throws NotFoundException, AttributeException;
 
     /**
      * Update the content for the attribute
@@ -168,7 +168,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param attributes List of custom attributes
      * @param resource   Resource for the attribute and value
      */
-//    void updateAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) throws NotFoundException, AttributeException;
+//    void updateAttributeContent(UUID objectUuid, List<RequestAttribute> attributes, Resource resource) throws NotFoundException, AttributeException;
 
     /**
      * Update the content for a single attribute

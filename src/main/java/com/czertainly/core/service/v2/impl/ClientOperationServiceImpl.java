@@ -2,10 +2,10 @@ package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.connector.v2.CertRevocationDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
@@ -173,7 +173,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public boolean validateIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException {
+    public boolean validateIssueCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         return extendedAttributeService.validateIssueCertificateAttributes(raProfile, attributes);
@@ -611,7 +611,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         X509Certificate x509Certificate = CertificateUtil.parseCertificate(oldCertificate.getCertificateContent().getContent());
         X500Principal principal = x509Certificate.getSubjectX500Principal();
         // Gather the signature attributes either provided in the request or get it from the old certificate
-        List<RequestAttributeDto> signatureAttributes;
+        List<RequestAttribute> signatureAttributes;
         if (request.getSignatureAttributes() != null) {
             signatureAttributes = request.getSignatureAttributes();
         } else {
@@ -621,7 +621,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
 
         UUID altTokenProfileUuid = null;
-        List<RequestAttributeDto> altSignatureAttributes = null;
+        List<RequestAttribute> altSignatureAttributes = null;
         if (oldCertificate.isHybridCertificate() && request.getAltKeyUuid() == null)
             throw new ValidationException("Missing alternative key for re-keying of hybrid certificate");
         if (request.getAltKeyUuid() != null) {
@@ -854,7 +854,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.ANY, parentResource = Resource.AUTHORITY, parentAction = ResourceAction.DETAIL)
-    public boolean validateRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException {
+    public boolean validateRevokeCertificateAttributes(SecuredParentUUID authorityUuid, SecuredUUID raProfileUuid, List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         RaProfile raProfile = raProfileRepository.findByUuidAndEnabledIsTrue(raProfileUuid.getValue())
                 .orElseThrow(() -> new NotFoundException(RaProfile.class, raProfileUuid));
         return extendedAttributeService.validateRevokeCertificateAttributes(raProfile, attributes);
@@ -919,7 +919,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      * @param certificate         Existing certificate to be renewed
      * @return UUID of the key from the old certificate
      */
-    private UUID existingKeyValidation(UUID keyUuid, List<RequestAttributeDto> signatureAttributes, Certificate certificate) {
+    private UUID existingKeyValidation(UUID keyUuid, List<RequestAttribute> signatureAttributes, Certificate certificate) {
         // If the signature attributes are not provided in the request and not available in the old certificate, then throw error
         final CertificateRequestEntity certificateRequestEntity = certificate.getCertificateRequest();
         if (signatureAttributes == null && certificateRequestEntity == null) {
@@ -959,7 +959,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
-    private void existingAltKeyValidation(UUID altKeyUuid, List<RequestAttributeDto> altSignatureAttributes, Certificate certificate) {
+    private void existingAltKeyValidation(UUID altKeyUuid, List<RequestAttribute> altSignatureAttributes, Certificate certificate) {
         // If the signature attributes are not provided in the request and not available in the old certificate, then throw error
         final CertificateRequestEntity certificateRequestEntity = certificate.getCertificateRequest();
         if (altSignatureAttributes == null && certificateRequestEntity == null) {
@@ -1019,9 +1019,9 @@ public class ClientOperationServiceImpl implements ClientOperationService {
      * @return Base64 encoded CSR string
      * @throws NotFoundException When the key or tokenProfile UUID is not found
      */
-    private String generateBase64EncodedCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes, UUID altKeyUUid,
+    private String generateBase64EncodedCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttribute> signatureAttributes, UUID altKeyUUid,
                                             UUID altTokenProfileUuid,
-                                            List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException {
+                                            List<RequestAttribute> altSignatureAttributes) throws NotFoundException {
         try {
             // Generate the CSR with the above-mentioned information
             return cryptographicOperationService.generateCsr(
@@ -1123,8 +1123,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         }
     }
 
-    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttributeDto> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttributeDto> signatureAttributes,
-                                            UUID altKeyUUid, UUID altTokenProfileUuid, List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
+    private String generateBase64EncodedCsr(String uploadedRequest, CertificateRequestFormat requestFormat, List<RequestAttribute> csrAttributes, UUID keyUUid, UUID tokenProfileUuid, List<RequestAttribute> signatureAttributes,
+                                            UUID altKeyUUid, UUID altTokenProfileUuid, List<RequestAttribute> altSignatureAttributes) throws NotFoundException, CertificateException, AttributeException, CertificateRequestException {
         String requestB64;
         String csr;
         if (uploadedRequest != null && !uploadedRequest.isEmpty()) {

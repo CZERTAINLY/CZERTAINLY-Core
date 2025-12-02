@@ -1,7 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.CertificateRequestException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -73,7 +73,7 @@ public class CertificateRequestUtils {
         return publicKeyObject;
     }
 
-    public static X500Principal buildSubject(List<RequestAttributeDto> attributes) {
+    public static X500Principal buildSubject(List<RequestAttribute> attributes) {
 
         // Get the data for the attributes
         String commonName = AttributeDefinitionUtils.getSingleItemAttributeContentValue(

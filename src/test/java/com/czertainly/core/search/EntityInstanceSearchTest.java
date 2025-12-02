@@ -2,7 +2,7 @@ package com.czertainly.core.search;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -209,13 +209,13 @@ class EntityInstanceSearchTest extends BaseSpringBootTest {
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
         List<AttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
-        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setUuid(customAttribute.getUuid());
-        requestAttributeDto.setName(customAttribute.getName());
-        requestAttributeDto.setContent(contentItems);
+        RequestAttribute RequestAttribute = new RequestAttribute();
+        RequestAttribute.setUuid(customAttribute.getUuid());
+        RequestAttribute.setName(customAttribute.getName());
+        RequestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.ENTITY));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(), List.of(requestAttributeDto));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(), List.of(RequestAttribute));
     }
 
 

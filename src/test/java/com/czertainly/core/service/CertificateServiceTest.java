@@ -1,7 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -873,12 +873,12 @@ class CertificateServiceTest extends BaseSpringBootTest {
         customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
         customAttributeRequest.setContentType(AttributeContentType.STRING);
         String attributeUuid = attributeService.createCustomAttribute(customAttributeRequest).getUuid();
-        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setUuid(attributeUuid);
-        requestAttributeDto.setName(customAttributeRequest.getName());
-        requestAttributeDto.setContentType(customAttributeRequest.getContentType());
-        requestAttributeDto.setContent(List.of(new StringAttributeContentV2("ref", "data")));
-        protocolCertificateAssociations.setCustomAttributes(List.of(requestAttributeDto));
+        RequestAttribute RequestAttribute = new RequestAttribute();
+        RequestAttribute.setUuid(attributeUuid);
+        RequestAttribute.setName(customAttributeRequest.getName());
+        RequestAttribute.setContentType(customAttributeRequest.getContentType());
+        RequestAttribute.setContent(List.of(new StringAttributeContentV2("ref", "data")));
+        protocolCertificateAssociations.setCustomAttributes(List.of(RequestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return protocolCertificateAssociations;
     }

@@ -4,7 +4,8 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
@@ -74,11 +75,11 @@ public interface EntityInstanceService extends ResourceExtensionService {
     /**
      * Validate Location Attributes for Entity instance
      * @param entityUuid UUID of Entity instance
-     * @param locationAttributes Request Attributes to validate, see {@link RequestAttributeDto}
+     * @param locationAttributes Request Attributes to validate, see {@link RequestAttribute}
      * @throws NotFoundException when Entity instance with given UUID is not found
      * @throws ConnectorException when failed to validate Location Attributes
      */
-    void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto<?>> locationAttributes) throws NotFoundException, ConnectorException;
+    void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttribute> locationAttributes) throws NotFoundException, ConnectorException;
 
     /**
      * Get all possible field to be able to search by customer

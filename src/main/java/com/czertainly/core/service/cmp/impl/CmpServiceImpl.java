@@ -3,7 +3,7 @@ package com.czertainly.core.service.cmp.impl;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.cmp.PkiMessageError;
 import com.czertainly.api.interfaces.core.cmp.error.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -81,8 +81,8 @@ public class CmpServiceImpl implements CmpService {
         this.cmpProfileRepository = cmpProfileRepository;
     }
 
-    private List<RequestAttributeDto> issueAttributes;
-    private List<RequestAttributeDto> revokeAttributes;
+    private List<RequestAttribute> issueAttributes;
+    private List<RequestAttribute> revokeAttributes;
 
     // -- CRYPTO
     private CertificateKeyServiceImpl certificateKeyServiceImpl;

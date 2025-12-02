@@ -1,7 +1,8 @@
 package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3Dto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
@@ -274,8 +275,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
 
     private boolean evaluateCustomAttributeConditionItem(Resource resource, UUID objectUuid, String fieldIdentifier, Object conditionValue, FilterConditionOperator operator) throws RuleException {
         // If source is Custom Attribute, retrieve custom attributes of this object and find the attribute which has Name equal to Field Identifier
-        List<ResponseAttributeDto<?>> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
-        ResponseAttributeDto<?> attributeToCompare = responseAttributeDtos.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
+        List<ResponseAttribute> responseAttributes = attributeEngine.getObjectCustomAttributesContent(resource, objectUuid);
+        ResponseAttributeV3Dto attributeToCompare = (ResponseAttributeV3Dto) responseAttributes.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
         if (attributeToCompare == null) return false;
         // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
         return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
@@ -524,7 +525,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
-    private boolean evaluateConditionOnAttribute(ResponseAttributeDto<?> attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+    private boolean evaluateConditionOnAttribute(ResponseAttributeV3Dto attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
         AttributeContentType contentType = attributeDto.getContentType();
         for (AttributeContent attributeContent : attributeDto.getContent()) {
             Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();

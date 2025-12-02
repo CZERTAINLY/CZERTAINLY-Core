@@ -1,7 +1,8 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -489,9 +490,9 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     private CmpProfileDetailDto updateAndMapDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
-                                     List<RequestAttributeDto<?>> issueCertificateAttributes,
-                                     List<RequestAttributeDto<?>> revokeCertificateAttributes,
-                                     List<RequestAttributeDto<?>> customAttributes) throws NotFoundException, AttributeException {
+                                     List<RequestAttribute> issueCertificateAttributes,
+                                     List<RequestAttribute> revokeCertificateAttributes,
+                                     List<RequestAttribute> customAttributes) throws NotFoundException, AttributeException {
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
         dto.setCustomAttributes(
                 attributeEngine.updateObjectCustomAttributesContent(

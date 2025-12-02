@@ -1,7 +1,7 @@
 package db.migration;
 
 import com.czertainly.api.exception.CertificateOperationException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
@@ -253,7 +253,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 final UUID complianceRuleUuid = rows.getObject("compliance_rule_uuid", UUID.class);
                 final String ruleAttributesJson = rows.getString("attributes");
 
-                List<RequestAttributeDto> profileRuleAttributes = null;
+                List<RequestAttribute> profileRuleAttributes = null;
                 try {
                     profileRuleAttributes = mapper.readValue(ruleAttributesJson, new TypeReference<>() {
                     });
@@ -287,8 +287,8 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
         updateProfileRuleAssocStatement.executeBatch();
     }
 
-    private void updatedRuleRequestAttributes(List<RequestAttributeDto> profileRuleAttributes, Map<String, DataAttributeV2> ruleAttributes) {
-        for (RequestAttributeDto profileRuleAttribute : profileRuleAttributes) {
+    private void updatedRuleRequestAttributes(List<RequestAttribute> profileRuleAttributes, Map<String, DataAttributeV2> ruleAttributes) {
+        for (RequestAttribute profileRuleAttribute : profileRuleAttributes) {
             if (profileRuleAttribute.getUuid() != null && profileRuleAttribute.getContentType() != null) {
                 // skip full attributes
                 continue;

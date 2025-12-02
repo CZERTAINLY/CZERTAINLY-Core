@@ -1,7 +1,7 @@
 package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
@@ -701,8 +701,8 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         executionItem.setFieldIdentifier("custom|STRING");
         executionItem.setData(List.of(linkedHashSet));
         certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
-        List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(1, responseAttributeDtos.getFirst().getContent().size());
+        List<ResponseAttribute> responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(1, responseAttributes.getFirst().getContent().size());
     }
 
     @Test

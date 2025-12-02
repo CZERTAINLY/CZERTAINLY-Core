@@ -4,7 +4,7 @@ import com.czertainly.api.exception.AcmeProblemDocumentException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.acme.*;
 import com.czertainly.api.model.core.authority.CertificateRevocationReason;
@@ -1133,7 +1133,7 @@ public class AcmeServiceImpl implements AcmeService {
         return decodedCsr.toString();
     }
 
-    private List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke, AcmeAccount acmeAccount, boolean isRaProfileBased) {
+    private List<RequestAttribute> getClientOperationAttributes(boolean isRevoke, AcmeAccount acmeAccount, boolean isRaProfileBased) {
         if (acmeAccount == null) {
             return List.of();
         }

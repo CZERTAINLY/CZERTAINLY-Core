@@ -1,10 +1,14 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.cryptography.operations.*;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.*;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -409,13 +413,13 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setData(List.of(data));
         requestDto.setSignatureAttributes(List.of());
 
-        RequestAttributeDto reqDto1 = new RequestAttributeDto();
+        RequestAttributeV3Dto reqDto1 = new RequestAttributeV3Dto();
         reqDto1.setName("data_rsaSigScheme");
-        reqDto1.setContent(List.of(new StringAttributeContentV2("PSS")));
+        reqDto1.setContent(List.of(new StringAttributeContentV3("PSS")));
 
-        RequestAttributeDto reqDto2 = new RequestAttributeDto();
+        RequestAttributeV3Dto reqDto2 = new RequestAttributeV3Dto();
         reqDto2.setName("data_sigDigest");
-        reqDto2.setContent(List.of(new StringAttributeContentV2("SHA-256")));
+        reqDto2.setContent(List.of(new StringAttributeContentV3("SHA-256")));
 
         requestDto.setSignatureAttributes(List.of(reqDto1, reqDto2));
 
@@ -471,13 +475,13 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setSignatureAttributes(List.of());
         requestDto.setSignatures(List.of(data));
 
-        RequestAttributeDto reqDto1 = new RequestAttributeDto();
+        RequestAttributeV3Dto reqDto1 = new RequestAttributeV3Dto();
         reqDto1.setName("data_rsaSigScheme");
-        reqDto1.setContent(List.of(new StringAttributeContentV2("PSS")));
+        reqDto1.setContent(List.of(new StringAttributeContentV3("PSS")));
 
-        RequestAttributeDto reqDto2 = new RequestAttributeDto();
+        RequestAttributeV3Dto reqDto2 = new RequestAttributeV3Dto();
         reqDto2.setName("data_sigDigest");
-        reqDto2.setContent(List.of(new StringAttributeContentV2("SHA-256")));
+        reqDto2.setContent(List.of(new StringAttributeContentV3("SHA-256")));
 
         requestDto.setSignatureAttributes(List.of(reqDto1, reqDto2));
         mockServer.stubFor(WireMock
@@ -547,7 +551,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         CryptographicKey altKey = createAndSaveKey("altKey", KeyAlgorithm.SLHDSA, Base64.getEncoder().encodeToString(altKeyPair.getPublic().getEncoded()));
         CryptographicKey defaultKey = createAndSaveKey("defKey", KeyAlgorithm.RSA, Base64.getEncoder().encodeToString(defaultKeyPair.getPublic().getEncoded()));
 
-        List<RequestAttributeDto> rsaSignatureAttributes = new ArrayList<>();
+        List<RequestAttribute> rsaSignatureAttributes = new ArrayList<>();
         rsaSignatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5));
         rsaSignatureAttributes.add(RsaSignatureAttributes.buildRequestDigest(DigestAlgorithm.SHA3_256));
 

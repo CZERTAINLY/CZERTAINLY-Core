@@ -1,6 +1,6 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
@@ -10,6 +10,7 @@ import com.czertainly.api.model.common.attribute.v2.content.StringAttributeConte
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BooleanAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
@@ -125,33 +126,33 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestEncryptionScheme(RsaEncryptionScheme value) {
+    public static RequestAttributeV3Dto buildRequestEncryptionScheme(RsaEncryptionScheme value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
+        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestOaepHash(DigestAlgorithm value) {
+    public static RequestAttributeV3Dto buildRequestOaepHash(DigestAlgorithm value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
+        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestOaepMgf(boolean value) {
+    public static RequestAttributeV3Dto buildRequestOaepMgf(boolean value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
+        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         attribute.setContentType(AttributeContentType.BOOLEAN);
-        attribute.setContent(List.of(new BooleanAttributeContentV2(value)));
+        attribute.setContent(List.of(new BooleanAttributeContentV3(value)));
         return attribute;
     }
 }

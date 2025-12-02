@@ -1,6 +1,6 @@
 package com.czertainly.core.service.cmp.message.protection.impl;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
@@ -96,7 +96,7 @@ public class SingatureBaseProtectionStrategy extends BaseProtectionStrategy impl
         // other algorithms are not supported
         // TODO: add support for other algorithms, and definition of signature attributes based on the request
         //  or configuration in CMP Profile
-        List<RequestAttributeDto> signatureAttributes = new ArrayList<>();
+        List<RequestAttribute> signatureAttributes = new ArrayList<>();
         switch (keyAlgorithm) {
             case RSA -> {
                 signatureAttributes.add(RsaSignatureAttributes.buildRequestRsaSigScheme(RsaSignatureScheme.PKCS1_v1_5));

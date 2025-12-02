@@ -1,7 +1,7 @@
 package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.ConnectorAuthController;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.AuthType;
@@ -39,7 +39,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateBasicAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+    public void validateBasicAuthAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateBasicAuthAttributes(attributes);
     }
 
@@ -51,7 +51,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateCertificateAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+    public void validateCertificateAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateCertificateAttributes(attributes);
     }
 
@@ -63,7 +63,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateApiKeyAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+    public void validateApiKeyAuthAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateApiKeyAuthAttributes(attributes);
     }
 
@@ -75,7 +75,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt", affiliatedResource = Resource.CONNECTOR, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateJWTAuthAttributes(@RequestBody List<RequestAttributeDto> attributes) {
+    public void validateJWTAuthAttributes(@RequestBody List<RequestAttribute> attributes) {
         connectorAuthService.validateJWTAuthAttributes(attributes);
     }
 }

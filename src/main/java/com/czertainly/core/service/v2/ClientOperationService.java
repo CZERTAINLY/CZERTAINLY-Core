@@ -1,7 +1,7 @@
 package com.czertainly.core.service.v2;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.v2.*;
@@ -26,7 +26,7 @@ public interface ClientOperationService {
     boolean validateIssueCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
-            List<RequestAttributeDto> attributes
+            List<RequestAttribute> attributes
     ) throws ConnectorException, ValidationException, NotFoundException;
 
     CertificateDetailDto submitCertificateRequest(
@@ -101,6 +101,6 @@ public interface ClientOperationService {
     boolean validateRevokeCertificateAttributes(
             SecuredParentUUID authorityUuid,
             SecuredUUID raProfileUuid,
-            List<RequestAttributeDto> attributes
+            List<RequestAttribute> attributes
     ) throws ConnectorException, ValidationException, NotFoundException;
 }

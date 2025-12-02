@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.clients.BaseApiClient;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
@@ -58,7 +58,7 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testValidateBasicAuthAttributes() {
-        List<RequestAttributeDto> attrs = new ArrayList<>();
+        List<RequestAttribute> attrs = new ArrayList<>();
 
 
         attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, List.of(new StringAttributeContentV2("username"))));
@@ -80,7 +80,7 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         byte[] keyStoreData = keyStoreStream.readAllBytes();
 
-        List<RequestAttributeDto> attrs = new ArrayList<>();
+        List<RequestAttribute> attrs = new ArrayList<>();
 
         attrs.addAll(createAttributes(ATTRIBUTE_KEYSTORE_TYPE, List.of(new StringAttributeContentV2("PKCS12"))));
         FileAttributeContentData data = new FileAttributeContentData();
@@ -101,7 +101,7 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testValidateApiKeyAuthAttributes() {
-        List<RequestAttributeDto> attrs = new ArrayList<>();
+        List<RequestAttribute> attrs = new ArrayList<>();
         BaseAttributeContentV2 base = new StringAttributeContentV2();
         base.setData("apiKetTesting");
 

@@ -1,6 +1,7 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
@@ -98,22 +99,22 @@ public class RsaSignatureAttributes {
     }
 
 
-    public static RequestAttributeDto buildRequestRsaSigScheme(RsaSignatureScheme value) {
-        RequestAttributeDto attribute = new RequestAttributeDto();
+    public static RequestAttributeV3Dto buildRequestRsaSigScheme(RsaSignatureScheme value) {
+        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestDigest(DigestAlgorithm value) {
+    public static RequestAttributeV3Dto buildRequestDigest(DigestAlgorithm value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
+        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
 
         return attribute;
     }

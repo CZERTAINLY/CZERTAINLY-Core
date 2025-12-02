@@ -2,7 +2,8 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.ComplianceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -223,7 +224,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         return getProviderRule(complianceProfile.getUuid(), complianceProfile.getName(), UUID.fromString(request.getConnectorUuid()), request.getKind(), request.getRuleUuid(), complianceProfileRule.getAttributes());
     }
 
-    private ComplianceProfileRuleDto getProviderRule(UUID complianceProfileUuid, String complianceProfileName, UUID connectorUuid, String kind, String ruleUuid, List<RequestAttributeDto<?>> requestAttributes) throws NotFoundException, ConnectorException {
+    private ComplianceProfileRuleDto getProviderRule(UUID complianceProfileUuid, String complianceProfileName, UUID connectorUuid, String kind, String ruleUuid, List<RequestAttribute> requestAttributes) throws NotFoundException, ConnectorException {
         ConnectorDto connectorDto = getValidatedComplianceProvider(connectorUuid, kind);
 
         ComplianceProfileRuleDto resultRule = null;

@@ -70,7 +70,7 @@ public class DatabaseAttributeMigration {
                     List<DataAttributeV2> attributes = AttributeDefinitionUtils.deserialize(json, DataAttributeV2.class);
                     Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
                     for (DataAttributeV2 dataAttribute : attributes) {
-                        // check if attribute was not deserialized from RequestAttributeDto
+                        // check if attribute was not deserialized from RequestAttribute
                         if (dataAttribute.getProperties() == null) {
                             dataAttribute.setContentType(AttributeContentType.OBJECT); // default for now
                             if (dataAttribute.getUuid() == null) {

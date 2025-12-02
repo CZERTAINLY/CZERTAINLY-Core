@@ -4,7 +4,8 @@ import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.compliance.v2.ComplianceProfileUpdateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ProviderComplianceRulesRequestDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -349,7 +350,7 @@ public class ComplianceProfileRuleHandler {
         return complianceProfileRule;
     }
 
-    public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceRuleResponseDto providerRule, List<RequestAttributeDto<?>> requestAttributes) {
+    public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceRuleResponseDto providerRule, List<RequestAttribute> requestAttributes) {
         if (!providerRule.getResource().complianceSubject()) {
             throw new ValidationException("Provider rule '%s' with resource %s cannot be associated with compliance profile because resource does not support compliance check".formatted(providerRule.getName(), providerRule.getResource().getLabel()));
         }

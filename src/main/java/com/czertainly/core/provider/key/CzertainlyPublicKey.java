@@ -1,6 +1,6 @@
 package com.czertainly.core.provider.key;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 
 import java.security.PrivateKey;

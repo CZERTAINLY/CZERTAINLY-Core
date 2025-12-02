@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceRuleAvailabilityStatus;
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -72,7 +73,7 @@ public class ComplianceProfileRule extends UniquelyIdentified implements Seriali
 
     @Column(name = "attributes", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<RequestAttributeDto<?>> attributes;
+    private List<RequestAttribute> attributes;
 
     @Transient
     private ComplianceRuleAvailabilityStatus availabilityStatus;

@@ -3,7 +3,8 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -262,9 +263,9 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
     }
 
     private AcmeProfileDto updateAndMapDtoAttributes(AcmeProfile acmeProfile, RaProfile raProfile,
-                                                          List<RequestAttributeDto<?>> issueCertificateAttributes,
-                                                          List<RequestAttributeDto<?>> revokeCertificateAttributes,
-                                                          List<RequestAttributeDto<?>> customAttributes) throws NotFoundException, AttributeException {
+                                                          List<RequestAttribute> issueCertificateAttributes,
+                                                          List<RequestAttribute> revokeCertificateAttributes,
+                                                          List<RequestAttribute> customAttributes) throws NotFoundException, AttributeException {
         AcmeProfileDto dto = acmeProfile.mapToDto();
         dto.setCustomAttributes(attributeEngine.updateObjectCustomAttributesContent(Resource.ACME_PROFILE, acmeProfile.getUuid(), customAttributes));
         if (raProfile != null) {

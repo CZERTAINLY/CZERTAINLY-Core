@@ -333,12 +333,12 @@ public class AttributeEngine {
         return attributeDefinition;
     }
 
-    public void validateUpdateDataAttributes(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttributeDto<?>> requestAttributes) throws AttributeException {
+    public void validateUpdateDataAttributes(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttribute> requestAttributes) throws AttributeException {
         updateDataAttributeDefinitions(connectorUuid, operation, attributes);
         validateDataAttributesContent(connectorUuid, operation, attributes, requestAttributes);
     }
 
-    private void validateDataAttributesContent(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttributeDto<?>> requestAttributes) throws ValidationException {
+    private void validateDataAttributesContent(UUID connectorUuid, String operation, List<? extends BaseAttribute> attributes, List<RequestAttribute> requestAttributes) throws ValidationException {
         logger.debug("Validating data attributes: {}", attributes);
         if (attributes == null) {
             attributes = new ArrayList<>();
@@ -351,16 +351,16 @@ public class AttributeEngine {
         Map<String, AttributeDefinition> definitionsMapping = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(AttributeType.DATA, connectorUuid, attributeUuids, attributeNames).stream().collect(Collectors.toMap(AttributeDefinition::getName, d -> d));
 
         // load missing data attributes definitions from DB
-        for (RequestAttributeDto requestAttributeDto : requestAttributes) {
-            if (definitionsMapping.get(requestAttributeDto.getName()) == null) {
-                AttributeDefinition missingDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttributeDto.getUuid()), requestAttributeDto.getName()).orElse(null);
+        for (RequestAttribute RequestAttribute : requestAttributes) {
+            if (definitionsMapping.get(RequestAttribute.getName()) == null) {
+                AttributeDefinition missingDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(RequestAttribute.getUuid()), RequestAttribute.getName()).orElse(null);
                 if (missingDefinition != null) {
                     // update operation - if attribute is retrieved by callback, we do not know its operation
                     if (!Objects.equals(missingDefinition.getOperation(), operation)) {
                         missingDefinition.setOperation(operation);
                         attributeDefinitionRepository.save(missingDefinition);
                     }
-                    definitionsMapping.put(requestAttributeDto.getName(), missingDefinition);
+                    definitionsMapping.put(RequestAttribute.getName(), missingDefinition);
                 }
             }
         }
@@ -395,10 +395,10 @@ public class AttributeEngine {
     private void updateDataAttributeDefinition(UUID connectorUuid, String operation, DataAttribute<?> dataAttribute) throws AttributeException {
         validateAttributeDefinition((BaseAttribute) dataAttribute, connectorUuid);
 
-        // find by connector uuid and name only because attribute uuid could be generated when data attribute was migrated from RequestAttributeDto
+        // find by connector uuid and name only because attribute uuid could be generated when data attribute was migrated from RequestAttribute
         AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(dataAttribute.getUuid()), dataAttribute.getName()).orElse(null);
         if (attributeDefinition != null) {
-            // update definition when it was migrated from RequestAttributeDto
+            // update definition when it was migrated from RequestAttribute
             if (attributeDefinition.getLabel().isEmpty() && attributeDefinition.getDefinition().getDescription().equals(ATTRIBUTE_DEFINITION_FORCE_UPDATE_LABEL)) {
                 attributeDefinition.setContentType(dataAttribute.getContentType());
                 attributeDefinition.setAttributeUuid(UUID.fromString(dataAttribute.getUuid()));
@@ -547,18 +547,18 @@ public class AttributeEngine {
         }
     }
 
-    public List<ResponseAttributeDto<?>> loadResponseAttributes(AttributeType attributeType, UUID connectorUuid, List<RequestAttributeDto<?>> requestAttributes) {
+    public List<ResponseAttribute> loadResponseAttributes(AttributeType attributeType, UUID connectorUuid, List<RequestAttribute> requestAttributes) {
         List<UUID> attributeUuids = new ArrayList<>();
         List<String> attributeNames = new ArrayList<>();
-        for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+        for (RequestAttribute requestAttribute : requestAttributes) {
             attributeUuids.add(UUID.fromString(requestAttribute.getUuid()));
             attributeNames.add(requestAttribute.getName());
         }
 
         Map<UUID, AttributeDefinition> definitionsMapping = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidInAndNameIn(attributeType, connectorUuid, attributeUuids, attributeNames).stream().collect(Collectors.toMap(AttributeDefinition::getAttributeUuid, d -> d));
 
-        List<ResponseAttributeDto<?>> responseAttributes = new ArrayList<>();
-        for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+        List<ResponseAttribute> responseAttributes = new ArrayList<>();
+        for (RequestAttribute requestAttribute : requestAttributes) {
             AttributeDefinition attributeDefinition = definitionsMapping.get(UUID.fromString(requestAttribute.getUuid()));
             if (attributeDefinition == null) {
                 continue;
@@ -576,7 +576,7 @@ public class AttributeEngine {
         return responseAttributes;
     }
 
-    private static ResponseAttributeV2Dto getResponseAttributeV2(AttributeType attributeType, RequestAttributeDto<?> requestAttribute, AttributeDefinition attributeDefinition) {
+    private static ResponseAttributeV2Dto getResponseAttributeV2(AttributeType attributeType, RequestAttribute requestAttribute, AttributeDefinition attributeDefinition) {
         ResponseAttributeV2Dto responseAttribute = new ResponseAttributeV2Dto();
         responseAttribute.setUuid(requestAttribute.getUuid());
         responseAttribute.setName(requestAttribute.getName());
@@ -587,7 +587,7 @@ public class AttributeEngine {
         return responseAttribute;
     }
 
-    private static ResponseAttributeV3Dto getResponseAttributeV3(AttributeType attributeType, RequestAttributeDto<?> requestAttribute, AttributeDefinition attributeDefinition) {
+    private static ResponseAttributeV3Dto getResponseAttributeV3(AttributeType attributeType, RequestAttribute requestAttribute, AttributeDefinition attributeDefinition) {
         ResponseAttributeV3Dto responseAttribute = new ResponseAttributeV3Dto();
         responseAttribute.setUuid(requestAttribute.getUuid());
         responseAttribute.setName(requestAttribute.getName());
@@ -598,14 +598,14 @@ public class AttributeEngine {
         return responseAttribute;
     }
 
-    public List<ResponseAttributeDto<?>> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid) {
+    public List<ResponseAttribute> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid) {
         logger.debug("Getting the custom attributes for {} with UUID: {}", objectType.getLabel(), objectUuid);
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
 
         return getObjectCustomAttributesContent(objectType, objectUuid, securityResourceFilter);
     }
 
-    private List<ResponseAttributeDto<?>> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid, SecurityResourceFilter securityResourceFilter) {
+    private List<ResponseAttribute> getObjectCustomAttributesContent(Resource objectType, UUID objectUuid, SecurityResourceFilter securityResourceFilter) {
         List<UUID> allowedAttributes = null;
         List<UUID> forbiddenAttributes = null;
         if (securityResourceFilter != null) {
@@ -621,30 +621,30 @@ public class AttributeEngine {
         return getResponseAttributes(objectContents);
     }
 
-    public List<ResponseAttributeDto<?>> getObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
+    public List<ResponseAttribute> getObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
         return getObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
     }
 
-    public List<ResponseAttributeDto<?>> getObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
+    public List<ResponseAttribute> getObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {} for purpose {}.", objectType.getLabel(), objectUuid, connectorUuid, operation, purpose);
         List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
         return getResponseAttributes(objectContents);
     }
 
-    public List<RequestAttributeDto> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
+    public List<RequestAttribute> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
         return getRequestObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
     }
 
-    public List<RequestAttributeDto> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
+    public List<RequestAttribute> getRequestObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the request data attributes for {} with UUID {} from connector {} and operation {}.", objectType.getLabel(), objectUuid, connectorUuid, operation);
         List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
         return getRequestAttributes(objectContents);
     }
 
-    public List<DataAttribute<?>> getDataAttributesV2ByContent(UUID connectorUuid, List<RequestAttributeDto<?>> requestAttributes) throws AttributeException {
+    public List<DataAttribute<?>> getDataAttributesV2ByContent(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException {
         List<DataAttribute<?>> dataAttributes = new ArrayList<>();
         String connectorUuidStr = connectorUuid == null ? null : connectorUuid.toString();
-        for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+        for (RequestAttribute requestAttribute : requestAttributes) {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName())
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : requestAttribute.getUuid(), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
 
@@ -652,12 +652,12 @@ public class AttributeEngine {
 
             if (requestAttribute.getVersion() == 2) {
                 DataAttributeV2 dataAttribute = (DataAttributeV2) definition.getDefinition();
-                dataAttribute.setContent(requestAttribute.getContent().stream().map(c -> (BaseAttributeContentV2) c).toList());
+                dataAttribute.setContent(((RequestAttributeV2Dto) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV2) c).toList());
                 dataAttributes.add(dataAttribute);
             }
             if (requestAttribute.getVersion() == 3) {
                 DataAttributeV3 dataAttribute = (DataAttributeV3) definition.getDefinition();
-                dataAttribute.setContent(requestAttribute.getContent().stream().map(c -> (BaseAttributeContentV3) c).toList());
+                dataAttribute.setContent(((RequestAttributeV3Dto) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV3) c).toList());
                 dataAttributes.add(dataAttribute);
             }
         }
@@ -680,27 +680,28 @@ public class AttributeEngine {
         return objectContents;
     }
 
-    private List<RequestAttributeDto> getRequestAttributes(List<ObjectAttributeContent> objectContents) {
-        Map<String, RequestAttributeDto> mapping = new HashMap<>();
+    private List<RequestAttribute> getRequestAttributes(List<ObjectAttributeContent> objectContents) {
+        Map<String, RequestAttribute> mapping = new HashMap<>();
         for (ObjectAttributeContent objectContent : objectContents) {
             String uuid = objectContent.uuid().toString();
-            RequestAttributeDto requestAttribute;
-            if ((requestAttribute = mapping.get(uuid)) == null) {
-                requestAttribute = new RequestAttributeDto();
-                requestAttribute.setUuid(objectContent.uuid().toString());
-                requestAttribute.setName(objectContent.name());
-                requestAttribute.setContentType(objectContent.contentType());
-                requestAttribute.setContent(new ArrayList<>());
-                mapping.put(uuid, requestAttribute);
-            }
-            requestAttribute.getContent().add(objectContent.contentItem());
+            RequestAttribute requestAttribute;
+            //TODO: split
+//            if ((requestAttribute = mapping.get(uuid)) == null) {
+//                requestAttribute = new RequestAttribute();
+//                requestAttribute.setUuid(objectContent.uuid().toString());
+//                requestAttribute.setName(objectContent.name());
+//                requestAttribute.setContentType(objectContent.contentType());
+//                requestAttribute.setContent(new ArrayList<>());
+//                mapping.put(uuid, requestAttribute);
+//            }
+//            requestAttribute.getContent().add(objectContent.contentItem());
         }
 
         return mapping.values().stream().toList();
     }
 
-    private List<ResponseAttributeDto<?>> getResponseAttributes(List<ObjectAttributeContent> objectContents) {
-        Map<String, ResponseAttributeDto<?>> mapping = new HashMap<>();
+    private List<ResponseAttribute> getResponseAttributes(List<ObjectAttributeContent> objectContents) {
+        Map<String, ResponseAttribute> mapping = new HashMap<>();
         for (ObjectAttributeContent objectContent : objectContents) {
             String uuid = objectContent.uuid().toString();
             if (objectContent.version() == 2) {
@@ -742,11 +743,11 @@ public class AttributeEngine {
         return mapping.values().stream().toList();
     }
 
-    public List<ResponseAttributeDto<?>> updateObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid, List<RequestAttributeDto<?>> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
+    public List<ResponseAttribute> updateObjectDataAttributesContent(UUID connectorUuid, String operation, Resource objectType, UUID objectUuid, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
         return updateObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid, requestAttributes);
     }
 
-    public List<ResponseAttributeDto<?>> updateObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid, List<RequestAttributeDto<?>> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
+    public List<ResponseAttribute> updateObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
         logger.debug("Updating the content of data attributes for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
         if (requestAttributes == null) {
             requestAttributes = new ArrayList<>();
@@ -755,7 +756,7 @@ public class AttributeEngine {
         // delete all content for operation
         ObjectAttributeContentInfo objectAttributeContentInfo = new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid, purpose);
         deleteOperationObjectAttributesContent(AttributeType.DATA, operation, purpose, objectAttributeContentInfo);
-        for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+        for (RequestAttribute requestAttribute : requestAttributes) {
             AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
              createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, requestAttribute.getContent());
         }
@@ -763,7 +764,7 @@ public class AttributeEngine {
         return getObjectDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
     }
 
-    public List<ResponseAttributeDto<?>> updateObjectCustomAttributesContent(Resource objectType, UUID objectUuid, List<RequestAttributeDto<?>> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
+    public List<ResponseAttribute> updateObjectCustomAttributesContent(Resource objectType, UUID objectUuid, List<RequestAttribute> requestAttributes) throws ValidationException, NotFoundException, AttributeException {
         logger.debug("Updating the content of custom attributes for resource {} with UUID: {}", objectType.getLabel(), objectUuid);
         if (requestAttributes == null) {
             requestAttributes = new ArrayList<>();
@@ -776,7 +777,7 @@ public class AttributeEngine {
         if (securityResourceFilter == null || (!securityResourceFilter.areOnlySpecificObjectsAllowed() && securityResourceFilter.getForbiddenObjects().isEmpty())) {
             // custom attributes content is automatically replaced
             deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
-            for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+            for (RequestAttribute requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
             }
@@ -784,7 +785,7 @@ public class AttributeEngine {
             // delete only content of allowed attributes
             deleteObjectAllowedCustomAttributeContent(securityResourceFilter, objectType, objectUuid);
 
-            for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+            for (RequestAttribute requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
                     if (!securityResourceFilter.getAllowedObjects().contains(attributeDefinition.getUuid())) {
@@ -899,7 +900,7 @@ public class AttributeEngine {
         }
     }
 
-    public static void validateRequestDataAttributes(List<? extends BaseAttribute> definitions, List<RequestAttributeDto<?>> requestAttributes, boolean strict) throws ValidationException {
+    public static void validateRequestDataAttributes(List<? extends BaseAttribute> definitions, List<RequestAttribute> requestAttributes, boolean strict) throws ValidationException {
         if (definitions == null) {
             definitions = new ArrayList<>();
         }
@@ -908,10 +909,10 @@ public class AttributeEngine {
         }
 
         Map<String, DataAttributeV2> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttributeV2) a));
-        Map<String, RequestAttributeDto> mappedRequestAttributes = requestAttributes.stream().collect(Collectors.toMap(RequestAttributeDto::getUuid, a -> a));
+        Map<String, RequestAttribute> mappedRequestAttributes = requestAttributes.stream().collect(Collectors.toMap(RequestAttribute::getUuid, a -> a));
 
         if (strict) {
-            for (RequestAttributeDto requestAttribute : requestAttributes) {
+            for (RequestAttribute requestAttribute : requestAttributes) {
                 if (mappedDefinitions.get(requestAttribute.getUuid()) == null) {
                     throw new ValidationException("Request attribute '%s' does not have definition".formatted(requestAttribute.getName()));
                 }
@@ -919,7 +920,7 @@ public class AttributeEngine {
         }
 
         for (DataAttributeV2 definition : mappedDefinitions.values()) {
-            RequestAttributeDto requestAttribute = mappedRequestAttributes.get(definition.getUuid());
+            RequestAttribute requestAttribute = mappedRequestAttributes.get(definition.getUuid());
             if (requestAttribute == null) {
                 if (definition.getProperties().isRequired()) {
                     throw new ValidationException("Missing Request attribute for required attribute '%s'".formatted(definition.getName()));
@@ -937,7 +938,7 @@ public class AttributeEngine {
         }
     }
 
-    public static List<ResponseAttributeDto<?>> getRequestDataAttributesContent(List<BaseAttribute> definitions, List<RequestAttributeDto<?>> requestAttributes) throws ValidationException {
+    public static List<ResponseAttribute> getRequestDataAttributesContent(List<BaseAttribute> definitions, List<RequestAttribute> requestAttributes) throws ValidationException {
         if (definitions == null) {
             definitions = new ArrayList<>();
         }
@@ -945,9 +946,9 @@ public class AttributeEngine {
             requestAttributes = new ArrayList<>();
         }
 
-        List<ResponseAttributeDto<?>> responseAttributes = new ArrayList<>();
+        List<ResponseAttribute> responseAttributes = new ArrayList<>();
         Map<String, DataAttribute<?>> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute<?>) a));
-        for (RequestAttributeDto<?> requestAttribute : requestAttributes) {
+        for (RequestAttribute requestAttribute : requestAttributes) {
             DataAttribute<?> definition = mappedDefinitions.get(requestAttribute.getUuid());
             if (definition == null) {
                 continue;
@@ -978,13 +979,13 @@ public class AttributeEngine {
         return responseAttributes;
     }
 
-    public void validateCustomAttributesContent(Resource resource, List<RequestAttributeDto<?>> attributes) throws ValidationException {
+    public void validateCustomAttributesContent(Resource resource, List<RequestAttribute> attributes) throws ValidationException {
         logger.debug("Validating custom attributes: {}", attributes);
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
         validateCustomAttributesContent(resource, attributes, securityResourceFilter);
     }
 
-    private void validateCustomAttributesContent(Resource resource, List<RequestAttributeDto<?>> attributes, SecurityResourceFilter securityResourceFilter) throws ValidationException {
+    private void validateCustomAttributesContent(Resource resource, List<RequestAttribute> attributes, SecurityResourceFilter securityResourceFilter) throws ValidationException {
         if (attributes == null) {
             attributes = new ArrayList<>();
         }
@@ -1012,7 +1013,7 @@ public class AttributeEngine {
 
         // check for custom attributes specific validation
         List<ValidationError> errors = new ArrayList<>();
-        for (RequestAttributeDto attribute : attributes) {
+        for (RequestAttribute attribute : attributes) {
             AttributeDefinition definition = definitionsMapping.get(attribute.getName());
             if (definition == null) {
                 errors.add(ValidationError.create("Content for custom attribute {} is provided but resource {} is not associated with it", attribute.getName(), resource.getLabel()));
@@ -1119,9 +1120,9 @@ public class AttributeEngine {
         }
     }
 
-    private List<ValidationError> validateAttributesContent(Map<String, AttributeDefinition> definitionsMapping, List<RequestAttributeDto<?>> attributes) {
+    private List<ValidationError> validateAttributesContent(Map<String, AttributeDefinition> definitionsMapping, List<RequestAttribute> attributes) {
         List<ValidationError> errors = new ArrayList<>();
-        for (RequestAttributeDto<?> attribute : attributes) {
+        for (RequestAttribute attribute : attributes) {
             AttributeDefinition definition = definitionsMapping.get(attribute.getName());
             if (definition == null) {
                 errors.add(ValidationError.create("Content for attribute {} is provided but definition is not found", attribute.getName()));
