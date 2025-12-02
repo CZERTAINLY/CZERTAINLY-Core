@@ -3,6 +3,7 @@ package com.czertainly.core.search;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -14,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -175,14 +177,14 @@ public class DiscoveryHistorySearchTest extends BaseSpringBootTest {
         customAttribute.setContentType(AttributeContentType.TEXT);
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
-        List<AttributeContent> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
-        RequestAttribute RequestAttribute = new RequestAttribute();
-        RequestAttribute.setUuid(customAttribute.getUuid());
-        RequestAttribute.setName(customAttribute.getName());
-        RequestAttribute.setContent(contentItems);
+        List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        RequestAttributeV3Dto requestAttribute = new RequestAttributeV3Dto();
+        requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
+        requestAttribute.setName(customAttribute.getName());
+        requestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.DISCOVERY));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(), List.of(RequestAttribute));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.DISCOVERY, discoveryHistory.getUuid(), List.of(requestAttribute));
     }
 
 

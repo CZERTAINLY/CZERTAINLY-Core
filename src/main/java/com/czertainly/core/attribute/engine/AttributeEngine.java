@@ -353,7 +353,7 @@ public class AttributeEngine {
         // load missing data attributes definitions from DB
         for (RequestAttribute RequestAttribute : requestAttributes) {
             if (definitionsMapping.get(RequestAttribute.getName()) == null) {
-                AttributeDefinition missingDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(RequestAttribute.getUuid()), RequestAttribute.getName()).orElse(null);
+                AttributeDefinition missingDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(String.valueOf(RequestAttribute.getUuid())), RequestAttribute.getName()).orElse(null);
                 if (missingDefinition != null) {
                     // update operation - if attribute is retrieved by callback, we do not know its operation
                     if (!Objects.equals(missingDefinition.getOperation(), operation)) {
@@ -551,7 +551,7 @@ public class AttributeEngine {
         List<UUID> attributeUuids = new ArrayList<>();
         List<String> attributeNames = new ArrayList<>();
         for (RequestAttribute requestAttribute : requestAttributes) {
-            attributeUuids.add(UUID.fromString(requestAttribute.getUuid()));
+            attributeUuids.add(requestAttribute.getUuid());
             attributeNames.add(requestAttribute.getName());
         }
 
@@ -559,7 +559,7 @@ public class AttributeEngine {
 
         List<ResponseAttribute> responseAttributes = new ArrayList<>();
         for (RequestAttribute requestAttribute : requestAttributes) {
-            AttributeDefinition attributeDefinition = definitionsMapping.get(UUID.fromString(requestAttribute.getUuid()));
+            AttributeDefinition attributeDefinition = definitionsMapping.get(requestAttribute.getUuid());
             if (attributeDefinition == null) {
                 continue;
             }
@@ -645,8 +645,8 @@ public class AttributeEngine {
         List<DataAttribute<?>> dataAttributes = new ArrayList<>();
         String connectorUuidStr = connectorUuid == null ? null : connectorUuid.toString();
         for (RequestAttribute requestAttribute : requestAttributes) {
-            AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName())
-                    .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : requestAttribute.getUuid(), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
+            AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
+                    .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
 
             validateAttributeContent(definition, requestAttribute.getContent());
 
@@ -708,7 +708,7 @@ public class AttributeEngine {
                 ResponseAttributeV2Dto responseAttribute;
                 if ((mapping.get(uuid)) == null) {
                     responseAttribute = new ResponseAttributeV2Dto();
-                    responseAttribute.setUuid(objectContent.uuid().toString());
+                    responseAttribute.setUuid(objectContent.uuid());
                     responseAttribute.setName(objectContent.name());
                     responseAttribute.setLabel(objectContent.label());
                     responseAttribute.setType(objectContent.type());
@@ -725,7 +725,7 @@ public class AttributeEngine {
                 ResponseAttributeV3Dto responseAttribute;
                 if ((mapping.get(uuid)) == null) {
                     responseAttribute = new ResponseAttributeV3Dto();
-                    responseAttribute.setUuid(objectContent.uuid().toString());
+                    responseAttribute.setUuid(objectContent.uuid());
                     responseAttribute.setName(objectContent.name());
                     responseAttribute.setLabel(objectContent.label());
                     responseAttribute.setType(objectContent.type());
@@ -757,7 +757,7 @@ public class AttributeEngine {
         ObjectAttributeContentInfo objectAttributeContentInfo = new ObjectAttributeContentInfo(connectorUuid, objectType, objectUuid, purpose);
         deleteOperationObjectAttributesContent(AttributeType.DATA, operation, purpose, objectAttributeContentInfo);
         for (RequestAttribute requestAttribute : requestAttributes) {
-            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, UUID.fromString(requestAttribute.getUuid()), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
+            AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
              createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, requestAttribute.getContent());
         }
 
@@ -909,7 +909,7 @@ public class AttributeEngine {
         }
 
         Map<String, DataAttributeV2> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttributeV2) a));
-        Map<String, RequestAttribute> mappedRequestAttributes = requestAttributes.stream().collect(Collectors.toMap(RequestAttribute::getUuid, a -> a));
+        Map<String, RequestAttribute> mappedRequestAttributes = requestAttributes.stream().collect(Collectors.toMap(requestAttribute -> requestAttribute.getUuid().toString(), a -> a));
 
         if (strict) {
             for (RequestAttribute requestAttribute : requestAttributes) {
@@ -997,10 +997,10 @@ public class AttributeEngine {
         if (securityResourceFilter != null) {
             if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
                 definitionsMapping = relations.stream().filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid())).collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));
-                attributes = attributes.stream().filter(a -> securityResourceFilter.getAllowedObjects().contains(UUID.fromString(a.getUuid()))).toList();
+                attributes = attributes.stream().filter(a -> securityResourceFilter.getAllowedObjects().contains(a.getUuid())).toList();
             } else {
                 definitionsMapping = relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));
-                attributes = attributes.stream().filter(a -> !securityResourceFilter.getForbiddenObjects().contains(UUID.fromString(a.getUuid()))).toList();
+                attributes = attributes.stream().filter(a -> !securityResourceFilter.getForbiddenObjects().contains(a.getUuid())).toList();
             }
         } else {
             definitionsMapping = relations.stream().collect(Collectors.toMap(r -> r.getAttributeDefinition().getName(), AttributeRelation::getAttributeDefinition));

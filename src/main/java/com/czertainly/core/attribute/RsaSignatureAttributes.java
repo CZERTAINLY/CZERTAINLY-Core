@@ -15,6 +15,7 @@ import com.czertainly.core.attribute.engine.AttributeOperation;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -101,7 +102,7 @@ public class RsaSignatureAttributes {
 
     public static RequestAttributeV3Dto buildRequestRsaSigScheme(RsaSignatureScheme value) {
         RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
@@ -111,7 +112,7 @@ public class RsaSignatureAttributes {
     public static RequestAttributeV3Dto buildRequestDigest(DigestAlgorithm value) {
         // define Data Attribute
         RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
-        attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_SIG_DIGEST_UUID));
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));

@@ -1,10 +1,13 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.core.attribute.CsrAttributes;
 import org.bouncycastle.asn1.x500.X500Name;
 import org.junit.jupiter.api.Assertions;
@@ -32,14 +35,11 @@ class CertificateRequestUtilsTest {
     }
 
     private RequestAttribute createRequestAttribute(String name, String data) {
-        RequestAttribute attributeDto = new RequestAttribute();
-        attributeDto.setUuid(UUID.randomUUID().toString());
+        RequestAttributeV3Dto attributeDto = new RequestAttributeV3Dto();
+        attributeDto.setUuid(UUID.randomUUID());
         attributeDto.setName(name);
         attributeDto.setContentType(AttributeContentType.STRING);
-        List<AttributeContent> content = new ArrayList<>();
-        BaseAttributeContentV2 attributeContent = new StringAttributeContentV2(data);
-        content.add(attributeContent);
-        attributeDto.setContent(content);
+        attributeDto.setContent(List.of(new StringAttributeContentV3(data)));
         return attributeDto;
     }
 }

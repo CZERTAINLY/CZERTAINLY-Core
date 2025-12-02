@@ -4,6 +4,8 @@ import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
 import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocationDto;
 import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
@@ -44,8 +46,10 @@ import java.security.KeyStore;
 import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
+import java.util.UUID;
 
 public class ClientOperationServiceV1Test extends BaseSpringBootTest {
 
@@ -126,7 +130,9 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         contentMap.setData(new NameAndIdDto(1, "profile"));
 
         raProfile = raProfileRepository.save(raProfile);
-        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(contentMap)));
+        List<RequestAttribute> requestAttributes = new ArrayList<>();
+        requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(contentMap)));
+        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), requestAttributes);
 
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);

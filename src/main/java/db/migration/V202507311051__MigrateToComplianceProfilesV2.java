@@ -2,6 +2,7 @@ package db.migration;
 
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
@@ -253,7 +254,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                 final UUID complianceRuleUuid = rows.getObject("compliance_rule_uuid", UUID.class);
                 final String ruleAttributesJson = rows.getString("attributes");
 
-                List<RequestAttribute> profileRuleAttributes = null;
+                List<RequestAttributeV2Dto> profileRuleAttributes = null;
                 try {
                     profileRuleAttributes = mapper.readValue(ruleAttributesJson, new TypeReference<>() {
                     });
@@ -287,8 +288,8 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
         updateProfileRuleAssocStatement.executeBatch();
     }
 
-    private void updatedRuleRequestAttributes(List<RequestAttribute> profileRuleAttributes, Map<String, DataAttributeV2> ruleAttributes) {
-        for (RequestAttribute profileRuleAttribute : profileRuleAttributes) {
+    private void updatedRuleRequestAttributes(List<RequestAttributeV2Dto> profileRuleAttributes, Map<String, DataAttributeV2> ruleAttributes) {
+        for (RequestAttributeV2Dto profileRuleAttribute : profileRuleAttributes) {
             if (profileRuleAttribute.getUuid() != null && profileRuleAttribute.getContentType() != null) {
                 // skip full attributes
                 continue;
@@ -296,11 +297,11 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
 
             DataAttributeV2 ruleAttribute = ruleAttributes.get(profileRuleAttribute.getName());
             if (ruleAttribute != null) {
-                profileRuleAttribute.setUuid(ruleAttribute.getUuid());
+                profileRuleAttribute.setUuid(UUID.fromString(ruleAttribute.getUuid()));
                 profileRuleAttribute.setContentType(ruleAttribute.getContentType());
             } else {
                 if (profileRuleAttribute.getUuid() == null) {
-                    profileRuleAttribute.setUuid(UUID.randomUUID().toString());
+                    profileRuleAttribute.setUuid(UUID.randomUUID());
                 }
                 if (profileRuleAttribute.getContentType() == null) {
                     profileRuleAttribute.setContentType(AttributeDefinitionUtils.deriveAttributeContentTypeFromContent(profileRuleAttribute.getContent()));

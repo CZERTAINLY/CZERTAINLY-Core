@@ -2,6 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -12,6 +13,7 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
@@ -873,12 +875,12 @@ class CertificateServiceTest extends BaseSpringBootTest {
         customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
         customAttributeRequest.setContentType(AttributeContentType.STRING);
         String attributeUuid = attributeService.createCustomAttribute(customAttributeRequest).getUuid();
-        RequestAttribute RequestAttribute = new RequestAttribute();
-        RequestAttribute.setUuid(attributeUuid);
-        RequestAttribute.setName(customAttributeRequest.getName());
-        RequestAttribute.setContentType(customAttributeRequest.getContentType());
-        RequestAttribute.setContent(List.of(new StringAttributeContentV2("ref", "data")));
-        protocolCertificateAssociations.setCustomAttributes(List.of(RequestAttribute));
+        RequestAttributeV3Dto requestAttribute = new RequestAttributeV3Dto();
+        requestAttribute.setUuid(UUID.fromString(attributeUuid));
+        requestAttribute.setName(customAttributeRequest.getName());
+        requestAttribute.setContentType(customAttributeRequest.getContentType());
+        requestAttribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
+        protocolCertificateAssociations.setCustomAttributes(List.of(requestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return protocolCertificateAssociations;
     }

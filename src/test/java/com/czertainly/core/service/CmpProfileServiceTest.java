@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -10,6 +11,7 @@ import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDto;
@@ -46,7 +48,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private CmpProfile cmpProfile;
-    private RequestAttribute domainAttrRequestAttribute;
+    private RequestAttributeV3Dto domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
@@ -60,11 +62,11 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttribute();
-        domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
+        domainAttrRequestAttribute = new RequestAttributeV3Dto();
+        domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
-        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV2("test")));
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV3("test")));
 
         cmpProfile = new CmpProfile();
         cmpProfile.setDescription("sample description");

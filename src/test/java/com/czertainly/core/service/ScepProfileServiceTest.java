@@ -85,7 +85,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
         domainAttrRequestAttribute = new RequestAttributeV3Dto();
-        domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
+        domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
         domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV3("test")));

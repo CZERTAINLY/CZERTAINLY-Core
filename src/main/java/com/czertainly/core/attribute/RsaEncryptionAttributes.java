@@ -18,6 +18,7 @@ import com.czertainly.core.attribute.engine.AttributeOperation;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -129,7 +130,7 @@ public class RsaEncryptionAttributes {
     public static RequestAttributeV3Dto buildRequestEncryptionScheme(RsaEncryptionScheme value) {
         // define Data Attribute
         RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
@@ -139,7 +140,7 @@ public class RsaEncryptionAttributes {
     public static RequestAttributeV3Dto buildRequestOaepHash(DigestAlgorithm value) {
         // define Data Attribute
         RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
@@ -149,7 +150,7 @@ public class RsaEncryptionAttributes {
     public static RequestAttributeV3Dto buildRequestOaepMgf(boolean value) {
         // define Data Attribute
         RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         attribute.setContentType(AttributeContentType.BOOLEAN);
         attribute.setContent(List.of(new BooleanAttributeContentV3(value)));

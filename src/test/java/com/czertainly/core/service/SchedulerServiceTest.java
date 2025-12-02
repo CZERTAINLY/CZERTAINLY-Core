@@ -1,6 +1,9 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3Dto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -305,7 +308,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
 
                 matched = true;
                 Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
-                Assertions.assertEquals("CZ", certificateDetailDto.getCustomAttributes().getFirst().getContent().getFirst().getData());
+                Assertions.assertEquals("CZ", ((ResponseAttributeV3Dto) certificateDetailDto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
             }
             if (discoveryCertificate.getCommonName().contains("Hybrid")) {
                 matchedHybrid = true;
