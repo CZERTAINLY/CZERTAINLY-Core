@@ -2,12 +2,10 @@ package com.czertainly.core.search;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;

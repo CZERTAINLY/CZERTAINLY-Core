@@ -2,12 +2,10 @@ package com.czertainly.core.search;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -43,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class LocationsSearchTest extends BaseSpringBootTest {
+class LocationsSearchTest extends BaseSpringBootTest {
 
     @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
@@ -70,7 +68,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @BeforeEach
-    public void loadData() throws AttributeException, NotFoundException {
+    void loadData() throws AttributeException, NotFoundException {
 
         if (isLoadedData) {
             return;
@@ -140,14 +138,14 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testInsertedData() {
+    void testInsertedData() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(3, responseDto.getLocations().size());
     }
 
     @Test
-    public void testLocationByName() {
+    void testLocationByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_NAME.name(), FilterConditionOperator.EQUALS, "location1"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -155,7 +153,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationByInstanceName() {
+    void testLocationByInstanceName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_ENTITY_INSTANCE.name(), FilterConditionOperator.ENDS_WITH, "instance-name-3"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -163,7 +161,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationByEnabled() {
+    void testLocationByEnabled() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_ENABLED.name(), FilterConditionOperator.EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -171,7 +169,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationBySupportMultipleEntries() {
+    void testLocationBySupportMultipleEntries() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_SUPPORT_MULTIPLE_ENTRIES.name(), FilterConditionOperator.NOT_EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -179,7 +177,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationBySupportKeyManagement() {
+    void testLocationBySupportKeyManagement() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_SUPPORT_KEY_MANAGEMENT.name(), FilterConditionOperator.EQUALS, false));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -187,7 +185,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByMetadata() {
+    void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.META, "attributeMeta1|TEXT", FilterConditionOperator.CONTAINS, "-meta-"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -195,7 +193,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByCustomAttr() {
+    void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.CUSTOM, "attributeCustom1|TEXT", FilterConditionOperator.CONTAINS, "-custom-"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
