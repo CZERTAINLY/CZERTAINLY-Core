@@ -1,8 +1,6 @@
 package com.czertainly.core.service;
 
-import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
@@ -29,7 +27,6 @@ import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.RaProfileRepository;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -43,7 +40,6 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.GeneralSecurityException;
 import java.security.KeyStore;
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.util.ArrayList;
@@ -69,12 +65,6 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     @Autowired
     private CertificateContentRepository certificateContentRepository;
 
-    private RaProfile raProfile;
-    private AuthorityInstanceReference authorityInstanceReference;
-    private Connector connector;
-    private Certificate certificate;
-    private CertificateContent certificateContent;
-
     private WireMockServer mockServer;
 
     private X509Certificate x509Cert;
@@ -93,12 +83,12 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
 
         WireMock.configureFor("localhost", mockServer.port());
 
-        connector = new Connector();
+        Connector connector = new Connector();
         connector.setUrl("http://localhost:"+mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
-        authorityInstanceReference = new AuthorityInstanceReference();
+        AuthorityInstanceReference authorityInstanceReference = new AuthorityInstanceReference();
         authorityInstanceReference.setAuthorityInstanceUuid("1l");
         authorityInstanceReference.setConnector(connector);
         authorityInstanceReference.setConnectorUuid(connector.getUuid());
@@ -119,7 +109,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         attribute.setProperties(properties);
         attributeEngine.updateDataAttributeDefinitions(connector.getUuid(), null, List.of(attribute));
 
-        raProfile = new RaProfile();
+        RaProfile raProfile = new RaProfile();
         raProfile.setName(RA_PROFILE_NAME);
         raProfile.setAuthorityInstanceReference(authorityInstanceReference);
         raProfile.setAuthorityInstanceReferenceUuid(authorityInstanceReference.getUuid());
@@ -134,18 +124,18 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
         requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(contentMap)));
         attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), requestAttributes);
 
-        certificateContent = new CertificateContent();
+        CertificateContent certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
 
-        certificate = new Certificate();
+        Certificate certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setCertificateContent(certificateContent);
         certificate.setCertificateContentId(certificateContent.getId());
-        certificate = certificateRepository.save(certificate);
+        certificateRepository.save(certificate);
 
-        raProfile = raProfileRepository.save(raProfile);
+        raProfileRepository.save(raProfile);
 
         InputStream keyStoreStream = CertificateServiceTest.class.getClassLoader().getResourceAsStream("client1.p12");
         KeyStore keyStore = KeyStore.getInstance("PKCS12");
@@ -160,7 +150,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
     }
 
     @Test
-    void testIssueCertificate() throws ConnectorException, CertificateException, AlreadyExistException, NoSuchAlgorithmException, NotFoundException {
+    void testIssueCertificate() throws CertificateException {
         String certificateData = Base64.getEncoder().encodeToString(x509Cert.getEncoded());
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v1/authorityProvider/authorities/[^/]+/endEntityProfiles/[^/]+/certificates/issue"))

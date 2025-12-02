@@ -689,16 +689,13 @@ public class AttributeEngine {
         for (ObjectAttributeContent objectContent : objectContents) {
             String uuid = objectContent.uuid().toString();
             RequestAttribute requestAttribute;
-            //TODO: split
-//            if ((requestAttribute = mapping.get(uuid)) == null) {
-//                requestAttribute = new RequestAttribute();
-//                requestAttribute.setUuid(objectContent.uuid().toString());
-//                requestAttribute.setName(objectContent.name());
-//                requestAttribute.setContentType(objectContent.contentType());
-//                requestAttribute.setContent(new ArrayList<>());
-//                mapping.put(uuid, requestAttribute);
-//            }
-//            requestAttribute.getContent().add(objectContent.contentItem());
+
+            AttributeVersionHandler<?> attributeVersionHandler = attributeVersionHandlerMap.get(String.valueOf(objectContent.version()));
+            if ((requestAttribute = mapping.get(uuid)) == null) {
+                requestAttribute = attributeVersionHandler.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType());
+                mapping.put(uuid, requestAttribute);
+            }
+            attributeVersionHandler.addRequestAttributeContent(requestAttribute, objectContent.contentItem());
         }
 
         return mapping.values().stream().toList();
@@ -709,18 +706,14 @@ public class AttributeEngine {
         for (ObjectAttributeContent objectContent : objectContents) {
             String uuid = objectContent.uuid().toString();
             ResponseAttribute responseAttribute;
+            AttributeVersionHandler<?> attributeVersionHandler = attributeVersionHandlerMap.get(String.valueOf(objectContent.version()));
             if ((mapping.get(uuid)) == null) {
-                responseAttribute = attributeVersionHandlerMap.get(String.valueOf(objectContent.version())).getResponseAttribute(objectContent.uuid(), objectContent.name(), objectContent.label(), new ArrayList<>(), objectContent.contentType(), objectContent.type());
+                responseAttribute = attributeVersionHandler.getResponseAttribute(objectContent.uuid(), objectContent.name(), objectContent.label(), new ArrayList<>(), objectContent.contentType(), objectContent.type());
                 mapping.put(uuid, responseAttribute);
             } else {
                 responseAttribute = mapping.get(uuid);
             }
-            if (objectContent.version() == 2) {
-                ((ResponseAttributeV2Dto) responseAttribute).getContent().add((BaseAttributeContentV2<?>) objectContent.contentItem());
-            }
-            if (objectContent.version() == 3) {
-                ((ResponseAttributeV3Dto) responseAttribute).getContent().add((BaseAttributeContentV3<?>) objectContent.contentItem());
-            }
+            attributeVersionHandler.addResponseAttributeContent(responseAttribute, objectContent.contentItem());
         }
 
         return mapping.values().stream().toList();
