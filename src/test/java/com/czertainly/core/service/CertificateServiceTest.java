@@ -1,7 +1,6 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
@@ -323,7 +322,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     void testUpdateRaProfile() throws NotFoundException, CertificateOperationException, CertificateException, IOException, AttributeException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
+                .willReturn(WireMock.okJson("{\"meta\":[{\"version\": 2,\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
 
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid(raProfile.getUuid().toString());
