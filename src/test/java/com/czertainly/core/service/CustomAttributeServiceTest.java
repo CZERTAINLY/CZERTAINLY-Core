@@ -35,12 +35,12 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     private AttributeDefinitionRepository attributeDefinitionRepository;
 
     private AttributeDefinition definition;
-    private CustomAttributeV2 attribute;
+    private CustomAttributeV3 attribute;
     private AttributeDefinition metaDefinition;
 
     @BeforeEach
     void setUp() {
-        attribute = new CustomAttributeV2();
+        attribute = new CustomAttributeV3();
         attribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba06e");
         attribute.setName("attribute");
         attribute.setDescription("Attribute");
@@ -95,7 +95,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         Assertions.assertNotNull(attributes);
         Assertions.assertFalse(attributes.isEmpty());
         Assertions.assertEquals(1, attributes.size());
-        Assertions.assertEquals(attribute.getUuid(), attributes.get(0).getUuid());
+        Assertions.assertEquals(attribute.getUuid(), attributes.getFirst().getUuid());
     }
 
     @Test
