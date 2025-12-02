@@ -202,7 +202,7 @@ public class ComplianceProfileRuleHandler {
         }
 
         ruleDto.setResource(matchedProfileRule.getResource());
-        ruleDto.setAttributes(AttributeEngine.getRequestDataAttributesContent(attributes, matchedProfileRule.getAttributes()));
+        ruleDto.setAttributes(attributeEngine.getRequestDataAttributesContent(attributes, matchedProfileRule.getAttributes()));
     }
 
     private ComplianceRuleDto mapProviderRuleDto(ComplianceProfileRule complianceProfileRule, ComplianceRuleResponseDto providerRule) throws ValidationException {
@@ -251,7 +251,7 @@ public class ComplianceProfileRuleHandler {
         } else {
             ruleDto.setAvailabilityStatus(ComplianceRuleAvailabilityStatus.AVAILABLE);
         }
-        ruleDto.setAttributes(AttributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), complianceProfileRule.getAttributes()));
+        ruleDto.setAttributes(attributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), complianceProfileRule.getAttributes()));
 
         return ruleDto;
     }

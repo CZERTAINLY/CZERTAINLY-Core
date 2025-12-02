@@ -46,6 +46,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     private ComplianceProfileAssociationRepository complianceProfileAssociationRepository;
 
     private ComplianceApiClient complianceApiClientV1;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
@@ -240,7 +246,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 resultRule.setKind(kind);
                 resultRule.setGroupUuid(providerRule.getGroupUuid());
                 resultRule.setCertificateType(providerRule.getCertificateType());
-                resultRule.setAttributes(AttributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), requestAttributes));
+                resultRule.setAttributes(attributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), requestAttributes));
                 resultRule.setComplianceProfileUuid(complianceProfileUuid.toString());
                 resultRule.setComplianceProfileName(complianceProfileName);
                 break;

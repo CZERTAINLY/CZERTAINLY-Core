@@ -153,17 +153,14 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testMetadataContentReplacement() throws AttributeException {
-        List<BaseAttributeContentV3> list = new ArrayList<>();
-        list.add(new StringAttributeContentV3("localhost:1443"));
-        list.add(new StringAttributeContentV3("localhost:2443"));
-        list.add(new StringAttributeContentV3("localhost:3443"));
 
-        networkDiscoveryMeta.setContent(list);
+        networkDiscoveryMeta.setContent(List.of(new StringAttributeContentV3("localhost:1443"), new StringAttributeContentV3("localhost:2443"), new StringAttributeContentV3("localhost:3443")));
+
         attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
         var mappedMetadata = attributeEngine.getMappedMetadataContent(new ObjectAttributeContentInfo(Resource.CERTIFICATE, certificate.getUuid()));
         Optional<MetadataResponseDto> metadataResponseDto = mappedMetadata.stream().filter(m -> m.getConnectorUuid().equals(connectorDiscovery.getUuid().toString())).findFirst();
         Assertions.assertTrue(metadataResponseDto.isPresent());
-        Assertions.assertEquals(4, metadataResponseDto.get().getItems().get(0).getContent().size());
+        Assertions.assertEquals(4, metadataResponseDto.get().getItems().getFirst().getContent().size());
 
         networkDiscoveryMeta.getProperties().setOverwrite(true);
         List<BaseAttributeContentV3> contentV3s = new ArrayList<>();
@@ -448,11 +445,11 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContentV2("testValue")));
 
         // Act
-        List<ResponseAttribute> responseAttributes = AttributeEngine.getRequestDataAttributesContent(List.of(dataAttribute), List.of(requestAttribute));
+        List<ResponseAttribute> responseAttributes = attributeEngine.getRequestDataAttributesContent(List.of(dataAttribute), List.of(requestAttribute));
 
         // Assert
         Assertions.assertEquals(1, responseAttributes.size());
-        Assertions.assertEquals(dataAttribute.getUuid(), responseAttributes.getFirst().getUuid());
+        Assertions.assertEquals(dataAttribute.getUuid(), responseAttributes.getFirst().getUuid().toString());
         Assertions.assertEquals(dataAttribute.getName(), responseAttributes.getFirst().getName());
         Assertions.assertEquals(dataAttribute.getProperties().getLabel(), responseAttributes.getFirst().getLabel());
         Assertions.assertEquals(requestAttribute.getContent(), responseAttributes.getFirst().getContent());
@@ -522,7 +519,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         validAttribute.setProperties(props);
 
-        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
+        List<DataAttributeV2> validAttributeList = List.of(validAttribute);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, validAttributeList);
 
         RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
         requestAttribute.setUuid(UUID.fromString(validAttribute.getUuid()));
@@ -531,6 +529,6 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContentV2("validValue")));
 
         // Act & Assert
-        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(List.of(validAttribute), List.of(requestAttribute), true));
+        Assertions.assertDoesNotThrow(() -> AttributeEngine.validateRequestDataAttributes(validAttributeList, List.of(requestAttribute), true));
     }
 }
