@@ -71,13 +71,6 @@ public class AttributeEngine {
     private AttributeContentItemRepository attributeContentItemRepository;
     private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
-    private Map<String, AttributeVersionHandler<?>> attributeVersionHandlerMap;
-
-    @Autowired
-    public void setAttributeVersionHandlerMap(Map<String, AttributeVersionHandler<?>> attributeVersionHandlerMap) {
-        this.attributeVersionHandlerMap = attributeVersionHandlerMap;
-    }
-
     private AuthHelper authHelper;
 
     @Autowired
@@ -131,6 +124,40 @@ public class AttributeEngine {
     }
 
     //endregion
+
+    public static List<ResponseAttribute> getResponseAttributesFromBaseAttributes(List<BaseAttribute> attributes) {
+        if (attributes == null || attributes.isEmpty()) return List.of();
+        return attributes.stream().map(
+                attribute ->
+                   AttributeVersionFactory
+                            .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
+                                    attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getVersion())
+        ).toList();
+    }
+
+    private static String getLabelFromAttributeProperties(BaseAttribute attribute) {
+        if (attribute.getType() == AttributeType.DATA && ((DataAttribute<?>) attribute).getProperties() != null)
+            return ((DataAttribute<?>) attribute).getProperties().getLabel();
+        if (attribute.getType() == AttributeType.CUSTOM && ((CustomAttributeV3) attribute).getProperties() != null)
+            return ((CustomAttributeV3) attribute).getProperties().getLabel();
+        return attribute.getName();
+    }
+
+    private static AttributeContentType getAttributeType(BaseAttribute attribute) {
+        if (attribute.getType() == AttributeType.DATA) return ((DataAttribute<?>) attribute).getContentType();
+        if (attribute.getType() == AttributeType.CUSTOM) return ((CustomAttributeV3) attribute).getContentType();
+        return null;
+    }
+
+    public List<ResponseAttribute> getResponseAttributesFromRequestAttributes(List<RequestAttribute> attributes) {
+        if (attributes == null || attributes.isEmpty()) return List.of();
+        return attributes.stream().map(
+                attribute ->
+                        AttributeVersionFactory.getResponseAttribute(attribute.getUuid(), attribute.getName(), attribute.getName(),
+                                        attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion())
+        ).toList();
+    }
+
 
     public List<CustomAttributeV3> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
         List<AttributeRelation> relations = attributeRelationRepository.findByResourceAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(resource, AttributeType.CUSTOM, true);
@@ -656,7 +683,7 @@ public class AttributeEngine {
 
             if (requestAttribute.getVersion() == 2) {
                 DataAttributeV2 dataAttribute = (DataAttributeV2) definition.getDefinition();
-                dataAttribute.setContent(((RequestAttributeV2Dto) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV2) c).toList());
+                dataAttribute.setContent(requestAttribute.getContent());
                 dataAttributes.add(dataAttribute);
             }
             if (requestAttribute.getVersion() == 3) {
@@ -690,12 +717,11 @@ public class AttributeEngine {
             String uuid = objectContent.uuid().toString();
             RequestAttribute requestAttribute;
 
-            AttributeVersionHandler<?> attributeVersionHandler = attributeVersionHandlerMap.get(String.valueOf(objectContent.version()));
             if ((requestAttribute = mapping.get(uuid)) == null) {
-                requestAttribute = attributeVersionHandler.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType());
+                requestAttribute = AttributeVersionFactory.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType(), objectContent.version());
                 mapping.put(uuid, requestAttribute);
             }
-            attributeVersionHandler.addRequestAttributeContent(requestAttribute, objectContent.contentItem());
+            AttributeVersionFactory.addRequestAttributeContent(requestAttribute, objectContent.contentItem(), objectContent.version());
         }
 
         return mapping.values().stream().toList();
@@ -706,14 +732,13 @@ public class AttributeEngine {
         for (ObjectAttributeContent objectContent : objectContents) {
             String uuid = objectContent.uuid().toString();
             ResponseAttribute responseAttribute;
-            AttributeVersionHandler<?> attributeVersionHandler = attributeVersionHandlerMap.get(String.valueOf(objectContent.version()));
             if ((mapping.get(uuid)) == null) {
-                responseAttribute = attributeVersionHandler.getResponseAttribute(objectContent.uuid(), objectContent.name(), objectContent.label(), new ArrayList<>(), objectContent.contentType(), objectContent.type());
+                responseAttribute = AttributeVersionFactory.getResponseAttribute(objectContent.uuid(), objectContent.name(), objectContent.label(), new ArrayList<>(), objectContent.contentType(), objectContent.type(), objectContent.version());
                 mapping.put(uuid, responseAttribute);
             } else {
                 responseAttribute = mapping.get(uuid);
             }
-            attributeVersionHandler.addResponseAttributeContent(responseAttribute, objectContent.contentItem());
+            AttributeVersionFactory.addResponseAttributeContent(responseAttribute, objectContent.contentItem(), objectContent.version());
         }
 
         return mapping.values().stream().toList();
@@ -929,8 +954,8 @@ public class AttributeEngine {
             if (definition == null) {
                 continue;
             }
-            responseAttributes.add(attributeVersionHandlerMap.get(String.valueOf(requestAttribute.getVersion()))
-                    .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType()));
+            responseAttributes.add(AttributeVersionFactory
+                    .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType(), requestAttribute.getVersion()));
         }
         return responseAttributes;
     }

@@ -3,6 +3,7 @@ package com.czertainly.core.dao.entity;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.location.CertificateInLocationDto;
 import com.czertainly.api.model.core.location.LocationDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.ObjectAccessControlMapper;
@@ -93,8 +94,8 @@ public class Location extends UniquelyIdentifiedAndAudited implements Serializab
             cilDto.setState(certificateLocation.getCertificate().getState());
             cilDto.setValidationStatus(certificateLocation.getCertificate().getValidationStatus());
             cilDto.setWithKey(certificateLocation.isWithKey());
-            cilDto.setPushAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getPushAttributes()));
-            cilDto.setCsrAttributes(AttributeDefinitionUtils.getResponseAttributes(certificateLocation.getCsrAttributes()));
+            cilDto.setPushAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
+            cilDto.setCsrAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
 
             cilDtoList.add(cilDto);
         }

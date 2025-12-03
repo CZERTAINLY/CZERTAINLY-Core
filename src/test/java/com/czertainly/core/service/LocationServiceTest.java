@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -475,8 +476,12 @@ class LocationServiceTest extends BaseSpringBootTest {
     @Test
     void renewCertificateInLocation() throws ConnectorException, LocationException, CertificateOperationException, java.security.cert.CertificateException, IOException, NoSuchAlgorithmException, InvalidKeyException, CertificateRequestException, NotFoundException {
         CertificateLocation certificateLocation = location.getCertificates().stream().findFirst().get();
-        certificateLocation.setPushAttributes(List.of(new DataAttributeV2()));
-        certificateLocation.setCsrAttributes(List.of(new DataAttributeV2()));
+        DataAttributeV2 pushAttribute = new DataAttributeV2();
+        pushAttribute.setUuid(UUID.randomUUID().toString());
+        DataAttributeV3 csrAttribute = new DataAttributeV3();
+        csrAttribute.setUuid(UUID.randomUUID().toString());
+        certificateLocation.setPushAttributes(List.of(pushAttribute));
+        certificateLocation.setCsrAttributes(List.of(csrAttribute));
         locationRepository.save(location);
 
         certificate.setRaProfile(getRaProfile());

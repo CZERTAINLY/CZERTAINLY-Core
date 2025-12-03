@@ -16,7 +16,7 @@ import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.records.AttributeVersionHandler;
+import com.czertainly.core.attribute.engine.records.AttributeVersionFactory;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.notifications.*;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -31,7 +31,6 @@ import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
-import com.czertainly.core.validation.certificate.ICertificateValidator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -67,19 +66,12 @@ public class NotificationListener {
 
     private static final Map<ResourceEvent, String> eventToLegacyNotificationTypeMapping = new EnumMap<>(ResourceEvent.class);
 
-    private Map<String, AttributeVersionHandler<?>> attributeVersionHandlerMap;
-
     static {
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.CERTIFICATE_STATUS_CHANGED, "certificate_status_changed");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.CERTIFICATE_ACTION_PERFORMED, "certificate_action_performed");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.APPROVAL_REQUESTED, "approval_requested");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.APPROVAL_CLOSED, "approval_closed");
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.SCHEDULED_JOB_FINISHED, "scheduled_job_completed");
-    }
-
-    @Autowired
-    public void setAttributeVersionHandlerMap(Map<String, AttributeVersionHandler<?>> attributeVersionHandlerMap) {
-        this.attributeVersionHandlerMap = attributeVersionHandlerMap;
     }
 
     @Autowired
@@ -424,8 +416,8 @@ public class NotificationListener {
                         mappingAttribute.getName(), mappingAttribute.getUuid(), mappingAttribute.getContentType().getLabel()));
             }
 
-            RequestAttribute requestAttribute = attributeVersionHandlerMap.get(String.valueOf(mappingAttribute.getVersion()))
-                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType());
+            RequestAttribute requestAttribute = AttributeVersionFactory
+                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getVersion());
             mappedAttributes.add(requestAttribute);
         }
 

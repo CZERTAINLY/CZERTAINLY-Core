@@ -5,15 +5,11 @@ import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.connector.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
-import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -201,7 +197,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         }
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), attributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         if (connectorRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
@@ -210,7 +206,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorDto.setName(request.getName());
         connectorDto.setUrl(request.getUrl());
         connectorDto.setAuthType(request.getAuthType());
-        connectorDto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(authAttributes));
+        connectorDto.setAuthAttributes(attributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
 
         List<ConnectDto> connectResponse = validateConnector(connectorDto);
         List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
@@ -271,7 +267,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
-                AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+                attributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
 
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -376,7 +372,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
     public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
         ConnectorDto dto = new ConnectorDto();
-        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+        dto.setAuthAttributes(attributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         dto.setAuthType(request.getAuthType());
         dto.setUrl(request.getUrl());
         dto.setUuid(request.getUuid());
