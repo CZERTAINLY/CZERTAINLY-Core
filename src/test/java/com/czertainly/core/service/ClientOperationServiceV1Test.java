@@ -3,7 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.client.authority.ClientAddEndEntityRequestDto;
 import com.czertainly.api.model.client.authority.LegacyClientCertificateRevocationDto;
 import com.czertainly.api.model.client.authority.LegacyClientCertificateSignRequestDto;
@@ -121,7 +121,7 @@ public class ClientOperationServiceV1Test extends BaseSpringBootTest {
 
         raProfile = raProfileRepository.save(raProfile);
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(contentMap)));
+        requestAttributes.add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(contentMap)));
         attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), requestAttributes);
 
         CertificateContent certificateContent = new CertificateContent();

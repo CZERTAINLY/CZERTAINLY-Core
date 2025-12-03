@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -46,7 +46,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
     private CmpProfile cmpProfile;
-    private RequestAttributeV3Dto domainAttrRequestAttribute;
+    private RequestAttributeV3 domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
@@ -60,7 +60,7 @@ class CmpProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttributeV3Dto();
+        domainAttrRequestAttribute = new RequestAttributeV3();
         domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());

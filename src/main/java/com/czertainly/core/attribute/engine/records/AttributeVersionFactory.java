@@ -60,12 +60,12 @@ public class AttributeVersionFactory {
 
 
     private static RequestAttribute getRequestAttributeV2(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
-        return new RequestAttributeV2Dto(uuid, name, contentType, (List<BaseAttributeContentV2<?>>) content);
+        return new RequestAttributeV2(uuid, name, contentType, (List<BaseAttributeContentV2<?>>) content);
     }
 
 
     private static void addRequestAttributeContentV2(RequestAttribute requestAttribute, AttributeContent contentItem) {
-        ((RequestAttributeV2Dto) requestAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
+        ((RequestAttributeV2) requestAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
     }
 
 
@@ -80,12 +80,12 @@ public class AttributeVersionFactory {
 
 
     private static RequestAttribute getRequestAttributeV3(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
-        return new RequestAttributeV3Dto(uuid, name, contentType, (List<BaseAttributeContentV3<?>>) content);
+        return new RequestAttributeV3(uuid, name, contentType, (List<BaseAttributeContentV3<?>>) content);
     }
 
 
     private static void addRequestAttributeContentV3(RequestAttribute requestAttribute, AttributeContent contentItem) {
-        ((RequestAttributeV3Dto) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
+        ((RequestAttributeV3) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 
 

@@ -8,6 +8,7 @@ import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -194,7 +195,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         // Should throw AttributeException
         SecuredUUID certificateUuid = SecuredUUID.fromString(CERTIFICATE_UUID);
         UUID attributeUuid = UUID.fromString(ATTRIBUTE_UUID);
-        List<BaseAttributeContentV2> request = List.of();
+        List<BaseAttributeContentV3<?>> request = List.of();
         Assertions.assertThrows(AttributeException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.CERTIFICATE,
                 certificateUuid,

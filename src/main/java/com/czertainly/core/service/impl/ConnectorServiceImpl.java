@@ -197,7 +197,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         }
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
-        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), attributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         if (connectorRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
@@ -206,7 +206,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorDto.setName(request.getName());
         connectorDto.setUrl(request.getUrl());
         connectorDto.setAuthType(request.getAuthType());
-        connectorDto.setAuthAttributes(attributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
+        connectorDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
 
         List<ConnectDto> connectResponse = validateConnector(connectorDto);
         List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
@@ -372,7 +372,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
     public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
         ConnectorDto dto = new ConnectorDto();
-        dto.setAuthAttributes(attributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         dto.setAuthType(request.getAuthType());
         dto.setUrl(request.getUrl());
         dto.setUuid(request.getUuid());

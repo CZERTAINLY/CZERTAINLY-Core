@@ -2,7 +2,7 @@ package com.czertainly.core.search;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -227,7 +227,7 @@ class LocationsSearchTest extends BaseSpringBootTest {
         customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
 
         List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
-        RequestAttributeV3Dto requestAttribute = new RequestAttributeV3Dto();
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
         requestAttribute.setName(customAttribute.getName());
         requestAttribute.setContent(contentItems);

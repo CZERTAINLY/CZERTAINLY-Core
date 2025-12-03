@@ -3,7 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -53,7 +53,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     ConnectorRepository connectorRepository;
 
     private AcmeProfile acmeProfile;
-    private RequestAttributeV3Dto domainAttrRequestAttribute;
+    private RequestAttributeV3 domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
@@ -67,7 +67,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttributeV3Dto();
+        domainAttrRequestAttribute = new RequestAttributeV3();
         domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());

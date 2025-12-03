@@ -1,10 +1,8 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
@@ -100,8 +98,8 @@ public class RsaSignatureAttributes {
     }
 
 
-    public static RequestAttributeV3Dto buildRequestRsaSigScheme(RsaSignatureScheme value) {
-        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
+    public static RequestAttributeV3 buildRequestRsaSigScheme(RsaSignatureScheme value) {
+        RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setContentType(AttributeContentType.STRING);
@@ -109,9 +107,9 @@ public class RsaSignatureAttributes {
         return attribute;
     }
 
-    public static RequestAttributeV3Dto buildRequestDigest(DigestAlgorithm value) {
+    public static RequestAttributeV3 buildRequestDigest(DigestAlgorithm value) {
         // define Data Attribute
-        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
+        RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_SIG_DIGEST_UUID));
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);

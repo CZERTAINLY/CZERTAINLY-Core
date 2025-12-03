@@ -1,7 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -70,7 +70,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
 
     private ScepProfile scepProfile;
     private Certificate certificate;
-    private RequestAttributeV3Dto domainAttrRequestAttribute;
+    private RequestAttributeV3 domainAttrRequestAttribute;
 
     @BeforeEach
     void setUp() throws AttributeException {
@@ -84,7 +84,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttributeV3Dto();
+        domainAttrRequestAttribute = new RequestAttributeV3();
         domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());

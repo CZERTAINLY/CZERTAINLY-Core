@@ -1,6 +1,6 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
@@ -63,8 +63,8 @@ public class EcdsaSignatureAttributes {
         return attribute;
     }
 
-    public static RequestAttributeV3Dto buildRequestDigest(DigestAlgorithm value) {
-        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto();
+    public static RequestAttributeV3 buildRequestDigest(DigestAlgorithm value) {
+        RequestAttributeV3 attribute = new RequestAttributeV3();
         attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_SIG_DIGEST_UUID));
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);

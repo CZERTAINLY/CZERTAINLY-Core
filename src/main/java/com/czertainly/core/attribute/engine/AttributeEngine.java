@@ -149,7 +149,7 @@ public class AttributeEngine {
         return null;
     }
 
-    public List<ResponseAttribute> getResponseAttributesFromRequestAttributes(List<RequestAttribute> attributes) {
+    public static List<ResponseAttribute> getResponseAttributesFromRequestAttributes(List<RequestAttribute> attributes) {
         if (attributes == null || attributes.isEmpty()) return List.of();
         return attributes.stream().map(
                 attribute ->
@@ -612,7 +612,7 @@ public class AttributeEngine {
         responseAttribute.setUuid(requestAttribute.getUuid());
         responseAttribute.setName(requestAttribute.getName());
         responseAttribute.setContentType(requestAttribute.getContentType());
-        responseAttribute.setContent(((RequestAttributeV2Dto) requestAttribute).getContent());
+        responseAttribute.setContent(((RequestAttributeV2) requestAttribute).getContent());
         responseAttribute.setLabel(attributeDefinition.getLabel());
         responseAttribute.setType(attributeType);
         return responseAttribute;
@@ -623,7 +623,7 @@ public class AttributeEngine {
         responseAttribute.setUuid(requestAttribute.getUuid());
         responseAttribute.setName(requestAttribute.getName());
         responseAttribute.setContentType(requestAttribute.getContentType());
-        responseAttribute.setContent(((RequestAttributeV3Dto) requestAttribute).getContent());
+        responseAttribute.setContent(((RequestAttributeV3) requestAttribute).getContent());
         responseAttribute.setLabel(attributeDefinition.getLabel());
         responseAttribute.setType(attributeType);
         return responseAttribute;
@@ -688,7 +688,7 @@ public class AttributeEngine {
             }
             if (requestAttribute.getVersion() == 3) {
                 DataAttributeV3 dataAttribute = (DataAttributeV3) definition.getDefinition();
-                dataAttribute.setContent(((RequestAttributeV3Dto) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV3) c).toList());
+                dataAttribute.setContent(((RequestAttributeV3) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV3) c).toList());
                 dataAttributes.add(dataAttribute);
             }
         }
@@ -819,6 +819,9 @@ public class AttributeEngine {
             throw new AttributeException("Cannot update content of disabled attribute.", attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null);
         }
 
+        // Check if attribute is associated with a resource
+        attributeRelationRepository.findByResourceAndAttributeDefinitionUuidAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(objectType, attributeDefinition.getUuid(), AttributeType.CUSTOM, true)
+                .orElseThrow(() -> new AttributeException("Cannot update content of attribute since it is not associated with resource " + objectType.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null));
 
         // filter out updating
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();

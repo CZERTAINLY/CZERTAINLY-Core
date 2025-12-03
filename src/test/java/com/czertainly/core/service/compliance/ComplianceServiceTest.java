@@ -2,8 +2,7 @@ package com.czertainly.core.service.compliance;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceInternalRuleRequestDto;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -241,7 +240,7 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
         Assertions.assertEquals(ComplianceStatus.NA, complianceCheckResult.getStatus(), "Compliance status should be Not applicable due to incompatible attributes setting");
 
-        RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 requestAttribute = new RequestAttributeV2();
         requestAttribute.setUuid(UUID.fromString("7ed00886-e706-11ec-8fea-0242ac120002"));
         requestAttribute.setName("KeyLength");
         requestAttribute.setContentType(AttributeContentType.INTEGER);

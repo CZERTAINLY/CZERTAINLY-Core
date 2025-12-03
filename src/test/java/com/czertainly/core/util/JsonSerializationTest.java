@@ -1,7 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
@@ -78,7 +78,7 @@ class JsonSerializationTest {
         credential.setName("test");
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2Dto(UUID.randomUUID(), "credential", AttributeContentType.CREDENTIAL, List.of(new CredentialAttributeContentV2("test", credential))));
+        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "credential", AttributeContentType.CREDENTIAL, List.of(new CredentialAttributeContentV2("test", credential))));
         List<BaseAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(requestAttributes);
 
         String serialized = AttributeDefinitionUtils.serialize(attrs);

@@ -1,7 +1,7 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.core.attribute.CsrAttributes;
@@ -31,7 +31,7 @@ class CertificateRequestUtilsTest {
     }
 
     private RequestAttribute createRequestAttribute(String name, String data) {
-        RequestAttributeV3Dto attributeDto = new RequestAttributeV3Dto();
+        RequestAttributeV3 attributeDto = new RequestAttributeV3();
         attributeDto.setUuid(UUID.randomUUID());
         attributeDto.setName(name);
         attributeDto.setContentType(AttributeContentType.STRING);

@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
@@ -167,7 +167,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
 
         raProfile = raProfileRepository.save(raProfile);
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(new ObjectAttributeContentV2(new NameAndIdDto(1, "profile")))));
+        requestAttributes.add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(new ObjectAttributeContentV2(new NameAndIdDto(1, "profile")))));
         attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), requestAttributes);
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);

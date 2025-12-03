@@ -118,12 +118,12 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.validateBasicAuthAttributes(List.of()));
     }
 
-    private static List<RequestAttributeV3Dto> createAttributes(String name, List<BaseAttributeContentV3<?>> content) {
+    private static List<RequestAttributeV3> createAttributes(String name, List<BaseAttributeContentV3<?>> content) {
         return createAttributes(UUID.randomUUID(), name, content);
     }
 
-    private static List<RequestAttributeV3Dto> createAttributes(UUID uuid, String name, List<BaseAttributeContentV3<?>> content) {
-        RequestAttributeV3Dto attribute = new RequestAttributeV3Dto(uuid, name, AttributeContentType.STRING, content);
+    private static List<RequestAttributeV3> createAttributes(UUID uuid, String name, List<BaseAttributeContentV3<?>> content) {
+        RequestAttributeV3 attribute = new RequestAttributeV3(uuid, name, AttributeContentType.STRING, content);
         return List.of(attribute);
     }
 }

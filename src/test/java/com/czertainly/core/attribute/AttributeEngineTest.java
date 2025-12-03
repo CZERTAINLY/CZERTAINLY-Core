@@ -4,8 +4,8 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -177,12 +177,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testAttributeContentValidation() {
-        RequestAttributeV3Dto departmentAttributeDto = new RequestAttributeV3Dto();
+        RequestAttributeV3 departmentAttributeDto = new RequestAttributeV3();
         departmentAttributeDto.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
 
-        RequestAttributeV3Dto expirationDateAttributeDto = new RequestAttributeV3Dto();
+        RequestAttributeV3 expirationDateAttributeDto = new RequestAttributeV3();
         expirationDateAttributeDto.setUuid(UUID.fromString(expirationDateCustomAttribute.getUuid()));
         expirationDateAttributeDto.setName(expirationDateCustomAttribute.getName());
         expirationDateAttributeDto.setContent(List.of(new DateAttributeContentV3(LocalDate.now())));
@@ -223,7 +223,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         List<BaseAttributeV2> codeBlockDataList = List.of(codeBlockData);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, codeBlockDataList);
 
-        RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 requestAttribute = new RequestAttributeV2();
         requestAttribute.setUuid(UUID.fromString(codeBlockData.getUuid()));
         requestAttribute.setName(codeBlockData.getName());
         requestAttribute.setContentType(codeBlockData.getContentType());
@@ -253,12 +253,12 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
     @Test
     void testDeleteObjectCustomAttributesContent() throws NotFoundException, CertificateException, IOException, AttributeException {
-        RequestAttributeV3Dto departmentAttributeDto = new RequestAttributeV3Dto();
+        RequestAttributeV3 departmentAttributeDto = new RequestAttributeV3();
         departmentAttributeDto.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
 
-        RequestAttributeV3Dto orderNoAttributeDto = new RequestAttributeV3Dto();
+        RequestAttributeV3 orderNoAttributeDto = new RequestAttributeV3();
         orderNoAttributeDto.setUuid(UUID.fromString(orderNoCustomAttribute.getUuid()));
         orderNoAttributeDto.setName(orderNoCustomAttribute.getName());
         orderNoAttributeDto.setContent(List.of(new FloatAttributeContentV3(555f)));
@@ -333,7 +333,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         attributeEngine.updateCustomAttributeDefinition(departmentCustomAttribute, List.of(Resource.CERTIFICATE, Resource.AUTHORITY));
         attributeEngine.updateCustomAttributeDefinition(expirationDateCustomAttribute, List.of(Resource.CERTIFICATE));
 
-        RequestAttributeV3Dto departmentAttributeDto = new RequestAttributeV3Dto();
+        RequestAttributeV3 departmentAttributeDto = new RequestAttributeV3();
         departmentAttributeDto.setUuid(UUID.fromString(departmentCustomAttribute.getUuid()));
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
@@ -438,7 +438,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         dataAttribute.setProperties(props);
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(dataAttribute));
 
-        RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 requestAttribute = new RequestAttributeV2();
         requestAttribute.setUuid(UUID.fromString(dataAttribute.getUuid()));
         requestAttribute.setName(dataAttribute.getName());
         requestAttribute.setContentType(dataAttribute.getContentType());
@@ -478,7 +478,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         List<BaseAttributeV2> requiredAttributeList = List.of(requiredAttribute);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, requiredAttributeList);
 
-        RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 requestAttribute = new RequestAttributeV2();
         requestAttribute.setUuid(UUID.randomUUID());
         requestAttribute.setName("unrelatedAttribute");
         requestAttribute.setContentType(AttributeContentType.STRING);
@@ -522,7 +522,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         List<DataAttributeV2> validAttributeList = List.of(validAttribute);
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, validAttributeList);
 
-        RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 requestAttribute = new RequestAttributeV2();
         requestAttribute.setUuid(UUID.fromString(validAttribute.getUuid()));
         requestAttribute.setName(validAttribute.getName());
         requestAttribute.setContentType(validAttribute.getContentType());

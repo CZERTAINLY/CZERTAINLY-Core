@@ -2,11 +2,8 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.cryptography.operations.*;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.*;
@@ -413,11 +410,11 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setData(List.of(data));
         requestDto.setSignatureAttributes(List.of());
 
-        RequestAttributeV3Dto reqDto1 = new RequestAttributeV3Dto();
+        RequestAttributeV3 reqDto1 = new RequestAttributeV3();
         reqDto1.setName("data_rsaSigScheme");
         reqDto1.setContent(List.of(new StringAttributeContentV3("PSS")));
 
-        RequestAttributeV3Dto reqDto2 = new RequestAttributeV3Dto();
+        RequestAttributeV3 reqDto2 = new RequestAttributeV3();
         reqDto2.setName("data_sigDigest");
         reqDto2.setContent(List.of(new StringAttributeContentV3("SHA-256")));
 
@@ -475,11 +472,11 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
         requestDto.setSignatureAttributes(List.of());
         requestDto.setSignatures(List.of(data));
 
-        RequestAttributeV3Dto reqDto1 = new RequestAttributeV3Dto();
+        RequestAttributeV3 reqDto1 = new RequestAttributeV3();
         reqDto1.setName("data_rsaSigScheme");
         reqDto1.setContent(List.of(new StringAttributeContentV3("PSS")));
 
-        RequestAttributeV3Dto reqDto2 = new RequestAttributeV3Dto();
+        RequestAttributeV3 reqDto2 = new RequestAttributeV3();
         reqDto2.setName("data_sigDigest");
         reqDto2.setContent(List.of(new StringAttributeContentV3("SHA-256")));
 

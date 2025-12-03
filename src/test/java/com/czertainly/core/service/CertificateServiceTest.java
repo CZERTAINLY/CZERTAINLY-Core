@@ -1,7 +1,7 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -874,7 +874,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
         customAttributeRequest.setContentType(AttributeContentType.STRING);
         String attributeUuid = attributeService.createCustomAttribute(customAttributeRequest).getUuid();
-        RequestAttributeV3Dto requestAttribute = new RequestAttributeV3Dto();
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(attributeUuid));
         requestAttribute.setName(customAttributeRequest.getName());
         requestAttribute.setContentType(customAttributeRequest.getContentType());

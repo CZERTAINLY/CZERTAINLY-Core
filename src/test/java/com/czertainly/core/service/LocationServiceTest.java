@@ -2,7 +2,7 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2Dto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
@@ -195,7 +195,7 @@ class LocationServiceTest extends BaseSpringBootTest {
         newLocation.setSupportMultipleEntries(true);
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("newLocation"))));
+        requestAttributes.add(new RequestAttributeV2(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("newLocation"))));
         attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
         return newLocation;
     }
@@ -210,7 +210,7 @@ class LocationServiceTest extends BaseSpringBootTest {
         newLocation.setSupportMultipleEntries(false);
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("location_multi"))));
+        requestAttributes.add(new RequestAttributeV2(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("location_multi"))));
         attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
 
         return newLocation;
@@ -226,7 +226,7 @@ class LocationServiceTest extends BaseSpringBootTest {
         newLocation.setSupportMultipleEntries(true);
 
         List<RequestAttribute> requestAttributes = new ArrayList<>();
-        requestAttributes.add(new RequestAttributeV2Dto(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("location_no_key"))));
+        requestAttributes.add(new RequestAttributeV2(UUID.fromString(testAttribute.getUuid()), testAttribute.getName(), AttributeContentType.STRING, List.of(new StringAttributeContentV2("location_no_key"))));
         attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.LOCATION, newLocation.getUuid(), requestAttributes);
 
         return newLocation;
@@ -277,7 +277,7 @@ class LocationServiceTest extends BaseSpringBootTest {
 
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName("testLocation2");
-        RequestAttributeV2Dto requestAttribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 requestAttribute = new RequestAttributeV2();
         requestAttribute.setUuid(UUID.fromString(testAttribute2.getUuid()));
         requestAttribute.setName(testAttribute2.getName());
         requestAttribute.setContent(List.of(new StringAttributeContentV2("test")));
@@ -292,7 +292,7 @@ class LocationServiceTest extends BaseSpringBootTest {
     void testAddLocation_DuplicateEntity() {
         AddLocationRequestDto request = new AddLocationRequestDto();
         request.setName(LOCATION_NAME);
-        RequestAttributeV2Dto attribute = new RequestAttributeV2Dto();
+        RequestAttributeV2 attribute = new RequestAttributeV2();
         attribute.setName("attribute");
         attribute.setContent(List.of(new StringAttributeContentV2("location")));
         request.setAttributes(List.of(attribute));
