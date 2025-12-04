@@ -1,6 +1,10 @@
 package com.czertainly.core.attribute.engine.records;
 
 import com.czertainly.api.model.client.attribute.*;
+import com.czertainly.api.model.client.metadata.ResponseMetadata;
+import com.czertainly.api.model.client.metadata.ResponseMetadataV2;
+import com.czertainly.api.model.client.metadata.ResponseMetadataV3;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
@@ -53,13 +57,58 @@ public class AttributeVersionFactory {
         }
     }
 
+    public static ResponseMetadata getResponseMetadata(int version, List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
+        if (version == 2) {
+            return getResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType, content);
+        }
 
-    private static ResponseAttribute getResponseAttributeV2(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
-        return new ResponseAttributeV2Dto((List<BaseAttributeContentV2<?>>) content, uuid, name, label, attributeType, contentType);
+        if (version == 3) {
+            return getResponseMetadataV3(sourceObjects, uuid, name, label, type, contentType, content);
+        }
+        return null;
+    }
+
+    public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata, AttributeContent contentItem) {
+        if (version == 2) {
+            addResponseMetadataContentV2(responseMetadata, contentItem);
+        }
+        if (version == 3) {
+            addResponseMetadataContentV3(responseMetadata, contentItem);
+        }
     }
 
 
-    private static RequestAttribute getRequestAttributeV2(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
+    private static void addResponseMetadataContentV2(ResponseMetadata responseMetadata, AttributeContent contentItem) {
+        ResponseMetadataV2 responseMetadataV2 = (ResponseMetadataV2) responseMetadata;
+        BaseAttributeContentV2<?> attributeContentV2 = (BaseAttributeContentV2<?>) contentItem;
+        if (!responseMetadataV2.getContent().contains(contentItem)) {
+            responseMetadataV2.getContent().add(attributeContentV2);
+        }
+    }
+
+    private static void addResponseMetadataContentV3(ResponseMetadata responseMetadata, AttributeContent contentItem) {
+        ResponseMetadataV3 responseMetadataV3 = (ResponseMetadataV3) responseMetadata;
+        BaseAttributeContentV3<?> attributeContentV3 = (BaseAttributeContentV3<?>) contentItem;
+        if (!responseMetadataV3.getContent().contains(contentItem)) {
+            responseMetadataV3.getContent().add(attributeContentV3);
+        }
+    }
+
+
+    private static ResponseMetadataV2 getResponseMetadataV2(List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
+        return new ResponseMetadataV2(sourceObjects, uuid, name, label, type, contentType, (List<BaseAttributeContentV2<?>>) content);
+    }
+
+    private static ResponseMetadataV3 getResponseMetadataV3(List<NameAndUuidDto> sourceObjects, UUID uuid, String name, String label, AttributeType type, AttributeContentType contentType, List<? extends AttributeContent> content) {
+        return new ResponseMetadataV3(sourceObjects, uuid, name, label, type, contentType, (List<BaseAttributeContentV3<?>>) content);
+    }
+
+    private static ResponseAttributeV2 getResponseAttributeV2(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
+        return new ResponseAttributeV2((List<BaseAttributeContentV2<?>>) content, uuid, name, label, attributeType, contentType);
+    }
+
+
+    private static RequestAttributeV2 getRequestAttributeV2(UUID uuid, String name, List<? extends AttributeContent> content, AttributeContentType contentType) {
         return new RequestAttributeV2(uuid, name, contentType, (List<BaseAttributeContentV2<?>>) content);
     }
 
@@ -70,12 +119,12 @@ public class AttributeVersionFactory {
 
 
     private static void addResponseAttributeContentV2(ResponseAttribute requestAttribute, AttributeContent contentItem) {
-        ((ResponseAttributeV2Dto) requestAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
+        ((ResponseAttributeV2) requestAttribute).getContent().add((BaseAttributeContentV2<?>) contentItem);
     }
 
 
     private static ResponseAttribute getResponseAttributeV3(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType) {
-        return new ResponseAttributeV3Dto((List<BaseAttributeContentV3<?>>) content, uuid, name, label, attributeType, contentType);
+        return new ResponseAttributeV3((List<BaseAttributeContentV3<?>>) content, uuid, name, label, attributeType, contentType);
     }
 
 
@@ -90,6 +139,6 @@ public class AttributeVersionFactory {
 
 
     private static void addResponseAttributeContentV3(ResponseAttribute requestAttribute, AttributeContent contentItem) {
-        ((ResponseAttributeV3Dto) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
+        ((ResponseAttributeV3) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 }

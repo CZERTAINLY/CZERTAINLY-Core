@@ -6,9 +6,9 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
-import com.czertainly.api.model.client.metadata.ResponseMetadataDto;
-import com.czertainly.api.model.client.metadata.ResponseMetadataV2Dto;
-import com.czertainly.api.model.client.metadata.ResponseMetadataV3Dto;
+import com.czertainly.api.model.client.metadata.ResponseMetadata;
+import com.czertainly.api.model.client.metadata.ResponseMetadataV2;
+import com.czertainly.api.model.client.metadata.ResponseMetadataV3;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -129,9 +129,9 @@ public class AttributeEngine {
         if (attributes == null || attributes.isEmpty()) return List.of();
         return attributes.stream().map(
                 attribute ->
-                   AttributeVersionFactory
-                            .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
-                                    attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getVersion())
+                        AttributeVersionFactory
+                                .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
+                                        attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getVersion())
         ).toList();
     }
 
@@ -154,7 +154,7 @@ public class AttributeEngine {
         return attributes.stream().map(
                 attribute ->
                         AttributeVersionFactory.getResponseAttribute(attribute.getUuid(), attribute.getName(), attribute.getName(),
-                                        attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion())
+                                attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion())
         ).toList();
     }
 
@@ -217,17 +217,17 @@ public class AttributeEngine {
         List<ObjectAttributeContentDetail> objectMetadataContents = attributeContent2ObjectRepository.getObjectAttributeContentDetail(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
 
         Map<UUID, String> connectorMapping = new HashMap<>();
-        Map<UUID, Map<Resource, Map<UUID, ResponseMetadataDto<?>>>> mapping = new HashMap<>();
+        Map<UUID, Map<Resource, Map<UUID, ResponseMetadata>>> mapping = new HashMap<>();
         for (ObjectAttributeContentDetail objectMetadataContent : objectMetadataContents) {
             // check in case data is null because of malformed data
             if (objectMetadataContent.contentItem().getData() == null) {
                 continue;
             }
 
-            ResponseMetadataDto<?> metadataResponseAttributeDto;
+            ResponseMetadata metadataResponseAttributeDto;
             // do we need check for empty content?
-            Map<Resource, Map<UUID, ResponseMetadataDto<?>>> sourceAttributesContentsMapping;
-            Map<UUID, ResponseMetadataDto<?>> sourceAttributesContents;
+            Map<Resource, Map<UUID, ResponseMetadata>> sourceAttributesContentsMapping;
+            Map<UUID, ResponseMetadata> sourceAttributesContents;
             if (!connectorMapping.containsKey(objectMetadataContent.connectorUuid())) {
 //                String connectorName = objectMetadataContent.connectorName() != null ? objectMetadataContent.connectorName() : "<No connector>";
                 String connectorName = objectMetadataContent.connectorName();
@@ -243,37 +243,11 @@ public class AttributeEngine {
             }
 
             if ((metadataResponseAttributeDto = sourceAttributesContents.get(objectMetadataContent.uuid())) == null) {
-                if (objectMetadataContent.version() == 2) {
-                    metadataResponseAttributeDto = new ResponseMetadataV2Dto();
-                    metadataResponseAttributeDto.setUuid(objectMetadataContent.uuid().toString());
-                    metadataResponseAttributeDto.setName(objectMetadataContent.name());
-                    metadataResponseAttributeDto.setLabel(objectMetadataContent.label());
-                    metadataResponseAttributeDto.setType(objectMetadataContent.type());
-                    metadataResponseAttributeDto.setContentType(objectMetadataContent.contentType());
-                    metadataResponseAttributeDto.setContent(new ArrayList<>());
-                    sourceAttributesContents.put(objectMetadataContent.uuid(), metadataResponseAttributeDto);
-                } else if (objectMetadataContent.version() == 3) {
-                    metadataResponseAttributeDto = new ResponseMetadataV3Dto();
-                    metadataResponseAttributeDto.setUuid(objectMetadataContent.uuid().toString());
-                    metadataResponseAttributeDto.setName(objectMetadataContent.name());
-                    metadataResponseAttributeDto.setLabel(objectMetadataContent.label());
-                    metadataResponseAttributeDto.setType(objectMetadataContent.type());
-                    metadataResponseAttributeDto.setContentType(objectMetadataContent.contentType());
-                    metadataResponseAttributeDto.setContent(new ArrayList<>());
-                    sourceAttributesContents.put(objectMetadataContent.uuid(), metadataResponseAttributeDto);
-                } else {
-                    throw new IllegalArgumentException("Unsupported version of attribute " + objectMetadataContent.version());
-                }
+                metadataResponseAttributeDto = AttributeVersionFactory.getResponseMetadata(objectMetadataContent.version(), new ArrayList<>(), objectMetadataContent.uuid(), objectMetadataContent.name(), objectMetadataContent.label(), objectMetadataContent.type(), objectMetadataContent.contentType(), new ArrayList<>());
+                sourceAttributesContents.put(objectMetadataContent.uuid(), metadataResponseAttributeDto);
             }
 
-            if (!metadataResponseAttributeDto.getContent().contains(objectMetadataContent.contentItem())) {
-                if (objectMetadataContent.version() == 2) {
-                    ((ResponseMetadataV2Dto) metadataResponseAttributeDto).getContent().add((BaseAttributeContentV2<?>) objectMetadataContent.contentItem());
-                }
-                if (objectMetadataContent.version() == 3) {
-                    ((ResponseMetadataV3Dto) metadataResponseAttributeDto).getContent().add((BaseAttributeContentV3<?>) objectMetadataContent.contentItem());
-                }
-            }
+            AttributeVersionFactory.addResponseMetadataContent(objectMetadataContent.version(), metadataResponseAttributeDto, objectMetadataContent.contentItem());
 
             if (objectMetadataContent.sourceObjectType() != null) {
                 metadataResponseAttributeDto.getSourceObjects().add(new NameAndUuidDto(objectMetadataContent.sourceObjectUuid().toString(), objectMetadataContent.sourceObjectName()));
@@ -596,10 +570,10 @@ public class AttributeEngine {
             }
 
             if (requestAttribute.getVersion() == 2) {
-                ResponseAttributeV2Dto responseAttribute = getResponseAttributeV2(attributeType, requestAttribute, attributeDefinition);
+                ResponseAttributeV2 responseAttribute = getResponseAttributeV2(attributeType, requestAttribute, attributeDefinition);
                 responseAttributes.add(responseAttribute);
             } else if (requestAttribute.getVersion() == 3) {
-                ResponseAttributeV3Dto responseAttribute = getResponseAttributeV3(attributeType, requestAttribute, attributeDefinition);
+                ResponseAttributeV3 responseAttribute = getResponseAttributeV3(attributeType, requestAttribute, attributeDefinition);
                 responseAttributes.add(responseAttribute);
             }
         }
@@ -607,8 +581,8 @@ public class AttributeEngine {
         return responseAttributes;
     }
 
-    private static ResponseAttributeV2Dto getResponseAttributeV2(AttributeType attributeType, RequestAttribute requestAttribute, AttributeDefinition attributeDefinition) {
-        ResponseAttributeV2Dto responseAttribute = new ResponseAttributeV2Dto();
+    private static ResponseAttributeV2 getResponseAttributeV2(AttributeType attributeType, RequestAttribute requestAttribute, AttributeDefinition attributeDefinition) {
+        ResponseAttributeV2 responseAttribute = new ResponseAttributeV2();
         responseAttribute.setUuid(requestAttribute.getUuid());
         responseAttribute.setName(requestAttribute.getName());
         responseAttribute.setContentType(requestAttribute.getContentType());
@@ -618,8 +592,8 @@ public class AttributeEngine {
         return responseAttribute;
     }
 
-    private static ResponseAttributeV3Dto getResponseAttributeV3(AttributeType attributeType, RequestAttribute requestAttribute, AttributeDefinition attributeDefinition) {
-        ResponseAttributeV3Dto responseAttribute = new ResponseAttributeV3Dto();
+    private static ResponseAttributeV3 getResponseAttributeV3(AttributeType attributeType, RequestAttribute requestAttribute, AttributeDefinition attributeDefinition) {
+        ResponseAttributeV3 responseAttribute = new ResponseAttributeV3();
         responseAttribute.setUuid(requestAttribute.getUuid());
         responseAttribute.setName(requestAttribute.getName());
         responseAttribute.setContentType(requestAttribute.getContentType());
@@ -904,7 +878,7 @@ public class AttributeEngine {
         }
     }
 
-    public static void validateRequestDataAttributes(List<? extends BaseAttribute> definitions, List<RequestAttribute> requestAttributes, boolean strict) throws ValidationException {
+    public static void validateRequestDataAttributes(List<? extends BaseAttribute> definitions, List<? extends RequestAttribute> requestAttributes, boolean strict) throws ValidationException {
         if (definitions == null) {
             definitions = new ArrayList<>();
         }
@@ -942,7 +916,7 @@ public class AttributeEngine {
         }
     }
 
-    public List<ResponseAttribute> getRequestDataAttributesContent(List<BaseAttribute> definitions, List<RequestAttribute> requestAttributes) throws ValidationException {
+    public List<ResponseAttribute> getRequestDataAttributesContent(List<BaseAttribute> definitions, List<? extends RequestAttribute> requestAttributes) throws ValidationException {
         if (definitions == null) {
             definitions = new ArrayList<>();
         }
