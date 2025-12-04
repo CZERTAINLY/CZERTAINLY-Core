@@ -264,7 +264,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
             for (ResponseMetadata responseAttributeDto : responseMetadata) {
                 if (Objects.equals(responseAttributeDto.getName(), fieldIdentifierName) && fieldAttributeContentType == responseAttributeDto.getContentType()) {
                     // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
-                    if (evaluateConditionOnAttribute(responseAttributeDto.toResponseAttribute(), conditionValue, operator))
+                    if (evaluateConditionOnAttribute(responseAttributeDto.getContent(), responseAttributeDto.getContentType(), conditionValue, operator))
                         return true;
                 }
             }
@@ -279,7 +279,7 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         ResponseAttributeV3 attributeToCompare = (ResponseAttributeV3) responseAttributes.stream().filter(rad -> Objects.equals(rad.getName(), fieldIdentifier)).findFirst().orElse(null);
         if (attributeToCompare == null) return false;
         // Evaluate condition on each attribute content of the attribute, if at least one condition is evaluated as satisfied at least once, the condition is satisfied for the object
-        return evaluateConditionOnAttribute(attributeToCompare, conditionValue, operator);
+        return evaluateConditionOnAttribute(attributeToCompare.getContent(), attributeToCompare.getContentType(), conditionValue, operator);
     }
 
     @Override
@@ -525,9 +525,8 @@ public class TriggerEvaluator<T extends UniquelyIdentifiedObject> implements ITr
         return Float.compare(objectNumber.floatValue(), ((Number) conditionNumber).floatValue());
     }
 
-    private boolean evaluateConditionOnAttribute(ResponseAttributeV3 attributeDto, Object conditionValue, FilterConditionOperator operator) throws RuleException {
-        AttributeContentType contentType = attributeDto.getContentType();
-        for (AttributeContent attributeContent : attributeDto.getContent()) {
+    private boolean evaluateConditionOnAttribute(List<? extends AttributeContent> content, AttributeContentType contentType, Object conditionValue, FilterConditionOperator operator) throws RuleException {
+        for (AttributeContent attributeContent : content) {
             Object attributeValue = contentType.isFilterByData() ? attributeContent.getData() : attributeContent.getReference();
             try {
                 if (Boolean.TRUE.equals(fieldTypeToOperatorActionMap.get(contentTypeToFieldType(contentType)).get(operator).apply(attributeValue, conditionValue)))

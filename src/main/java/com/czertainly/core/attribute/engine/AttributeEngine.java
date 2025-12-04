@@ -8,7 +8,6 @@ import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadata;
 import com.czertainly.api.model.client.metadata.ResponseMetadataV2;
-import com.czertainly.api.model.client.metadata.ResponseMetadataV3;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
