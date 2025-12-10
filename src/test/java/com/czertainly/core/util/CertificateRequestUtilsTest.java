@@ -2,7 +2,7 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.core.attribute.CsrAttributes;
 import org.bouncycastle.asn1.x500.X500Name;

@@ -1,6 +1,6 @@
 package com.czertainly.core.dao.repository;
 
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContent;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentDetail;

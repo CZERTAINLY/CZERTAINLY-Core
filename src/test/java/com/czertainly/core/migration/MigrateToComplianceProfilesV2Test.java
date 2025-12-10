@@ -1,7 +1,7 @@
 package com.czertainly.core.migration;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
 import com.czertainly.core.model.compliance.ComplianceResultDto;
 import com.czertainly.core.util.BaseSpringBootTest;

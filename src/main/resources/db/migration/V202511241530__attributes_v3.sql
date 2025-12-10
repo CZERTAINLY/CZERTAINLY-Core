@@ -4,6 +4,7 @@ UPDATE attribute_definition SET version = 'V3' WHERE type = 'CUSTOM';
 UPDATE attribute_definition ad
 SET definition =
         jsonb_set(ad.definition, '{schemaVersion}', '"v3"', true)
+        - 'version'
 WHERE ad.type = 'CUSTOM';
 
 
