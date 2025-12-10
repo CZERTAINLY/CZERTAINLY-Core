@@ -216,7 +216,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), FunctionGroupCode.NOTIFICATION_PROVIDER, request.getAttributes(), kind);
 
         // Load complete credential data
-        var dataAttributes = attributeEngine.getDataAttributesV2ByContent(connector.getUuid(), request.getAttributes());
+        var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
 
         NotificationProviderInstanceRequestDto notificationInstanceDto = new NotificationProviderInstanceRequestDto();

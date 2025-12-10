@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
@@ -71,7 +72,8 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     private Boolean readOnly;
 
     @Column(name = "version", nullable = false)
-    private int version;
+    @Enumerated(EnumType.STRING)
+    private AttributeVersion version;
 
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

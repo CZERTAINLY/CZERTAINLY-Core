@@ -417,7 +417,7 @@ public class NotificationListener {
             }
 
             RequestAttribute requestAttribute = AttributeVersionFactory
-                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getVersion());
+                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getSchemaVersion());
             mappedAttributes.add(requestAttribute);
         }
 

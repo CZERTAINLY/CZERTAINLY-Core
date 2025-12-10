@@ -7,13 +7,10 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadata;
-import com.czertainly.api.model.client.metadata.ResponseMetadataV2;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.common.DataAttribute;
-import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.*;
 import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v2.content.data.AttributeContentData;
@@ -130,7 +127,7 @@ public class AttributeEngine {
                 attribute ->
                         AttributeVersionFactory
                                 .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
-                                        attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getVersion())
+                                        attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getSchemaVersion())
         ).toList();
     }
 
@@ -308,7 +305,7 @@ public class AttributeEngine {
         attributeDefinition.setRequired(customAttribute.getProperties().isRequired());
         attributeDefinition.setReadOnly(customAttribute.getProperties().isReadOnly());
         attributeDefinition.setDefinition(customAttribute);
-        attributeDefinition.setVersion(3); // ? constant with custom attribute version??
+        attributeDefinition.setVersion(AttributeVersion.V3); // ? constant with custom attribute version??
         attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
 
         // save relations
@@ -386,12 +383,8 @@ public class AttributeEngine {
             return;
         }
         for (BaseAttribute attribute : attributes) {
-            if (attribute.getType() == AttributeType.DATA && attribute.getVersion() == 2) {
-                updateDataAttributeDefinition(connectorUuid, operation, (DataAttributeV2) attribute);
-            }
-
-            if (attribute.getType() == AttributeType.DATA && attribute.getVersion() == 3) {
-                updateDataAttributeDefinition(connectorUuid, operation, (DataAttributeV3) attribute);
+            if (attribute.getType() == AttributeType.DATA) {
+                updateDataAttributeDefinition(connectorUuid, operation, (DataAttribute<?>) attribute);
             }
         }
     }
@@ -420,7 +413,7 @@ public class AttributeEngine {
             attributeDefinition.setType(AttributeType.DATA);
             attributeDefinition.setContentType(dataAttribute.getContentType());
             attributeDefinition.setOperation(operation);
-            attributeDefinition.setVersion(dataAttribute.getVersion());
+            attributeDefinition.setVersion(dataAttribute.getSchemaVersion());
         }
         attributeDefinition.setLabel(dataAttribute.getProperties().getLabel());
         attributeDefinition.setRequired(dataAttribute.getProperties().isRequired());
@@ -461,7 +454,7 @@ public class AttributeEngine {
             attributeDefinition.setName(metadataAttribute.getName());
             attributeDefinition.setType(AttributeType.META);
             attributeDefinition.setContentType(metadataAttribute.getContentType());
-            attributeDefinition.setVersion(metadataAttribute.getVersion());
+            attributeDefinition.setVersion(metadataAttribute.getSchemaVersion());
             attributeDefinition.setGlobal(isGlobal);
         }
         attributeDefinition.setLabel(metadataAttribute.getProperties().getLabel());
@@ -514,7 +507,7 @@ public class AttributeEngine {
         Map<String, DataAttribute<?>> mapping = new HashMap<>();
         for (ObjectAttributeDefinitionContent objectDefinitionContent : objectDefinitionContents) {
             String uuid = objectDefinitionContent.uuid().toString();
-            if (objectDefinitionContent.definition().getVersion() == 2) {
+            if (objectDefinitionContent.definition().getSchemaVersion() == AttributeVersion.V2) {
                 DataAttributeV2 attribute;
                 if ((attribute = (DataAttributeV2) mapping.get(uuid)) == null) {
                     attribute = (DataAttributeV2) objectDefinitionContent.definition();
@@ -523,7 +516,7 @@ public class AttributeEngine {
                 }
                 attribute.getContent().add((BaseAttributeContentV2<?>) objectDefinitionContent.contentItem());
             }
-            if (objectDefinitionContent.definition().getVersion() == 3) {
+            if (objectDefinitionContent.definition().getSchemaVersion() == AttributeVersion.V3) {
                 DataAttributeV3 attribute;
                 if ((attribute = (DataAttributeV3) mapping.get(uuid)) == null) {
                     attribute = (DataAttributeV3) objectDefinitionContent.definition();
@@ -568,10 +561,10 @@ public class AttributeEngine {
                 continue;
             }
 
-            if (requestAttribute.getVersion() == 2) {
+            if (requestAttribute.getVersion() == AttributeVersion.V2) {
                 ResponseAttributeV2 responseAttribute = getResponseAttributeV2(attributeType, requestAttribute, attributeDefinition);
                 responseAttributes.add(responseAttribute);
-            } else if (requestAttribute.getVersion() == 3) {
+            } else if (requestAttribute.getVersion() == AttributeVersion.V3) {
                 ResponseAttributeV3 responseAttribute = getResponseAttributeV3(attributeType, requestAttribute, attributeDefinition);
                 responseAttributes.add(responseAttribute);
             }
@@ -645,7 +638,7 @@ public class AttributeEngine {
         return getRequestAttributes(objectContents);
     }
 
-    public List<DataAttribute<?>> getDataAttributesV2ByContent(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException {
+    public List<DataAttribute<?>> getDataAttributesByContent(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException {
         List<DataAttribute<?>> dataAttributes = new ArrayList<>();
         String connectorUuidStr = connectorUuid == null ? null : connectorUuid.toString();
         for (RequestAttribute requestAttribute : requestAttributes) {
@@ -654,12 +647,12 @@ public class AttributeEngine {
 
             validateAttributeContent(definition, requestAttribute.getContent());
 
-            if (requestAttribute.getVersion() == 2) {
+            if (requestAttribute.getVersion() == AttributeVersion.V2) {
                 DataAttributeV2 dataAttribute = (DataAttributeV2) definition.getDefinition();
                 dataAttribute.setContent(requestAttribute.getContent());
                 dataAttributes.add(dataAttribute);
             }
-            if (requestAttribute.getVersion() == 3) {
+            if (requestAttribute.getVersion() == AttributeVersion.V3) {
                 DataAttributeV3 dataAttribute = (DataAttributeV3) definition.getDefinition();
                 dataAttribute.setContent(((RequestAttributeV3) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV3) c).toList());
                 dataAttributes.add(dataAttribute);
@@ -828,8 +821,8 @@ public class AttributeEngine {
         }
 
         if (attribute.getType() == AttributeType.GROUP) {
-            GroupAttributeV2 groupAttribute = (GroupAttributeV2) attribute;
-            if (groupAttribute.getAttributeCallback() == null) {
+            AttributeCallback callback = AttributeVersionFactory.getGroupAttributeCallback(attribute);
+            if (callback == null) {
                 throw new AttributeException("Group attribute does not have callback", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
         } else if (attribute.getType() == AttributeType.CUSTOM || attribute.getType() == AttributeType.DATA) {
@@ -845,7 +838,7 @@ public class AttributeEngine {
                 hasCallback = false;
                 hasContent = customAttribute.getContent() != null && !customAttribute.getContent().isEmpty();
             } else {
-                DataAttributeV2 dataAttribute = (DataAttributeV2) attribute;
+                DataAttribute<?> dataAttribute = (DataAttribute<?>) attribute;
 
                 label = dataAttribute.getProperties().getLabel();
                 readOnly = dataAttribute.getProperties().isReadOnly();
@@ -1146,8 +1139,8 @@ public class AttributeEngine {
 
                 // convert content items to its respective content classes
                 try {
-                    Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentClass();
-                    if (attributeDefinition.getVersion() == 2)
+                    Class<?> contentTypeClass = attributeDefinition.getVersion() == AttributeVersion.V3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentClass();
+                    if (attributeDefinition.getVersion() == AttributeVersion.V2)
                         ATTRIBUTES_OBJECT_MAPPER.disable(MapperFeature.USE_ANNOTATIONS);
                     ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
                 } catch (IllegalArgumentException e) {

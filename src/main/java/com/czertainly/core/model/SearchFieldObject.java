@@ -1,8 +1,8 @@
 package com.czertainly.core.model;
 
+import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
@@ -57,7 +57,7 @@ public class SearchFieldObject {
                     contentItems = customAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
                 }
             } else {
-                if (attributeDefinition.getVersion() == 2) {
+                if (attributeDefinition.getSchemaVersion() == AttributeVersion.V2) {
                     DataAttributeV2 dataAttribute = (DataAttributeV2) attributeDefinition;
                     // data attributes that are list can have content provided later by callback so do not mark it as list if content is empty
                     list = dataAttribute.getProperties().isList() && dataAttribute.getContent() != null && !dataAttribute.getContent().isEmpty();
@@ -66,7 +66,7 @@ public class SearchFieldObject {
                         contentItems = dataAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
                     }
                 }
-                if (attributeDefinition.getVersion() == 3) {
+                if (attributeDefinition.getSchemaVersion() == AttributeVersion.V3) {
                     DataAttributeV3 dataAttribute = (DataAttributeV3) attributeDefinition;
                     // data attributes that are list can have content provided later by callback so do not mark it as list if content is empty
                     list = dataAttribute.getProperties().isList() && dataAttribute.getContent() != null && !dataAttribute.getContent().isEmpty();

@@ -5,12 +5,10 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.connector.authority.CaCertificatesRequestDto;
 import com.czertainly.api.model.connector.authority.CaCertificatesResponseDto;
 import com.czertainly.api.model.connector.v2.CertificateDataResponseDto;
@@ -307,8 +305,8 @@ public class RaProfileServiceImpl implements RaProfileService {
         extendedAttributeService.mergeAndValidateRevokeAttributes(raProfile, request.getRevokeCertificateAttributes());
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
-        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
-        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getRevokeCertificateAttributes())));
+        raProfileProtocolAttribute.setAcmeIssueCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
+        raProfileProtocolAttribute.setAcmeRevokeCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getRevokeCertificateAttributes())));
         raProfileProtocolAttribute.setRaProfile(raProfile);
         raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
 
@@ -344,7 +342,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         extendedAttributeService.mergeAndValidateIssueAttributes(raProfile, request.getIssueCertificateAttributes());
 
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
-        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesV2ByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
+        raProfileProtocolAttribute.setScepIssueCertificateAttributes(AttributeDefinitionUtils.serializeData(attributeEngine.getDataAttributesByContent(raProfile.getAuthorityInstanceReference().getConnectorUuid(), request.getIssueCertificateAttributes())));
         raProfileProtocolAttribute.setRaProfile(raProfile);
         raProfileProtocolAttributeRepository.save(raProfileProtocolAttribute);
 
@@ -413,14 +411,14 @@ public class RaProfileServiceImpl implements RaProfileService {
         RaProfileProtocolAttribute raProfileProtocolAttribute = raProfile.getProtocolAttribute();
         raProfileProtocolAttribute.setCmpIssueCertificateAttributes(
                 AttributeDefinitionUtils.serializeData(
-                        attributeEngine.getDataAttributesV2ByContent(
+                        attributeEngine.getDataAttributesByContent(
                                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                                 request.getIssueCertificateAttributes())
                 )
         );
         raProfileProtocolAttribute.setCmpRevokeCertificateAttributes(
                 AttributeDefinitionUtils.serializeData(
-                        attributeEngine.getDataAttributesV2ByContent(
+                        attributeEngine.getDataAttributesByContent(
                                 raProfile.getAuthorityInstanceReference().getConnectorUuid(),
                                 request.getRevokeCertificateAttributes())
                 )

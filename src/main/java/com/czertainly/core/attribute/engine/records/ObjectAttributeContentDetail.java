@@ -1,6 +1,7 @@
 package com.czertainly.core.attribute.engine.records;
 
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.v2.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -19,6 +20,6 @@ public record ObjectAttributeContentDetail(
     Resource sourceObjectType,
     UUID sourceObjectUuid,
     String sourceObjectName,
-    int version
+    AttributeVersion version
 )
 {}
