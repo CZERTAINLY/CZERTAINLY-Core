@@ -1,10 +1,16 @@
-ALTER TABLE attribute_definition ADD COLUMN version INT NOT NULL DEFAULT 2;
-UPDATE attribute_definition SET version = 3 WHERE type = 'CUSTOM';
+ALTER TABLE attribute_definition ADD COLUMN version VARCHAR NOT NULL DEFAULT 'V2';
+UPDATE attribute_definition SET version = 'V3' WHERE type = 'CUSTOM';
+
+UPDATE attribute_definition ad
+SET definition =
+        jsonb_set(ad.definition, '{schemaVersion}', '"v3"', true)
+WHERE ad.type = 'CUSTOM';
+
 
 UPDATE attribute_definition ad
 SET definition =
     jsonb_set(
-        jsonb_set(ad.definition, '{version}', '3', false),
+        ad.definition,
         '{content}',
         (
             SELECT jsonb_agg(
@@ -46,7 +52,7 @@ SET custom_attributes = (
   SELECT jsonb_agg(
            outer_elem
            || jsonb_build_object(
-                'version', '3',
+                'schemaVersion', '"v3"',
                 'content',
                 CASE
                   WHEN jsonb_typeof(outer_elem->'content') = 'array'
@@ -75,7 +81,7 @@ SET attributes = (
   SELECT jsonb_agg(
            outer_elem
            || jsonb_build_object(
-                'version', '3',
+                'schemaVersion', '"v3"',
                 'content',
                 CASE
                   WHEN jsonb_typeof(outer_elem->'content') = 'array'
