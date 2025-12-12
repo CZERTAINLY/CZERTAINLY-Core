@@ -345,7 +345,7 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         Assertions.assertEquals(3, initialCount);
 
         // Run the scheduled task
-        ScheduledTaskResult result = updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
 
         // Verify expired nonces were deleted
         long finalCount = acmeNonceRepository.count();
