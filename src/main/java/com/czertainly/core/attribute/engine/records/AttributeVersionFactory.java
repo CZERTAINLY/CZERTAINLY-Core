@@ -151,4 +151,22 @@ public class AttributeVersionFactory {
         if (attribute.getVersion() == 3) return ((GroupAttributeV3) attribute).getAttributeCallback();
         return null;
     }
+
+    public static BaseAttributeContentV3<?> convertAttributeContentToV3(AttributeContent attributeContent, AttributeContentType contentType) {
+        if (attributeContent.getContentType() != null) return (BaseAttributeContentV3<?>) attributeContent;
+       else  {
+            return convertV2ToV3((BaseAttributeContentV2<?>) attributeContent, contentType);
+        }
+    }
+
+    private static <T> BaseAttributeContentV3<T> convertV2ToV3(
+            BaseAttributeContentV2<T> v2,
+            AttributeContentType contentType
+    ) {
+        BaseAttributeContentV3<T> v3 = new BaseAttributeContentV3<>();
+        v3.setContentType(contentType);
+        v3.setReference(v2.getReference());
+        v3.setData(v2.getData());
+        return v3;
+    }
 }

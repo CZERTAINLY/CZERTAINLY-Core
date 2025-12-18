@@ -9,9 +9,9 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
@@ -149,7 +149,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
             @LogResource(resource = true, affiliated = true) Resource resourceName,
             @LogResource(uuid = true, affiliated = true) String objectUuid,
             @LogResource(uuid = true) String attributeUuid,
-            List<BaseAttributeContentV3<?>> request
+            List<AttributeContent> request
     ) throws NotFoundException, AttributeException {
         return resourceService.updateAttributeContentForObject(
                 resourceName,

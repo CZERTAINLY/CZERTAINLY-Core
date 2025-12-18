@@ -14,6 +14,7 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefiniti
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
@@ -21,8 +22,10 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.AttributeVersionFactory;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -111,7 +114,7 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.setName(request.getName());
         attribute.setUuid(UUID.randomUUID().toString());
         attribute.setDescription(request.getDescription());
-        attribute.setContent(request.getContent());
+        attribute.setContent(request.getContent().stream().<BaseAttributeContentV3>map(attributeContent -> AttributeVersionFactory.convertAttributeContentToV3(attributeContent, request.getContentType())).toList());
 
         // Setting the attribute properties based on the information from the request
         CustomAttributeProperties properties = new CustomAttributeProperties();
