@@ -14,6 +14,7 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefiniti
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -300,7 +301,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.MEMBERS)
-    public List<CustomAttributeV3> getResourceAttributes(SecurityFilter filter, Resource resource) {
+    public List<CustomAttribute<?>> getResourceAttributes(SecurityFilter filter, Resource resource) {
         return attributeEngine.getCustomAttributesByResource(resource, filter.getResourceFilter());
     }
 

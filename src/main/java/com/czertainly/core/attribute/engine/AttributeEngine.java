@@ -159,17 +159,29 @@ public class AttributeEngine {
     }
 
 
-    public List<CustomAttributeV3> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
+    public List<CustomAttribute<?>> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
         List<AttributeRelation> relations = attributeRelationRepository.findByResourceAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(resource, AttributeType.CUSTOM, true);
 
         // filter definitions that are not allowed for user
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
             return relations.stream()
                     .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
-                    .map(r -> (CustomAttributeV3) r.getAttributeDefinition().getDefinition())
+                    .<CustomAttribute<?>>map(r -> {
+                        if (r.getAttributeDefinition().getDefinition().getVersion() == 2)
+                            return (CustomAttributeV2) r.getAttributeDefinition().getDefinition();
+                        if (r.getAttributeDefinition().getDefinition().getVersion() == 3)
+                            return (CustomAttributeV3) r.getAttributeDefinition().getDefinition();
+                        return null;
+                    })
                     .toList();
         } else {
-            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> (CustomAttributeV3) r.getAttributeDefinition().getDefinition()).toList();
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).<CustomAttribute<?>>map(r -> {
+                if (r.getAttributeDefinition().getDefinition().getVersion() == 2)
+                    return (CustomAttributeV2) r.getAttributeDefinition().getDefinition();
+                if (r.getAttributeDefinition().getDefinition().getVersion() == 3)
+                    return (CustomAttributeV3) r.getAttributeDefinition().getDefinition();
+                return null;
+            }).toList();
         }
     }
 

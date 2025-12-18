@@ -13,6 +13,7 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
@@ -135,11 +136,11 @@ public interface AttributeService extends ResourceExtensionService {
     /**
      * Function to get the list of custom attributes that are applicable for the resource
      *
-     * @param filter : SecurityFilter to load object permissions
+     * @param filter   : SecurityFilter to load object permissions
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
-    List<CustomAttributeV3> getResourceAttributes(SecurityFilter filter, Resource resource);
+    List<CustomAttribute<?>> getResourceAttributes(SecurityFilter filter, Resource resource);
 
     /**
      * Function to validate if the custom attributes contains the correct information

@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -235,7 +236,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     void testUpdateResource() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<CustomAttributeV3> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        List<CustomAttribute<?>> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals(attribute.getUuid(), attributes.getFirst().getUuid());
     }
@@ -250,7 +251,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     void testGetResourceAttributesWithValue() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<CustomAttributeV3> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        List<CustomAttribute<?>> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
     }
 }

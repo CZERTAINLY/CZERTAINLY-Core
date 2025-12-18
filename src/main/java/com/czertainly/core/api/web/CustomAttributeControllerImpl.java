@@ -9,8 +9,8 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -133,7 +133,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
-    public List<CustomAttributeV3> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
+    public List<CustomAttribute<?>> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
         return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 
