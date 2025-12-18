@@ -203,7 +203,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
 
         // the following should not throw any exception, we cannot update read-only attributes
         UUID certificateUuid = certificate.getUuid();
-        Assertions.assertThrows(ValidationException.class, () -> attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificateUuid, departmentExpirationDateList), "Read-only attribute content should not be able to be changed");
     }
 
     @Test
