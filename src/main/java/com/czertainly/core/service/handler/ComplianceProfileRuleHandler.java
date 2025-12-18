@@ -351,7 +351,7 @@ public class ComplianceProfileRuleHandler {
         return complianceProfileRule;
     }
 
-    public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceRuleResponseDto providerRule, List<RequestAttributeV3> requestAttributes) {
+    public ComplianceProfileRule createComplianceProfileProviderRuleAssoc(UUID complianceProfileUuid, UUID connectorUuid, String kind, ComplianceRuleResponseDto providerRule, List<RequestAttribute> requestAttributes) {
         if (!providerRule.getResource().complianceSubject()) {
             throw new ValidationException("Provider rule '%s' with resource %s cannot be associated with compliance profile because resource does not support compliance check".formatted(providerRule.getName(), providerRule.getResource().getLabel()));
         }

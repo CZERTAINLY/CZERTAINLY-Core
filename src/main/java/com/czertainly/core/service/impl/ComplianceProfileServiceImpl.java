@@ -231,7 +231,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         return getProviderRule(complianceProfile.getUuid(), complianceProfile.getName(), UUID.fromString(request.getConnectorUuid()), request.getKind(), request.getRuleUuid(), complianceProfileRule.getAttributes());
     }
 
-    private ComplianceProfileRuleDto getProviderRule(UUID complianceProfileUuid, String complianceProfileName, UUID connectorUuid, String kind, String ruleUuid, List<RequestAttributeV3> requestAttributes) throws NotFoundException, ConnectorException {
+    private ComplianceProfileRuleDto getProviderRule(UUID complianceProfileUuid, String complianceProfileName, UUID connectorUuid, String kind, String ruleUuid, List<RequestAttribute> requestAttributes) throws NotFoundException, ConnectorException {
         ConnectorDto connectorDto = getValidatedComplianceProvider(connectorUuid, kind);
 
         ComplianceProfileRuleDto resultRule = null;
