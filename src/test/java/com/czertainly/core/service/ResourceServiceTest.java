@@ -7,6 +7,7 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -123,7 +124,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         certificate.setUuid(UUID.fromString(CERTIFICATE_UUID));
         certificateRepository.save(certificate);
 
-        CustomAttributeV2 attribute = new CustomAttributeV2();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(ATTRIBUTE_UUID);
         attribute.setName("testAttribute");
         attribute.setDescription("description");
