@@ -71,8 +71,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     private Boolean readOnly;
 
     @Column(name = "version", nullable = false)
-    @Enumerated(EnumType.STRING)
-    private AttributeVersion version;
+    private int version;
 
     @Column(name = "definition", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)

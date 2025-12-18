@@ -14,6 +14,6 @@ public record ObjectAttributeContent(
     AttributeType type,
     AttributeContentType contentType,
     AttributeContent contentItem,
-    AttributeVersion version
+    int version
 )
 {}

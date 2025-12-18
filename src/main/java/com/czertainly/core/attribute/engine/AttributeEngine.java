@@ -127,7 +127,7 @@ public class AttributeEngine {
                 attribute ->
                         AttributeVersionFactory
                                 .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
-                                        attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getSchemaVersion())
+                                        attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getVersion())
         ).toList();
     }
 
@@ -150,7 +150,7 @@ public class AttributeEngine {
         return attributes.stream().map(
                 attribute ->
                         AttributeVersionFactory.getResponseAttribute(attribute.getUuid(), attribute.getName(), attribute.getName(),
-                                attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion())
+                                attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion().getAnInt())
         ).toList();
     }
 
@@ -305,7 +305,7 @@ public class AttributeEngine {
         attributeDefinition.setRequired(customAttribute.getProperties().isRequired());
         attributeDefinition.setReadOnly(customAttribute.getProperties().isReadOnly());
         attributeDefinition.setDefinition(customAttribute);
-        attributeDefinition.setVersion(AttributeVersion.V3); // ? constant with custom attribute version??
+        attributeDefinition.setVersion(AttributeVersion.V3.getAnInt()); // ? constant with custom attribute version??
         attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
 
         // save relations
@@ -413,7 +413,7 @@ public class AttributeEngine {
             attributeDefinition.setType(AttributeType.DATA);
             attributeDefinition.setContentType(dataAttribute.getContentType());
             attributeDefinition.setOperation(operation);
-            attributeDefinition.setVersion(dataAttribute.getSchemaVersion());
+            attributeDefinition.setVersion(dataAttribute.getVersion());
         }
         attributeDefinition.setLabel(dataAttribute.getProperties().getLabel());
         attributeDefinition.setRequired(dataAttribute.getProperties().isRequired());
@@ -454,7 +454,7 @@ public class AttributeEngine {
             attributeDefinition.setName(metadataAttribute.getName());
             attributeDefinition.setType(AttributeType.META);
             attributeDefinition.setContentType(metadataAttribute.getContentType());
-            attributeDefinition.setVersion(metadataAttribute.getSchemaVersion());
+            attributeDefinition.setVersion(metadataAttribute.getVersion());
             attributeDefinition.setGlobal(isGlobal);
         }
         attributeDefinition.setLabel(metadataAttribute.getProperties().getLabel());
@@ -507,7 +507,7 @@ public class AttributeEngine {
         Map<String, DataAttribute<?>> mapping = new HashMap<>();
         for (ObjectAttributeDefinitionContent objectDefinitionContent : objectDefinitionContents) {
             String uuid = objectDefinitionContent.uuid().toString();
-            if (objectDefinitionContent.definition().getSchemaVersion() == AttributeVersion.V2) {
+            if (objectDefinitionContent.definition().getVersion() == 2) {
                 DataAttributeV2 attribute;
                 if ((attribute = (DataAttributeV2) mapping.get(uuid)) == null) {
                     attribute = (DataAttributeV2) objectDefinitionContent.definition();
@@ -516,7 +516,7 @@ public class AttributeEngine {
                 }
                 attribute.getContent().add((BaseAttributeContentV2<?>) objectDefinitionContent.contentItem());
             }
-            if (objectDefinitionContent.definition().getSchemaVersion() == AttributeVersion.V3) {
+            if (objectDefinitionContent.definition().getVersion() == 3) {
                 DataAttributeV3 attribute;
                 if ((attribute = (DataAttributeV3) mapping.get(uuid)) == null) {
                     attribute = (DataAttributeV3) objectDefinitionContent.definition();
@@ -924,7 +924,7 @@ public class AttributeEngine {
                 continue;
             }
             responseAttributes.add(AttributeVersionFactory
-                    .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType(), requestAttribute.getVersion()));
+                    .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType(), requestAttribute.getVersion().getAnInt()));
         }
         return responseAttributes;
     }
@@ -1139,8 +1139,8 @@ public class AttributeEngine {
 
                 // convert content items to its respective content classes
                 try {
-                    Class<?> contentTypeClass = attributeDefinition.getVersion() == AttributeVersion.V3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentClass();
-                    if (attributeDefinition.getVersion() == AttributeVersion.V2)
+                    Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentClass();
+                    if (attributeDefinition.getVersion() == 2)
                         ATTRIBUTES_OBJECT_MAPPER.disable(MapperFeature.USE_ANNOTATIONS);
                     ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
                 } catch (IllegalArgumentException e) {

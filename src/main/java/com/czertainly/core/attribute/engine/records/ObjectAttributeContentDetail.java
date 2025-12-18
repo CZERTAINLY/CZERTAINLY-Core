@@ -20,6 +20,6 @@ public record ObjectAttributeContentDetail(
     Resource sourceObjectType,
     UUID sourceObjectUuid,
     String sourceObjectName,
-    AttributeVersion version
+    int version
 )
 {}
