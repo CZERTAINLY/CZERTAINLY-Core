@@ -114,7 +114,9 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.setName(request.getName());
         attribute.setUuid(UUID.randomUUID().toString());
         attribute.setDescription(request.getDescription());
-        attribute.setContent(request.getContent().stream().<BaseAttributeContentV3>map(attributeContent -> AttributeVersionFactory.convertAttributeContentToV3(attributeContent, request.getContentType())).toList());
+        if (request.getContent() != null) {
+            attribute.setContent(request.getContent().stream().<BaseAttributeContentV3>map(attributeContent -> AttributeVersionFactory.convertAttributeContentToV3(attributeContent, request.getContentType())).toList());
+        }
 
         // Setting the attribute properties based on the information from the request
         CustomAttributeProperties properties = new CustomAttributeProperties();
