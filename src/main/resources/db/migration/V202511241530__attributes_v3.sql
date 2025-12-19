@@ -1,10 +1,11 @@
-ALTER TABLE attribute_definition ADD COLUMN version VARCHAR NOT NULL DEFAULT 'V2';
-UPDATE attribute_definition SET version = 'V3' WHERE type = 'CUSTOM';
+ALTER TABLE attribute_definition ADD COLUMN version INT NOT NULL DEFAULT 2;
+UPDATE attribute_definition SET version = 3 WHERE type = 'CUSTOM';
 
 UPDATE attribute_definition ad
 SET definition =
-        jsonb_set(ad.definition, '{schemaVersion}', '"v3"', true)
-        - 'version'
+        jsonb_set(
+        jsonb_set(ad.definition, '{schemaVersion}', '"v3"', true),
+        '{version}', '3', true)
 WHERE ad.type = 'CUSTOM';
 
 
@@ -53,7 +54,7 @@ SET custom_attributes = (
   SELECT jsonb_agg(
            outer_elem
            || jsonb_build_object(
-                'schemaVersion', '"v3"',
+                'version', '3',
                 'content',
                 CASE
                   WHEN jsonb_typeof(outer_elem->'content') = 'array'
@@ -76,33 +77,4 @@ SET custom_attributes = (
   FROM jsonb_array_elements(custom_attributes) AS outer_elem
 )
 WHERE custom_attributes != '[]';
-
-UPDATE compliance_profile_rule
-SET attributes = (
-  SELECT jsonb_agg(
-           outer_elem
-           || jsonb_build_object(
-                'schemaVersion', '"v3"',
-                'content',
-                CASE
-                  WHEN jsonb_typeof(outer_elem->'content') = 'array'
-                  THEN COALESCE(
-                         (
-                           SELECT jsonb_agg(
-                                    inner_elem || jsonb_build_object(
-                                      'contentType', outer_elem->>'contentType'
-                                    )
-                                  )
-                           FROM jsonb_array_elements(outer_elem->'content') AS inner_elem
-                           WHERE inner_elem IS NOT NULL
-                         ),
-                         '[]'::jsonb
-                       )
-                  ELSE outer_elem->'content'
-                END
-              )
-         )
-  FROM jsonb_array_elements(attributes) AS outer_elem
-)
-WHERE attributes != '[]';
 
