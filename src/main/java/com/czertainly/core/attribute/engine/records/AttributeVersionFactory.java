@@ -15,6 +15,7 @@ import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 
+import java.io.Serializable;
 import java.util.List;
 import java.util.UUID;
 
@@ -159,7 +160,7 @@ public class AttributeVersionFactory {
         }
     }
 
-    private static <T> BaseAttributeContentV3<T> convertV2ToV3(
+    private static <T extends Serializable> BaseAttributeContentV3<T> convertV2ToV3(
             BaseAttributeContentV2<T> v2,
             AttributeContentType contentType
     ) {

@@ -21,6 +21,7 @@ import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
@@ -115,7 +116,7 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.setUuid(UUID.randomUUID().toString());
         attribute.setDescription(request.getDescription());
         if (request.getContent() != null) {
-            attribute.setContent(request.getContent().stream().<BaseAttributeContentV3>map(attributeContent -> AttributeVersionFactory.convertAttributeContentToV3(attributeContent, request.getContentType())).toList());
+            attribute.setContent(request.getContent().stream().<BaseAttributeContentV3<?>>map(attributeContent -> AttributeVersionFactory.convertAttributeContentToV3(attributeContent, request.getContentType())).toList());
         }
 
         // Setting the attribute properties based on the information from the request
@@ -170,8 +171,10 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.setContentType(definition.getContentType());
 
         attribute.setDescription(request.getDescription());
-        attribute.setContent(request.getContent());
-        attribute.setProperties(new CustomAttributeProperties());
+
+        if (request.getContent() != null) {
+            attribute.setContent(request.getContent().stream().<BaseAttributeContentV3<?>>map(attributeContent -> AttributeVersionFactory.convertAttributeContentToV3(attributeContent, definition.getContentType())).toList());
+        }        attribute.setProperties(new CustomAttributeProperties());
         attribute.getProperties().setGroup(request.getGroup());
         attribute.getProperties().setLabel(request.getLabel());
         attribute.getProperties().setVisible(request.isVisible());

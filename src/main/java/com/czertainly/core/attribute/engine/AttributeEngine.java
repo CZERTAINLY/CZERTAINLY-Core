@@ -670,7 +670,7 @@ public class AttributeEngine {
             }
             if (requestAttribute.getVersion() == AttributeVersion.V3) {
                 DataAttributeV3 dataAttribute = (DataAttributeV3) definition.getDefinition();
-                dataAttribute.setContent(((RequestAttributeV3) requestAttribute).getContent().stream().map(c -> (BaseAttributeContentV3) c).toList());
+                dataAttribute.setContent(requestAttribute.getContent());
                 dataAttributes.add(dataAttribute);
             }
         }
@@ -1155,7 +1155,7 @@ public class AttributeEngine {
 
                 // convert content items to its respective content classes
                 try {
-                    Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentClass();
+                    Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV2Class();
                     if (attributeDefinition.getVersion() == 2)
                         ATTRIBUTES_OBJECT_MAPPER.disable(MapperFeature.USE_ANNOTATIONS);
                     ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);

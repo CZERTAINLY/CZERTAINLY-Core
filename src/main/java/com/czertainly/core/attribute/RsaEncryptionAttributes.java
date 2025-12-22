@@ -2,6 +2,7 @@ package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
@@ -45,7 +46,7 @@ public class RsaEncryptionAttributes {
 
 
     @CoreAttributeDefinitions(operation = AttributeOperation.ENCRYPT)
-    public static List<BaseAttributeV3<?>> getRsaEncryptionAttributes() {
+    public static List<BaseAttribute> getRsaEncryptionAttributes() {
         return List.of(
                 buildDataEncryptionScheme(),
                 buildDataOaepHash(),

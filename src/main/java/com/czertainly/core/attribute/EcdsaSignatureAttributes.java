@@ -2,6 +2,7 @@ package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
@@ -30,7 +31,7 @@ public class EcdsaSignatureAttributes {
     public static final String ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION = "Select on of the available digest (hash) algorithm";
 
     @CoreAttributeDefinitions(operation = AttributeOperation.CERTIFICATE_REQUEST_SIGN)
-    public static List<BaseAttributeV3<?>> getEcdsaSignatureAttributes() {
+    public static List<BaseAttribute> getEcdsaSignatureAttributes() {
         return List.of(
                 buildDataDigest()
         );

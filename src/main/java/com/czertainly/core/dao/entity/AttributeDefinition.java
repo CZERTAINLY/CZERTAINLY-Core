@@ -5,9 +5,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeVersion;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.*;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -149,7 +147,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     }
 
     public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
-        CustomAttributeV3 attribute = (CustomAttributeV3) this.definition;
+        CustomAttribute<AttributeContent> attribute = (CustomAttribute<AttributeContent>) this.definition;
         CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());

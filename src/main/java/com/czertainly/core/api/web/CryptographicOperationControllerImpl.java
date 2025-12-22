@@ -115,7 +115,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "signature", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttributeV3<?>> listSignatureAttributes(
+    public List<BaseAttribute> listSignatureAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,
@@ -133,7 +133,7 @@ public class CryptographicOperationControllerImpl implements CryptographicOperat
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.ATTRIBUTE, name = "cipher", affiliatedResource = Resource.CRYPTOGRAPHIC_KEY_ITEM, operation = Operation.LIST_ATTRIBUTES)
-    public List<BaseAttributeV3<?>> listCipherAttributes(
+    public List<BaseAttribute> listCipherAttributes(
             String tokenInstanceUuid,
             String tokenProfileUuid,
             String uuid,

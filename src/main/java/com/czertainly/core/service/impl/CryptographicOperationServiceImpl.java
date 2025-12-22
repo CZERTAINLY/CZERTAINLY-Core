@@ -110,7 +110,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttributeV3<?>> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException {
+    public List<BaseAttribute> listCipherAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws ConnectorException, NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Requesting to list cipher attributes for Key: {} and Algorithm {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -227,7 +227,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
 
     @Override
     @ExternalAuthorization(resource = Resource.CRYPTOGRAPHIC_KEY, action = ResourceAction.ANY, parentResource = Resource.TOKEN, parentAction = ResourceAction.DETAIL)
-    public List<BaseAttributeV3<?>> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws NotFoundException {
+    public List<BaseAttribute> listSignatureAttributes(SecuredParentUUID tokenInstanceUuid, SecuredUUID tokenProfileUuid, UUID uuid, UUID keyItemUuid, KeyAlgorithm keyAlgorithm) throws NotFoundException {
         permissionEvaluator.tokenProfile(tokenProfileUuid);
         logger.info("Requesting to list the Signature Attributes for key: {} and Algorithm: {}", keyItemUuid, keyAlgorithm);
         CryptographicKeyItem key = getKeyItemEntity(keyItemUuid);
@@ -535,7 +535,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return CertificateRequestUtils.byteArrayCsrToString(csr.getEncoded());
     }
 
-    private List<BaseAttributeV3<?>> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
+    private List<BaseAttribute> listSignatureAttributes(KeyAlgorithm keyAlgorithm) {
         // we need to list based on the key algorithm
         switch (keyAlgorithm) {
             case RSA -> {
@@ -556,7 +556,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
 
-    private List<BaseAttributeV3<?>> listEncryptionAttributes(KeyAlgorithm keyAlgorithm) {
+    private List<BaseAttribute> listEncryptionAttributes(KeyAlgorithm keyAlgorithm) {
         switch (keyAlgorithm) {
             case RSA -> {
                 return RsaEncryptionAttributes.getRsaEncryptionAttributes();

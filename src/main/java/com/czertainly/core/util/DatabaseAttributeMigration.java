@@ -84,7 +84,7 @@ public class DatabaseAttributeMigration {
                             dataAttribute.setDescription(AttributeEngine.ATTRIBUTE_DEFINITION_FORCE_UPDATE_LABEL);
                         }
 
-                        List<BaseAttributeContentV2> dataAttributeContent = dataAttribute.getContent();
+                        List<BaseAttributeContentV2<?>> dataAttributeContent = dataAttribute.getContent();
                         if (!dataAttribute.getProperties().isReadOnly()) {
                             dataAttribute.setContent(null);
                         }

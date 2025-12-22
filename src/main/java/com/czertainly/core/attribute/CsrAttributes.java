@@ -1,11 +1,11 @@
 package com.czertainly.core.attribute;
 
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import org.springframework.stereotype.Component;
 
@@ -56,7 +56,7 @@ public class CsrAttributes {
      * @return List of attributes for generating the CSR
      */
     @CoreAttributeDefinitions
-    public static List<BaseAttributeV3<?>> csrAttributes() {
+    public static List<BaseAttribute> csrAttributes() {
         return List.of(
                 commonNameAttribute(),
                 organizationalUnitAttribute(),
@@ -73,7 +73,7 @@ public class CsrAttributes {
      * @return Common Name Attribute Definition
      */
     public static DataAttributeV3 commonNameAttribute() {
-        List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
+        List<BaseAttributeConstraint<?>> constraints = List.of(new RegexpAttributeConstraint(
                 "Common Name Validation",
                 "Common Name must not exceed 64 characters",
                 "^.{0,64}$"
@@ -165,7 +165,7 @@ public class CsrAttributes {
      */
     public static DataAttributeV3 countryAttribute() {
 
-        List<BaseAttributeConstraint> constraints = List.of(new RegexpAttributeConstraint(
+        List<BaseAttributeConstraint<?>> constraints = List.of(new RegexpAttributeConstraint(
                 "Country Validation",
                 "Country Can contain only 2 upper case letters",
                 "^[A-Z]{2}$"
@@ -185,7 +185,7 @@ public class CsrAttributes {
 
     private static DataAttributeV3 attributeCoder(String uuid, String name,
                                                   String description, String label,
-                                                  boolean required, List<BaseAttributeConstraint> constraints,
+                                                  boolean required, List<BaseAttributeConstraint<?>> constraints,
                                                   AttributeContentType contentType) {
         DataAttributeV3 attribute = new DataAttributeV3();
         attribute.setUuid(uuid);

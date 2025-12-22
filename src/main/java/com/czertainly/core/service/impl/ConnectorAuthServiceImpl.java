@@ -145,10 +145,8 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         kstProperties.setVisible(true);
         keyStoreType.setProperties(kstProperties);
 
-        List<BaseAttributeContentV3> base = new ArrayList<>();
-        SUPPORTED_KEY_STORE_TYPES.forEach(e -> {
-            base.add(new StringAttributeContentV3(e));
-        });
+        List<BaseAttributeContentV3<?>> base = new ArrayList<>();
+        SUPPORTED_KEY_STORE_TYPES.forEach(e -> base.add(new StringAttributeContentV3(e)));
 
         keyStoreType.setContent(base);
         attrs.add(keyStoreType);

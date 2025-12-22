@@ -2,12 +2,11 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.core.certificate.*;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
@@ -230,7 +229,7 @@ public interface CertificateService extends ResourceExtensionService  {
      *
      * @return List of attributes to generate the CSR in core
      */
-    List<BaseAttributeV3<?>> getCsrGenerationAttributes();
+    List<BaseAttribute> getCsrGenerationAttributes();
 
     /**
      * Unassociate the given key from all the certificate

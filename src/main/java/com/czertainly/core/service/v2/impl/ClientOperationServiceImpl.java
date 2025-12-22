@@ -1135,7 +1135,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
                 throw new CertificateException("CRMF format is not supported for CSR generation");
             }
             // get definitions
-            List<BaseAttributeV3<?>> definitions = CsrAttributes.csrAttributes();
+            List<BaseAttribute> definitions = CsrAttributes.csrAttributes();
 
             // validate and update definitions of certificate request attributes with attribute engine
             attributeEngine.validateUpdateDataAttributes(null, null, definitions, csrAttributes);
