@@ -1,6 +1,15 @@
 ALTER TABLE attribute_definition ADD COLUMN version INT NOT NULL DEFAULT 2;
 UPDATE attribute_definition SET version = 3 WHERE type = 'CUSTOM';
 
+-- Set internal attribute version to 3, definition is updated on running application
+UPDATE attribute_definition SET version = 3 WHERE connector_uuid IS NULL AND uuid IN
+    ('9abaeba0-973d-11ed-a8fc-0242ac120002', '9abaef60-973d-11ed-a8fc-0242ac120002', '9abaf0be-973d-11ed-a8fc-0242ac120002', '9abaf208-973d-11ed-a8fc-0242ac120002', '9abaf33e-973d-11ed-a8fc-0242ac120002', '9abaf488-973d-11ed-a8fc-0242ac120002', --CSR
+    '46bfdc2f-a96f-4f5d-a218-d538fde92e6d', --ECDSA Sign
+    '6a93364c-d9d4-11ed-afa1-0242ac120002', '6a933a52-d9d4-11ed-afa1-0242ac120002', '6a933c32-d9d4-11ed-afa1-0242ac120002', --RSA Enc
+    '0b13c68c-4d56-4901-baf1-af859c8f75ee', '46bfdc2f-a96f-4f5d-a218-d538fde92e6d' --RSA Sign
+    );
+
+
 UPDATE attribute_definition ad
 SET definition =
         jsonb_set(
@@ -77,4 +86,5 @@ SET custom_attributes = (
   FROM jsonb_array_elements(custom_attributes) AS outer_elem
 )
 WHERE custom_attributes != '[]';
+
 
