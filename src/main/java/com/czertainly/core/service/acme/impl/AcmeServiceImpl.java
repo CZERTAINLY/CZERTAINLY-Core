@@ -1288,7 +1288,6 @@ public class AcmeServiceImpl implements AcmeService {
             throw new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE);
         }
 
-        acmeNonceRepository.deleteAll(acmeNonceRepository.findAllByExpiresBefore(new Date()));
         AcmeNonce acmeNonce = acmeNonceRepository.findByNonce(nonce.toString()).orElseThrow(
                 () -> new AcmeProblemDocumentException(HttpStatus.BAD_REQUEST, Problem.BAD_NONCE));
         if (acmeNonce.getExpires().after(AcmeCommonHelper.addSeconds(new Date(), AcmeConstants.NONCE_VALIDITY))) {

@@ -31,7 +31,7 @@ import java.util.UUID;
 public class BaseSpringBootTest {
 
     @Autowired
-    OpaClient opaClient;
+    protected OpaClient opaClient;
 
     @Autowired
     private JdbcTemplate jdbcTemplate;

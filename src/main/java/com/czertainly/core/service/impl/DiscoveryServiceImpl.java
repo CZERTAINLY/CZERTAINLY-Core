@@ -37,6 +37,7 @@ import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.messaging.producers.EventProducer;
 import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.model.discovery.DiscoveryContext;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -62,7 +63,6 @@ import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
 
-import java.security.NoSuchAlgorithmException;
 import java.security.cert.X509Certificate;
 import java.util.*;
 import java.util.concurrent.*;
@@ -77,8 +77,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private static final Integer SLEEP_TIME = 5 * 1000; // Seconds * Milliseconds - Retry of discovery for every 5 Seconds
     private static final Long MAXIMUM_WAIT_TIME = (long) (6 * 60 * 60); // Hours * Minutes * Seconds
 
-    public static final Semaphore downloadCertSemaphore = new Semaphore(10);
-    public static final Semaphore processCertSemaphore = new Semaphore(10);
+    private static final Semaphore downloadCertSemaphore = new Semaphore(10);
 
     private EventProducer eventProducer;
     private NotificationProducer notificationProducer;
@@ -321,54 +320,45 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     @Transactional(propagation = Propagation.NOT_SUPPORTED)
     @ExternalAuthorization(resource = Resource.DISCOVERY, action = ResourceAction.CREATE)
     public DiscoveryHistoryDetailDto runDiscovery(UUID discoveryUuid, ScheduledJobInfo scheduledJobInfo) {
-        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
-
         // reload discovery modal with all association since it could be in separate transaction/session due to async
-        TransactionStatus status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
-        logger.info("Starting discovery: name={}, uuid={}", discovery.getName(), discovery.getUuid());
-
-        Connector connector;
-        try {
-            connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid().toString()));
-        } catch (NotFoundException e) {
-            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, DiscoveryStatus.FAILED, "Discovery does not have associated provider", 0, 0, null);
-            return finalizeDiscovery(discovery, loggedUserUuid, null, null);
+        DiscoveryContext context = loadDiscoveryContext(discoveryUuid);
+        DiscoveryHistory discovery = context.getDiscoveryHistory();
+        if (context.getDiscoveryStatus() == DiscoveryStatus.FAILED) {
+            return finalizeDiscoveryInTx(context, false, null);
         }
 
         // discover certificates by provider
         DiscoveryProviderDto providerResponse;
         try {
-            providerResponse = discoverCertificatesByProvider(discovery, connector, status);
-            if (status.isCompleted()) {
-                status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+            providerResponse = discoverCertificatesByProvider(context);
+            if (context.getConnectorCertificatesDiscovered() == 0) {
+                context.setDiscoveryStatus(DiscoveryStatus.COMPLETED);
+                return finalizeDiscoveryInTx(context, true, "No certificates discovered at provider");
             }
+            updateDiscoveryStateInTx(context, true);
         } catch (DiscoveryException e) {
             logger.error(e.getMessage());
-            return finalizeDiscovery(discovery, loggedUserUuid, status, null);
+            return finalizeDiscoveryInTx(context, true, null);
         } catch (Exception e) {
             logger.error("Error in discovery '{}' at provider: {}", discovery.getName(), e.getMessage());
-            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, DiscoveryStatus.FAILED, "Error in provider: " + e.getMessage(), 0, 0, null);
+            context.setDiscoveryFailed("Error in provider during discovery: " + e.getMessage());
             if (e instanceof InterruptedException) {
                 Thread.currentThread().interrupt();
             }
-            return finalizeDiscovery(discovery, loggedUserUuid, status, null);
+            return finalizeDiscoveryInTx(context, true, null);
         }
-        discoveryRepository.save(discovery);
-        transactionManager.commit(status);
 
         // download and create discovered certificates
-        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = List.of();
-        status = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = new ArrayList<>();
         try {
-            duplicateCertificates = downloadDiscoveredCertificates(discovery, connector, providerResponse);
-            updateDiscoveryState(discovery, DiscoveryStatus.IN_PROGRESS, null, "Discovered certificates downloaded from provider", null, null, null);
+            downloadDiscoveredCertificates(context, providerResponse, duplicateCertificates);
+            context.setDiscoveryStatus(DiscoveryStatus.IN_PROGRESS);
+            context.setMessage("Discovered certificates downloaded from provider");
         } catch (DiscoveryException e) {
             logger.error(e.getMessage());
         }
-        int downloadedCertificatesCount = discoveryCertificateRepository.countByDiscovery(discovery).intValue();
-        discovery.setTotalCertificatesDiscovered(downloadedCertificatesCount);
 
+        TransactionStatus transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
         // process duplicates
         for (DiscoveryProviderCertificateDataDto certificate : duplicateCertificates) {
             try {
@@ -379,54 +369,95 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 if (existingCertificate == null) {
                     logger.warn("Could not update metadata for duplicate discovery certificate. Certificate with fingerprint {} not found.", fingerprint);
                 } else {
-                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
+                    attributeEngine.updateMetadataAttributes(certificate.getMeta(), new ObjectAttributeContentInfo(context.getConnector().getUuid(), Resource.CERTIFICATE, existingCertificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));
                 }
             } catch (AttributeException e) {
                 logger.error("Could not update metadata for duplicate discovery certificate {}.", certificate.getUuid());
-            } catch (java.security.cert.CertificateException | NoSuchAlgorithmException e) {
+            } catch (Exception e) {
                 logger.error("Could not parse and process duplicate discovery certificate {}: {}", certificate.getUuid(), e.getMessage());
             }
         }
-        String preProcessingMessage = discovery.getStatus() == DiscoveryStatus.IN_PROGRESS ? null : discovery.getMessage();
+
+        context.setCertificatesDiscovered(discoveryCertificateRepository.countByDiscovery(discovery).intValue());
         Long newlyDiscoveredCount = discoveryCertificateRepository.countByDiscoveryAndNewlyDiscovered(discovery, true);
+
+        transactionManager.commit(transaction);
+
+        String preProcessingMessage = context.getDiscoveryStatus() == DiscoveryStatus.IN_PROGRESS ? null : context.getMessage();
         if (newlyDiscoveredCount == 0) {
-            if (discovery.getStatus() == DiscoveryStatus.IN_PROGRESS) {
-                discovery.setStatus(DiscoveryStatus.COMPLETED);
+            if (context.getDiscoveryStatus() == DiscoveryStatus.IN_PROGRESS) {
+                context.setDiscoveryStatus(DiscoveryStatus.COMPLETED);
             }
-            return finalizeDiscovery(discovery, loggedUserUuid, status, preProcessingMessage);
+            return finalizeDiscoveryInTx(context, false, preProcessingMessage);
         } else {
-            discovery.setStatus(DiscoveryStatus.PROCESSING);
+            context.setDiscoveryStatus(DiscoveryStatus.PROCESSING);
         }
 
-        discoveryRepository.save(discovery);
-        transactionManager.commit(status);
+        updateDiscoveryStateInTx(context, false);
 
-        eventProducer.produceMessage(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), loggedUserUuid, scheduledJobInfo));
-        return discovery.mapToDto();
+        DiscoveryHistoryDetailDto discoveryDto = discovery.mapToDto();
+        eventProducer.produceMessage(CertificateDiscoveredEventHandler.constructEventMessage(discovery.getUuid(), context.getLoggedUserUuid(), scheduledJobInfo));
+        return discoveryDto;
     }
 
-    private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryHistory discovery, final Connector connector, TransactionStatus status) throws InterruptedException, DiscoveryException, ConnectorException, NotFoundException {
+    private DiscoveryContext loadDiscoveryContext(UUID discoveryUuid) {
+        UUID loggedUserUuid = UUID.fromString(AuthHelper.getUserIdentification().getUuid());
+
+        DefaultTransactionDefinition transactionDef = new DefaultTransactionDefinition();
+        transactionDef.setReadOnly(true);
+        TransactionStatus transaction = transactionManager.getTransaction(transactionDef);
+
+        // reload discovery modal with all association since it could be in separate transaction/session due to async
+        String message = null;
+        Connector connector = null;
+        List<DataAttribute> dataAttributes = null;
+        DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
+        try {
+            logger.info("Loading discovery context: name={}, uuid={}", discovery.getName(), discovery.getUuid());
+            connector = connectorService.getConnectorEntity(SecuredUUID.fromString(discovery.getConnectorUuid().toString()));
+            dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
+
+            credentialService.loadFullCredentialData(dataAttributes);
+        } catch (Exception e) {
+            message = e.getMessage();
+        }
+
+        DiscoveryContext discoveryContext = new DiscoveryContext(loggedUserUuid, connector, discovery, dataAttributes);
+
+        if (message != null) {
+            discoveryContext.setMessage(message);
+            discoveryContext.setDiscoveryStatus(DiscoveryStatus.FAILED);
+            discoveryContext.setConnectorDiscoveryStatus(DiscoveryStatus.FAILED);
+        }
+
+        transactionManager.commit(transaction);
+
+        return discoveryContext;
+    }
+
+    private DiscoveryProviderDto discoverCertificatesByProvider(final DiscoveryContext context) throws InterruptedException, DiscoveryException {
+        DiscoveryHistory discovery = context.getDiscoveryHistory();
+
         DiscoveryRequestDto dtoRequest = new DiscoveryRequestDto();
         dtoRequest.setName(discovery.getName());
         dtoRequest.setKind(discovery.getKind());
+        dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(context.getDataAttributes()));
 
-        // Load complete credential data
-        List<DataAttribute<?>> dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(
-                AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
-        credentialService.loadFullCredentialData(dataAttributes);
-        dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
-
-        DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
-
-        logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
-                discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
-
-        if (response.getUuid() == null) {
-            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, DiscoveryStatus.FAILED, "Discovery does not have associated discovery object at provider", 0, 0, null);
-            throw new DiscoveryException(discovery.getName(), discovery.getMessage());
+        // start discovery at provider
+        DiscoveryProviderDto response;
+        try {
+            response = discoveryApiClient.discoverCertificates(context.getConnectorDto(), dtoRequest);
+            logger.debug("Discovery start response: name={}, uuid={}, status={}, total={}", discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
+            discovery.setDiscoveryConnectorReference(response.getUuid());
+        } catch (Exception e) {
+            context.setDiscoveryFailed("Failed to run discovery at the provider: " + e.getMessage());
+            throw new DiscoveryException(discovery.getName(), context.getMessage());
         }
 
-        discovery.setDiscoveryConnectorReference(response.getUuid());
+        if (response.getUuid() == null) {
+            context.setDiscoveryFailed("Discovery does not have associated discovery object at provider");
+            throw new DiscoveryException(discovery.getName(), context.getMessage());
+        }
 
         DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
         getRequest.setName(response.getName());
@@ -440,38 +471,51 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             Thread.sleep(SLEEP_TIME);
 
             try {
-                response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+                response = discoveryApiClient.getDiscoveryData(context.getConnectorDto(), getRequest, response.getUuid());
             } catch (ConnectorException e) {
-                updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Discovery has failed on connector side while waiting for completion.", 0, response.getTotalCertificatesDiscovered(), null);
-                throw new DiscoveryException(discovery.getName(), discovery.getMessage(), e);
+                context.setDiscoveryFailed("Discovery has failed on connector side while waiting for completion");
+                throw new DiscoveryException(discovery.getName(), context.getMessage());
             }
 
-            logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
-                    discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
+            logger.debug("Discovery response: name={}, uuid={}, status={}, total={}", discovery.getName(), discovery.getUuid(), response.getStatus(), response.getTotalCertificatesDiscovered());
 
-            if (!isReachedMaxTime && (new Date().getTime() - discovery.getStartTime().getTime()) / 1000 > MAXIMUM_WAIT_TIME) {
+            long secondsElapsed = (new Date().getTime() - discovery.getStartTime().getTime()) / 1000;
+            if (!isReachedMaxTime && secondsElapsed > MAXIMUM_WAIT_TIME) {
                 isReachedMaxTime = true;
 
-                String message = "Discovery %s exceeded maximum time of %d hours. Please abort the discovery if the provider is stuck in state %s."
-                        .formatted(discovery.getName(), (int) (MAXIMUM_WAIT_TIME / (60 * 60)), DiscoveryStatus.IN_PROGRESS.getLabel());
-                updateDiscoveryState(discovery, DiscoveryStatus.WARNING, response.getStatus(), message, null, response.getTotalCertificatesDiscovered(), null);
-                discoveryRepository.save(discovery);
-                transactionManager.commit(status);
+                context.setDiscoveryStatus(DiscoveryStatus.WARNING);
+                context.setConnectorDiscoveryStatus(response.getStatus());
+                context.setConnectorCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+                context.setMessage("Discovery exceeded maximum time of %d hours. Please abort the discovery if the provider is stuck in state '%s'."
+                        .formatted((int) (MAXIMUM_WAIT_TIME / (60 * 60)), DiscoveryStatus.IN_PROGRESS.getLabel()));
+                updateDiscoveryStateInTx(context, false);
+            } else if (isReachedMaxTime && secondsElapsed > 2 * MAXIMUM_WAIT_TIME) {
+                context.setDiscoveryStatus(DiscoveryStatus.FAILED);
+                context.setConnectorDiscoveryStatus(response.getStatus());
+                context.setConnectorCertificatesDiscovered(response.getTotalCertificatesDiscovered());
+                context.setMessage("Discovery exceeded maximum time limit and is marked as failed.");
+                throw new DiscoveryException(discovery.getName(), context.getMessage());
             }
         }
 
         if (response.getTotalCertificatesDiscovered() == 0 && response.getStatus() == DiscoveryStatus.FAILED) {
-            updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Discovery has failed on connector side without any certificates found.", 0, response.getTotalCertificatesDiscovered(), response.getMeta());
-            throw new DiscoveryException(discovery.getName(), discovery.getMessage());
+            context.setMetadata(response.getMeta());
+            context.setDiscoveryFailed("Discovery has failed on connector side without any certificates found.");
+            throw new DiscoveryException(discovery.getName(), context.getMessage());
         }
 
-        updateDiscoveryState(discovery, DiscoveryStatus.IN_PROGRESS, response.getStatus(), "Discovery completed at provider", null, response.getTotalCertificatesDiscovered(), response.getMeta());
+        context.setDiscoveryStatus(DiscoveryStatus.IN_PROGRESS);
+        context.setConnectorDiscoveryStatus(response.getStatus());
+        context.setMetadata(response.getMeta());
+        context.setMessage("Discovery completed at provider.");
+        context.setConnectorCertificatesDiscovered(response.getTotalCertificatesDiscovered());
         return response;
     }
 
-    private List<DiscoveryProviderCertificateDataDto> downloadDiscoveredCertificates(final DiscoveryHistory discovery, final Connector connector, DiscoveryProviderDto response) throws DiscoveryException {
+    private void downloadDiscoveredCertificates(final DiscoveryContext context, DiscoveryProviderDto response, List<DiscoveryProviderCertificateDataDto> duplicateCertificates) throws DiscoveryException {
         int currentPage = 1;
         int currentTotal = 0;
+        DiscoveryHistory discovery = context.getDiscoveryHistory();
 
         DiscoveryDataRequestDto getRequest = new DiscoveryDataRequestDto();
         getRequest.setName(response.getName());
@@ -481,33 +525,33 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
         List<Future<?>> futures = new ArrayList<>();
         Set<String> uniqueCertificateContents = new HashSet<>();
-        List<DiscoveryProviderCertificateDataDto> duplicateCertificates = new ArrayList<>();
-
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);
                 getRequest.setItemsPerPage(MAXIMUM_CERTIFICATES_PER_PAGE);
                 try {
-                    response = discoveryApiClient.getDiscoveryData(connector.mapToDto(), getRequest, response.getUuid());
+                    response = discoveryApiClient.getDiscoveryData(context.getConnectorDto(), getRequest, response.getUuid());
                 } catch (ConnectorException e) {
                     handleDiscoveredCertificatesBatch(futures, discovery.getName());
-                    updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Discovery has failed on connector side while downloading certificates.", null, null, null);
-                    throw new DiscoveryException(discovery.getName(), discovery.getMessage(), e);
+                    context.setDiscoveryStatus(DiscoveryStatus.WARNING);
+                    context.setMessage("Discovery has failed on connector side while downloading certificates.");
+                    throw new DiscoveryException(discovery.getName(), context.getMessage(), e);
                 }
 
                 if (response.getCertificateData().isEmpty()) {
                     handleDiscoveredCertificatesBatch(futures, discovery.getName());
-                    String message = String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered());
-                    updateDiscoveryState(discovery, DiscoveryStatus.WARNING, response.getStatus(), message, null, null, null);
-                    throw new DiscoveryException(discovery.getName(), discovery.getMessage());
+                    context.setDiscoveryStatus(DiscoveryStatus.WARNING);
+                    context.setMessage(String.format("Retrieved only %d certificates but provider discovered %d certificates in total.", currentTotal, response.getTotalCertificatesDiscovered()));
+                    throw new DiscoveryException(discovery.getName(), context.getMessage());
                 }
                 if (response.getCertificateData().size() > MAXIMUM_CERTIFICATES_PER_PAGE) {
                     handleDiscoveredCertificatesBatch(futures, discovery.getName());
-                    updateDiscoveryState(discovery, DiscoveryStatus.FAILED, response.getStatus(), "Too many certificates (%d) in response at page %d. Maximum processable is %d.".formatted(response.getCertificateData().size(), currentPage, MAXIMUM_CERTIFICATES_PER_PAGE), null, null, null);
-                    throw new DiscoveryException(discovery.getName(), discovery.getMessage());
+                    context.setDiscoveryStatus(DiscoveryStatus.WARNING);
+                    context.setMessage("Too many certificates (%d) in response at page %d. Maximum processable is %d.".formatted(response.getCertificateData().size(), currentPage, MAXIMUM_CERTIFICATES_PER_PAGE));
+                    throw new DiscoveryException(discovery.getName(), context.getMessage());
                 }
 
-                futures.add(downloadDiscoveredCertificatesBatchAsync(discovery, response, connector, uniqueCertificateContents, duplicateCertificates, executor, currentPage));
+                futures.add(downloadDiscoveredCertificatesBatchAsync(discovery, response, context.getConnector(), uniqueCertificateContents, duplicateCertificates, executor, currentPage));
 
                 ++currentPage;
                 currentTotal += response.getCertificateData().size();
@@ -522,7 +566,6 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 handleDiscoveredCertificatesBatch(futures, discovery.getName());
             }
         }
-        return duplicateCertificates;
     }
 
     private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
@@ -589,27 +632,35 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         futures.clear();
     }
 
-    private void updateDiscoveryState(DiscoveryHistory discovery, DiscoveryStatus status, DiscoveryStatus connectorStatus, String message, Integer totalCertificatesDiscovered, Integer connectorTotalCertificatesDiscovered, List<MetadataAttribute<? extends AttributeContent>> metadata) {
-        discovery.setStatus(status);
-        if (connectorStatus != null) discovery.setConnectorStatus(connectorStatus);
-        if (message != null) discovery.setMessage(message);
-        if (totalCertificatesDiscovered != null) discovery.setTotalCertificatesDiscovered(totalCertificatesDiscovered);
-        if (connectorTotalCertificatesDiscovered != null) {
-            discovery.setConnectorTotalCertificatesDiscovered(connectorTotalCertificatesDiscovered);
-        }
-        if (metadata != null && !metadata.isEmpty()) {
+    private void updateDiscoveryStateInTx(DiscoveryContext discoveryContext, boolean updateMetadata) {
+        TransactionStatus transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        DiscoveryHistory discovery = updateDiscoveryState(discoveryContext, updateMetadata);
+        discoveryRepository.save(discovery);
+        transactionManager.commit(transaction);
+    }
+
+    private DiscoveryHistory updateDiscoveryState(DiscoveryContext discoveryContext, boolean updateMetadata) {
+        DiscoveryHistory discovery = discoveryContext.getDiscoveryHistory();
+
+        discovery.setStatus(discoveryContext.getDiscoveryStatus());
+        discovery.setConnectorStatus(discoveryContext.getConnectorDiscoveryStatus());
+        discovery.setMessage(discoveryContext.getMessage());
+        discovery.setTotalCertificatesDiscovered(discoveryContext.getCertificatesDiscovered());
+        discovery.setConnectorTotalCertificatesDiscovered(discoveryContext.getConnectorCertificatesDiscovered());
+        if (updateMetadata && discoveryContext.getMetadata() != null && !discoveryContext.getMetadata().isEmpty()) {
             try {
-                attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.DISCOVERY, discovery.getUuid()));
-            } catch (AttributeException e) {
+                attributeEngine.updateMetadataAttributes(discoveryContext.getMetadata(), new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.DISCOVERY, discovery.getUuid()));
+            } catch (Exception e) {
                 logger.warn("Failed to serialize discovery metadata");
             }
         }
+
+        return discovery;
     }
 
-    private DiscoveryHistoryDetailDto finalizeDiscovery(DiscoveryHistory discovery, UUID loggedUserUuid, TransactionStatus status, String preProcessingMessage) {
-        if (status == null || status.isCompleted()) {
-            status = transactionManager.getTransaction(new DefaultTransactionDefinition());
-        }
+    private DiscoveryHistoryDetailDto finalizeDiscoveryInTx(DiscoveryContext discoveryContext, boolean updateMetadata, String preProcessingMessage) {
+        TransactionStatus transaction = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        DiscoveryHistory discovery = updateDiscoveryState(discoveryContext, updateMetadata);
 
         discovery.setEndTime(new Date());
         if (discovery.getStatus() == DiscoveryStatus.COMPLETED) {
@@ -617,10 +668,11 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         }
 
         discoveryRepository.save(discovery);
-        transactionManager.commit(status);
+        transactionManager.commit(transaction);
 
-        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), loggedUserUuid, null, new DiscoveryResult(discovery.getStatus(), discovery.getMessage())));
-        return discovery.mapToDto();
+        DiscoveryHistoryDetailDto discoveryDto = discovery.mapToDto();
+        eventProducer.produceMessage(DiscoveryFinishedEventHandler.constructEventMessage(discovery.getUuid(), discoveryContext.getLoggedUserUuid(), null, new DiscoveryResult(discovery.getStatus(), discovery.getMessage())));
+        return discoveryDto;
     }
 
     @Override
