@@ -1,13 +1,13 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
-import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
-import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.core.attribute.engine.AttributeOperation;
@@ -44,9 +44,9 @@ public class RsaSignatureAttributes {
         );
     }
 
-    public static BaseAttributeV3<?> buildDataRsaSigScheme() {
+    public static BaseAttributeV2<?> buildDataRsaSigScheme() {
         // define Data Attribute
-        DataAttributeV3 attribute = new DataAttributeV3();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_SIG_SCHEME_DESCRIPTION);
@@ -64,16 +64,16 @@ public class RsaSignatureAttributes {
         // set content
         attribute.setContent(
                 Stream.of(RsaSignatureScheme.values())
-                        .map(item -> new StringAttributeContentV3(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
 
         return attribute;
     }
 
-    public static BaseAttributeV3<?> buildDataDigest() {
+    public static BaseAttributeV2<?> buildDataDigest() {
         // define Data Attribute
-        DataAttributeV3 attribute = new DataAttributeV3();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setDescription(ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION);
@@ -91,7 +91,7 @@ public class RsaSignatureAttributes {
         // set content
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
-                        .map(item -> new StringAttributeContentV3(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
 
@@ -99,22 +99,22 @@ public class RsaSignatureAttributes {
     }
 
 
-    public static RequestAttributeV3 buildRequestRsaSigScheme(RsaSignatureScheme value) {
-        RequestAttributeV3 attribute = new RequestAttributeV3();
+    public static RequestAttributeV2 buildRequestRsaSigScheme(RsaSignatureScheme value) {
+        RequestAttributeV2 attribute = new RequestAttributeV2();
         attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeV3 buildRequestDigest(DigestAlgorithm value) {
+    public static RequestAttributeV2 buildRequestDigest(DigestAlgorithm value) {
         // define Data Attribute
-        RequestAttributeV3 attribute = new RequestAttributeV3();
+        RequestAttributeV2 attribute = new RequestAttributeV2();
         attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_SIG_DIGEST_UUID));
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContentV3(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
 
         return attribute;
     }

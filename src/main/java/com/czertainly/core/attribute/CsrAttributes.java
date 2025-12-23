@@ -6,7 +6,7 @@ import com.czertainly.api.model.common.attribute.common.constraint.BaseAttribute
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -72,7 +72,7 @@ public class CsrAttributes {
      *
      * @return Common Name Attribute Definition
      */
-    public static DataAttributeV3 commonNameAttribute() {
+    public static DataAttributeV2 commonNameAttribute() {
         List<BaseAttributeConstraint<?>> constraints = List.of(new RegexpAttributeConstraint(
                 "Common Name Validation",
                 "Common Name must not exceed 64 characters",
@@ -84,8 +84,7 @@ public class CsrAttributes {
                 "Common Name for the certificate",
                 COMMON_NAME_ATTRIBUTE_LABEL,
                 true,
-                constraints,
-                AttributeContentType.STRING
+                constraints
         );
     }
 
@@ -95,15 +94,14 @@ public class CsrAttributes {
      *
      * @return Organizational Unit Attribute Definition
      */
-    public static DataAttributeV3 organizationalUnitAttribute() {
+    public static DataAttributeV2 organizationalUnitAttribute() {
         return attributeCoder(
                 ORGANIZATION_UNIT_UUID,
                 ORGANIZATION_UNIT_ATTRIBUTE_NAME,
                 ORGANIZATION_UNIT_ATTRIBUTE_LABEL,
                 ORGANIZATION_UNIT_ATTRIBUTE_LABEL,
                 false,
-                null,
-                AttributeContentType.STRING
+                null
         );
     }
 
@@ -112,15 +110,14 @@ public class CsrAttributes {
      *
      * @return Organization Attribute Definition
      */
-    public static DataAttributeV3 organizationAttribute() {
+    public static DataAttributeV2 organizationAttribute() {
         return attributeCoder(
                 ORGANIZATION_UUID,
                 ORGANIZATION_ATTRIBUTE_NAME,
                 ORGANIZATION_ATTRIBUTE_LABEL,
                 ORGANIZATION_ATTRIBUTE_LABEL,
                 false,
-                null,
-                AttributeContentType.STRING
+                null
         );
     }
 
@@ -129,15 +126,14 @@ public class CsrAttributes {
      *
      * @return Locality  Attribute Definition
      */
-    public static DataAttributeV3 localityAttribute() {
+    public static DataAttributeV2 localityAttribute() {
         return attributeCoder(
                 LOCALITY_UUID,
                 LOCALITY_ATTRIBUTE_NAME,
                 LOCALITY_ATTRIBUTE_LABEL,
                 LOCALITY_ATTRIBUTE_LABEL,
                 false,
-                null,
-                AttributeContentType.STRING
+                null
         );
     }
 
@@ -146,15 +142,14 @@ public class CsrAttributes {
      *
      * @return State Attribute Definition
      */
-    public static DataAttributeV3 stateAttribute() {
+    public static DataAttributeV2 stateAttribute() {
         return attributeCoder(
                 STATE_UUID,
                 STATE_ATTRIBUTE_NAME,
                 STATE_ATTRIBUTE_LABEL,
                 STATE_ATTRIBUTE_LABEL,
                 false,
-                null,
-                AttributeContentType.STRING
+                null
         );
     }
 
@@ -163,7 +158,7 @@ public class CsrAttributes {
      *
      * @return Country Attribute Definition
      */
-    public static DataAttributeV3 countryAttribute() {
+    public static DataAttributeV2 countryAttribute() {
 
         List<BaseAttributeConstraint<?>> constraints = List.of(new RegexpAttributeConstraint(
                 "Country Validation",
@@ -177,22 +172,20 @@ public class CsrAttributes {
                 COUNTRY_ATTRIBUTE_LABEL,
                 COUNTRY_ATTRIBUTE_LABEL,
                 false,
-                constraints,
-                AttributeContentType.STRING
+                constraints
         );
     }
 
 
-    private static DataAttributeV3 attributeCoder(String uuid, String name,
+    private static DataAttributeV2 attributeCoder(String uuid, String name,
                                                   String description, String label,
-                                                  boolean required, List<BaseAttributeConstraint<?>> constraints,
-                                                  AttributeContentType contentType) {
-        DataAttributeV3 attribute = new DataAttributeV3();
+                                                  boolean required, List<BaseAttributeConstraint<?>> constraints) {
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(uuid);
         attribute.setName(name);
         attribute.setDescription(description);
         attribute.setType(AttributeType.DATA);
-        attribute.setContentType(contentType);
+        attribute.setContentType(AttributeContentType.STRING);
         attribute.setConstraints(constraints);
         attribute.setProperties(propertyCoder(
                 label,
