@@ -1,7 +1,7 @@
 package com.czertainly.core.model.discovery;
 
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.core.dao.entity.Connector;
@@ -19,7 +19,7 @@ public class DiscoveryContext {
     private final Connector connector;
     private final ConnectorDto connectorDto;
     private final DiscoveryHistory discoveryHistory;
-    private final List<DataAttribute> dataAttributes;
+    private final List<DataAttribute<?>> dataAttributes;
 
     private String message;
     private DiscoveryStatus discoveryStatus;
@@ -27,9 +27,9 @@ public class DiscoveryContext {
     private int certificatesDiscovered;
     private int connectorCertificatesDiscovered;
 
-    private List<MetadataAttribute> metadata;
+    private List<MetadataAttribute<?>> metadata;
 
-    public DiscoveryContext(UUID loggedUserUuid, Connector connector, DiscoveryHistory discoveryHistory, List<DataAttribute> dataAttributes) {
+    public DiscoveryContext(UUID loggedUserUuid, Connector connector, DiscoveryHistory discoveryHistory, List<DataAttribute<?>> dataAttributes) {
         this.loggedUserUuid = loggedUserUuid;
         this.connector = connector;
         this.connectorDto = connector != null ? connector.mapToDto() : null;

@@ -410,7 +410,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         // reload discovery modal with all association since it could be in separate transaction/session due to async
         String message = null;
         Connector connector = null;
-        List<DataAttribute> dataAttributes = null;
+        List<DataAttribute<?>> dataAttributes = null;
         DiscoveryHistory discovery = discoveryRepository.findWithTriggersByUuid(discoveryUuid);
         try {
             logger.info("Loading discovery context: name={}, uuid={}", discovery.getName(), discovery.getUuid());
