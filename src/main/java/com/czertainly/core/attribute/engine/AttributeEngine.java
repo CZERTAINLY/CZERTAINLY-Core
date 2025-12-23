@@ -762,7 +762,8 @@ public class AttributeEngine {
             deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
             for (RequestAttribute requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
-                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), requestAttribute.getContent());
+                List<? extends AttributeContent> attributeContent = requestAttribute.getVersion() == AttributeVersion.V3 ? ((RequestAttributeV3) requestAttribute).getContent() : ((RequestAttributeV2) requestAttribute).getContent().stream().map(ac -> AttributeVersionFactory.convertAttributeContentToV3(ac, requestAttribute.getContentType())).toList();
+                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid),attributeContent);
             }
         } else {
             // delete only content of allowed attributes
