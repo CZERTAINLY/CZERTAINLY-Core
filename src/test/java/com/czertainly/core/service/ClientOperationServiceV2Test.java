@@ -1,13 +1,15 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
@@ -28,7 +30,6 @@ import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.v2.ClientOperationService;
-import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.czertainly.core.util.CertificateTestUtil;
 import com.czertainly.core.util.CertificateUtil;
@@ -48,6 +49,7 @@ import java.security.*;
 import java.security.cert.CertificateException;
 import java.security.cert.X509Certificate;
 import java.security.spec.InvalidKeySpecException;
+import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 import java.util.UUID;
@@ -143,7 +145,7 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         authorityInstanceReference = authorityInstanceReferenceRepository.save(authorityInstanceReference);
 
         // prepare attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid("6e9146a6-da8a-403f-99cb-d5d64d93ce1d");
         attribute.setName("endEntityProfile");
         DataAttributeProperties properties = new DataAttributeProperties();
@@ -164,8 +166,9 @@ class ClientOperationServiceV2Test extends BaseSpringBootTest {
         raProfile.setEnabled(true);
 
         raProfile = raProfileRepository.save(raProfile);
-        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), AttributeDefinitionUtils.createAttributes(attribute.getUuid(), "endEntityProfile", List.of(new ObjectAttributeContent(new NameAndIdDto(1, "profile")))));
-
+        List<RequestAttribute> requestAttributes = new ArrayList<>();
+        requestAttributes.add(new RequestAttributeV2(UUID.fromString(attribute.getUuid()), "endEntityProfile", AttributeContentType.OBJECT, List.of(new ObjectAttributeContentV2(new NameAndIdDto(1, "profile")))));
+        attributeEngine.updateObjectDataAttributesContent(connector.getUuid(), null, Resource.RA_PROFILE, raProfile.getUuid(), requestAttributes);
         certificateContent = new CertificateContent();
         certificateContent = certificateContentRepository.save(certificateContent);
 

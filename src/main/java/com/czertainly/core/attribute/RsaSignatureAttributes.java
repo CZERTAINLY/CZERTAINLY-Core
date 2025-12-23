@@ -1,18 +1,20 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
@@ -42,9 +44,9 @@ public class RsaSignatureAttributes {
         );
     }
 
-    public static BaseAttribute buildDataRsaSigScheme() {
+    public static BaseAttributeV2<?> buildDataRsaSigScheme() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_SIG_SCHEME_DESCRIPTION);
@@ -62,16 +64,16 @@ public class RsaSignatureAttributes {
         // set content
         attribute.setContent(
                 Stream.of(RsaSignatureScheme.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
 
         return attribute;
     }
 
-    public static BaseAttribute buildDataDigest() {
+    public static BaseAttributeV2<?> buildDataDigest() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setDescription(ATTRIBUTE_DATA_SIG_DIGEST_DESCRIPTION);
@@ -89,7 +91,7 @@ public class RsaSignatureAttributes {
         // set content
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
+                        .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
                         .collect(Collectors.toList())
         );
 
@@ -97,22 +99,22 @@ public class RsaSignatureAttributes {
     }
 
 
-    public static RequestAttributeDto buildRequestRsaSigScheme(RsaSignatureScheme value) {
-        RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
+    public static RequestAttributeV2 buildRequestRsaSigScheme(RsaSignatureScheme value) {
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_SIG_SCHEME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestDigest(DigestAlgorithm value) {
+    public static RequestAttributeV2 buildRequestDigest(DigestAlgorithm value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_SIG_DIGEST_UUID));
         attribute.setName(ATTRIBUTE_DATA_SIG_DIGEST);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
 
         return attribute;
     }

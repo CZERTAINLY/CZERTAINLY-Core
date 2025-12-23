@@ -3,9 +3,9 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.cryptography.operations.*;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -157,9 +157,9 @@ public interface CryptographicOperationService {
             UUID keyUuid,
             UUID tokenProfileUuid,
             X500Principal principal,
-            List<RequestAttributeDto> signatureAttributes,
+            List<RequestAttribute> signatureAttributes,
             UUID altKeyUUid,
             UUID altTokenProfileUuid,
-            List<RequestAttributeDto> altSignatureAttributes
+            List<RequestAttribute> altSignatureAttributes
     ) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException;
 }

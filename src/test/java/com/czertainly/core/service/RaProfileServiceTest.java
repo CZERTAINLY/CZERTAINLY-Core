@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDt
 import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
 import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;

@@ -2,8 +2,8 @@ package com.czertainly.core.api.v2.client;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.client.v2.ClientOperationController;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.logging.enums.Module;
 import com.czertainly.api.model.core.logging.enums.Operation;
@@ -98,7 +98,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public void validateIssueCertificateAttributes(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException {
+            List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         clientOperationService.validateIssueCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
     }
 
@@ -115,7 +115,7 @@ public class ClientOperationControllerImpl implements ClientOperationController 
     public void validateRevokeCertificateAttributes(
             String authorityUuid,
             @LogResource(uuid = true, affiliated = true) String raProfileUuid,
-            List<RequestAttributeDto> attributes) throws ConnectorException, ValidationException, NotFoundException {
+            List<RequestAttribute> attributes) throws ConnectorException, ValidationException, NotFoundException {
         clientOperationService.validateRevokeCertificateAttributes(SecuredParentUUID.fromString(authorityUuid), SecuredUUID.fromString(raProfileUuid), attributes);
     }
 }

@@ -1,8 +1,8 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.core.protocol.ProtocolCertificateAssociationsDto;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -30,9 +30,9 @@ public class ProtocolCertificateAssociations extends UniquelyIdentified {
 
     @Column(columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<RequestAttributeDto> customAttributes;
+    private List<RequestAttribute> customAttributes;
 
-    public ProtocolCertificateAssociationsDto mapToDto(TriFunction<AttributeType, UUID, List<RequestAttributeDto>, List<ResponseAttributeDto>> convertAttributesFunc) {
+    public ProtocolCertificateAssociationsDto mapToDto(TriFunction<AttributeType, UUID, List<RequestAttribute>, List<ResponseAttribute>> convertAttributesFunc) {
         ProtocolCertificateAssociationsDto dto = new ProtocolCertificateAssociationsDto();
         dto.setCustomAttributes(convertAttributesFunc.apply(AttributeType.CUSTOM, null, customAttributes));
         dto.setGroupUuids(groupUuids);

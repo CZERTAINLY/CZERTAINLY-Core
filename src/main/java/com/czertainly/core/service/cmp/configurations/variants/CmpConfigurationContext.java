@@ -1,6 +1,6 @@
 package com.czertainly.core.service.cmp.configurations.variants;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpConfigurationException;
@@ -27,13 +27,13 @@ public class CmpConfigurationContext implements ConfigurationContext {
     protected final CmpProfile cmpProfile;
     private final RaProfile raProfile;
     private final CertificateKeyService certificateKeyService;
-    private final List<RequestAttributeDto> issueAttributes;
-    private final List<RequestAttributeDto> revokeAttributes;
+    private final List<RequestAttribute> issueAttributes;
+    private final List<RequestAttribute> revokeAttributes;
 
     public CmpConfigurationContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
                                    CertificateKeyService certificateKeyServiceImpl,
-                                   List<RequestAttributeDto> issueAttributes,
-                                   List<RequestAttributeDto> revokeAttributes) {
+                                   List<RequestAttribute> issueAttributes,
+                                   List<RequestAttribute> revokeAttributes) {
         this.requestMessage = pkiRequest;
         this.cmpProfile = cmpProfile;
         this.raProfile = raProfile;
@@ -116,7 +116,7 @@ public class CmpConfigurationContext implements ConfigurationContext {
     }
 
     @Override
-    public List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke) {
+    public List<RequestAttribute> getClientOperationAttributes(boolean isRevoke) {
         return (isRevoke) ? revokeAttributes : issueAttributes;
     }
 

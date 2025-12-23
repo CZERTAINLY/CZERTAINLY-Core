@@ -11,7 +11,8 @@ import com.czertainly.api.model.client.certificate.CertificateSearchRequestDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
-import com.czertainly.api.model.common.attribute.v2.content.*;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v3.content.*;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.audit.AuditLogDto;
@@ -151,33 +152,33 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         certificateRepository.saveAll(List.of(certificate1, certificate2, certificate3));
 
         CustomAttributeDefinitionDetailDto intAttribute = createCustomAttribute("integer", AttributeContentType.INTEGER);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, intAttribute.getName(), List.of(new IntegerAttributeContent("ref", 1)));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, intAttribute.getName(), List.of(new IntegerAttributeContent("ref", 2)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, intAttribute.getName(), List.of(new IntegerAttributeContentV3("ref", 1)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, intAttribute.getName(), List.of(new IntegerAttributeContentV3("ref", 2)));
 
         CustomAttributeDefinitionDetailDto decimalAttribute = createCustomAttribute("decimal", AttributeContentType.FLOAT);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContent("ref", 0.5f)));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContent("ref", 1.5f)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContentV3("ref", 0.5f)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, decimalAttribute.getName(), List.of(new FloatAttributeContentV3("ref", 1.5f)));
 
 
         CustomAttributeDefinitionDetailDto booleanAttribute = createCustomAttribute("boolean", AttributeContentType.BOOLEAN);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, booleanAttribute.getName(), List.of(new BooleanAttributeContent("ref", true)));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, booleanAttribute.getName(), List.of(new BooleanAttributeContent("ref", false)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, booleanAttribute.getName(), List.of(new BooleanAttributeContentV3("ref", true)));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, booleanAttribute.getName(), List.of(new BooleanAttributeContentV3("ref", false)));
 
         CustomAttributeDefinitionDetailDto attribute = createCustomAttribute("string", AttributeContentType.STRING);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, attribute.getName(), List.of(new StringAttributeContent("ref", "value1")));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, attribute.getName(), List.of(new StringAttributeContent("ref", "value2")));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, attribute.getName(), List.of(new StringAttributeContentV3("ref", "value1")));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, attribute.getName(), List.of(new StringAttributeContentV3("ref", "value2")));
 
         CustomAttributeDefinitionDetailDto dateAttribute = createCustomAttribute("date", AttributeContentType.DATE);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContent(LocalDate.parse("2025-05-16"))));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContent(LocalDate.parse("2025-05-20"))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContentV3(LocalDate.parse("2025-05-16"))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContentV3(LocalDate.parse("2025-05-20"))));
 
         CustomAttributeDefinitionDetailDto dateTimeAttribute = createCustomAttribute("datetime", AttributeContentType.DATETIME);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContent(ZonedDateTime.parse("2018-12-26T20:28:33.213+05:30"))));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContent(ZonedDateTime.parse("2018-12-28T20:28:33.213+05:30"))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContentV3(ZonedDateTime.parse("2018-12-26T20:28:33.213+05:30"))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContentV3(ZonedDateTime.parse("2018-12-28T20:28:33.213+05:30"))));
 
         CustomAttributeDefinitionDetailDto timeAttribute = createCustomAttribute("time", AttributeContentType.TIME);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, timeAttribute.getName(), List.of(new TimeAttributeContent(LocalTime.parse("10:15:45"))));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, timeAttribute.getName(), List.of(new TimeAttributeContent(LocalTime.parse("11:15:45"))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, timeAttribute.getName(), List.of(new TimeAttributeContentV3(LocalTime.parse("10:15:45"))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, timeAttribute.getName(), List.of(new TimeAttributeContentV3(LocalTime.parse("11:15:45"))));
 
         criteriaBuilder = entityManager.getCriteriaBuilder();
         criteriaQuery = criteriaBuilder.createQuery(Certificate.class);
@@ -758,8 +759,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final String DATE_ATTR_IDENTIFIER = "date_duration|DATE";
 
         CustomAttributeDefinitionDetailDto dateAttribute = createCustomAttribute("date_duration", AttributeContentType.DATE);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContent(LocalDate.now().plusDays(3))));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContent(LocalDate.now().minusDays(3))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContentV3(LocalDate.now().plusDays(3))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateAttribute.getName(), List.of(new DateAttributeContentV3(LocalDate.now().minusDays(3))));
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, DATE_ATTR_IDENTIFIER, FilterConditionOperator.IN_NEXT, "P4D")));
         Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));
@@ -769,8 +770,8 @@ class FilterPredicatesBuilderTest extends BaseSpringBootTest {
         final String DATETIME_ATTR_IDENTIFIER = "datetime_duration|DATETIME";
 
         CustomAttributeDefinitionDetailDto dateTimeAttribute = createCustomAttribute("datetime_duration", AttributeContentType.DATETIME);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContent(ZonedDateTime.now().plusDays(3).plusHours(5))));
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContent(ZonedDateTime.now().minusDays(3).minusHours(5))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate1.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContentV3(ZonedDateTime.now().plusDays(3).plusHours(5))));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, certificate2.getUuid(), null, dateTimeAttribute.getName(), List.of(new DateTimeAttributeContentV3(ZonedDateTime.now().minusDays(3).minusHours(5))));
 
         searchRequestDto.setFilters(List.of(new SearchFilterRequestDto(FilterFieldSource.CUSTOM, DATETIME_ATTR_IDENTIFIER, FilterConditionOperator.IN_NEXT, "P3DT6H")));
         Assertions.assertEquals(Set.of(certificate1.getUuid()), getUuidsFromListCertificatesResponse(certificateService.listCertificates(new SecurityFilter(), searchRequestDto)));

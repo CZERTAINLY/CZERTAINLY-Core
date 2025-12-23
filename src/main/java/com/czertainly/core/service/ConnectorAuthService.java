@@ -1,10 +1,10 @@
 package com.czertainly.core.service;
 
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.core.connector.AuthType;
 
 import java.util.List;
@@ -13,25 +13,25 @@ import java.util.Set;
 public interface ConnectorAuthService {
     Set<AuthType> getAuthenticationTypes();
 
-    List<BaseAttribute> getAuthAttributes(AuthType authenticationType);
+    List<DataAttributeV3> getAuthAttributes(AuthType authenticationType);
 
-    boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttributeDto> attributes);
+    boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttribute> attributes);
 
-    List<DataAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttributeDto> attributes);
+    List<BaseAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttribute> attributes);
 
-    List<BaseAttribute> getBasicAuthAttributes();
+    List<DataAttributeV3> getBasicAuthAttributes();
 
-    Boolean validateBasicAuthAttributes(List<RequestAttributeDto> attributes);
+    Boolean validateBasicAuthAttributes(List<RequestAttribute> attributes);
 
-    List<BaseAttribute> getCertificateAttributes();
+    List<DataAttributeV3> getCertificateAttributes();
 
-    Boolean validateCertificateAttributes(List<RequestAttributeDto> attributes);
+    Boolean validateCertificateAttributes(List<RequestAttribute> attributes);
 
-    List<BaseAttribute> getApiKeyAuthAttributes();
+    List<DataAttributeV3> getApiKeyAuthAttributes();
 
-    Boolean validateApiKeyAuthAttributes(List<RequestAttributeDto> attributes);
+    Boolean validateApiKeyAuthAttributes(List<RequestAttribute> attributes);
 
-    List<BaseAttribute> getJWTAuthAttributes();
+    List<DataAttributeV3> getJWTAuthAttributes();
 
-    Boolean validateJWTAuthAttributes(List<RequestAttributeDto> attributes);
+    Boolean validateJWTAuthAttributes(List<RequestAttribute> attributes);
 }

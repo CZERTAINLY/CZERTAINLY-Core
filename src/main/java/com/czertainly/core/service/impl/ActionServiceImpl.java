@@ -3,8 +3,8 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.*;
@@ -164,10 +164,10 @@ public class ActionServiceImpl implements ActionService {
         } else {
             try {
                 if (executionItemRequestDto.getData() == null) {
-                    executionItem.setData(new ArrayList<BaseAttributeContent<?>>());
+                    executionItem.setData(new ArrayList<BaseAttributeContentV3<?>>());
                 } else {
                     AttributeContentType attributeContentType = AttributeContentType.valueOf(executionItemRequestDto.getFieldIdentifier().substring(executionItemRequestDto.getFieldIdentifier().indexOf("|") + 1));
-                    List<BaseAttributeContent<?>> contentItems = AttributeDefinitionUtils.createAttributeContentFromString(attributeContentType, executionItemRequestDto.getData() instanceof ArrayList<?> ? (List<String>) executionItemRequestDto.getData() : List.of(executionItemRequestDto.getData().toString()));
+                    List<BaseAttributeContentV3<?>> contentItems = AttributeDefinitionUtils.createAttributeContentFromString(attributeContentType, executionItemRequestDto.getData() instanceof ArrayList<?> ? (List<String>) executionItemRequestDto.getData() : List.of(executionItemRequestDto.getData().toString()));
                     executionItem.setData(contentItems);
                 }
             } catch (IllegalArgumentException e) {

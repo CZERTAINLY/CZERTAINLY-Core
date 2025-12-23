@@ -1,12 +1,12 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -32,7 +32,7 @@ public interface AuthorityInstanceService extends ResourceExtensionService {
 
     List<BaseAttribute> listRAProfileAttributes(SecuredUUID uuid) throws ConnectorException, NotFoundException;
 
-    Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException;
+    Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException;
 
     List<BulkActionMessageDto> bulkDeleteAuthorityInstance(List<SecuredUUID> uuids) throws ValidationException, ConnectorException;
 

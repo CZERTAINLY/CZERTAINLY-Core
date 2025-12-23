@@ -38,7 +38,7 @@ public class TriggerHistoryRecord extends UniquelyIdentified {
     @ToString.Exclude
     private Execution execution;
 
-    @Column(name = "message")
+    @Column(name = "message", length = 2000)
     private String message;
 
     public TriggerHistoryRecordDto mapToDto() {

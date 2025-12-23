@@ -5,8 +5,6 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
@@ -15,15 +13,10 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
@@ -143,11 +136,11 @@ public interface AttributeService extends ResourceExtensionService {
     /**
      * Function to get the list of custom attributes that are applicable for the resource
      *
-     * @param filter : SecurityFilter to load object permissions
+     * @param filter   : SecurityFilter to load object permissions
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
-    List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource);
+    List<CustomAttribute<?>> getResourceAttributes(SecurityFilter filter, Resource resource);
 
     /**
      * Function to validate if the custom attributes contains the correct information
@@ -156,7 +149,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param resource   Resource to which the custom attributes should be validated for
      * @throws ValidationException Thrown if the validation fails
      */
-//    void validateCustomAttributes(List<RequestAttributeDto> attributes, Resource resource) throws ValidationException;
+//    void validateCustomAttributes(List<RequestAttribute> attributes, Resource resource) throws ValidationException;
 
     /**
      * Create the content for the attribute
@@ -165,7 +158,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param attributes List of custom attributes
      * @param resource   Resource for the attribute and value
      */
-//    void createAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) throws NotFoundException, AttributeException;
+//    void createAttributeContent(UUID objectUuid, List<RequestAttribute> attributes, Resource resource) throws NotFoundException, AttributeException;
 
     /**
      * Update the content for the attribute
@@ -174,7 +167,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param attributes List of custom attributes
      * @param resource   Resource for the attribute and value
      */
-//    void updateAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) throws NotFoundException, AttributeException;
+//    void updateAttributeContent(UUID objectUuid, List<RequestAttribute> attributes, Resource resource) throws NotFoundException, AttributeException;
 
     /**
      * Update the content for a single attribute

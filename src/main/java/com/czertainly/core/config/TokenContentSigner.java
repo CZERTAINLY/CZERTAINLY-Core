@@ -4,7 +4,7 @@ import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataResponseDto;
@@ -39,7 +39,7 @@ public class TokenContentSigner implements ContentSigner {
     private final String publicKey;
     private final KeyAlgorithm keyAlgorithm;
     private final UUID tokenInstanceUuid;
-    private final List<RequestAttributeDto> signatureAttributes;
+    private final List<RequestAttribute> signatureAttributes;
 
 
     private final ByteArrayOutputStream outputStream;
@@ -51,7 +51,7 @@ public class TokenContentSigner implements ContentSigner {
                               UUID publicKeyUuid,
                               String publicKey,
                               KeyAlgorithm keyAlgorithm,
-                              List<RequestAttributeDto> signatureAttributes) {
+                              List<RequestAttribute> signatureAttributes) {
         this.connector = connector;
         this.privateKeyUuid = privateKeyUuid;
         this.publicKeyUuid = publicKeyUuid;

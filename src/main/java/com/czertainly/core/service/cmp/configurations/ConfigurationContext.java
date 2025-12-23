@@ -1,6 +1,6 @@
 package com.czertainly.core.service.cmp.configurations;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.core.cmp.ProtectionMethod;
 import com.czertainly.api.interfaces.core.cmp.error.CmpBaseException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
@@ -57,7 +57,7 @@ public interface ConfigurationContext {
      */
     ProtectionStrategy getProtectionStrategy() throws CmpBaseException;
 
-    List<RequestAttributeDto> getClientOperationAttributes(boolean isRevoke);
+    List<RequestAttribute> getClientOperationAttributes(boolean isRevoke);
 
     // to scan extra cert field
     boolean dumpSigning();

@@ -2,8 +2,8 @@ package com.czertainly.core.service.scep.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -100,7 +100,7 @@ public class ScepServiceImpl implements ScepService {
     private X509Certificate recipient;
     private boolean raProfileBased;
     private RaProfile raProfile;
-    private List<RequestAttributeDto> issueAttributes;
+    private List<RequestAttribute> issueAttributes;
     private ScepProfile scepProfile;
     private RaProfileRepository raProfileRepository;
     private ScepProfileRepository scepProfileRepository;
@@ -206,7 +206,7 @@ public class ScepServiceImpl implements ScepService {
             }
             scepProfile = raProfile.getScepProfile();
             String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getScepIssueCertificateAttributes() : null;
-            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttribute.class));
+            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttributeV2.class));
         } else {
             scepProfile = scepProfileRepository.findByName(profileName).orElse(null);
             if (scepProfile == null) {
