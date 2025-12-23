@@ -53,12 +53,12 @@ public class AttributeVersionFactory {
         }
     }
 
-    public static void addResponseAttributeContent(ResponseAttribute requestAttribute, AttributeContent contentItem, int version) {
+    public static void addResponseAttributeContent(ResponseAttribute responseAttribute, AttributeContent contentItem, int version) {
         if (version == 2) {
-            addResponseAttributeContentV2(requestAttribute, contentItem);
+            addResponseAttributeContentV2(responseAttribute, contentItem);
         }
         if (version == 3) {
-            addResponseAttributeContentV3(requestAttribute, contentItem);
+            addResponseAttributeContentV3(responseAttribute, contentItem);
         }
     }
 
@@ -143,8 +143,8 @@ public class AttributeVersionFactory {
     }
 
 
-    private static void addResponseAttributeContentV3(ResponseAttribute requestAttribute, AttributeContent contentItem) {
-        ((ResponseAttributeV3) requestAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
+    private static void addResponseAttributeContentV3(ResponseAttribute responseAttribute, AttributeContent contentItem) {
+        ((ResponseAttributeV3) responseAttribute).getContent().add((BaseAttributeContentV3<?>) contentItem);
     }
 
     public static AttributeCallback getGroupAttributeCallback(BaseAttribute attribute) {
