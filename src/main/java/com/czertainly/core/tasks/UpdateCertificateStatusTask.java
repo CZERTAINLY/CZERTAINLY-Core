@@ -61,7 +61,7 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
         }
 
         // clean up of ACME nonces
-        long deletedAcmeNonces = acmeNonceRepository.deleteByExpiresBefore(new Date());
+        Long deletedAcmeNonces = acmeNonceRepository.deleteByExpiresBefore(new Date());
         if (deletedAcmeNonces > 0) {
             message += " Deleted %d expired ACME nonces.".formatted(deletedAcmeNonces);
         }
