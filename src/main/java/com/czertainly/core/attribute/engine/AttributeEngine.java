@@ -443,7 +443,7 @@ public class AttributeEngine {
         attributeDefinitionRepository.save(attributeDefinition);
     }
 
-    public AttributeDefinition updateMetadataAttributeDefinition(MetadataAttribute metadataAttribute, UUID connectorUuid) throws AttributeException {
+    public AttributeDefinition updateMetadataAttributeDefinition(MetadataAttribute<?> metadataAttribute, UUID connectorUuid) throws AttributeException {
         var isGlobal = metadataAttribute.getProperties().isGlobal();
         if (connectorUuid == null && !isGlobal) {
             throw new AttributeException("Cannot update metadata without specifying connector UUID.", metadataAttribute.getUuid(), metadataAttribute.getName(), metadataAttribute.getType(), null);
