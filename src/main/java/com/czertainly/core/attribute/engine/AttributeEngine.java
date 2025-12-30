@@ -154,7 +154,7 @@ public class AttributeEngine {
         return attributes.stream().map(
                 attribute ->
                         AttributeVersionFactory.getResponseAttribute(attribute.getUuid(), attribute.getName(), attribute.getName(),
-                                attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion().getAnInt())
+                                attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion().getVersion())
         ).toList();
     }
 
@@ -321,7 +321,7 @@ public class AttributeEngine {
         attributeDefinition.setRequired(customAttribute.getProperties().isRequired());
         attributeDefinition.setReadOnly(customAttribute.getProperties().isReadOnly());
         attributeDefinition.setDefinition(customAttribute);
-        attributeDefinition.setVersion(AttributeVersion.V3.getAnInt()); // ? constant with custom attribute version??
+        attributeDefinition.setVersion(AttributeVersion.V3.getVersion()); // ? constant with custom attribute version??
         attributeDefinition = attributeDefinitionRepository.save(attributeDefinition);
 
         // save relations
@@ -941,7 +941,7 @@ public class AttributeEngine {
                 continue;
             }
             responseAttributes.add(AttributeVersionFactory
-                    .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType(), requestAttribute.getVersion().getAnInt()));
+                    .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType(), requestAttribute.getVersion().getVersion()));
         }
         return responseAttributes;
     }
