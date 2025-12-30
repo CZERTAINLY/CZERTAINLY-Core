@@ -5,13 +5,14 @@ import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
-import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
-import com.czertainly.api.model.common.attribute.v3.content.FileAttributeContentV3;
-import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.FileAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -41,39 +42,25 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<DataAttributeV3> getAuthAttributes(AuthType authenticationType) {
-        switch (authenticationType) {
-            case NONE:
-                return List.of();
-            case BASIC:
-                return getBasicAuthAttributes();
-            case CERTIFICATE:
-                return getCertificateAttributes();
-            case API_KEY:
-                return getApiKeyAuthAttributes();
-            case JWT:
-                return getJWTAuthAttributes();
-            default:
-                throw new IllegalArgumentException("Unknown auth type: " + authenticationType);
-        }
+    public List<DataAttribute<?>> getAuthAttributes(AuthType authenticationType) {
+        return switch (authenticationType) {
+            case NONE -> List.of();
+            case BASIC -> getBasicAuthAttributes();
+            case CERTIFICATE -> getCertificateAttributes();
+            case API_KEY -> getApiKeyAuthAttributes();
+            case JWT -> getJWTAuthAttributes();
+        };
     }
 
     @Override
     public boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttribute> attributes) {
-        switch (authenticationType) {
-            case NONE:
-                return true;
-            case BASIC:
-                return validateBasicAuthAttributes(attributes);
-            case CERTIFICATE:
-                return validateCertificateAttributes(attributes);
-            case API_KEY:
-                return validateApiKeyAuthAttributes(attributes);
-            case JWT:
-                return validateJWTAuthAttributes(attributes);
-            default:
-                throw new IllegalArgumentException("Unknown auth type: " + authenticationType);
-        }
+        return switch (authenticationType) {
+            case NONE -> true;
+            case BASIC -> validateBasicAuthAttributes(attributes);
+            case CERTIFICATE -> validateCertificateAttributes(attributes);
+            case API_KEY -> validateApiKeyAuthAttributes(attributes);
+            case JWT -> validateJWTAuthAttributes(attributes);
+        };
     }
 
     @Override
@@ -82,17 +69,20 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
             return List.of();
         }
 
-        List<DataAttributeV3> definitions = getAuthAttributes(authenticationType);
-        List<BaseAttribute> merged = AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
+        List<DataAttribute<?>> definitions = getAuthAttributes(authenticationType);
+        List<BaseAttribute> baseAttributes = getBaseAttributesFromDataAttributes(definitions);
+        return AttributeDefinitionUtils.mergeAttributes(baseAttributes, AttributeDefinitionUtils.getClientAttributes(attributes));
+    }
 
-        return merged;
+    private static List<BaseAttribute> getBaseAttributesFromDataAttributes(List<DataAttribute<?>> definitions) {
+        return definitions.stream().<BaseAttribute>map(attribute -> attribute.getVersion() == 2 ? (DataAttributeV2) attribute : (DataAttributeV2) attribute).toList();
     }
 
     @Override
-    public List<DataAttributeV3> getBasicAuthAttributes() {
-        List<DataAttributeV3> attrs = new ArrayList<>();
+    public List<DataAttribute<?>> getBasicAuthAttributes() {
+        List<DataAttribute<?>> attrs = new ArrayList<>();
 
-        DataAttributeV3 username = new DataAttributeV3();
+        DataAttributeV2 username = new DataAttributeV2();
         username.setUuid("fe2d6d35-fb3d-4ea0-9f0b-7e39be93beeb");
         username.setName(ATTRIBUTE_USERNAME);
         username.setType(AttributeType.DATA);
@@ -105,7 +95,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         username.setProperties(usernameProperties);
         attrs.add(username);
 
-        DataAttributeV3 password = new DataAttributeV3();
+        DataAttributeV2 password = new DataAttributeV2();
         password.setUuid("04506d45-c865-4ddc-b6fc-117ee5d5c8e7");
         password.setName(ATTRIBUTE_PASSWORD);
         password.setType(AttributeType.DATA);
@@ -124,15 +114,15 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateBasicAuthAttributes(List<RequestAttribute> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getBasicAuthAttributes(), attributes);
+        AttributeDefinitionUtils.validateAttributes(getBaseAttributesFromDataAttributes(getBasicAuthAttributes()), attributes);
         return true;
     }
 
     @Override
-    public List<DataAttributeV3> getCertificateAttributes() {
-        List<DataAttributeV3> attrs = new ArrayList<>();
+    public List<DataAttribute<?>> getCertificateAttributes() {
+        List<DataAttribute<?>> attrs = new ArrayList<>();
 
-        DataAttributeV3 keyStoreType = new DataAttributeV3();
+        DataAttributeV2 keyStoreType = new DataAttributeV2();
         keyStoreType.setUuid("e334e055-900e-43f1-aedc-54e837028de0");
         keyStoreType.setName(ATTRIBUTE_KEYSTORE_TYPE);
         keyStoreType.setType(AttributeType.DATA);
@@ -145,13 +135,13 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         kstProperties.setVisible(true);
         keyStoreType.setProperties(kstProperties);
 
-        List<BaseAttributeContentV3<?>> base = new ArrayList<>();
-        SUPPORTED_KEY_STORE_TYPES.forEach(e -> base.add(new StringAttributeContentV3(e)));
+        List<BaseAttributeContentV2<?>> base = new ArrayList<>();
+        SUPPORTED_KEY_STORE_TYPES.forEach(e -> base.add(new StringAttributeContentV2(e)));
 
         keyStoreType.setContent(base);
         attrs.add(keyStoreType);
 
-        DataAttributeV3 keyStore = new DataAttributeV3();
+        DataAttributeV2 keyStore = new DataAttributeV2();
         keyStore.setUuid("6df7ace9-c501-4d58-953c-f8d53d4fb378");
         keyStore.setName(ATTRIBUTE_KEYSTORE);
         keyStore.setType(AttributeType.DATA);
@@ -165,7 +155,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         attrs.add(keyStore);
 
-        DataAttributeV3 keyStorePassword = new DataAttributeV3();
+        DataAttributeV2 keyStorePassword = new DataAttributeV2();
         keyStorePassword.setUuid("d975fe42-9d09-4740-a362-fc26f98e55ea");
         keyStorePassword.setName(ATTRIBUTE_KEYSTORE_PASSWORD);
         keyStorePassword.setType(AttributeType.DATA);
@@ -179,7 +169,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         attrs.add(keyStorePassword);
 
-        DataAttributeV3 trustStoreType = new DataAttributeV3();
+        DataAttributeV2 trustStoreType = new DataAttributeV2();
         trustStoreType.setUuid("c4454807-805a-44e2-81d1-94b56e993786");
         trustStoreType.setName(ATTRIBUTE_TRUSTSTORE_TYPE);
         trustStoreType.setType(AttributeType.DATA);
@@ -195,7 +185,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         trustStoreType.setContent(base);
         attrs.add(trustStoreType);
 
-        DataAttributeV3 trustStore = new DataAttributeV3();
+        DataAttributeV2 trustStore = new DataAttributeV2();
         trustStore.setUuid("6a245220-eaf4-44cb-9079-2228ad9264f5");
         trustStore.setName(ATTRIBUTE_TRUSTSTORE);
         trustStore.setType(AttributeType.DATA);
@@ -209,7 +199,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
         attrs.add(trustStore);
 
-        DataAttributeV3 trustStorePassword = new DataAttributeV3();
+        DataAttributeV2 trustStorePassword = new DataAttributeV2();
         trustStorePassword.setUuid("85a874da-1413-4770-9830-4188a37c95ee");
         trustStorePassword.setName(ATTRIBUTE_TRUSTSTORE_PASSWORD);
         trustStorePassword.setType(AttributeType.DATA);
@@ -228,15 +218,15 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateCertificateAttributes(List<RequestAttribute> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getCertificateAttributes(), attributes);
+        AttributeDefinitionUtils.validateAttributes(getBaseAttributesFromDataAttributes(getCertificateAttributes()), attributes);
 
 
         try {
-            FileAttributeContentV3 keyStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE, attributes, true);
+            FileAttributeContentV2 keyStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE, attributes, true);
             byte[] keyStoreBytes = Base64.getDecoder().decode(keyStoreBase64.getData().getContent());
 
-            StringAttributeContentV3 keyStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_TYPE, attributes, true);
-            StringAttributeContentV3 keyStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_PASSWORD, attributes, true);
+            StringAttributeContentV2 keyStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_TYPE, attributes, true);
+            StringAttributeContentV2 keyStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_KEYSTORE_PASSWORD, attributes, true);
 
             KeyStore keyStore = KeyStore.getInstance(keyStoreType.getData());
             keyStore.load(new ByteArrayInputStream(keyStoreBytes), keyStorePassword.getData().toCharArray());
@@ -248,9 +238,9 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         }
 
         try {
-            FileAttributeContentV3 trustStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE, attributes, false);
-            StringAttributeContentV3 trustStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_TYPE, attributes, false);
-            StringAttributeContentV3 trustStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_PASSWORD, attributes, false);
+            FileAttributeContentV2 trustStoreBase64 = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE, attributes, false);
+            StringAttributeContentV2 trustStoreType = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_TYPE, attributes, false);
+            StringAttributeContentV2 trustStorePassword = AttributeDefinitionUtils.getAttributeContent(ATTRIBUTE_TRUSTSTORE_PASSWORD, attributes, false);
 
             if (trustStoreBase64 != null && !StringUtils.isAnyBlank(trustStoreBase64.getData().getContent(), trustStoreType.getData(), trustStorePassword.getData())) {
                 byte[] trustStoreBytes = Base64.getDecoder().decode(trustStoreBase64.getData().getContent());
@@ -267,10 +257,10 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<DataAttributeV3> getApiKeyAuthAttributes() {
-        List<DataAttributeV3> attrs = new ArrayList<>();
+    public List<DataAttribute<?>> getApiKeyAuthAttributes() {
+        List<DataAttribute<?>> attrs = new ArrayList<>();
 
-        DataAttributeV3 apiKeyHeader = new DataAttributeV3();
+        DataAttributeV2 apiKeyHeader = new DataAttributeV2();
         apiKeyHeader.setUuid("705ccbfb-1d81-402a-ae67-8d38f159b240");
         apiKeyHeader.setName(ATTRIBUTE_API_KEY_HEADER);
         apiKeyHeader.setType(AttributeType.DATA);
@@ -283,15 +273,14 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         apiKeyHeader.setProperties(properties);
 
         String headerReference = "X-API-KEY";
-        StringAttributeContentV3 header = new StringAttributeContentV3();
+        StringAttributeContentV2 header = new StringAttributeContentV2();
         header.setReference(headerReference);
         header.setData(headerReference);
-        header.setContentType(AttributeContentType.STRING);
 
         apiKeyHeader.setContent(List.of(header));
         attrs.add(apiKeyHeader);
 
-        DataAttributeV3 apiKey = new DataAttributeV3();
+        DataAttributeV2 apiKey = new DataAttributeV2();
         apiKey.setUuid("989dafd6-d18c-41f1-b68d-285c56d6331e");
         apiKey.setName(ATTRIBUTE_API_KEY);
         apiKey.setType(AttributeType.DATA);
@@ -310,12 +299,12 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateApiKeyAuthAttributes(List<RequestAttribute> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getApiKeyAuthAttributes(), attributes);
+        AttributeDefinitionUtils.validateAttributes(getBaseAttributesFromDataAttributes(getApiKeyAuthAttributes()), attributes);
         return true;
     }
 
     @Override
-    public List<DataAttributeV3> getJWTAuthAttributes() {
+    public List<DataAttribute<?>> getJWTAuthAttributes() {
         throw new ValidationException(ValidationError.create("Auth type JWT not implemented yet"));
     }
 

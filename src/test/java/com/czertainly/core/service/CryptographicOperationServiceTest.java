@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.cryptography.operations.*;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.*;
@@ -186,7 +187,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        List<BaseAttributeV3<?>> attributes = cryptographicOperationService.listCipherAttributes(
+        List<BaseAttribute> attributes = cryptographicOperationService.listCipherAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),
@@ -231,7 +232,7 @@ class CryptographicOperationServiceTest extends BaseSpringBootTest {
                 )
                 .willReturn(WireMock.ok()));
 
-        List<BaseAttributeV3<?>> attributes = cryptographicOperationService.listSignatureAttributes(
+        List<BaseAttribute> attributes = cryptographicOperationService.listSignatureAttributes(
                 tokenInstanceReference.getSecuredParentUuid(),
                 tokenProfile.getSecuredUuid(),
                 key.getUuid(),

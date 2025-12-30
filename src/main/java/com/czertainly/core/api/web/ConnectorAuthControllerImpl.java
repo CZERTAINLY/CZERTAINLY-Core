@@ -2,7 +2,7 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.interfaces.core.web.ConnectorAuthController;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -33,7 +33,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttributeV3> getBasicAuthAttributes() {
+    public List<DataAttribute<?>> getBasicAuthAttributes() {
         return connectorAuthService.getBasicAuthAttributes();
     }
 
@@ -45,7 +45,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttributeV3> getCertificateAttributes() {
+    public List<DataAttribute<?>> getCertificateAttributes() {
         return connectorAuthService.getCertificateAttributes();
     }
 
@@ -57,7 +57,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttributeV3> getApiKeyAuthAttributes() {
+    public List<DataAttribute<?>> getApiKeyAuthAttributes() {
         return connectorAuthService.getApiKeyAuthAttributes();
     }
 
@@ -69,7 +69,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttributeV3> getJWTAuthAttributes() {
+    public List<DataAttribute<?>> getJWTAuthAttributes() {
         return connectorAuthService.getJWTAuthAttributes();
     }
 

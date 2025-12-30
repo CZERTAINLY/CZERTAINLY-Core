@@ -194,8 +194,9 @@ class EntityInstanceSearchTest extends BaseSpringBootTest {
         metadataAttribute.setName("attributeMeta1");
         metadataAttribute.setType(AttributeType.META);
         metadataAttribute.setContentType(AttributeContentType.TEXT);
-        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
-        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
+        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
+        metadataAttributeProperties.setLabel("Test meta");
+        metadataAttribute.setProperties(metadataAttributeProperties);        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
         attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.ENTITY, entityInstanceReference.getUuid()));
     }
@@ -206,8 +207,9 @@ class EntityInstanceSearchTest extends BaseSpringBootTest {
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
-        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
-
+        CustomAttributeProperties properties = new CustomAttributeProperties();
+        properties.setLabel("Test custom");
+        customAttribute.setProperties(properties);
         List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
