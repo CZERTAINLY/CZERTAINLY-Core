@@ -195,9 +195,9 @@ class CertificateServiceTest extends BaseSpringBootTest {
         tst.setName("Test");
         tst.setContentType(AttributeContentType.STRING);
         tst.setUuid("9f94036e-f050-4c9c-a3b8-f47b1be696aa");
-        tst.setProperties(new MetadataAttributeProperties() {{
-            setLabel("Test meta");
-        }});
+        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
+        metadataAttributeProperties.setLabel("Test meta");
+        tst.setProperties(metadataAttributeProperties);
         tst.setContent(List.of(new StringAttributeContentV2("xyz", "xyz")));
         meta.add(tst);
 

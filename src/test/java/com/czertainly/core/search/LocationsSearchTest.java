@@ -7,13 +7,13 @@ import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContentV2;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -207,13 +207,15 @@ class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     private void loadMetaData() throws AttributeException {
-        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
+        MetadataAttributeV3 metadataAttribute = new MetadataAttributeV3();
         metadataAttribute.setUuid(UUID.randomUUID().toString());
         metadataAttribute.setName("attributeMeta1");
         metadataAttribute.setType(AttributeType.META);
         metadataAttribute.setContentType(AttributeContentType.TEXT);
-        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
-        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
+        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
+        metadataAttributeProperties.setLabel("Test meta");
+        metadataAttribute.setProperties(metadataAttributeProperties);
+        metadataAttribute.setContent(List.of(new TextAttributeContentV3("reference-test-1", "data-meta-test-1")));
 
         attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.LOCATION, location.getUuid()));
     }
@@ -224,7 +226,9 @@ class LocationsSearchTest extends BaseSpringBootTest {
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
-        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
+        CustomAttributeProperties properties = new CustomAttributeProperties();
+        properties.setLabel("Test custom");
+        customAttribute.setProperties(properties);
 
         List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();

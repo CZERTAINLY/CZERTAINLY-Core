@@ -165,7 +165,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         Assertions.assertEquals(4, metadataResponseDto.get().getItems().getFirst().getContent().size());
 
         networkDiscoveryMeta.getProperties().setOverwrite(true);
-        List<BaseAttributeContentV3> contentV3s = new ArrayList<>();
+        List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
         contentV3s.add(new StringAttributeContentV3("TEST", "TEST"));
         networkDiscoveryMeta.setContent(contentV3s);
         attributeEngine.updateMetadataAttribute(networkDiscoveryMeta, new ObjectAttributeContentInfo(connectorDiscovery.getUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, networkDiscoveryUuid));
