@@ -570,7 +570,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
 
     private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
         // categorize certs and collect metadata definitions
-        List<MetadataAttribute<? extends AttributeContent>> metadataDefinitions = new ArrayList<>();
+        List<MetadataAttribute> metadataDefinitions = new ArrayList<>();
         Map<String, Set<AttributeContent>> metadataContentsMapping = new HashMap<>();
         List<DiscoveryProviderCertificateDataDto> discoveredCertificates = new ArrayList<>();
         response.getCertificateData().forEach(c -> {
@@ -581,7 +581,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
                 uniqueCertificateContents.add(c.getBase64Content());
             }
 
-            for (MetadataAttribute<? extends AttributeContent> m : c.getMeta()) {
+            for (MetadataAttribute m : c.getMeta()) {
                 Set<AttributeContent> metadataContents = metadataContentsMapping.get(m.getUuid());
                 if (metadataContents == null) {
                     metadataDefinitions.add(m);

@@ -70,7 +70,7 @@ public class DiscoveryCertificate extends UniquelyIdentifiedAndAudited implement
 
     @Column(name = "meta", columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private List<MetadataAttribute<? extends AttributeContent>> meta;
+    private List<MetadataAttribute> meta;
 
     @Override
     public DiscoveryCertificateDto mapToDto() {

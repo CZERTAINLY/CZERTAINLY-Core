@@ -193,11 +193,11 @@ public class AttributeEngine {
         return null;
     }
 
-    public List<MetadataAttribute<? extends AttributeContent>> getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo contentInfo) {
+    public List<MetadataAttribute> getMetadataAttributesDefinitionContent(ObjectAttributeContentInfo contentInfo) {
         // TODO: use also operation?
         List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(AttributeType.META, contentInfo.connectorUuid(), null, contentInfo.objectType(), contentInfo.objectUuid(), contentInfo.sourceObjectType(), contentInfo.sourceObjectUuid());
 
-        Map<String, MetadataAttribute<? extends AttributeContent>> mapping = new HashMap<>();
+        Map<String, MetadataAttribute> mapping = new HashMap<>();
 
         for (ObjectAttributeDefinitionContent objectDefinitionContent : objectDefinitionContents) {
 
@@ -207,10 +207,10 @@ public class AttributeEngine {
 
             String uuid = objectDefinitionContent.uuid().toString();
 
-            MetadataAttribute<? extends AttributeContent> attribute =
+            MetadataAttribute attribute =
                     mapping.computeIfAbsent(uuid, k -> {
-                        MetadataAttribute<? extends AttributeContent> def =
-                                (MetadataAttribute<? extends AttributeContent>) objectDefinitionContent.definition();
+                        MetadataAttribute def =
+                                (MetadataAttribute) objectDefinitionContent.definition();
 
                         def.setContent(new ArrayList<>());
                         return def;
@@ -443,12 +443,12 @@ public class AttributeEngine {
         attributeDefinitionRepository.save(attributeDefinition);
     }
 
-    public AttributeDefinition updateMetadataAttributeDefinition(MetadataAttribute<?> metadataAttribute, UUID connectorUuid) throws AttributeException {
+    public AttributeDefinition updateMetadataAttributeDefinition(MetadataAttribute metadataAttribute, UUID connectorUuid) throws AttributeException {
         var isGlobal = metadataAttribute.getProperties().isGlobal();
         if (connectorUuid == null && !isGlobal) {
             throw new AttributeException("Cannot update metadata without specifying connector UUID.", metadataAttribute.getUuid(), metadataAttribute.getName(), metadataAttribute.getType(), null);
         }
-        validateAttributeDefinition((BaseAttribute) metadataAttribute, connectorUuid);
+        validateAttributeDefinition(metadataAttribute, connectorUuid);
 
         AttributeDefinition attributeDefinition = null;
         if (isGlobal) {
@@ -477,13 +477,13 @@ public class AttributeEngine {
 
         // we don't need content in definition
         metadataAttribute.setContent(List.of());
-        attributeDefinition.setDefinition((BaseAttribute) metadataAttribute);
+        attributeDefinition.setDefinition(metadataAttribute);
         attributeDefinitionRepository.save(attributeDefinition);
 
         return attributeDefinition;
     }
 
-    public void updateMetadataAttributes(List<MetadataAttribute<? extends AttributeContent>> attributes, ObjectAttributeContentInfo objectAttributeContentInfo) throws AttributeException {
+    public void updateMetadataAttributes(List<MetadataAttribute> attributes, ObjectAttributeContentInfo objectAttributeContentInfo) throws AttributeException {
         if (objectAttributeContentInfo.connectorUuid() == null) {
             throw new AttributeException("Cannot update metadata without specifying connector UUID.");
         }
@@ -491,7 +491,7 @@ public class AttributeEngine {
             return;
         }
 
-        for (MetadataAttribute<?> metadataAttribute : attributes) {
+        for (MetadataAttribute metadataAttribute : attributes) {
             if (metadataAttribute.getType() != AttributeType.META) {
                 continue;
             }
@@ -500,9 +500,9 @@ public class AttributeEngine {
         }
     }
 
-    public void updateMetadataAttribute(MetadataAttribute<? extends AttributeContent> metadataAttribute, ObjectAttributeContentInfo objectAttributeContentInfo) throws AttributeException {
+    public void updateMetadataAttribute(MetadataAttribute metadataAttribute, ObjectAttributeContentInfo objectAttributeContentInfo) throws AttributeException {
         UUID connectorUuid = objectAttributeContentInfo.connectorUuid();
-        List<AttributeContent> contentItems = (List<AttributeContent>) metadataAttribute.getContent();
+        List<AttributeContent> contentItems = metadataAttribute.getContent();
         AttributeDefinition attributeDefinition = updateMetadataAttributeDefinition(metadataAttribute, connectorUuid);
 
         if (objectAttributeContentInfo.connectorUuid() == null) {
