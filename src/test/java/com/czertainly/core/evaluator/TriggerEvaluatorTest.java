@@ -587,7 +587,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         props.setLabel("Test meta");
         metadataAttribute.setProperties(props);
 
-        List<MetadataAttribute<? extends AttributeContent>> content = new ArrayList<>();
+        List<MetadataAttribute> content = new ArrayList<>();
         content.add(metadataAttribute);
         attributeEngine.updateMetadataAttributes(content, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, newCertificate.getUuid()));
 

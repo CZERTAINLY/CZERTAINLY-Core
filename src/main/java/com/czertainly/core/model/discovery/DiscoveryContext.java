@@ -27,7 +27,7 @@ public class DiscoveryContext {
     private int certificatesDiscovered;
     private int connectorCertificatesDiscovered;
 
-    private List<MetadataAttribute<?>> metadata;
+    private List<MetadataAttribute> metadata;
 
     public DiscoveryContext(UUID loggedUserUuid, Connector connector, DiscoveryHistory discoveryHistory, List<DataAttribute<?>> dataAttributes) {
         this.loggedUserUuid = loggedUserUuid;

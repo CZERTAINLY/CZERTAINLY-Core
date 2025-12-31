@@ -278,7 +278,7 @@ public interface CertificateService extends ResourceExtensionService  {
      * @param meta Metadata of the certificate
      * @return Certificate detail DTO
      */
-    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute<? extends AttributeContent>> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException;
+    CertificateDetailDto issueRequestedCertificate(UUID uuid, String certificateData, List<MetadataAttribute> meta) throws CertificateException, NoSuchAlgorithmException, AlreadyExistException, NotFoundException, AttributeException;
 
     /**
      * List certificates eligible for CA certificate of SCEP requests

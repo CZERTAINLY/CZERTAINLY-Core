@@ -189,7 +189,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificate.setOwner(ownerAssociation);
         certificateRepository.save(certificate);
 
-        List<MetadataAttribute<? extends AttributeContent>> meta = new ArrayList<>();
+        List<MetadataAttribute> meta = new ArrayList<>();
         MetadataAttributeV2 tst = new MetadataAttributeV2();
         tst.setType(AttributeType.META);
         tst.setName("Test");

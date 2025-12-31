@@ -113,9 +113,9 @@ public class CertificateHandler {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void updateMetadataDefinition(List<MetadataAttribute<? extends AttributeContent>> metadataAttributes, Map<String, Set<AttributeContent>> metadataContentsMapping, UUID connectorUuid, String connectorName) {
+    public void updateMetadataDefinition(List<MetadataAttribute> metadataAttributes, Map<String, Set<AttributeContent>> metadataContentsMapping, UUID connectorUuid, String connectorName) {
         logger.debug("Updating {} discovery certificate metadata definitions for connector {}", metadataAttributes.size(), connectorName);
-        for (MetadataAttribute<? extends AttributeContent> metadataAttribute : metadataAttributes) {
+        for (MetadataAttribute metadataAttribute : metadataAttributes) {
             try {
                 AttributeDefinition attributeDefinition = attributeEngine.updateMetadataAttributeDefinition(metadataAttribute, connectorUuid);
                 attributeEngine.registerAttributeContentItems(attributeDefinition.getUuid(), metadataContentsMapping.get(metadataAttribute.getUuid()));
@@ -180,7 +180,7 @@ public class CertificateHandler {
         return keyUuid;
     }
 
-    public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute<? extends AttributeContent>> metadata) {
+    public void updateDiscoveredCertificate(DiscoveryHistory discovery, Certificate certificate, List<MetadataAttribute> metadata) {
         // Set metadata attributes, create certificate event history entry and validate certificate
         try {
             attributeEngine.updateMetadataAttributes(metadata, new ObjectAttributeContentInfo(discovery.getConnectorUuid(), Resource.CERTIFICATE, certificate.getUuid(), Resource.DISCOVERY, discovery.getUuid(), discovery.getName()));

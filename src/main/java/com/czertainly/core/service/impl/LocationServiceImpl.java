@@ -429,7 +429,7 @@ public class LocationServiceImpl implements LocationService {
         Certificate certificate = certificateLocation.getCertificate();
         Location location = certificateLocation.getLocation();
 
-        List<MetadataAttribute<? extends AttributeContent>> metadata = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(
+        List<MetadataAttribute> metadata = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(
                 certificateLocation.getLocation().getEntityInstanceReference().getConnectorUuid(),
                 Resource.CERTIFICATE, certificate.getUuid(),
                 Resource.LOCATION, location.getUuid()));
@@ -837,7 +837,7 @@ public class LocationServiceImpl implements LocationService {
         return clientCertificateDataResponseDto;
     }
 
-    private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes, List<MetadataAttribute<? extends AttributeContent>> certificateMetadata) throws LocationException, AttributeException {
+    private void addCertificateToLocation(Location location, Certificate certificate, List<RequestAttribute> pushAttributes, List<RequestAttribute> csrAttributes, List<MetadataAttribute> certificateMetadata) throws LocationException, AttributeException {
         //Get the list of Push and CSR Attributes from the connector. This will then be merged with the user request and
         //stored in the database
         List<BaseAttribute> fullPushAttributes;
@@ -984,7 +984,7 @@ public class LocationServiceImpl implements LocationService {
         Location location = certificateLocation.getLocation();
         Certificate certificate = certificateLocation.getCertificate();
 
-        List<MetadataAttribute<? extends AttributeContent>> metadata = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(
+        List<MetadataAttribute> metadata = attributeEngine.getMetadataAttributesDefinitionContent(new ObjectAttributeContentInfo(
                 location.getEntityInstanceReference().getConnectorUuid(),
                 Resource.CERTIFICATE, certificate.getUuid(),
                 Resource.LOCATION, location.getUuid()));
@@ -1064,7 +1064,7 @@ public class LocationServiceImpl implements LocationService {
     }
 
     private void updateContent(Location location, boolean supportMultipleEntries, boolean supportKeyManagement,
-                               List<MetadataAttribute<? extends AttributeContent>> metadata, List<CertificateLocationDto> certificates) throws CertificateException, AttributeException {
+                               List<MetadataAttribute> metadata, List<CertificateLocationDto> certificates) throws CertificateException, AttributeException {
         location.setSupportMultipleEntries(supportMultipleEntries);
         location.setSupportKeyManagement(supportKeyManagement);
 
@@ -1133,7 +1133,7 @@ public class LocationServiceImpl implements LocationService {
 
     }
 
-    private void removeStash(Location location, List<MetadataAttribute<? extends AttributeContent>> metadata) throws ConnectorException {
+    private void removeStash(Location location, List<MetadataAttribute> metadata) throws ConnectorException {
         RemoveCertificateRequestDto removeCertificateRequestDto = new RemoveCertificateRequestDto();
         removeCertificateRequestDto.setLocationAttributes(attributeEngine.getRequestObjectDataAttributesContent(location.getEntityInstanceReference().getConnectorUuid(), null, Resource.LOCATION, location.getUuid()));
         removeCertificateRequestDto.setCertificateMetadata(metadata);
