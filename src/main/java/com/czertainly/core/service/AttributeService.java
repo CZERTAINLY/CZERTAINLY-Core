@@ -140,7 +140,7 @@ public interface AttributeService extends ResourceExtensionService {
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
-    List<CustomAttribute<?>> getResourceAttributes(SecurityFilter filter, Resource resource);
+    List<CustomAttribute> getResourceAttributes(SecurityFilter filter, Resource resource);
 
     /**
      * Function to validate if the custom attributes contains the correct information

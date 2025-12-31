@@ -147,7 +147,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     }
 
     public CustomAttributeDefinitionDetailDto mapToCustomAttributeDefinitionDetailDto() {
-        CustomAttribute<AttributeContent> attribute = (CustomAttribute<AttributeContent>) this.definition;
+        CustomAttribute attribute = (CustomAttribute) this.definition;
         CustomAttributeDefinitionDetailDto dto = new CustomAttributeDefinitionDetailDto();
         dto.setUuid(attribute.getUuid());
         dto.setName(attribute.getName());

@@ -133,7 +133,7 @@ public class CustomAttributeControllerImpl implements CustomAttributeController 
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.CUSTOM_ATTRIBUTE, operation = Operation.LIST)
-    public List<CustomAttribute<?>> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
+    public List<CustomAttribute> getResourceCustomAttributes(@LogResource(resource = true, affiliated = true) Resource resource) {
         return attributeService.getResourceAttributes(SecurityFilter.create(), resource);
     }
 

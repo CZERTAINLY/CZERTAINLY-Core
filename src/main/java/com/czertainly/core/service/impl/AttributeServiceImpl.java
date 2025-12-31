@@ -309,7 +309,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.MEMBERS)
-    public List<CustomAttribute<?>> getResourceAttributes(SecurityFilter filter, Resource resource) {
+    public List<CustomAttribute> getResourceAttributes(SecurityFilter filter, Resource resource) {
         return attributeEngine.getCustomAttributesByResource(resource, filter.getResourceFilter());
     }
 

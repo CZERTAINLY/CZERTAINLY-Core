@@ -159,14 +159,14 @@ public class AttributeEngine {
     }
 
 
-    public List<CustomAttribute<?>> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
+    public List<CustomAttribute> getCustomAttributesByResource(Resource resource, SecurityResourceFilter securityResourceFilter) {
         List<AttributeRelation> relations = attributeRelationRepository.findByResourceAndAttributeDefinitionTypeAndAttributeDefinitionEnabled(resource, AttributeType.CUSTOM, true);
 
         // filter definitions that are not allowed for user
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
             return relations.stream()
                     .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
-                    .<CustomAttribute<?>>map(r -> {
+                    .<CustomAttribute>map(r -> {
                         if (r.getAttributeDefinition().getDefinition().getVersion() == 2)
                             return (CustomAttributeV2) r.getAttributeDefinition().getDefinition();
                         if (r.getAttributeDefinition().getDefinition().getVersion() == 3)
@@ -175,7 +175,7 @@ public class AttributeEngine {
                     })
                     .toList();
         } else {
-            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).<CustomAttribute<?>>map(r -> {
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).<CustomAttribute>map(r -> {
                 if (r.getAttributeDefinition().getDefinition().getVersion() == 2)
                     return (CustomAttributeV2) r.getAttributeDefinition().getDefinition();
                 if (r.getAttributeDefinition().getDefinition().getVersion() == 3)
