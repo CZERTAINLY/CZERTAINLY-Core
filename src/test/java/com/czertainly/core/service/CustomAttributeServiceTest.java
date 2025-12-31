@@ -236,7 +236,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     void testUpdateResource() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<CustomAttribute<?>> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        List<CustomAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
         Assertions.assertEquals(attribute.getUuid(), attributes.getFirst().getUuid());
     }
@@ -251,7 +251,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
     @Test
     void testGetResourceAttributesWithValue() throws NotFoundException {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
-        List<CustomAttribute<?>> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
+        List<CustomAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
     }
 }
