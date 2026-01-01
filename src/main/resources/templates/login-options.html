@@ -47,8 +47,9 @@
             text-decoration: none;
             color: var(--text-color);
             padding: 14px 12px;
-            border-radius: 6px;
+            border-radius: 8px;
             background: #F3F4F6;
+            font-weight: 600;
         }
         .login-options-link:hover {
             background: #E5E7EB;
@@ -76,10 +77,30 @@
             </defs>
         </svg>
         <h1 class="login-options-title">Login with</h1>
-        <ul class="login-options-list">
+        <!-- <ul class="login-options-list">
             <li class="login-options-item" th:each="provider : ${providers}">
                 <a class="login-options-link" th:href="@{/oauth2/authorization/{provider}/prepare(provider=${provider})}"
                     th:text="${provider}">Provider</a>
+            </li>
+        </ul> -->
+        <ul class="login-options-list">
+            <li class="login-options-item">
+                <a class="login-options-link" href="/api/oauth2/authorization/internal/prepare">internal</a>
+            </li>
+            <li class="login-options-item">
+                <a class="login-options-link" href="/api/oauth2/authorization/entra/prepare">entra</a>
+            </li>
+            <li class="login-options-item">
+                <a class="login-options-link" href="/api/oauth2/authorization/internal2/prepare">internal2</a>
+            </li>
+            <li class="login-options-item">
+                <a class="login-options-link" href="/api/oauth2/authorization/internal3/prepare">internal3</a>
+            </li>
+            <li class="login-options-item">
+                <a class="login-options-link" href="/api/oauth2/authorization/entra-no-userinfo/prepare">entra-no-userinfo</a>
+            </li>
+            <li class="login-options-item">
+                <a class="login-options-link" href="/api/oauth2/authorization/internal-userinfo/prepare">internal-userinfo</a>
             </li>
         </ul>
     </main>
