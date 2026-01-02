@@ -19,6 +19,7 @@ import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.ResponseBody;
 import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
 import java.io.IOException;
@@ -39,6 +40,7 @@ public class LoginController {
             value = "/login",
             produces = {"application/json"}
     )
+    @ResponseBody
     public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
@@ -62,11 +64,14 @@ public class LoginController {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
 
         // Display only properly configured providers
-        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList();
+        List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers() != null 
+                ? authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList()
+                : List.of();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
             try {
                 response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst().getName());
+                return null;
             } catch (IOException e) {
                 throw new CzertainlyAuthenticationException("Error when redirecting to OAuth2 Provider with name " + oauth2Providers.getFirst() + " : " + e.getMessage());
             }
@@ -89,7 +94,9 @@ public class LoginController {
     @GetMapping("/oauth2/authorization/{provider}/prepare")
     public void loginWithProvider(@PathVariable String provider, HttpServletResponse response, HttpServletRequest request) throws IOException {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers().get(provider);
+        OAuth2ProviderSettingsDto providerSettings = authenticationSettings.getOAuth2Providers() != null 
+                ? authenticationSettings.getOAuth2Providers().get(provider)
+                : null;
 
         if (providerSettings == null) {
             String accessToken;
@@ -110,8 +117,13 @@ public class LoginController {
     }
 
     @GetMapping("/oauth2/{provider}/jwkSet")
+    @ResponseBody
     public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
+
+        if (authenticationSettings.getOAuth2Providers() == null || authenticationSettings.getOAuth2Providers().get(provider) == null) {
+            throw new ValidationException("Provider %s does not exist.".formatted(provider));
+        }
 
         String jwkSetEncoded = authenticationSettings.getOAuth2Providers().get(provider).getJwkSet();
         if (jwkSetEncoded == null) {
