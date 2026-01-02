@@ -37,7 +37,7 @@ public class EcdsaSignatureAttributes {
         );
     }
 
-    public static BaseAttributeV2<?> buildDataDigest() {
+    public static BaseAttribute buildDataDigest() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
@@ -58,7 +58,7 @@ public class EcdsaSignatureAttributes {
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .toList()
         );
 
         return attribute;

@@ -136,15 +136,15 @@ public class AttributeEngine {
     }
 
     private static String getLabelFromAttributeProperties(BaseAttribute attribute) {
-        if (attribute.getType() == AttributeType.DATA && ((DataAttribute<?>) attribute).getProperties() != null)
-            return ((DataAttribute<?>) attribute).getProperties().getLabel();
+        if (attribute.getType() == AttributeType.DATA && ((DataAttribute) attribute).getProperties() != null)
+            return ((DataAttribute) attribute).getProperties().getLabel();
         if (attribute.getType() == AttributeType.CUSTOM && ((CustomAttributeV3) attribute).getProperties() != null)
             return ((CustomAttributeV3) attribute).getProperties().getLabel();
         return attribute.getName();
     }
 
     private static AttributeContentType getAttributeType(BaseAttribute attribute) {
-        if (attribute.getType() == AttributeType.DATA) return ((DataAttribute<?>) attribute).getContentType();
+        if (attribute.getType() == AttributeType.DATA) return ((DataAttribute) attribute).getContentType();
         if (attribute.getType() == AttributeType.CUSTOM) return ((CustomAttributeV3) attribute).getContentType();
         return null;
     }
@@ -185,6 +185,7 @@ public class AttributeEngine {
         }
     }
 
+    @Transactional(readOnly = true)
     public DataAttributeV2 getDataAttributeDefinition(UUID connectorUuid, String name) {
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, name).orElse(null);
         if (definition != null) {
@@ -400,12 +401,12 @@ public class AttributeEngine {
         }
         for (BaseAttribute attribute : attributes) {
             if (attribute.getType() == AttributeType.DATA) {
-                updateDataAttributeDefinition(connectorUuid, operation, (DataAttribute<?>) attribute);
+                updateDataAttributeDefinition(connectorUuid, operation, (DataAttribute) attribute);
             }
         }
     }
 
-    private void updateDataAttributeDefinition(UUID connectorUuid, String operation, DataAttribute<?> dataAttribute) throws AttributeException {
+    private void updateDataAttributeDefinition(UUID connectorUuid, String operation, DataAttribute dataAttribute) throws AttributeException {
         validateAttributeDefinition((BaseAttribute) dataAttribute, connectorUuid);
 
         // find by connector uuid and name only because attribute uuid could be generated when data attribute was migrated from RequestAttribute
@@ -516,11 +517,11 @@ public class AttributeEngine {
         createObjectAttributeContent(attributeDefinition, objectAttributeContentInfo, contentItems);
     }
 
-    public List<DataAttribute<?>> getDefinitionObjectAttributeContent(AttributeType attributeType, UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
+    public List<DataAttribute> getDefinitionObjectAttributeContent(AttributeType attributeType, UUID connectorUuid, String operation, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the {} attributes for {} with UUID: {}", attributeType.getLabel(), objectType.getLabel(), objectUuid);
         List<ObjectAttributeDefinitionContent> objectDefinitionContents = attributeContent2ObjectRepository.getObjectAttributeDefinitionContent(attributeType, connectorUuid, operation, objectType, objectUuid, null, null);
 
-        Map<String, DataAttribute<?>> mapping = new HashMap<>();
+        Map<String, DataAttribute> mapping = new HashMap<>();
         for (ObjectAttributeDefinitionContent objectDefinitionContent : objectDefinitionContents) {
             String uuid = objectDefinitionContent.uuid().toString();
             if (objectDefinitionContent.definition().getVersion() == 2) {
@@ -654,8 +655,8 @@ public class AttributeEngine {
         return getRequestAttributes(objectContents);
     }
 
-    public List<DataAttribute<?>> getDataAttributesByContent(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException {
-        List<DataAttribute<?>> dataAttributes = new ArrayList<>();
+    public List<DataAttribute> getDataAttributesByContent(UUID connectorUuid, List<RequestAttribute> requestAttributes) throws AttributeException {
+        List<DataAttribute> dataAttributes = new ArrayList<>();
         String connectorUuidStr = connectorUuid == null ? null : connectorUuid.toString();
         for (RequestAttribute requestAttribute : requestAttributes) {
             AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndAttributeUuidAndName(AttributeType.DATA, connectorUuid, requestAttribute.getUuid(), requestAttribute.getName())
@@ -855,14 +856,14 @@ public class AttributeEngine {
                 hasCallback = false;
                 hasContent = customAttribute.getContent() != null && !customAttribute.getContent().isEmpty();
             } else {
-                DataAttribute<?> dataAttribute = (DataAttribute<?>) attribute;
+                DataAttribute dataAttribute = (DataAttribute) attribute;
 
                 label = dataAttribute.getProperties().getLabel();
                 readOnly = dataAttribute.getProperties().isReadOnly();
                 list = dataAttribute.getProperties().isList();
                 multiSelect = dataAttribute.getProperties().isMultiSelect();
                 hasCallback = dataAttribute.getAttributeCallback() != null;
-                hasContent = dataAttribute.getContent() != null && !dataAttribute.getContent().isEmpty();
+                hasContent = dataAttribute.getContent() != null && !((List<? extends AttributeContent>) dataAttribute.getContent()).isEmpty();
             }
 
             if (label == null || label.isBlank()) {
@@ -934,9 +935,9 @@ public class AttributeEngine {
         }
 
         List<ResponseAttribute> responseAttributes = new ArrayList<>();
-        Map<String, DataAttribute<?>> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute<?>) a));
+        Map<String, DataAttribute> mappedDefinitions = definitions.stream().filter(d -> d.getType() == AttributeType.DATA).collect(Collectors.toMap(BaseAttribute::getUuid, a -> (DataAttribute) a));
         for (RequestAttribute requestAttribute : requestAttributes) {
-            DataAttribute<?> definition = mappedDefinitions.get(requestAttribute.getUuid().toString());
+            DataAttribute definition = mappedDefinitions.get(requestAttribute.getUuid().toString());
             if (definition == null) {
                 continue;
             }

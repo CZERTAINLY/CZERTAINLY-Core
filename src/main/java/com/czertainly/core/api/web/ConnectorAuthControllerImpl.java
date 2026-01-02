@@ -33,7 +33,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authBasic", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttribute<?>> getBasicAuthAttributes() {
+    public List<DataAttribute> getBasicAuthAttributes() {
         return connectorAuthService.getBasicAuthAttributes();
     }
 
@@ -45,7 +45,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authCertificate", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttribute<?>> getCertificateAttributes() {
+    public List<DataAttribute> getCertificateAttributes() {
         return connectorAuthService.getCertificateAttributes();
     }
 
@@ -57,7 +57,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authApiKey", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttribute<?>> getApiKeyAuthAttributes() {
+    public List<DataAttribute> getApiKeyAuthAttributes() {
         return connectorAuthService.getApiKeyAuthAttributes();
     }
 
@@ -69,7 +69,7 @@ public class ConnectorAuthControllerImpl implements ConnectorAuthController {
 
     @Override
     @AuditLogged(module = Module.CORE, resource = Resource.ATTRIBUTE, name = "authJwt", affiliatedResource = Resource.CONNECTOR, operation = Operation.LIST_ATTRIBUTES)
-    public List<DataAttribute<?>> getJWTAuthAttributes() {
+    public List<DataAttribute> getJWTAuthAttributes() {
         return connectorAuthService.getJWTAuthAttributes();
     }
 

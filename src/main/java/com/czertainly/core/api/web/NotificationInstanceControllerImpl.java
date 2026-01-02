@@ -74,7 +74,7 @@ public class NotificationInstanceControllerImpl implements NotificationInstanceC
     }
 
     @Override
-    public List<DataAttribute<?>> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         return notificationInstanceService.listMappingAttributes(connectorUuid, kind);
     }
 

@@ -44,7 +44,7 @@ public class RsaSignatureAttributes {
         );
     }
 
-    public static BaseAttributeV2<?> buildDataRsaSigScheme() {
+    public static BaseAttribute buildDataRsaSigScheme() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_SIG_SCHEME_UUID);
@@ -71,7 +71,7 @@ public class RsaSignatureAttributes {
         return attribute;
     }
 
-    public static BaseAttributeV2<?> buildDataDigest() {
+    public static BaseAttribute buildDataDigest() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_SIG_DIGEST_UUID);
@@ -92,7 +92,7 @@ public class RsaSignatureAttributes {
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .toList()
         );
 
         return attribute;

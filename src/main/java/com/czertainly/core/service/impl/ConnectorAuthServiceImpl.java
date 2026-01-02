@@ -42,7 +42,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<DataAttribute<?>> getAuthAttributes(AuthType authenticationType) {
+    public List<DataAttribute> getAuthAttributes(AuthType authenticationType) {
         return switch (authenticationType) {
             case NONE -> List.of();
             case BASIC -> getBasicAuthAttributes();
@@ -69,18 +69,18 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
             return List.of();
         }
 
-        List<DataAttribute<?>> definitions = getAuthAttributes(authenticationType);
+        List<DataAttribute> definitions = getAuthAttributes(authenticationType);
         List<BaseAttribute> baseAttributes = getBaseAttributesFromDataAttributes(definitions);
         return AttributeDefinitionUtils.mergeAttributes(baseAttributes, AttributeDefinitionUtils.getClientAttributes(attributes));
     }
 
-    private static List<BaseAttribute> getBaseAttributesFromDataAttributes(List<DataAttribute<?>> definitions) {
+    private static List<BaseAttribute> getBaseAttributesFromDataAttributes(List<DataAttribute> definitions) {
         return definitions.stream().<BaseAttribute>map(attribute -> attribute.getVersion() == 2 ? (DataAttributeV2) attribute : (DataAttributeV2) attribute).toList();
     }
 
     @Override
-    public List<DataAttribute<?>> getBasicAuthAttributes() {
-        List<DataAttribute<?>> attrs = new ArrayList<>();
+    public List<DataAttribute> getBasicAuthAttributes() {
+        List<DataAttribute> attrs = new ArrayList<>();
 
         DataAttributeV2 username = new DataAttributeV2();
         username.setUuid("fe2d6d35-fb3d-4ea0-9f0b-7e39be93beeb");
@@ -119,8 +119,8 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<DataAttribute<?>> getCertificateAttributes() {
-        List<DataAttribute<?>> attrs = new ArrayList<>();
+    public List<DataAttribute> getCertificateAttributes() {
+        List<DataAttribute> attrs = new ArrayList<>();
 
         DataAttributeV2 keyStoreType = new DataAttributeV2();
         keyStoreType.setUuid("e334e055-900e-43f1-aedc-54e837028de0");
@@ -257,8 +257,8 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<DataAttribute<?>> getApiKeyAuthAttributes() {
-        List<DataAttribute<?>> attrs = new ArrayList<>();
+    public List<DataAttribute> getApiKeyAuthAttributes() {
+        List<DataAttribute> attrs = new ArrayList<>();
 
         DataAttributeV2 apiKeyHeader = new DataAttributeV2();
         apiKeyHeader.setUuid("705ccbfb-1d81-402a-ae67-8d38f159b240");
@@ -304,7 +304,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
     }
 
     @Override
-    public List<DataAttribute<?>> getJWTAuthAttributes() {
+    public List<DataAttribute> getJWTAuthAttributes() {
         throw new ValidationException(ValidationError.create("Auth type JWT not implemented yet"));
     }
 

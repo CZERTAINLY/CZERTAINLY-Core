@@ -13,25 +13,25 @@ import java.util.Set;
 public interface ConnectorAuthService {
     Set<AuthType> getAuthenticationTypes();
 
-    List<DataAttribute<?>> getAuthAttributes(AuthType authenticationType);
+    List<DataAttribute> getAuthAttributes(AuthType authenticationType);
 
     boolean validateAuthAttributes(AuthType authenticationType, List<RequestAttribute> attributes);
 
     List<BaseAttribute> mergeAndValidateAuthAttributes(AuthType authenticationType, List<ResponseAttribute> attributes);
 
-    List<DataAttribute<?>> getBasicAuthAttributes();
+    List<DataAttribute> getBasicAuthAttributes();
 
     Boolean validateBasicAuthAttributes(List<RequestAttribute> attributes);
 
-    List<DataAttribute<?>> getCertificateAttributes();
+    List<DataAttribute> getCertificateAttributes();
 
     Boolean validateCertificateAttributes(List<RequestAttribute> attributes);
 
-    List<DataAttribute<?>> getApiKeyAuthAttributes();
+    List<DataAttribute> getApiKeyAuthAttributes();
 
     Boolean validateApiKeyAuthAttributes(List<RequestAttribute> attributes);
 
-    List<DataAttribute<?>> getJWTAuthAttributes();
+    List<DataAttribute> getJWTAuthAttributes();
 
     Boolean validateJWTAuthAttributes(List<RequestAttribute> attributes);
 }

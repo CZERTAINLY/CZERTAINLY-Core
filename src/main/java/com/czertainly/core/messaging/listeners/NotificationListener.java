@@ -299,7 +299,7 @@ public class NotificationListener {
             throw new ValidationException("Notification instance does not have assigned connector");
         }
 
-        List<DataAttribute<?>> mappingAttributes;
+        List<DataAttribute> mappingAttributes;
         ConnectorDto connector = notificationInstanceReference.getConnector().mapToDto();
         try {
             mappingAttributes = notificationInstanceApiClient.listMappingAttributes(connector, notificationInstanceReference.getKind());
@@ -390,7 +390,7 @@ public class NotificationListener {
     }
 
     private List<RequestAttribute> getMappedAttributes(NotificationInstanceReference
-                                                               notificationInstanceReference, List<DataAttribute<?>> mappingAttributes, List<ResponseAttribute> recipientCustomAttributes) throws
+                                                               notificationInstanceReference, List<DataAttribute> mappingAttributes, List<ResponseAttribute> recipientCustomAttributes) throws
             ValidationException {
         List<RequestAttribute> mappedAttributes = new ArrayList<>();
         HashMap<String, ResponseAttribute> mappedContent = new HashMap<>();
@@ -399,7 +399,7 @@ public class NotificationListener {
             recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
-        for (DataAttribute<?> mappingAttributeBase : mappingAttributes) {
+        for (DataAttribute mappingAttributeBase : mappingAttributes) {
             DataAttributeV3 mappingAttribute = (DataAttributeV3) mappingAttributeBase;
             ResponseAttribute recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
 

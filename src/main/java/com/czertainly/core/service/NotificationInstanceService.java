@@ -25,5 +25,5 @@ public interface NotificationInstanceService {
 
     void deleteNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException;
 
-    List<DataAttribute<?>> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException;
+    List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException;
 }

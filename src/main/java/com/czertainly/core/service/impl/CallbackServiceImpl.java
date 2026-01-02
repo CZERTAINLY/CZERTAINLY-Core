@@ -216,7 +216,7 @@ public class CallbackServiceImpl implements CallbackService {
             if (attributeDefinition.getName().equals(name)) {
                 switch (attributeDefinition.getType()) {
                     case DATA:
-                        return ((DataAttribute<?>) attributeDefinition).getAttributeCallback();
+                        return ((DataAttribute) attributeDefinition).getAttributeCallback();
                     case GROUP:
                         return AttributeVersionFactory.getGroupAttributeCallback(attributeDefinition);
                 }

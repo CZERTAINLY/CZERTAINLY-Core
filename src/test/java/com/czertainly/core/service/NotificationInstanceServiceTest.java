@@ -225,7 +225,7 @@ class NotificationInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testListMappingAttributes() throws ConnectorException, NotFoundException {
-        List<DataAttribute<?>> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
+        List<DataAttribute> attributes = notificationInstanceService.listMappingAttributes(connector.getUuid().toString(), TEST_CONNECTOR_KIND);
 
         // Verify the mapping attributes were retrieved successfully
         Assertions.assertNotNull(attributes);

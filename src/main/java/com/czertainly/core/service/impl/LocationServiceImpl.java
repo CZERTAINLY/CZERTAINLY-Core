@@ -1145,7 +1145,7 @@ public class LocationServiceImpl implements LocationService {
     private void validateLocationCreation(EntityInstanceReference entityInstance, List<RequestAttribute> requestDto) throws ValidationException {
 
         for (Location location : locationRepository.findByEntityInstanceReference(entityInstance)) {
-            List<DataAttribute<?>> locationAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, entityInstance.getConnectorUuid(), null, Resource.LOCATION, location.getUuid());
+            List<DataAttribute> locationAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, entityInstance.getConnectorUuid(), null, Resource.LOCATION, location.getUuid());
             if (AttributeDefinitionUtils.checkAttributeEquality(requestDto, locationAttributes)) {
                 throw new ValidationException(ValidationError.create("Location with same attributes already exists"));
             }

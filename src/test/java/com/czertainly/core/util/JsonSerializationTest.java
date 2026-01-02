@@ -4,7 +4,6 @@ import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
@@ -60,9 +59,17 @@ class JsonSerializationTest {
 
     @Test
     void testDeserializeRAProfileAttributes() {
-        String attrData = "[{\"name\": \"tokenType\", \"content\": [{\"data\": \"PEM\"}]}, {\"name\": \"description\", \"content\": [{\"data\": \"DEMO RA Profile\"}]}, {\"name\": \"endEntityProfile\", \"content\": [{\"reference\": \"DemoTLSServerEndEntityProfile\", \"data\": {\"id\": 0, \"name\": \"DemoTLSServerEndEntityProfile\"}}]}, {\"name\": \"certificateProfile\", \"content\": [{\"reference\": \"DemoTLSServerEECertificateProfile\", \"data\": {\"id\": 0, \"name\": \"DemoTLSServerEECertificateProfile\"}}]}, {\"name\": \"certificationAuthority\", \"content\": [{\"reference\": \"DemoServerSubCA\", \"data\": {\"id\": 0, \"name\": \"DemoServerSubCA\"}}]}, {\"name\": \"sendNotifications\", \"content\": [{\"data\": false}]}, {\"name\": \"keyRecoverable\", \"content\": [{\"data\": true}]}]";
+        String attrData = """
+                [{"name": "tokenType", "content": [{"data": "PEM"}], "type": "data"},
+                {"name": "description", "content": [{"data": "DEMO RA Profile"}], "type": "data", "version": 2},
+                {"name": "endEntityProfile", "content": [{"reference": "DemoTLSServerEndEntityProfile", "data": {"id": 0, "name": "DemoTLSServerEndEntityProfile"}}], "type": "data", "version": 2},
+                {"name": "certificateProfile", "content": [{"reference": "DemoTLSServerEECertificateProfile", "data": {"id": 0, "name": "DemoTLSServerEECertificateProfile"}}], "type": "data", "version": 2},
+                {"name": "certificationAuthority", "content": [{"reference": "DemoServerSubCA", "data": {"id": 0, "name": "DemoServerSubCA"}}], "type": "data", "version": 2},
+                {"name": "sendNotifications", "content": [{"data": false}], "type": "data", "version": 2},
+                {"name": "keyRecoverable", "content": [{"data": true}], "type": "data", "version": 2}]
+                """;
 
-        List<BaseAttributeV2> attrs = AttributeDefinitionUtils.deserialize(attrData, BaseAttributeV2.class);
+        List<BaseAttribute> attrs = AttributeDefinitionUtils.deserialize(attrData, BaseAttribute.class);
         Assertions.assertNotNull(attrs);
         Assertions.assertEquals(7, attrs.size());
 

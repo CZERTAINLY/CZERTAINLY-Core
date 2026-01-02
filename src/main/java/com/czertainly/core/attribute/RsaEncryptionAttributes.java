@@ -54,7 +54,7 @@ public class RsaEncryptionAttributes {
         );
     }
 
-    public static BaseAttributeV2<?> buildDataEncryptionScheme() {
+    public static BaseAttribute buildDataEncryptionScheme() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
@@ -65,7 +65,7 @@ public class RsaEncryptionAttributes {
         attribute.setContent(
                 Stream.of(RsaEncryptionScheme.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .toList()
         );
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
@@ -79,7 +79,7 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static BaseAttributeV2<?> buildDataOaepMgf() {
+    public static BaseAttribute buildDataOaepMgf() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
@@ -99,7 +99,7 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static BaseAttributeV2<?> buildDataOaepHash() {
+    public static BaseAttribute buildDataOaepHash() {
         // define Data Attribute
         DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
@@ -110,7 +110,7 @@ public class RsaEncryptionAttributes {
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .toList()
         );
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();

@@ -188,14 +188,14 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
-    public void loadFullCredentialData(List<DataAttribute<?>> attributes) throws NotFoundException {
+    public void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException {
         // TODO: necessary to load full credentials this way?
         if (attributes == null || attributes.isEmpty()) {
             logger.warn("Given Attributes are null or empty");
             return;
         }
 
-        for (DataAttribute<?> attribute : attributes) {
+        for (DataAttribute attribute : attributes) {
             if (!AttributeContentType.CREDENTIAL.equals(attribute.getContentType())) {
                 logger.trace("Attribute not of type {} but {}.", AttributeContentType.CREDENTIAL, attribute.getType());
                 continue;

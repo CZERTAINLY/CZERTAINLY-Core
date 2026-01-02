@@ -222,7 +222,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         codeBlockData.setProperties(props);
         UUID connectorUuid = connectorAuthority.getUuid();
-        List<BaseAttributeV2> codeBlockDataList = List.of(codeBlockData);
+        List<BaseAttribute> codeBlockDataList = List.of(codeBlockData);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, codeBlockDataList);
 
         RequestAttributeV2 requestAttribute = new RequestAttributeV2();
@@ -477,7 +477,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         requiredAttribute.setProperties(props);
         UUID connectorUuid = connectorAuthority.getUuid();
-        List<BaseAttributeV2> requiredAttributeList = List.of(requiredAttribute);
+        List<BaseAttribute> requiredAttributeList = List.of(requiredAttribute);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, requiredAttributeList);
 
         RequestAttributeV2 requestAttribute = new RequestAttributeV2();

@@ -46,7 +46,7 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetBasicAuthAttributes() {
-        List<DataAttribute<?>> attrs = connectorAuthService.getBasicAuthAttributes();
+        List<DataAttribute> attrs = connectorAuthService.getBasicAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -65,7 +65,7 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetCertificateAttributes() {
-        List<DataAttribute<?>> attrs = connectorAuthService.getCertificateAttributes();
+        List<DataAttribute> attrs = connectorAuthService.getCertificateAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -87,7 +87,7 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetApiKeyAuthAttributes() {
-        List<DataAttribute<?>> attrs = connectorAuthService.getApiKeyAuthAttributes();
+        List<DataAttribute> attrs = connectorAuthService.getApiKeyAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
