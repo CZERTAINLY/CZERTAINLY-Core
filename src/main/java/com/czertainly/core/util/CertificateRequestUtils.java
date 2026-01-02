@@ -1,8 +1,8 @@
 package com.czertainly.core.util;
 
 import com.czertainly.api.exception.CertificateRequestException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.core.attribute.CsrAttributes;
 import com.czertainly.core.model.request.CertificateRequest;
@@ -73,43 +73,43 @@ public class CertificateRequestUtils {
         return publicKeyObject;
     }
 
-    public static X500Principal buildSubject(List<RequestAttributeDto> attributes) {
+    public static X500Principal buildSubject(List<RequestAttribute> attributes) {
 
         // Get the data for the attributes
         String commonName = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                         CsrAttributes.COMMON_NAME_ATTRIBUTE_NAME,
                         attributes,
-                        StringAttributeContent.class)
+                        StringAttributeContentV2.class)
                 .getData();
 
         String organizationalUnit = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                         CsrAttributes.ORGANIZATION_UNIT_ATTRIBUTE_NAME,
                         attributes,
-                        StringAttributeContent.class)
+                        StringAttributeContentV2.class)
                 .getData();
 
         String organization = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                         CsrAttributes.ORGANIZATION_ATTRIBUTE_NAME,
                         attributes,
-                        StringAttributeContent.class)
+                        StringAttributeContentV2.class)
                 .getData();
 
         String locality = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                         CsrAttributes.LOCALITY_ATTRIBUTE_NAME,
                         attributes,
-                        StringAttributeContent.class)
+                        StringAttributeContentV2.class)
                 .getData();
 
         String state = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                         CsrAttributes.STATE_ATTRIBUTE_NAME,
                         attributes,
-                        StringAttributeContent.class)
+                        StringAttributeContentV2.class)
                 .getData();
 
         String country = AttributeDefinitionUtils.getSingleItemAttributeContentValue(
                         CsrAttributes.COUNTRY_ATTRIBUTE_NAME,
                         attributes,
-                        StringAttributeContent.class)
+                        StringAttributeContentV2.class)
                 .getData();
 
         StringBuilder nameBuilder = new StringBuilder();

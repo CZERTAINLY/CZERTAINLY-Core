@@ -1,6 +1,6 @@
 package com.czertainly.core.enums;
 
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.RoleDto;
 import com.czertainly.api.model.core.auth.UserDto;
@@ -20,7 +20,7 @@ public enum ResourceToClass {
     AUDIT_LOG(Resource.AUDIT_LOG, AuditLog.class),
     CREDENTIAL(Resource.CREDENTIAL, Credential.class),
     CONNECTOR(Resource.CONNECTOR, Connector.class),
-    ATTRIBUTE(Resource.ATTRIBUTE, BaseAttribute.class),
+    ATTRIBUTE(Resource.ATTRIBUTE, BaseAttributeV2.class),
     SCHEDULED_JOB(Resource.SCHEDULED_JOB, ScheduledJob.class),
     NOTIFICATION_INSTANCE(Resource.NOTIFICATION_INSTANCE, Notification.class),
 

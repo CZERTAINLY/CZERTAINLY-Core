@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.core.discovery.DiscoveryCertificateDto;
 import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.*;

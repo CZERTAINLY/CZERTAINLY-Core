@@ -1,8 +1,8 @@
 package com.czertainly.core.service.handler;
 
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateEvent;
@@ -113,7 +113,7 @@ public class CertificateHandler {
     }
 
     @Transactional(propagation = Propagation.REQUIRES_NEW, isolation = Isolation.DEFAULT)
-    public void updateMetadataDefinition(List<MetadataAttribute> metadataAttributes, Map<String, Set<BaseAttributeContent>> metadataContentsMapping, UUID connectorUuid, String connectorName) {
+    public void updateMetadataDefinition(List<MetadataAttribute> metadataAttributes, Map<String, Set<AttributeContent>> metadataContentsMapping, UUID connectorUuid, String connectorName) {
         logger.debug("Updating {} discovery certificate metadata definitions for connector {}", metadataAttributes.size(), connectorName);
         for (MetadataAttribute metadataAttribute : metadataAttributes) {
             try {

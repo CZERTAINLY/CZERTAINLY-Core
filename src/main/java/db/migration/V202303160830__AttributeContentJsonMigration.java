@@ -1,6 +1,6 @@
 package db.migration;
 
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DatabaseMigration;
 import com.google.gson.Gson;
@@ -43,7 +43,7 @@ public class V202303160830__AttributeContentJsonMigration extends BaseJavaMigrat
                 while (rows.next()) {
                     final UUID attributeContentUUID = UUID.fromString(rows.getString("uuid"));
                     final String jsonArray = rows.getString("attribute_content");
-                    final List<BaseAttributeContent> jsons = parseJsons(jsonArray);
+                    final List<BaseAttributeContentV2> jsons = parseJsons(jsonArray);
 
                     final String insertScript = "INSERT INTO attribute_content_item (uuid, attribute_content_uuid, json) VALUES ('%s', '%s', '%s');";
                     jsons.forEach(json -> commands.add(String.format(insertScript, UUID.randomUUID(), attributeContentUUID, gson.toJson(json))));
@@ -54,8 +54,8 @@ public class V202303160830__AttributeContentJsonMigration extends BaseJavaMigrat
         }
     }
 
-    private List<BaseAttributeContent> parseJsons(final String jsonArray) {
-        return AttributeDefinitionUtils.deserializeAttributeContent(jsonArray, BaseAttributeContent.class);
+    private List<BaseAttributeContentV2> parseJsons(final String jsonArray) {
+        return AttributeDefinitionUtils.deserializeAttributeContent(jsonArray, BaseAttributeContentV2.class);
     }
 
     private void executeCommands(Statement select, List<String> commands) throws SQLException {

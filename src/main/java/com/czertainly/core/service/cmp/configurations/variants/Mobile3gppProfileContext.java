@@ -1,6 +1,6 @@
 package com.czertainly.core.service.cmp.configurations.variants;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.interfaces.core.cmp.error.CmpCrmfValidationException;
 import com.czertainly.api.interfaces.core.cmp.error.CmpProcessingException;
 import com.czertainly.core.dao.entity.RaProfile;
@@ -22,8 +22,8 @@ public class Mobile3gppProfileContext extends CmpConfigurationContext {
 
     public Mobile3gppProfileContext(CmpProfile cmpProfile, RaProfile raProfile, PKIMessage pkiRequest,
                                     CertificateKeyService certificateKeyServiceImpl,
-                                    List<RequestAttributeDto> issueAttributes,
-                                    List<RequestAttributeDto> revokeAttributes) {
+                                    List<RequestAttribute> issueAttributes,
+                                    List<RequestAttribute> revokeAttributes) {
         super(cmpProfile, raProfile, pkiRequest, certificateKeyServiceImpl, issueAttributes, revokeAttributes);
     }
 

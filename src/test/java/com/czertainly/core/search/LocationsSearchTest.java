@@ -2,18 +2,19 @@ package com.czertainly.core.search;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -40,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class LocationsSearchTest extends BaseSpringBootTest {
+class LocationsSearchTest extends BaseSpringBootTest {
 
     @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
@@ -67,7 +68,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @BeforeEach
-    public void loadData() throws AttributeException, NotFoundException {
+    void loadData() throws AttributeException, NotFoundException {
 
         if (isLoadedData) {
             return;
@@ -137,14 +138,14 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testInsertedData() {
+    void testInsertedData() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
         Assertions.assertEquals(3, responseDto.getLocations().size());
     }
 
     @Test
-    public void testLocationByName() {
+    void testLocationByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_NAME.name(), FilterConditionOperator.EQUALS, "location1"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -152,7 +153,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationByInstanceName() {
+    void testLocationByInstanceName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_ENTITY_INSTANCE.name(), FilterConditionOperator.ENDS_WITH, "instance-name-3"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -160,7 +161,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationByEnabled() {
+    void testLocationByEnabled() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_ENABLED.name(), FilterConditionOperator.EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -168,7 +169,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationBySupportMultipleEntries() {
+    void testLocationBySupportMultipleEntries() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_SUPPORT_MULTIPLE_ENTRIES.name(), FilterConditionOperator.NOT_EQUALS, true));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -176,7 +177,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testLocationBySupportKeyManagement() {
+    void testLocationBySupportKeyManagement() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.LOCATION_SUPPORT_KEY_MANAGEMENT.name(), FilterConditionOperator.EQUALS, false));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -184,7 +185,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByMetadata() {
+    void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.META, "attributeMeta1|TEXT", FilterConditionOperator.CONTAINS, "-meta-"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -192,7 +193,7 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByCustomAttr() {
+    void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.CUSTOM, "attributeCustom1|TEXT", FilterConditionOperator.CONTAINS, "-custom-"));
         final LocationsResponseDto responseDto = retrieveLocationsBySearch(filters);
@@ -206,32 +207,36 @@ public class LocationsSearchTest extends BaseSpringBootTest {
     }
 
     private void loadMetaData() throws AttributeException {
-        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        MetadataAttributeV3 metadataAttribute = new MetadataAttributeV3();
         metadataAttribute.setUuid(UUID.randomUUID().toString());
         metadataAttribute.setName("attributeMeta1");
         metadataAttribute.setType(AttributeType.META);
         metadataAttribute.setContentType(AttributeContentType.TEXT);
-        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
-        metadataAttribute.setContent(List.of(new TextAttributeContent("reference-test-1", "data-meta-test-1")));
+        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
+        metadataAttributeProperties.setLabel("Test meta");
+        metadataAttribute.setProperties(metadataAttributeProperties);
+        metadataAttribute.setContent(List.of(new TextAttributeContentV3("reference-test-1", "data-meta-test-1")));
 
         attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.LOCATION, location.getUuid()));
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        CustomAttribute customAttribute = new CustomAttribute();
+        CustomAttributeV3 customAttribute = new CustomAttributeV3();
         customAttribute.setUuid(UUID.randomUUID().toString());
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
-        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
+        CustomAttributeProperties properties = new CustomAttributeProperties();
+        properties.setLabel("Test custom");
+        customAttribute.setProperties(properties);
 
-        List<BaseAttributeContent> contentItems = List.of(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
-        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setUuid(customAttribute.getUuid());
-        requestAttributeDto.setName(customAttribute.getName());
-        requestAttributeDto.setContent(contentItems);
+        List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
+        requestAttribute.setName(customAttribute.getName());
+        requestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.LOCATION));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, location.getUuid(), List.of(requestAttributeDto));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.LOCATION, location.getUuid(), List.of(requestAttribute));
     }
 }

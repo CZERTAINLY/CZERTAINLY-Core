@@ -2,18 +2,19 @@ package com.czertainly.core.search;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.TextAttributeContentV2;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.TextAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
@@ -40,7 +41,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-public class EntityInstanceSearchTest extends BaseSpringBootTest {
+class EntityInstanceSearchTest extends BaseSpringBootTest {
 
     @Autowired
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
@@ -135,14 +136,14 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testInsertedData() {
+    void testInsertedData() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
         Assertions.assertEquals(3, responseDto.getEntities().size());
     }
 
     @Test
-    public void testEntityByName() {
+    void testEntityByName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_NAME.name(), FilterConditionOperator.EQUALS, "entity-ref-2"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -150,7 +151,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEntityByConnectorName() {
+    void testEntityByConnectorName() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_CONNECTOR_NAME.name(), FilterConditionOperator.CONTAINS, "Connector"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -158,7 +159,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEntityByKind() {
+    void testEntityByKind() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.PROPERTY, FilterField.ENTITY_KIND.name(), FilterConditionOperator.CONTAINS, "test-kind"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -166,7 +167,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByMetadata() {
+    void testFilterDataByMetadata() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.META, "attributeMeta1|TEXT", FilterConditionOperator.CONTAINS, "-meta-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -174,7 +175,7 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testFilterDataByCustomAttr() {
+    void testFilterDataByCustomAttr() {
         final List<SearchFilterRequestDto> filters = new ArrayList<>();
         filters.add(new SearchFilterRequestDtoDummy(FilterFieldSource.CUSTOM, "attributeCustom1|TEXT", FilterConditionOperator.CONTAINS, "-custom-"));
         final EntityInstanceResponseDto responseDto = retrieveTheEntitiesBySearch(filters);
@@ -188,33 +189,35 @@ public class EntityInstanceSearchTest extends BaseSpringBootTest {
     }
 
     private void loadMetaData() throws AttributeException {
-        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
         metadataAttribute.setUuid(UUID.randomUUID().toString());
         metadataAttribute.setName("attributeMeta1");
         metadataAttribute.setType(AttributeType.META);
         metadataAttribute.setContentType(AttributeContentType.TEXT);
-        metadataAttribute.setProperties(new MetadataAttributeProperties() {{ setLabel("Test meta"); }});
-        metadataAttribute.setContent(List.of(new TextAttributeContent("reference-test-1", "data-meta-test-1")));
+        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
+        metadataAttributeProperties.setLabel("Test meta");
+        metadataAttribute.setProperties(metadataAttributeProperties);        metadataAttribute.setContent(List.of(new TextAttributeContentV2("reference-test-1", "data-meta-test-1")));
 
         attributeEngine.updateMetadataAttribute(metadataAttribute, new ObjectAttributeContentInfo(connector.getUuid(), Resource.ENTITY, entityInstanceReference.getUuid()));
     }
 
     private void loadCustomAttributesData() throws AttributeException, NotFoundException {
-        CustomAttribute customAttribute = new CustomAttribute();
+        CustomAttributeV3 customAttribute = new CustomAttributeV3();
         customAttribute.setUuid(UUID.randomUUID().toString());
         customAttribute.setName("attributeCustom1");
         customAttribute.setType(AttributeType.CUSTOM);
         customAttribute.setContentType(AttributeContentType.TEXT);
-        customAttribute.setProperties(new CustomAttributeProperties() {{ setLabel("Test custom"); }});
-
-        List<BaseAttributeContent> contentItems = List.of(new BaseAttributeContent("reference-test-1", "data-custom-test-1"));
-        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setUuid(customAttribute.getUuid());
-        requestAttributeDto.setName(customAttribute.getName());
-        requestAttributeDto.setContent(contentItems);
+        CustomAttributeProperties properties = new CustomAttributeProperties();
+        properties.setLabel("Test custom");
+        customAttribute.setProperties(properties);
+        List<BaseAttributeContentV3<?>> contentItems = List.of(new TextAttributeContentV3("reference-test-1", "data-custom-test-1"));
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(customAttribute.getUuid()));
+        requestAttribute.setName(customAttribute.getName());
+        requestAttribute.setContent(contentItems);
 
         attributeEngine.updateCustomAttributeDefinition(customAttribute, List.of(Resource.ENTITY));
-        attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(), List.of(requestAttributeDto));
+        attributeEngine.updateObjectCustomAttributesContent(Resource.ENTITY, entityInstanceReference.getUuid(), List.of(requestAttribute));
     }
 
 

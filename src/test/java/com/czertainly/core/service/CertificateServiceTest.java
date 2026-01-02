@@ -1,15 +1,18 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.*;
@@ -187,15 +190,15 @@ class CertificateServiceTest extends BaseSpringBootTest {
         certificateRepository.save(certificate);
 
         List<MetadataAttribute> meta = new ArrayList<>();
-        MetadataAttribute tst = new MetadataAttribute();
+        MetadataAttributeV2 tst = new MetadataAttributeV2();
         tst.setType(AttributeType.META);
         tst.setName("Test");
         tst.setContentType(AttributeContentType.STRING);
         tst.setUuid("9f94036e-f050-4c9c-a3b8-f47b1be696aa");
-        tst.setProperties(new MetadataAttributeProperties() {{
-            setLabel("Test meta");
-        }});
-        tst.setContent(List.of(new StringAttributeContent("xyz", "xyz")));
+        MetadataAttributeProperties metadataAttributeProperties = new MetadataAttributeProperties();
+        metadataAttributeProperties.setLabel("Test meta");
+        tst.setProperties(metadataAttributeProperties);
+        tst.setContent(List.of(new StringAttributeContentV2("xyz", "xyz")));
         meta.add(tst);
 
         UUID connectorUuid = raProfileOld.getAuthorityInstanceReference().getConnectorUuid();
@@ -319,7 +322,7 @@ class CertificateServiceTest extends BaseSpringBootTest {
     void testUpdateRaProfile() throws NotFoundException, CertificateOperationException, CertificateException, IOException, AttributeException {
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
+                .willReturn(WireMock.okJson("{\"meta\":[{\"version\": 2,\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
 
         CertificateUpdateObjectsDto uuidDto = new CertificateUpdateObjectsDto();
         uuidDto.setRaProfileUuid(raProfile.getUuid().toString());
@@ -871,12 +874,12 @@ class CertificateServiceTest extends BaseSpringBootTest {
         customAttributeRequest.setResources(List.of(Resource.CERTIFICATE));
         customAttributeRequest.setContentType(AttributeContentType.STRING);
         String attributeUuid = attributeService.createCustomAttribute(customAttributeRequest).getUuid();
-        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setUuid(attributeUuid);
-        requestAttributeDto.setName(customAttributeRequest.getName());
-        requestAttributeDto.setContentType(customAttributeRequest.getContentType());
-        requestAttributeDto.setContent(List.of(new StringAttributeContent("ref", "data")));
-        protocolCertificateAssociations.setCustomAttributes(List.of(requestAttributeDto));
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(attributeUuid));
+        requestAttribute.setName(customAttributeRequest.getName());
+        requestAttribute.setContentType(customAttributeRequest.getContentType());
+        requestAttribute.setContent(List.of(new StringAttributeContentV3("ref", "data")));
+        protocolCertificateAssociations.setCustomAttributes(List.of(requestAttribute));
         protocolCertificateAssociationsRepository.save(protocolCertificateAssociations);
         return protocolCertificateAssociations;
     }

@@ -3,13 +3,13 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -53,12 +53,11 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
     ConnectorRepository connectorRepository;
 
     private AcmeProfile acmeProfile;
-    private CustomAttribute domainAttr;
-    private RequestAttributeDto domainAttrRequestAttribute;
+    private RequestAttributeV3 domainAttrRequestAttribute;
 
     @BeforeEach
     public void setUp() throws AttributeException {
-        domainAttr = new CustomAttribute();
+        CustomAttributeV3 domainAttr = new CustomAttributeV3();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);
@@ -68,11 +67,11 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttributeDto();
-        domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
+        domainAttrRequestAttribute = new RequestAttributeV3();
+        domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
-        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContent("test")));
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV3("test")));
 
 
         acmeProfile = new AcmeProfile();

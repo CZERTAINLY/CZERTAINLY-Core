@@ -3,11 +3,12 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.NotSupportedException;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -123,7 +124,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         certificate.setUuid(UUID.fromString(CERTIFICATE_UUID));
         certificateRepository.save(certificate);
 
-        CustomAttribute attribute = new CustomAttribute();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(ATTRIBUTE_UUID);
         attribute.setName("testAttribute");
         attribute.setDescription("description");
@@ -194,7 +195,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         // Should throw AttributeException
         SecuredUUID certificateUuid = SecuredUUID.fromString(CERTIFICATE_UUID);
         UUID attributeUuid = UUID.fromString(ATTRIBUTE_UUID);
-        List<BaseAttributeContent> request = List.of();
+        List<BaseAttributeContentV3<?>> request = List.of();
         Assertions.assertThrows(AttributeException.class, () -> resourceService.updateAttributeContentForObject(
                 Resource.CERTIFICATE,
                 certificateUuid,

@@ -1,11 +1,9 @@
 package com.czertainly.core.dao.entity;
 
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import lombok.*;
-import org.apache.commons.lang3.builder.ToStringBuilder;
-import org.apache.commons.lang3.builder.ToStringStyle;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.proxy.HibernateProxy;
 import org.hibernate.type.SqlTypes;
@@ -32,7 +30,7 @@ public class AttributeContentItem extends UniquelyIdentified {
 
     @Column(name = "json", nullable = false, columnDefinition = "jsonb")
     @JdbcTypeCode(SqlTypes.JSON)
-    private BaseAttributeContent<?> json;
+    private AttributeContent json;
 
     @JsonBackReference
     @OneToMany(mappedBy = "attributeContentItem", fetch = FetchType.LAZY)

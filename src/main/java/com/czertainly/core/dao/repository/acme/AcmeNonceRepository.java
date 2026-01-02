@@ -11,5 +11,5 @@ import java.util.Optional;
 public interface AcmeNonceRepository extends SecurityFilterRepository<AcmeNonce, Long> {
     Optional<AcmeNonce> findByNonce(String nonce);
 
-     long deleteByExpiresBefore(Date expires);
+     Long deleteByExpiresBefore(Date expires);
 }

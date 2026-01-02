@@ -2,9 +2,9 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.TokenInstanceController;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDetailDto;
 import com.czertainly.api.model.core.cryptography.token.TokenInstanceDto;
@@ -65,7 +65,7 @@ public class TokenInstanceControllerImpl implements TokenInstanceController {
 
     @Override
     @AuditLogged(module = Module.CRYPTOGRAPHIC_KEYS, resource = Resource.TOKEN, operation = Operation.ACTIVATE)
-    public void activateTokenInstance(@LogResource(uuid = true) String uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public void activateTokenInstance(@LogResource(uuid = true) String uuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         tokenInstanceService.activateTokenInstance(SecuredUUID.fromString(uuid), attributes);
     }
 
