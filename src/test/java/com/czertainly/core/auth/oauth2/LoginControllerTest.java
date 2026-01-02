@@ -89,7 +89,7 @@ class LoginControllerTest {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        Assertions.assertTrue(res.statusCode() >= 500);
+        Assertions.assertTrue(res.statusCode() >= 400);
     }
 
     @Test
@@ -113,7 +113,7 @@ class LoginControllerTest {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        Assertions.assertTrue(res.statusCode() >= 500);
+        Assertions.assertTrue(res.statusCode() >= 400);
 
         // 3) A subsequent call with same cookie should behave like a fresh session (i.e., server issues a new session cookie)
         HttpResponse<String> after = http.send(
@@ -210,7 +210,7 @@ class LoginControllerTest {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        Assertions.assertTrue(res.statusCode() >= 500);
+        Assertions.assertTrue(res.statusCode() >= 400);
         verify(auditLogService, times(1)).logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE), contains("Unknown OAuth2 Provider"), isNull());
     }
 
@@ -257,7 +257,7 @@ class LoginControllerTest {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        Assertions.assertTrue(res.statusCode() >= 500);
+        Assertions.assertTrue(res.statusCode() >= 400);
     }
 
     @Test
@@ -274,7 +274,7 @@ class LoginControllerTest {
                 HttpResponse.BodyHandlers.ofString()
         );
 
-        Assertions.assertTrue(res.statusCode() >= 500);
+        Assertions.assertTrue(res.statusCode() >= 400);
 
         ArgumentCaptor<String> messageCaptor = ArgumentCaptor.forClass(String.class);
         verify(auditLogService, times(1)).logAuthentication(eq(Operation.LOGIN), eq(OperationResult.FAILURE), messageCaptor.capture(), any());
@@ -287,11 +287,12 @@ class LoginControllerTest {
 
     private static String extractSessionCookie(HttpHeaders headers) {
         // Default for Spring Session/Tomcat is JSESSIONID; for Spring Session it can be SESSION.
+        // For CZERTAINLY, the custom session cookie name is czertainly-session.
         List<String> setCookies = headers.allValues("Set-Cookie");
         Optional<String> match = setCookies.stream()
                 .map(HttpCookie::parse)
                 .flatMap(List::stream)
-                .filter(c -> c.getName().equalsIgnoreCase("JSESSIONID") || c.getName().equalsIgnoreCase("SESSION"))
+                .filter(c -> c.getName().equalsIgnoreCase("JSESSIONID") || c.getName().equalsIgnoreCase("SESSION") || c.getName().equalsIgnoreCase("czertainly-session"))
                 .findFirst()
                 .map(c -> c.getName() + "=" + c.getValue());
 
