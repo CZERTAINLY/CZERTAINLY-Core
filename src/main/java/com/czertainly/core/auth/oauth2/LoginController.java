@@ -40,7 +40,6 @@ public class LoginController {
             value = "/login",
             produces = {"application/json"}
     )
-    @ResponseBody
     public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
@@ -69,12 +68,10 @@ public class LoginController {
                 : List.of();
         if (oauth2Providers.size() == 1) {
             request.getSession().setMaxInactiveInterval(oauth2Providers.getFirst().getSessionMaxInactiveInterval());
-            try {
-                response.sendRedirect("oauth2/authorization/" + oauth2Providers.getFirst().getName());
-                return null;
-            } catch (IOException e) {
-                throw new CzertainlyAuthenticationException("Error when redirecting to OAuth2 Provider with name " + oauth2Providers.getFirst() + " : " + e.getMessage());
-            }
+            String redirectPath = "oauth2/authorization/" + oauth2Providers.getFirst().getName();
+            HttpHeaders headers = new HttpHeaders();
+            headers.setLocation(java.net.URI.create(redirectPath));
+            return new ResponseEntity<>(null, headers, HttpStatus.FOUND);
         }
 
         String contextPath = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath();
@@ -117,7 +114,6 @@ public class LoginController {
     }
 
     @GetMapping("/oauth2/{provider}/jwkSet")
-    @ResponseBody
     public ResponseEntity<String> getJwkSet(@PathVariable String provider) {
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
 

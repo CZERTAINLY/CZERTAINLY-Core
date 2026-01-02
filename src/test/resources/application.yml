@@ -65,6 +65,9 @@ spring:
           preferred_duration_jdbc_type: INTERVAL_SECOND
   profiles:
     active: test
+  session:
+    jdbc:
+      initialize-schema: always
   threads:
     virtual:
       enabled: true
