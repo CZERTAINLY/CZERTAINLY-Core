@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.*;
 import org.springframework.security.oauth2.core.OAuth2AccessToken;
 import org.springframework.stereotype.Controller;
-import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -29,8 +28,6 @@ import java.util.List;
 @Controller
 public class LoginController {
 
-    private static final String ERROR_ATTRIBUTE_NAME = "error";
-
     private AuditLogService auditLogService;
 
     @Autowired
@@ -38,15 +35,17 @@ public class LoginController {
         this.auditLogService = auditLogService;
     }
 
-    @GetMapping("/login")
-    public String loginPage(Model model, @RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
+    @GetMapping(
+            value = "/login",
+            produces = {"application/json"}
+    )
+    public ResponseEntity<List<LoginProviderDto>> login(@RequestParam(value = "redirect", required = false) String redirectUrl, HttpServletRequest request, HttpServletResponse response, @RequestParam(value = "error", required = false) String error) {
 
         request.getSession().setAttribute(OAuth2Constants.SERVLET_CONTEXT_SESSION_ATTRIBUTE, ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath());
 
         if (error != null) {
-            model.addAttribute(ERROR_ATTRIBUTE_NAME, "An error occurred: " + error);
             request.getSession().invalidate();
-            return ERROR_ATTRIBUTE_NAME;
+            throw new CzertainlyAuthenticationException("Error during authentication: " + error);
         }
 
         String baseUrl = ServletUriComponentsBuilder.fromCurrentRequestUri()
@@ -57,12 +56,10 @@ public class LoginController {
         if (redirectUrl != null && !redirectUrl.isEmpty()) {
             request.getSession().setAttribute(OAuth2Constants.REDIRECT_URL_SESSION_ATTRIBUTE, baseUrl + redirectUrl);
         } else {
-            model.addAttribute(ERROR_ATTRIBUTE_NAME, "No redirect URL provided");
-            return ERROR_ATTRIBUTE_NAME;
+            throw new CzertainlyAuthenticationException("No redirect URL provided for login");
         }
 
         AuthenticationSettingsDto authenticationSettings = SettingsCache.getSettings(SettingsSection.AUTHENTICATION);
-        if (authenticationSettings.getOAuth2Providers().isEmpty()) return "no-login-options";
 
         // Display only properly configured providers
         List<OAuth2ProviderSettingsDto> oauth2Providers = authenticationSettings.getOAuth2Providers().values().stream().filter(this::validOAuth2Provider).toList();
@@ -75,8 +72,18 @@ public class LoginController {
             }
         }
 
-        model.addAttribute("providers", oauth2Providers.stream().map(OAuth2ProviderSettingsDto::getName).toList());
-        return "login-options";
+        String contextPath = ServletUriComponentsBuilder.fromCurrentContextPath().build().getPath();
+
+        List<LoginProviderDto> loginProviders = oauth2Providers.stream()
+                .map(provider -> {
+                    LoginProviderDto loginProvider = new LoginProviderDto();
+                    loginProvider.setName(provider.getName());
+                    loginProvider.setLoginUrl(contextPath + "/oauth2/authorization/" + provider.getName() + "/prepare");
+                    return loginProvider;
+                })
+                .toList();
+
+        return new ResponseEntity<>(loginProviders, HttpStatus.OK);
     }
 
     @GetMapping("/oauth2/authorization/{provider}/prepare")
