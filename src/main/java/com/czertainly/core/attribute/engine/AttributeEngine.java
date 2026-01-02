@@ -185,7 +185,7 @@ public class AttributeEngine {
         }
     }
 
-    @Transactional(readOnly = true)
+//    @Transactional(readOnly = true)
     public DataAttributeV2 getDataAttributeDefinition(UUID connectorUuid, String name) {
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, name).orElse(null);
         if (definition != null) {
@@ -440,7 +440,7 @@ public class AttributeEngine {
         if (!Boolean.TRUE.equals(attributeDefinition.isReadOnly())) {
             dataAttribute.setContent(null);
         }
-        attributeDefinition.setDefinition((BaseAttribute) dataAttribute);
+        attributeDefinition.setDefinition(dataAttribute);
         attributeDefinitionRepository.save(attributeDefinition);
     }
 
