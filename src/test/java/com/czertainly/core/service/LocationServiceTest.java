@@ -16,6 +16,7 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -29,6 +30,7 @@ import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.v2.ClientOperationService;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
 import com.github.tomakehurst.wiremock.client.WireMock;
@@ -478,8 +480,10 @@ class LocationServiceTest extends BaseSpringBootTest {
         CertificateLocation certificateLocation = location.getCertificates().stream().findFirst().get();
         DataAttributeV2 pushAttribute = new DataAttributeV2();
         pushAttribute.setUuid(UUID.randomUUID().toString());
+        pushAttribute.setContent(List.of(new StringAttributeContentV2("data", "ref")));
         DataAttributeV3 csrAttribute = new DataAttributeV3();
         csrAttribute.setUuid(UUID.randomUUID().toString());
+        csrAttribute.setContent(List.of(new StringAttributeContentV3("data", "ref")));
         certificateLocation.setPushAttributes(List.of(pushAttribute));
         certificateLocation.setCsrAttributes(List.of(csrAttribute));
         locationRepository.save(location);
