@@ -1157,10 +1157,13 @@ public class AttributeEngine {
 
                 // convert content items to its respective content classes
                 try {
-                    Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV2Class();
-                    if (attributeDefinition.getVersion() == 2)
-                        ATTRIBUTES_OBJECT_MAPPER.disable(MapperFeature.USE_ANNOTATIONS);
-                    ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
+                    Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV3Class();
+                    if (attributeDefinition.getVersion() == 2) {
+                        ObjectMapper objectMapper = ATTRIBUTES_OBJECT_MAPPER.copy().disable(MapperFeature.USE_ANNOTATIONS);
+                        objectMapper.convertValue(contentItem, contentTypeClass);
+                    } else {
+                        ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
+                    }
                 } catch (IllegalArgumentException e) {
                     throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
                 }
