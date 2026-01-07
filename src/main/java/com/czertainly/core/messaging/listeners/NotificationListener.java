@@ -395,7 +395,7 @@ public class NotificationListener {
         List<RequestAttribute> mappedAttributes = new ArrayList<>();
         HashMap<String, ResponseAttribute> mappedContent = new HashMap<>();
         for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
-            Optional<ResponseAttribute> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
+            Optional<ResponseAttribute> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid())).findFirst();
             recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
