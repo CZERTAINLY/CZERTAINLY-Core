@@ -167,30 +167,17 @@ public class AttributeEngine {
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
             return relations.stream()
                     .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
-                    .<CustomAttribute>map(r -> {
-                        if (r.getAttributeDefinition().getDefinition().getVersion() == 2)
-                            return (CustomAttributeV2) r.getAttributeDefinition().getDefinition();
-                        if (r.getAttributeDefinition().getDefinition().getVersion() == 3)
-                            return (CustomAttributeV3) r.getAttributeDefinition().getDefinition();
-                        return null;
-                    })
+                    .map(r -> (CustomAttribute) r.getAttributeDefinition().getDefinition())
                     .toList();
         } else {
-            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).<CustomAttribute>map(r -> {
-                if (r.getAttributeDefinition().getDefinition().getVersion() == 2)
-                    return (CustomAttributeV2) r.getAttributeDefinition().getDefinition();
-                if (r.getAttributeDefinition().getDefinition().getVersion() == 3)
-                    return (CustomAttributeV3) r.getAttributeDefinition().getDefinition();
-                return null;
-            }).toList();
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> (CustomAttribute) r.getAttributeDefinition().getDefinition()).toList();
         }
     }
 
-//    @Transactional(readOnly = true)
-    public DataAttributeV2 getDataAttributeDefinition(UUID connectorUuid, String name) {
+    public DataAttribute getDataAttributeDefinition(UUID connectorUuid, String name) {
         AttributeDefinition definition = attributeDefinitionRepository.findByTypeAndConnectorUuidAndName(AttributeType.DATA, connectorUuid, name).orElse(null);
         if (definition != null) {
-            return (DataAttributeV2) definition.getDefinition();
+            return (DataAttribute) definition.getDefinition();
         }
         return null;
     }
