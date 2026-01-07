@@ -70,12 +70,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
         }
 
         List<DataAttribute> definitions = getAuthAttributes(authenticationType);
-        List<BaseAttribute> baseAttributes = getBaseAttributesFromDataAttributes(definitions);
-        return AttributeDefinitionUtils.mergeAttributes(baseAttributes, AttributeDefinitionUtils.getClientAttributes(attributes));
-    }
-
-    private static List<BaseAttribute> getBaseAttributesFromDataAttributes(List<DataAttribute> definitions) {
-        return definitions.stream().<BaseAttribute>map(attribute -> attribute.getVersion() == 2 ? (DataAttributeV2) attribute : (DataAttributeV2) attribute).toList();
+        return AttributeDefinitionUtils.mergeAttributes(definitions, AttributeDefinitionUtils.getClientAttributes(attributes));
     }
 
     @Override
@@ -114,7 +109,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateBasicAuthAttributes(List<RequestAttribute> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getBaseAttributesFromDataAttributes(getBasicAuthAttributes()), attributes);
+        AttributeDefinitionUtils.validateAttributes(getBasicAuthAttributes(), attributes);
         return true;
     }
 
@@ -218,7 +213,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateCertificateAttributes(List<RequestAttribute> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getBaseAttributesFromDataAttributes(getCertificateAttributes()), attributes);
+        AttributeDefinitionUtils.validateAttributes(getCertificateAttributes(), attributes);
 
 
         try {
@@ -299,7 +294,7 @@ public class ConnectorAuthServiceImpl implements ConnectorAuthService {
 
     @Override
     public Boolean validateApiKeyAuthAttributes(List<RequestAttribute> attributes) {
-        AttributeDefinitionUtils.validateAttributes(getBaseAttributesFromDataAttributes(getApiKeyAuthAttributes()), attributes);
+        AttributeDefinitionUtils.validateAttributes(getApiKeyAuthAttributes(), attributes);
         return true;
     }
 
