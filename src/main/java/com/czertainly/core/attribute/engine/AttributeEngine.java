@@ -60,12 +60,9 @@ public class AttributeEngine {
     private static final Logger logger = LoggerFactory.getLogger(AttributeEngine.class);
     private static final Pattern UUID_REGEX = Pattern.compile("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$");
 
-    private static final JsonMapper.Builder ATTRIBUTES_MAPPER_BUILDER =
-            JsonMapper.builder()
-                    .findAndAddModules()
-                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-
-    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = ATTRIBUTES_MAPPER_BUILDER
+    private static final ObjectMapper ATTRIBUTES_OBJECT_MAPPER = JsonMapper.builder()
+            .findAndAddModules()
+            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
             .build();
 
     @PersistenceContext
@@ -1167,7 +1164,9 @@ public class AttributeEngine {
         try {
             Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV3Class();
             if (attributeDefinition.getVersion() == 2) {
-                ObjectMapper objectMapper = ATTRIBUTES_MAPPER_BUILDER
+                ObjectMapper objectMapper =  JsonMapper.builder()
+                        .findAndAddModules()
+                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                                             .disable(MapperFeature.USE_ANNOTATIONS)
                                             .build();
                 objectMapper.convertValue(contentItem, contentTypeClass);
