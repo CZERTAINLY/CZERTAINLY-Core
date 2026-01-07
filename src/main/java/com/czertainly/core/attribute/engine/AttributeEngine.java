@@ -132,7 +132,7 @@ public class AttributeEngine {
                 attribute ->
                         AttributeVersionFactory
                                 .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
-                                        attribute.getContent(), getAttributeType(attribute), AttributeType.DATA, attribute.getVersion())
+                                        attribute.getContent(), getAttributeContentType(attribute), attribute.getType(), attribute.getVersion())
         ).toList();
     }
 
@@ -144,7 +144,7 @@ public class AttributeEngine {
         return attribute.getName();
     }
 
-    private static AttributeContentType getAttributeType(BaseAttribute attribute) {
+    private static AttributeContentType getAttributeContentType(BaseAttribute attribute) {
         if (attribute.getType() == AttributeType.DATA) return ((DataAttribute) attribute).getContentType();
         if (attribute.getType() == AttributeType.CUSTOM) return ((CustomAttributeV3) attribute).getContentType();
         return null;
