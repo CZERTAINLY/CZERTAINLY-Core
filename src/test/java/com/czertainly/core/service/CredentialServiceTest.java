@@ -244,7 +244,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
         dataAttributeV2.setContentType(AttributeContentType.CREDENTIAL);
 
 
-        credentialService.loadFullCredentialData(attrs.stream().<DataAttribute>map(attr -> (DataAttribute) attr).toList());
+        credentialService.loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList());
 
         Assertions.assertInstanceOf(CredentialAttributeContentData.class, dataAttributeV2.getContent().getFirst().getData());
 
@@ -271,7 +271,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
         dataAttributeV2.setType(AttributeType.DATA);
         dataAttributeV2.setContentType(AttributeContentType.CREDENTIAL);
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs.stream().<DataAttribute>map(attr -> (DataAttribute) attr).toList()));
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList()));
     }
 
 
@@ -279,7 +279,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
     void testLoadFullData_attributesNonCredential() {
         List<RequestAttribute> requestAttributes = new ArrayList<>();
         requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "dummyAttributes", AttributeContentType.CREDENTIAL, null));
-        Assertions.assertDoesNotThrow(() -> credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(requestAttributes).stream().<DataAttribute>map(attr -> (DataAttribute) attr).toList())); // this should not throw exception
+        Assertions.assertDoesNotThrow(() -> credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(requestAttributes).stream().map(DataAttribute.class::cast).toList())); // this should not throw exception
     }
 
     @Test

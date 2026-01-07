@@ -737,9 +737,11 @@ public class LocationServiceImpl implements LocationService {
     private LocationDto mapLocationToDto(Location location) {
         LocationDto locationDto = location.mapToDto();
         for (CertificateLocation certificateLocation : location.getCertificates()) {
-            CertificateInLocationDto certificateLocationDto = locationDto.getCertificates().stream().filter(cl -> cl.getCertificateUuid().equals(certificateLocation.getCertificate().getUuid().toString())).findFirst().get();
-            certificateLocationDto.setCsrAttributes(attributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
-            certificateLocationDto.setPushAttributes(attributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
+            CertificateInLocationDto certificateLocationDto = locationDto.getCertificates().stream().filter(cl -> cl.getCertificateUuid().equals(certificateLocation.getCertificate().getUuid().toString())).findFirst().orElse(null);
+            if (certificateLocationDto != null) {
+                certificateLocationDto.setCsrAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
+                certificateLocationDto.setPushAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
+            }
         }
         return locationDto;
     }

@@ -189,7 +189,7 @@ public class DatabaseAttributeMigration {
                     loadRaProfileConnectorMapping(context);
                 }
                 UUID raProfileUuid = rows.getObject("ra_profile_uuid", UUID.class);
-                return raProfilesConnectorMapping.get(raProfileUuid);
+                return raProfilesConnectorMapping.getOrDefault(raProfileUuid, null);
             }
             case RA_PROFILE -> {
                 if (authoritiesConnectorMapping == null) {
