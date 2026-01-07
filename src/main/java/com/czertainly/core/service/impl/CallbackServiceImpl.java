@@ -38,6 +38,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 
 @Service
@@ -214,17 +215,17 @@ public class CallbackServiceImpl implements CallbackService {
     private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
-                switch (attributeDefinition.getType()) {
-                    case DATA:
-                        return ((DataAttribute) attributeDefinition).getAttributeCallback();
-                    case GROUP:
-                        return AttributeVersionFactory.getGroupAttributeCallback(attributeDefinition);
+                AttributeType type = attributeDefinition.getType();
+                if (Objects.requireNonNull(type) == AttributeType.DATA) {
+                    return ((DataAttribute) attributeDefinition).getAttributeCallback();
+                } else if (type == AttributeType.GROUP) {
+                    return AttributeVersionFactory.getGroupAttributeCallback(attributeDefinition);
                 }
             }
         }
 
         // if not present in definitions from connector, search in reference attributes in DB
-        DataAttributeV2 referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
+        DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
         if (referencedAttribute != null) {
             return referencedAttribute.getAttributeCallback();
         }
@@ -245,7 +246,7 @@ public class CallbackServiceImpl implements CallbackService {
         ObjectMapper mapper = new ObjectMapper();
         mapper.configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
         try {
-            List<BaseAttribute> callbackAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttributeV2.class));
+            List<BaseAttribute> callbackAttributes = mapper.convertValue(callbackResponse, mapper.getTypeFactory().constructCollectionType(List.class, BaseAttribute.class));
             attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, callbackAttributes);
         } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
@@ -264,7 +265,6 @@ public class CallbackServiceImpl implements CallbackService {
             if (attributeDefinition.getName().equals(name) && attributeDefinition.getType().equals(AttributeType.GROUP)) {
                     return true;
                 }
-
         }
         return false;
     }
