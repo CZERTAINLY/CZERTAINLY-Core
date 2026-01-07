@@ -3,7 +3,6 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;

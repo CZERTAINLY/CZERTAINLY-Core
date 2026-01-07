@@ -5,7 +5,6 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
@@ -15,7 +14,6 @@ import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.UUID;
-import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 @Component
@@ -65,7 +63,7 @@ public class RsaSignatureAttributes {
         attribute.setContent(
                 Stream.of(RsaSignatureScheme.values())
                         .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .toList()
         );
 
         return attribute;

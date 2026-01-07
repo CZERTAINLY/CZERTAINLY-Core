@@ -1,11 +1,8 @@
 package com.czertainly.core.provider.key;
 
-import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 
-import java.security.PrivateKey;
 import java.security.PublicKey;
-import java.util.List;
 
 public class CzertainlyPublicKey implements PublicKey {
 
