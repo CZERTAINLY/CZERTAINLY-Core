@@ -651,17 +651,9 @@ public class AttributeEngine {
                     .orElseThrow(() -> new AttributeException("Missing data attribute definition", requestAttribute.getUuid() == null ? null : String.valueOf(requestAttribute.getUuid()), requestAttribute.getName(), AttributeType.DATA, connectorUuidStr));
 
             validateAttributeContent(definition, requestAttribute.getContent());
-
-            if (requestAttribute.getVersion() == AttributeVersion.V2) {
-                DataAttributeV2 dataAttribute = (DataAttributeV2) definition.getDefinition();
-                dataAttribute.setContent(requestAttribute.getContent());
-                dataAttributes.add(dataAttribute);
-            }
-            if (requestAttribute.getVersion() == AttributeVersion.V3) {
-                DataAttributeV3 dataAttribute = (DataAttributeV3) definition.getDefinition();
-                dataAttribute.setContent(requestAttribute.getContent());
-                dataAttributes.add(dataAttribute);
-            }
+            DataAttribute dataAttribute = (DataAttribute) definition.getDefinition();
+            dataAttribute.setContent(requestAttribute.getContent());
+            dataAttributes.add(dataAttribute);
         }
 
         return dataAttributes;
@@ -752,7 +744,7 @@ public class AttributeEngine {
             for (RequestAttribute requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
                 List<? extends AttributeContent> attributeContent = requestAttribute.getVersion() == AttributeVersion.V3 ? ((RequestAttributeV3) requestAttribute).getContent() : ((RequestAttributeV2) requestAttribute).getContent().stream().map(ac -> AttributeVersionFactory.convertAttributeContentToV3(ac, requestAttribute.getContentType())).toList();
-                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid),attributeContent);
+                createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), attributeContent);
             }
         } else {
             // delete only content of allowed attributes
@@ -1151,11 +1143,11 @@ public class AttributeEngine {
         try {
             Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV3Class();
             if (attributeDefinition.getVersion() == 2) {
-                ObjectMapper objectMapper =  JsonMapper.builder()
+                ObjectMapper objectMapper = JsonMapper.builder()
                         .findAndAddModules()
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                                            .disable(MapperFeature.USE_ANNOTATIONS)
-                                            .build();
+                        .disable(MapperFeature.USE_ANNOTATIONS)
+                        .build();
                 objectMapper.convertValue(contentItem, contentTypeClass);
             } else {
                 ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
