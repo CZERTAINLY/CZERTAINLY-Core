@@ -399,8 +399,7 @@ public class NotificationListener {
             recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
-        for (DataAttribute mappingAttributeBase : mappingAttributes) {
-            DataAttributeV3 mappingAttribute = (DataAttributeV3) mappingAttributeBase;
+        for (DataAttribute mappingAttribute : mappingAttributes) {
             ResponseAttribute recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
 
             if (recipientCustomAttribute == null) {
@@ -417,7 +416,7 @@ public class NotificationListener {
             }
 
             RequestAttribute requestAttribute = AttributeVersionFactory
-                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getSchemaVersion().getVersion());
+                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getVersion());
             mappedAttributes.add(requestAttribute);
         }
 
