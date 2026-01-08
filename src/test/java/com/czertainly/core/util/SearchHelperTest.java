@@ -44,6 +44,12 @@ class SearchHelperTest extends BaseSpringBootTest {
         SearchFieldObject searchFieldObject = new SearchFieldObject(attributeV3.getName(), attributeV3.getContentType(), AttributeType.DATA, "label", attributeV3);
         Assertions.assertEquals(List.of(now.toString()), searchFieldObject.getContentItems());
 
+        dataAttributeProperties.setList(false);
+        attributeV3.setProperties(dataAttributeProperties);
+        searchFieldObject = new SearchFieldObject(attributeV3.getName(), attributeV3.getContentType(), AttributeType.DATA, "label", attributeV3);
+        Assertions.assertNull(searchFieldObject.getContentItems());
+
+
         CustomAttributeV3 customAttributeV3 = new CustomAttributeV3();
         customAttributeV3.setName("name");
         customAttributeV3.setContent(List.of(new StringAttributeContentV3("string")));
@@ -53,6 +59,12 @@ class SearchHelperTest extends BaseSpringBootTest {
         customAttributeV3.setProperties(customAttributeProperties);
         searchFieldObject = new SearchFieldObject(customAttributeV3.getName(), customAttributeV3.getContentType(), AttributeType.CUSTOM, "label", customAttributeV3);
         Assertions.assertEquals(List.of("string"), searchFieldObject.getContentItems());
+
+        customAttributeProperties.setList(false);
+        customAttributeV3.setProperties(customAttributeProperties);
+        searchFieldObject = new SearchFieldObject(customAttributeV3.getName(), customAttributeV3.getContentType(), AttributeType.CUSTOM, "label", customAttributeV3);
+        Assertions.assertNull(searchFieldObject.getContentItems());
+
     }
 
     @Test
