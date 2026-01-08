@@ -8,13 +8,16 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateReq
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeUpdateRequestDto;
+import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.CustomAttribute;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
@@ -167,6 +170,10 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(request.getDescription(), response.getDescription());
         Assertions.assertEquals(request.getLabel(), response.getLabel());
         Assertions.assertEquals(1, response.getResources().size());
+
+        request.setContent(List.of(new StringAttributeContentV3("new")));
+        response = attributeService.editCustomAttribute(definition.getUuid(), request);
+        Assertions.assertEquals("new", response.getContent().getFirst().getData());
     }
 
     @Test
@@ -253,5 +260,14 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         attributeService.updateResources(definition.getUuid(), List.of(Resource.ROLE, Resource.CREDENTIAL));
         List<CustomAttribute> attributes = attributeService.getResourceAttributes(SecurityFilter.create(), Resource.ROLE);
         Assertions.assertEquals(1, attributes.size());
+    }
+
+    @Test
+    void testGetResourceObject() throws NotFoundException {
+        Assertions.assertThrows(NotFoundException.class, () -> attributeService.getResourceObject(UUID.randomUUID()));
+        NameAndUuidDto nameAndUuidDto = attributeService.getResourceObject(definition.getUuid());
+        Assertions.assertEquals(definition.getUuid().toString(), nameAndUuidDto.getUuid());
+        Assertions.assertEquals(definition.getName(), nameAndUuidDto.getName());
+
     }
 }

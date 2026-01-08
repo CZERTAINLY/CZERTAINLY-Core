@@ -15,7 +15,6 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRe
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -319,7 +318,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     public NameAndUuidDto getResourceObject(UUID objectUuid) throws NotFoundException {
-        AttributeDefinition customAttribute = attributeDefinitionRepository.findByUuidAndType(objectUuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(CustomAttributeV2.class, objectUuid));
+        AttributeDefinition customAttribute = attributeDefinitionRepository.findByUuidAndType(objectUuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(CustomAttribute.class, objectUuid));
         return customAttribute.mapToAccessControlObjects();
     }
 
