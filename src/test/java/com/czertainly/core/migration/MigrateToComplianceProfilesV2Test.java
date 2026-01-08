@@ -28,10 +28,8 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
 
-@Transactional
 @ExtendWith(MockitoExtension.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
-@Disabled
 class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
 
     @Autowired
