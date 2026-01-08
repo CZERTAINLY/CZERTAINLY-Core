@@ -137,6 +137,14 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         Assertions.assertEquals(AttributeType.CUSTOM, response.getType());
         Assertions.assertEquals(AttributeContentType.STRING, request.getContentType());
         Assertions.assertEquals(2, request.getResources().size());
+
+
+        request.setName("testAttribute2");
+        request.setLabel("TestAttribute2");
+        request.setContent(List.of(new StringAttributeContentV3("content")));
+        response = attributeService.createCustomAttribute(request);
+        Assertions.assertEquals(request.getContent().getFirst().getData().toString(), response.getContent().getFirst().getData().toString());
+
     }
 
     @Test
