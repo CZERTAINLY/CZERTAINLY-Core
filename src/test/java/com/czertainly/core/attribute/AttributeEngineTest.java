@@ -3,10 +3,7 @@ package com.czertainly.core.attribute;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3;
-import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -358,6 +355,19 @@ class AttributeEngineTest extends BaseSpringBootTest {
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
         attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
+    }
+
+    @Test
+    void testGetResponseAttributesFromRequestAttributes() {
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
+        requestAttributeV2.setContent(List.of(new DateAttributeContentV2(LocalDate.now())));
+        RequestAttributeV3 requestAttributeV3 = new RequestAttributeV3();
+        requestAttributeV3.setContent(List.of(new StringAttributeContentV3("STR")));
+        List<ResponseAttribute> responseAttributes = AttributeEngine.getResponseAttributesFromRequestAttributes(List.of(requestAttributeV2, requestAttributeV3));
+        Assertions.assertEquals(2, responseAttributes.size());
+        Assertions.assertNotNull(responseAttributes.getFirst().getContent());
+        Assertions.assertNotNull(responseAttributes.getLast().getContent());
+
     }
 
     @Test
