@@ -4,10 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
-import com.czertainly.api.model.client.raprofile.ActivateAcmeForRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.AddRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.EditRaProfileRequestDto;
-import com.czertainly.api.model.client.raprofile.RaProfileAcmeDetailResponseDto;
+import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeVersion;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -23,7 +20,11 @@ import com.czertainly.api.model.core.raprofile.RaProfileDto;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsUpdateDto;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
+import com.czertainly.core.dao.entity.cmp.CmpProfile;
+import com.czertainly.core.dao.entity.scep.ScepProfile;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
+import com.czertainly.core.dao.repository.scep.ScepProfileRepository;
 import com.czertainly.core.security.authz.SecuredParentUUID;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -36,6 +37,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.util.*;
 
@@ -65,6 +67,10 @@ class RaProfileServiceTest extends ApprovalProfileData {
     private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
     @Autowired
     private AcmeProfileRepository acmeProfileRepository;
+    @Autowired
+    private ScepProfileRepository scepProfileRepository;
+    @Autowired
+    private CmpProfileRepository cmpProfileRepository;
 
     @Autowired
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
@@ -405,6 +411,10 @@ class RaProfileServiceTest extends ApprovalProfileData {
     void testActivateAcme() throws ConnectorException, NotFoundException, AttributeException {
         AcmeProfile acmeProfile = new AcmeProfile();
         acmeProfileRepository.save(acmeProfile);
+        CmpProfile cmpProfile = new CmpProfile();
+        cmpProfileRepository.save(cmpProfile);
+        ScepProfile scepProfile = new ScepProfile();
+        scepProfileRepository.save(scepProfile);
 
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/issue/attributes/validate"))
@@ -434,6 +444,17 @@ class RaProfileServiceTest extends ApprovalProfileData {
         request.setRevokeCertificateAttributes(List.of());
         RaProfileAcmeDetailResponseDto response = raProfileService.activateAcmeForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), acmeProfile.getSecuredUuid(), request);
         Assertions.assertEquals(requestAttributeV2.getContent().getFirst().getData(), ((List<BaseAttributeContentV2>)response.getIssueCertificateAttributes().getFirst().getContent()).getFirst().getData());
+
+        ActivateScepForRaProfileRequestDto requestScep = new ActivateScepForRaProfileRequestDto();
+        requestScep.setIssueCertificateAttributes(List.of(requestAttributeV2));
+        RaProfileScepDetailResponseDto responseScep = raProfileService.activateScepForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), scepProfile.getSecuredUuid(), requestScep);
+        Assertions.assertEquals(requestAttributeV2.getContent().getFirst().getData(), ((List<BaseAttributeContentV2>)responseScep.getIssueCertificateAttributes().getFirst().getContent()).getFirst().getData());
+
+        ActivateCmpForRaProfileRequestDto requestCmp = new ActivateCmpForRaProfileRequestDto();
+        requestCmp.setIssueCertificateAttributes(List.of(requestAttributeV2));
+        requestCmp.setRevokeCertificateAttributes(List.of());
+        RaProfileCmpDetailResponseDto responseCmp = raProfileService.activateCmpForRaProfile(authorityInstanceReference.getSecuredParentUuid(), raProfile.getSecuredUuid(), cmpProfile.getSecuredUuid(), requestCmp);
+        Assertions.assertEquals(requestAttributeV2.getContent().getFirst().getData(), ((List<BaseAttributeContentV2>)responseCmp.getIssueCertificateAttributes().getFirst().getContent()).getFirst().getData());
     }
 
 }
