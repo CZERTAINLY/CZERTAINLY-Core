@@ -1,4 +1,4 @@
-package com.czertainly.core.messaging.listeners;
+package com.czertainly.core.messaging.jms.listeners;
 
 import com.czertainly.api.clients.NotificationInstanceApiClient;
 import com.czertainly.api.exception.*;
@@ -13,16 +13,15 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.RoleDetailDto;
 import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
+import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.notifications.*;
 import com.czertainly.core.dao.repository.GroupRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
-import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.core.dao.repository.notifications.NotificationProfileVersionRepository;
 import com.czertainly.core.dao.repository.notifications.PendingNotificationRepository;
-import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.NotificationMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
@@ -30,10 +29,9 @@ import com.czertainly.core.security.authn.client.UserManagementApiClient;
 import com.czertainly.core.service.NotificationService;
 import com.czertainly.core.service.ResourceObjectAssociationService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.AllArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -42,8 +40,9 @@ import java.time.OffsetDateTime;
 import java.util.*;
 
 @Component
+@AllArgsConstructor
 @Transactional
-public class NotificationListener {
+public class NotificationListener implements MessageProcessor<NotificationMessage> {
 
     private static final Logger logger = LoggerFactory.getLogger(NotificationListener.class);
     private static final String EMAIL_NOTIFICATION_PROVIDER_KIND = "EMAIL";
@@ -72,62 +71,7 @@ public class NotificationListener {
         eventToLegacyNotificationTypeMapping.put(ResourceEvent.SCHEDULED_JOB_FINISHED, "scheduled_job_completed");
     }
 
-    @Autowired
-    public void setObjectMapper(ObjectMapper mapper) {
-        this.mapper = mapper;
-    }
-
-    @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
-        this.attributeEngine = attributeEngine;
-    }
-
-    @Autowired
-    public void setNotificationService(NotificationService notificationService) {
-        this.notificationService = notificationService;
-    }
-
-    @Autowired
-    public void setNotificationInstanceApiClient(NotificationInstanceApiClient notificationInstanceApiClient) {
-        this.notificationInstanceApiClient = notificationInstanceApiClient;
-    }
-
-    @Autowired
-    public void setPendingNotificationRepository(PendingNotificationRepository pendingNotificationRepository) {
-        this.pendingNotificationRepository = pendingNotificationRepository;
-    }
-
-    @Autowired
-    public void setNotificationProfileVersionRepository(NotificationProfileVersionRepository notificationProfileVersionRepository) {
-        this.notificationProfileVersionRepository = notificationProfileVersionRepository;
-    }
-
-    @Autowired
-    public void setNotificationInstanceReferenceRepository(NotificationInstanceReferenceRepository notificationInstanceReferenceRepository) {
-        this.notificationInstanceReferenceRepository = notificationInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setGroupRepository(GroupRepository groupRepository) {
-        this.groupRepository = groupRepository;
-    }
-
-    @Autowired
-    public void setUserManagementApiClient(UserManagementApiClient userManagementApiClient) {
-        this.userManagementApiClient = userManagementApiClient;
-    }
-
-    @Autowired
-    public void setRoleManagementApiClient(RoleManagementApiClient roleManagementApiClient) {
-        this.roleManagementApiClient = roleManagementApiClient;
-    }
-
-    @Autowired
-    public void setResourceObjectAssociationService(ResourceObjectAssociationService resourceObjectAssociationService) {
-        this.resourceObjectAssociationService = resourceObjectAssociationService;
-    }
-
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_NOTIFICATIONS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.notifications}")
+    @Override
     public void processMessage(NotificationMessage message) {
         logger.debug("Received notification message: {}", message);
 

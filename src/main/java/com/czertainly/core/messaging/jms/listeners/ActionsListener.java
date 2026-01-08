@@ -1,4 +1,4 @@
-package com.czertainly.core.messaging.listeners;
+package com.czertainly.core.messaging.jms.listeners;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approval.ApprovalStatusEnum;
@@ -10,10 +10,10 @@ import com.czertainly.core.dao.entity.Approval;
 import com.czertainly.core.dao.entity.ApprovalProfileRelation;
 import com.czertainly.core.dao.entity.ApprovalProfileVersion;
 import com.czertainly.core.dao.repository.ApprovalProfileRelationRepository;
-import com.czertainly.core.messaging.configuration.RabbitMQConstants;
+import com.czertainly.core.messaging.jms.configuration.MessagingProperties;
+import com.czertainly.core.messaging.jms.producers.NotificationProducer;
 import com.czertainly.core.messaging.model.ActionMessage;
 import com.czertainly.core.messaging.model.NotificationRecipient;
-import com.czertainly.core.messaging.producers.NotificationProducer;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.v2.ClientOperationService;
@@ -21,7 +21,6 @@ import com.czertainly.core.util.AuthHelper;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
@@ -32,8 +31,9 @@ import java.util.Objects;
 import java.util.Optional;
 
 @Component
-public class ActionListener {
-    private static final Logger logger = LoggerFactory.getLogger(ActionListener.class);
+public class ActionsListener implements MessageProcessor<ActionMessage> {
+
+    private static final Logger logger = LoggerFactory.getLogger(ActionsListener.class);
 
     private ApprovalProfileRelationRepository approvalProfileRelationRepository;
 
@@ -47,7 +47,8 @@ public class ActionListener {
 
     private AuthHelper authHelper;
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_ACTIONS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.actions}")
+    private MessagingProperties messagingProperties;
+
     public void processMessage(final ActionMessage actionMessage) throws MessageHandlingException {
         boolean hasApproval = actionMessage.getApprovalUuid() != null;
         boolean isApproved = hasApproval && actionMessage.getApprovalStatus().equals(ApprovalStatusEnum.APPROVED);
@@ -66,7 +67,7 @@ public class ActionListener {
                     logger.error("{}: {}", errorMessage, e.getMessage());
                     notificationProducer.produceInternalNotificationMessage(actionMessage.getResource(), actionMessage.getResourceUuid(),
                             NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
-                    throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Handling of action approval creation failed: " + e.getMessage());
+                    throw new MessageHandlingException(messagingProperties.routingKey().actions(), actionMessage, "Handling of action approval creation failed: " + e.getMessage());
                 }
                 return;
             }
@@ -80,7 +81,7 @@ public class ActionListener {
             logger.error("{}: {}", errorMessage, e.getMessage());
             notificationProducer.produceInternalNotificationMessage(actionMessage.getResource(), actionMessage.getResourceUuid(),
                     NotificationRecipient.buildUserNotificationRecipient(actionMessage.getUserUuid()), errorMessage, e.getMessage());
-            throw new MessageHandlingException(RabbitMQConstants.QUEUE_ACTIONS_NAME, actionMessage, "Unable to process action: " + e.getMessage());
+            throw new MessageHandlingException(messagingProperties.routingKey().actions(), actionMessage, "Unable to process action: " + e.getMessage());
         }
     }
 
@@ -157,4 +158,10 @@ public class ActionListener {
     public void setAuthHelper(AuthHelper authHelper) {
         this.authHelper = authHelper;
     }
+
+    @Autowired
+    public void setMessagingProperties(MessagingProperties messagingProperties) {
+        this.messagingProperties = messagingProperties;
+    }
+
 }

@@ -13,7 +13,7 @@ import com.czertainly.core.dao.entity.ComplianceProfile;
 import com.czertainly.core.dao.entity.ComplianceProfileRule;
 import com.czertainly.core.dao.entity.ComplianceSubject;
 import com.czertainly.core.events.handlers.CertificateNotCompliantEventHandler;
-import com.czertainly.core.messaging.producers.EventProducer;
+import com.czertainly.core.messaging.jms.producers.EventProducer;
 import com.czertainly.core.service.handler.ComplianceProfileRuleHandler;
 import com.czertainly.core.service.handler.ComplianceSubjectHandler;
 import lombok.Getter;

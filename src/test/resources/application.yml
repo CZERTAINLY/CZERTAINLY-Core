@@ -50,8 +50,11 @@ spring:
     hikari:
       minimum-idle: 5
       maximumPoolSize: 40
-    password: test
+      connection-timeout: 10000
+      idle-timeout: 30000
+      max-lifetime: 60000
     url: jdbc:tc:postgresql:13-alpine://localhost:55432/czertainly-test
+    password: test
     username: test
   flyway:
     enabled: false
@@ -68,3 +71,55 @@ spring:
   threads:
     virtual:
       enabled: true
+  # testcontainers configuration
+  rabbitmq:
+    host: localhost
+    port: 5672
+    username: guest
+    password: guest
+  messaging:
+    broker-type: RABBITMQ
+    broker-url: amqp://localhost:5672
+    user: guest
+    password: guest
+    session-cache-size: 5
+    queue:
+      actions: core.actions
+      audit-logs: core.audit-logs
+      event: core.event
+      notification: core.notification
+      scheduler: core.scheduler
+      validation: core.validation
+    exchange: czertainly
+    routing-key:
+      actions: actions
+      audit-logs: audit-logs
+      event: event
+      notification: notification
+      scheduler: scheduler
+      validation: validation
+    producer:
+      retry:
+        enabled: true
+        initial-interval: 200
+        max-attempts: 3
+        max-interval: 2000
+        multiplier: 2
+messaging:
+  concurrency:
+    actions: 10
+    events: 5
+    notifications: 3
+    scheduler: 10
+    validation: 5
+    audit-logs: 5
+
+otel:
+  instrumentation:
+    enabled: false
+  sdk:
+    disabled: true
+
+settings:
+  cache:
+    refresh-interval: 30

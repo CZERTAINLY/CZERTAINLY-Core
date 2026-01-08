@@ -1,28 +1,26 @@
-package com.czertainly.core.messaging.listeners;
+package com.czertainly.core.messaging.jms.listeners;
 
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.repository.CertificateRepository;
-import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.service.handler.CertificateHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
 
 @Component
-public class ValidationListener {
+public class ValidationListener implements MessageProcessor<ValidationMessage> {
     private static final Logger logger = LoggerFactory.getLogger(ValidationListener.class);
 
     private CertificateRepository certificateRepository;
 
     private CertificateHandler certificateHandler;
 
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_VALIDATION_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.validation}")
+    @Override
     public void processMessage(final ValidationMessage validationMessage) {
         List<Certificate> certificates;
         if (validationMessage.getUuids() != null) {

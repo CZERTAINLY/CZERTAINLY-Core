@@ -1,36 +1,24 @@
-package com.czertainly.core.messaging.listeners;
+package com.czertainly.core.messaging.jms.listeners;
 
-import com.czertainly.api.model.core.logging.records.*;
+import com.czertainly.api.model.core.logging.records.LogRecord;
+import com.czertainly.api.model.core.logging.records.ResourceRecord;
 import com.czertainly.core.logging.AuditLogEnhancer;
-import com.czertainly.core.messaging.configuration.RabbitMQConstants;
 import com.czertainly.core.messaging.model.AuditLogMessage;
 import com.czertainly.core.service.AuditLogService;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Autowired;
+import lombok.AllArgsConstructor;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 @Component
 @Transactional
-public class AuditLogsListener {
+@AllArgsConstructor
+public class AuditLogsListener implements MessageProcessor<AuditLogMessage> {
 
-    private AuditLogService auditLogService;
+    private final AuditLogService auditLogService;
+    private final AuditLogEnhancer auditLogEnhancer;
 
-    @Autowired
-    public void setAuditLogService(AuditLogService auditLogService) {
-        this.auditLogService = auditLogService;
-    }
-
-    private AuditLogEnhancer auditLogEnhancer;
-
-    @Autowired
-    public void setAuditLogEnhancer(AuditLogEnhancer auditLogEnhancer) {
-        this.auditLogEnhancer = auditLogEnhancer;
-    }
-
-    @RabbitListener(queues = RabbitMQConstants.QUEUE_AUDIT_LOGS_NAME, messageConverter = "jsonMessageConverter", concurrency = "${messaging.concurrency.audit-logs}")
+    @Override
     public void processMessage(final AuditLogMessage auditLogMessage) {
-
         LogRecord logRecord = auditLogMessage.getLogRecord();
 
         LogRecord.LogRecordBuilder builder = LogRecord.builder()
@@ -51,3 +39,4 @@ public class AuditLogsListener {
     }
 
 }
+
