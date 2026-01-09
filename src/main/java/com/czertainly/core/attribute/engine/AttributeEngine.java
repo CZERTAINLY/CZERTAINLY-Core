@@ -130,7 +130,7 @@ public class AttributeEngine {
         if (attributes == null || attributes.isEmpty()) return List.of();
         return attributes.stream().map(
                 attribute ->
-                        AttributeVersionFactory
+                        AttributeVersionHelper
                                 .getResponseAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), getLabelFromAttributeProperties(attribute),
                                         attribute.getContent(), getAttributeContentType(attribute), attribute.getType(), attribute.getVersion())
         ).toList();
@@ -154,7 +154,7 @@ public class AttributeEngine {
         if (attributes == null || attributes.isEmpty()) return List.of();
         return attributes.stream().map(
                 attribute ->
-                        AttributeVersionFactory.getResponseAttribute(attribute.getUuid(), attribute.getName(), attribute.getName(),
+                        AttributeVersionHelper.getResponseAttribute(attribute.getUuid(), attribute.getName(), attribute.getName(),
                                 attribute.getContent(), attribute.getContentType(), AttributeType.DATA, attribute.getVersion().getVersion())
         ).toList();
     }
@@ -244,11 +244,11 @@ public class AttributeEngine {
             }
 
             if ((metadataResponseAttributeDto = sourceAttributesContents.get(objectMetadataContent.uuid())) == null) {
-                metadataResponseAttributeDto = AttributeVersionFactory.getResponseMetadata(objectMetadataContent.version(), new ArrayList<>(), objectMetadataContent.uuid(), objectMetadataContent.name(), objectMetadataContent.label(), objectMetadataContent.type(), objectMetadataContent.contentType(), new ArrayList<>());
+                metadataResponseAttributeDto = AttributeVersionHelper.getResponseMetadata(objectMetadataContent.version(), new ArrayList<>(), objectMetadataContent.uuid(), objectMetadataContent.name(), objectMetadataContent.label(), objectMetadataContent.type(), objectMetadataContent.contentType(), new ArrayList<>());
                 sourceAttributesContents.put(objectMetadataContent.uuid(), metadataResponseAttributeDto);
             }
 
-            AttributeVersionFactory.addResponseMetadataContent(objectMetadataContent.version(), metadataResponseAttributeDto, objectMetadataContent.contentItem());
+            AttributeVersionHelper.addResponseMetadataContent(objectMetadataContent.version(), metadataResponseAttributeDto, objectMetadataContent.contentItem());
 
             if (objectMetadataContent.sourceObjectType() != null) {
                 metadataResponseAttributeDto.getSourceObjects().add(new NameAndUuidDto(objectMetadataContent.sourceObjectUuid().toString(), objectMetadataContent.sourceObjectName()));
@@ -681,10 +681,10 @@ public class AttributeEngine {
             RequestAttribute requestAttribute;
 
             if ((requestAttribute = mapping.get(uuid)) == null) {
-                requestAttribute = AttributeVersionFactory.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType(), objectContent.version());
+                requestAttribute = AttributeVersionHelper.getRequestAttribute(objectContent.uuid(), objectContent.name(), new ArrayList<>(), objectContent.contentType(), objectContent.version());
                 mapping.put(uuid, requestAttribute);
             }
-            AttributeVersionFactory.addRequestAttributeContent(requestAttribute, objectContent.contentItem(), objectContent.version());
+            AttributeVersionHelper.addRequestAttributeContent(requestAttribute, objectContent.contentItem(), objectContent.version());
         }
 
         return mapping.values().stream().toList();
@@ -696,12 +696,12 @@ public class AttributeEngine {
             String uuid = objectContent.uuid().toString();
             ResponseAttribute responseAttribute;
             if ((mapping.get(uuid)) == null) {
-                responseAttribute = AttributeVersionFactory.getResponseAttribute(objectContent.uuid(), objectContent.name(), objectContent.label(), new ArrayList<>(), objectContent.contentType(), objectContent.type(), objectContent.version());
+                responseAttribute = AttributeVersionHelper.getResponseAttribute(objectContent.uuid(), objectContent.name(), objectContent.label(), new ArrayList<>(), objectContent.contentType(), objectContent.type(), objectContent.version());
                 mapping.put(uuid, responseAttribute);
             } else {
                 responseAttribute = mapping.get(uuid);
             }
-            AttributeVersionFactory.addResponseAttributeContent(responseAttribute, objectContent.contentItem(), objectContent.version());
+            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, objectContent.contentItem(), objectContent.version());
         }
 
         return mapping.values().stream().toList();
@@ -743,7 +743,7 @@ public class AttributeEngine {
             deleteObjectAttributeContentByType(AttributeType.CUSTOM, objectType, objectUuid);
             for (RequestAttribute requestAttribute : requestAttributes) {
                 AttributeDefinition attributeDefinition = attributeDefinitionRepository.findByTypeAndName(AttributeType.CUSTOM, requestAttribute.getName()).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, requestAttribute.getName()));
-                List<? extends AttributeContent> attributeContent = requestAttribute.getVersion() == AttributeVersion.V3 ? ((RequestAttributeV3) requestAttribute).getContent() : ((RequestAttributeV2) requestAttribute).getContent().stream().map(ac -> AttributeVersionFactory.convertAttributeContentToV3(ac, requestAttribute.getContentType())).toList();
+                List<? extends AttributeContent> attributeContent = requestAttribute.getVersion() == AttributeVersion.V3 ? ((RequestAttributeV3) requestAttribute).getContent() : ((RequestAttributeV2) requestAttribute).getContent().stream().map(ac -> AttributeVersionHelper.convertAttributeContentToV3(ac, requestAttribute.getContentType())).toList();
                 createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), attributeContent);
             }
         } else {
@@ -823,7 +823,7 @@ public class AttributeEngine {
         }
 
         if (attribute.getType() == AttributeType.GROUP) {
-            AttributeCallback callback = AttributeVersionFactory.getGroupAttributeCallback(attribute);
+            AttributeCallback callback = AttributeVersionHelper.getGroupAttributeCallback(attribute);
             if (callback == null) {
                 throw new AttributeException("Group attribute does not have callback", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
@@ -933,7 +933,7 @@ public class AttributeEngine {
             if (definition == null) {
                 continue;
             }
-            responseAttributes.add(AttributeVersionFactory
+            responseAttributes.add(AttributeVersionHelper
                     .getResponseAttribute(requestAttribute.getUuid(), requestAttribute.getName(), definition.getProperties().getLabel(), requestAttribute.getContent(), requestAttribute.getContentType(), definition.getType(), requestAttribute.getVersion().getVersion()));
         }
         return responseAttributes;

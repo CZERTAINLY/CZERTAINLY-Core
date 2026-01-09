@@ -16,7 +16,7 @@ import com.czertainly.api.model.common.attribute.common.callback.RequestAttribut
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.records.AttributeVersionFactory;
+import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
@@ -217,7 +217,7 @@ public class CallbackServiceImpl implements CallbackService {
                 if (Objects.requireNonNull(type) == AttributeType.DATA) {
                     return ((DataAttribute) attributeDefinition).getAttributeCallback();
                 } else if (type == AttributeType.GROUP) {
-                    return AttributeVersionFactory.getGroupAttributeCallback(attributeDefinition);
+                    return AttributeVersionHelper.getGroupAttributeCallback(attributeDefinition);
                 }
             }
         }
