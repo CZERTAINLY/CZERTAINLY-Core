@@ -2,13 +2,13 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.AuthorityInstanceController;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.authority.AuthorityInstanceRequestDto;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -100,7 +100,7 @@ public class AuthorityInstanceControllerImpl implements AuthorityInstanceControl
 
     @Override
     @AuditLogged(module = Module.CERTIFICATES, resource = Resource.ATTRIBUTE, name = "raProfile", affiliatedResource = Resource.AUTHORITY, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public void validateRAProfileAttributes(@PathVariable String uuid, @RequestBody List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         authorityInstanceService.validateRAProfileAttributes(SecuredUUID.fromString(uuid), attributes);
     }
 

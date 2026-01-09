@@ -4,13 +4,12 @@ import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.connector.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -20,7 +19,6 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
@@ -199,7 +197,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         }
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
 
-        List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         if (connectorRepository.findByName(request.getName()).isPresent()) {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
@@ -208,7 +206,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         connectorDto.setName(request.getName());
         connectorDto.setUrl(request.getUrl());
         connectorDto.setAuthType(request.getAuthType());
-        connectorDto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(authAttributes));
+        connectorDto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(authAttributes));
 
         List<ConnectDto> connectResponse = validateConnector(connectorDto);
         List<FunctionGroupDto> functionGroupDtos = new ArrayList<>();
@@ -248,7 +246,7 @@ public class ConnectorServiceImpl implements ConnectorService {
             throw new AlreadyExistException(Connector.class, request.getName());
         }
 
-        List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), request.getAuthAttributes());
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(request.getAuthType(), request.getAuthAttributes());
 
         Connector connector = new Connector();
         connector.setName(request.getName());
@@ -267,9 +265,9 @@ public class ConnectorServiceImpl implements ConnectorService {
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.UPDATE)
     public ConnectorDto editConnector(SecuredUUID uuid, ConnectorUpdateRequestDto request) throws ConnectorException, AttributeException, NotFoundException {
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
-        List<DataAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
+        List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
-                AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+                AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
 
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
@@ -374,7 +372,7 @@ public class ConnectorServiceImpl implements ConnectorService {
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.CONNECT)
     public List<ConnectDto> connect(ConnectRequestDto request) throws ValidationException, ConnectorException {
         ConnectorDto dto = new ConnectorDto();
-        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(request.getAuthAttributes()));
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
         dto.setAuthType(request.getAuthType());
         dto.setUrl(request.getUrl());
         dto.setUuid(request.getUuid());
@@ -544,21 +542,21 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException {
+    public void validateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
         validateAttributes(connector, functionGroup, attributes, functionGroupType);
     }
 
-    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttributeDto> attributes, String functionGroupType) throws ValidationException, ConnectorException {
+    private void validateAttributes(Connector connector, FunctionGroupCode functionGroup, List<RequestAttribute> attributes, String functionGroupType) throws ValidationException, ConnectorException {
         validateFunctionGroup(connector, functionGroup);
         attributeApiClient.validateAttributes(connector.mapToDto(), functionGroup, attributes, functionGroupType);
     }
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.ANY)
-    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttributeDto> requestAttributes, String functionGroupType) throws ValidationException, ConnectorException, AttributeException, NotFoundException {
+    public void mergeAndValidateAttributes(SecuredUUID uuid, FunctionGroupCode functionGroup, List<RequestAttribute> requestAttributes, String functionGroupType) throws ValidationException, ConnectorException, AttributeException, NotFoundException {
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));
 
@@ -827,4 +825,5 @@ public class ConnectorServiceImpl implements ConnectorService {
         }
         return connectorDtos;
     }
+
 }

@@ -5,10 +5,11 @@ import com.czertainly.api.model.client.raprofile.RaProfileCmpDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.RaProfileScepDetailResponseDto;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.raprofile.RaProfileCertificateValidationSettingsDto;
 import com.czertainly.api.model.core.raprofile.RaProfileDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.acme.AcmeProfile;
 import com.czertainly.core.dao.entity.cmp.CmpProfile;
 import com.czertainly.core.dao.entity.scep.ScepProfile;
@@ -117,8 +118,8 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         }
         dto.setName(acmeProfile.getName());
         dto.setUuid(acmeProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), DataAttribute.class)));
-        dto.setRevokeCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), DataAttribute.class)));
+        dto.setIssueCertificateAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeIssueCertificateAttributes(), BaseAttribute.class)));
+        dto.setRevokeCertificateAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getAcmeRevokeCertificateAttributes(), BaseAttribute.class)));
         dto.setDirectoryUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()
                 + AcmeConstants.ACME_URI_HEADER + "/raProfile/" + name + "/directory");
         dto.setAcmeAvailable(true);
@@ -136,7 +137,7 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
                 + ScepServiceImpl.SCEP_URL_PREFIX + "/raProfile/" + name + "/pkiclient.exe");
         dto.setName(scepProfile.getName());
         dto.setUuid(scepProfile.getUuid().toString());
-        dto.setIssueCertificateAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), DataAttribute.class)));
+        dto.setIssueCertificateAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(protocolAttribute.getScepIssueCertificateAttributes(), BaseAttribute.class)));
         return dto;
     }
 
@@ -149,17 +150,17 @@ public class RaProfile extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setName(cmpProfile.getName());
         dto.setUuid(cmpProfile.getUuid().toString());
         dto.setIssueCertificateAttributes(
-                AttributeDefinitionUtils.getResponseAttributes(
+                AttributeEngine.getResponseAttributesFromBaseAttributes(
                         AttributeDefinitionUtils.deserialize(
                                 protocolAttribute.getCmpIssueCertificateAttributes(),
-                                DataAttribute.class)
+                                BaseAttribute.class)
                 )
         );
         dto.setRevokeCertificateAttributes(
-                AttributeDefinitionUtils.getResponseAttributes(
+                AttributeEngine.getResponseAttributesFromBaseAttributes(
                         AttributeDefinitionUtils.deserialize(
                                 protocolAttribute.getCmpRevokeCertificateAttributes(),
-                                DataAttribute.class)
+                                BaseAttribute.class)
                 )
         );
         dto.setCmpUrl(ServletUriComponentsBuilder.fromCurrentContextPath().build().toUriString()

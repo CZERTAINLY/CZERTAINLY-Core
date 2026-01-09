@@ -2,18 +2,17 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.KeyUsage;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDetailDto;
 import com.czertainly.api.model.core.cryptography.tokenprofile.TokenProfileDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.ComplianceProfile_;
 import com.czertainly.core.dao.entity.TokenInstanceReference;
 import com.czertainly.core.dao.entity.TokenProfile;
 import com.czertainly.core.dao.entity.TokenProfile_;
@@ -280,7 +279,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     }
 
-    private void mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttributeDto> attributes) throws ConnectorException, AttributeException {
+    private void mergeAndValidateAttributes(TokenInstanceReference tokenInstanceRef, List<RequestAttribute> attributes) throws ConnectorException, AttributeException {
         logger.debug("Merging and validating attributes for token instance: {}. Request Attributes: {}", tokenInstanceRef, attributes);
         if (tokenInstanceRef.getConnector() == null) {
             throw new ValidationException(ValidationError.create("Connector of the Entity is not available / deleted"));

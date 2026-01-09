@@ -3,10 +3,10 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -41,12 +41,12 @@ class TriggerServiceTest extends BaseSpringBootTest {
     @Autowired
     private NotificationProfileService notificationProfileService;
 
-    private CustomAttribute domainAttr;
+    private CustomAttributeV3 domainAttr;
     private NotificationProfileDetailDto notificationProfile;
 
     @BeforeEach
     void setUp() throws AttributeException, NotFoundException, AlreadyExistException {
-        domainAttr = new CustomAttribute();
+        domainAttr = new CustomAttributeV3();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);

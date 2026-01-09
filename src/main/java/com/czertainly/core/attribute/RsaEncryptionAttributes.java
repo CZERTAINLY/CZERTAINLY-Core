@@ -1,20 +1,20 @@
 package com.czertainly.core.attribute;
 
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.BooleanAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaEncryptionScheme;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
-import java.util.stream.Collectors;
+import java.util.UUID;
 import java.util.stream.Stream;
 
 @Component
@@ -54,7 +54,7 @@ public class RsaEncryptionAttributes {
 
     public static BaseAttribute buildDataEncryptionScheme() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_ENC_SCHEME_DESCRIPTION);
@@ -62,8 +62,8 @@ public class RsaEncryptionAttributes {
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(
                 Stream.of(RsaEncryptionScheme.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
+                        .toList()
         );
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
@@ -79,7 +79,7 @@ public class RsaEncryptionAttributes {
 
     public static BaseAttribute buildDataOaepMgf() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_DESCRIPTION);
@@ -99,7 +99,7 @@ public class RsaEncryptionAttributes {
 
     public static BaseAttribute buildDataOaepHash() {
         // define Data Attribute
-        DataAttribute attribute = new DataAttribute();
+        DataAttributeV2 attribute = new DataAttributeV2();
         attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
         attribute.setDescription(ATTRIBUTE_DATA_RSA_OAEP_HASH_DESCRIPTION);
@@ -107,8 +107,8 @@ public class RsaEncryptionAttributes {
         attribute.setContentType(AttributeContentType.STRING);
         attribute.setContent(
                 Stream.of(DigestAlgorithm.values())
-                        .map(item -> new StringAttributeContent(item.getLabel(), item.getCode()))
-                        .collect(Collectors.toList())
+                        .map(item -> new StringAttributeContentV2(item.getLabel(), item.getCode()))
+                        .toList()
         );
         // create properties
         DataAttributeProperties attributeProperties = new DataAttributeProperties();
@@ -122,33 +122,33 @@ public class RsaEncryptionAttributes {
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestEncryptionScheme(RsaEncryptionScheme value) {
+    public static RequestAttributeV2 buildRequestEncryptionScheme(RsaEncryptionScheme value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID);
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_ENC_SCHEME_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_ENC_SCHEME_NAME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestOaepHash(DigestAlgorithm value) {
+    public static RequestAttributeV2 buildRequestOaepHash(DigestAlgorithm value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID);
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_OAEP_HASH_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_HASH_NAME);
         attribute.setContentType(AttributeContentType.STRING);
-        attribute.setContent(List.of(new StringAttributeContent(value.getCode())));
+        attribute.setContent(List.of(new StringAttributeContentV2(value.getCode())));
         return attribute;
     }
 
-    public static RequestAttributeDto buildRequestOaepMgf(boolean value) {
+    public static RequestAttributeV2 buildRequestOaepMgf(boolean value) {
         // define Data Attribute
-        RequestAttributeDto attribute = new RequestAttributeDto();
-        attribute.setUuid(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID);
+        RequestAttributeV2 attribute = new RequestAttributeV2();
+        attribute.setUuid(UUID.fromString(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_UUID));
         attribute.setName(ATTRIBUTE_DATA_RSA_OAEP_USE_MGF_NAME);
         attribute.setContentType(AttributeContentType.BOOLEAN);
-        attribute.setContent(List.of(new BooleanAttributeContent(value)));
+        attribute.setContent(List.of(new BooleanAttributeContentV2(value)));
         return attribute;
     }
 }

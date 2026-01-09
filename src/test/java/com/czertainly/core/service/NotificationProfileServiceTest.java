@@ -3,24 +3,30 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.interfaces.core.web.NotificationProfileController;
-import com.czertainly.api.model.client.connector.ConnectorRequestDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
+import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.client.notification.NotificationProfileResponseDto;
 import com.czertainly.api.model.client.notification.NotificationProfileUpdateRequestDto;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.events.data.ScheduledJobFinishedEventData;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
 import com.czertainly.api.model.core.certificate.group.GroupRequestDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
-import com.czertainly.api.model.core.notification.NotificationInstanceRequestDto;
 import com.czertainly.api.model.core.notification.RecipientType;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.entity.Connector;
+import com.czertainly.core.dao.entity.notifications.NotificationInstanceMappedAttributes;
 import com.czertainly.core.dao.entity.notifications.NotificationInstanceReference;
 import com.czertainly.core.dao.repository.ConnectorRepository;
+import com.czertainly.core.dao.repository.notifications.NotificationInstanceMappedAttributeRepository;
 import com.czertainly.core.dao.repository.notifications.NotificationInstanceReferenceRepository;
 import com.czertainly.core.messaging.listeners.NotificationListener;
 import com.czertainly.core.messaging.model.NotificationMessage;
@@ -61,6 +67,12 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
     @Autowired
     private NotificationInstanceReferenceRepository notificationInstanceReferenceRepository;
 
+    @Autowired
+    private NotificationInstanceMappedAttributeRepository notificationInstanceMappedAttributeRepository;
+
+    @Autowired
+    private AttributeService attributeService;
+
     private NotificationProfileDetailDto originalNotificationProfile;
 
     @BeforeEach
@@ -74,13 +86,34 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testCreateNotificationProfile() throws NotFoundException, AlreadyExistException, AttributeException {
-        WireMockServer mockServer = new WireMockServer();
+        WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
         WireMock.configureFor("localhost", mockServer.port());
-        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson("[]")));
+        mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/notificationProvider/[^/]+/attributes/mapping")).willReturn(WireMock.okJson(
+                """
+                        [
+                         {"uuid": "1e5657af-423b-4b4b-a9f7-b1150c584a4a","name": "attr2", "content": [{"data": "PEM"}], "type": "data", "version": 2, "contentType": "string", "properties": {"required": false}},
+                         {"uuid": "1e5657af-423b-4b4b-a9f7-b1150c584a4b","name": "attr3", "content": [{"data": "PEM", "contentType" : "string"}], "type": "data", "version": 3, "contentType": "string"}
+                        ]""")));
+
+
+        CustomAttributeDefinitionDetailDto customAttribute2 = createCustomAttribute("attr2", AttributeContentType.STRING);
+        CustomAttributeDefinitionDetailDto customAttribute3 = createCustomAttribute("attr3", AttributeContentType.STRING);
+
 
         GroupRequestDto groupRequestDto = new GroupRequestDto();
         groupRequestDto.setName("Test group");
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
+        requestAttributeV2.setName(customAttribute2.getName());
+        requestAttributeV2.setContent(List.of(new StringAttributeContentV2("2")));
+        requestAttributeV2.setContentType(AttributeContentType.STRING);
+        requestAttributeV2.setUuid(UUID.fromString(customAttribute2.getUuid()));
+        RequestAttributeV3 requestAttributeV3 = new RequestAttributeV3();
+        requestAttributeV3.setName(customAttribute3.getName());
+        requestAttributeV3.setContent(List.of(new StringAttributeContentV3("3")));
+        requestAttributeV3.setContentType(AttributeContentType.STRING);
+        requestAttributeV3.setUuid(UUID.fromString(customAttribute3.getUuid()));
+        groupRequestDto.setCustomAttributes(List.of(requestAttributeV2, requestAttributeV3));
         GroupDto groupDto = groupService.createGroup(groupRequestDto);
 
         Connector connector = new Connector();
@@ -94,7 +127,18 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
         instance.setKind("EMAIL");
         instance.setConnectorUuid(connector.getUuid());
         instance.setNotificationInstanceUuid(UUID.randomUUID());
+
         notificationInstanceReferenceRepository.save(instance);
+
+        NotificationInstanceMappedAttributes mappedAttributes = new NotificationInstanceMappedAttributes();
+        mappedAttributes.setAttributeDefinitionUuid(UUID.fromString(customAttribute2.getUuid()));
+        mappedAttributes.setMappingAttributeUuid(UUID.fromString("1e5657af-423b-4b4b-a9f7-b1150c584a4a"));
+        mappedAttributes.setNotificationInstanceRefUuid(instance.getUuid());
+        NotificationInstanceMappedAttributes mappedAttributes3 = new NotificationInstanceMappedAttributes();
+        mappedAttributes3.setAttributeDefinitionUuid(UUID.fromString(customAttribute3.getUuid()));
+        mappedAttributes3.setNotificationInstanceRefUuid(instance.getUuid());
+        mappedAttributes3.setMappingAttributeUuid(UUID.fromString("1e5657af-423b-4b4b-a9f7-b1150c584a4b"));
+        notificationInstanceMappedAttributeRepository.saveAll(List.of(mappedAttributes, mappedAttributes3));
 
         NotificationProfileRequestDto requestDto = new NotificationProfileRequestDto();
         requestDto.setName(originalNotificationProfile.getName());
@@ -176,6 +220,16 @@ class NotificationProfileServiceTest extends BaseSpringBootTest {
     void testDeleteNotificationProfile() {
         Assertions.assertThrows(NotFoundException.class, () -> notificationProfileService.deleteNotificationProfile(SecuredUUID.fromUUID(UUID.randomUUID())));
         Assertions.assertDoesNotThrow(() -> notificationProfileService.deleteNotificationProfile(SecuredUUID.fromString(originalNotificationProfile.getUuid())));
+    }
+
+    private CustomAttributeDefinitionDetailDto createCustomAttribute(String name, AttributeContentType contentType) throws AlreadyExistException, AttributeException {
+        CustomAttributeCreateRequestDto customAttributeRequest = new CustomAttributeCreateRequestDto();
+        customAttributeRequest.setName(name);
+        customAttributeRequest.setLabel(name);
+        customAttributeRequest.setResources(List.of(Resource.GROUP));
+        customAttributeRequest.setContentType(contentType);
+
+        return attributeService.createCustomAttribute(customAttributeRequest);
     }
 
 }

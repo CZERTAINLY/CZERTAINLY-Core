@@ -2,7 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.ComplianceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -45,6 +45,12 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     private ComplianceProfileAssociationRepository complianceProfileAssociationRepository;
 
     private ComplianceApiClient complianceApiClientV1;
+    private AttributeEngine attributeEngine;
+
+    @Autowired
+    public void setAttributeEngine(AttributeEngine attributeEngine) {
+        this.attributeEngine = attributeEngine;
+    }
 
     @Autowired
     public void setConnectorRepository(ConnectorRepository connectorRepository) {
@@ -223,7 +229,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
         return getProviderRule(complianceProfile.getUuid(), complianceProfile.getName(), UUID.fromString(request.getConnectorUuid()), request.getKind(), request.getRuleUuid(), complianceProfileRule.getAttributes());
     }
 
-    private ComplianceProfileRuleDto getProviderRule(UUID complianceProfileUuid, String complianceProfileName, UUID connectorUuid, String kind, String ruleUuid, List<RequestAttributeDto> requestAttributes) throws NotFoundException, ConnectorException {
+    private ComplianceProfileRuleDto getProviderRule(UUID complianceProfileUuid, String complianceProfileName, UUID connectorUuid, String kind, String ruleUuid, List<RequestAttribute> requestAttributes) throws NotFoundException, ConnectorException {
         ConnectorDto connectorDto = getValidatedComplianceProvider(connectorUuid, kind);
 
         ComplianceProfileRuleDto resultRule = null;
@@ -239,7 +245,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
                 resultRule.setKind(kind);
                 resultRule.setGroupUuid(providerRule.getGroupUuid());
                 resultRule.setCertificateType(providerRule.getCertificateType());
-                resultRule.setAttributes(AttributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), requestAttributes));
+                resultRule.setAttributes(attributeEngine.getRequestDataAttributesContent(providerRule.getAttributes(), requestAttributes));
                 resultRule.setComplianceProfileUuid(complianceProfileUuid.toString());
                 resultRule.setComplianceProfileName(complianceProfileName);
                 break;
