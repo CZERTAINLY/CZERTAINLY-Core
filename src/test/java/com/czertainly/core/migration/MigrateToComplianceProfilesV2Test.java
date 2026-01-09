@@ -10,6 +10,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import db.migration.V202507311051__MigrateToComplianceProfilesV2;
 import org.flywaydb.core.api.migration.Context;
 import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mockito;
@@ -27,7 +28,6 @@ import java.sql.Statement;
 import java.util.List;
 import java.util.UUID;
 
-@Transactional
 @ExtendWith(MockitoExtension.class)
 @DirtiesContext(classMode = DirtiesContext.ClassMode.AFTER_CLASS)
 class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {

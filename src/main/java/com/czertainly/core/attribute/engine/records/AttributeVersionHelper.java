@@ -19,9 +19,9 @@ import java.io.Serializable;
 import java.util.List;
 import java.util.UUID;
 
-public class AttributeVersionFactory {
+public class AttributeVersionHelper {
 
-    private AttributeVersionFactory(){}
+    private AttributeVersionHelper(){}
 
     public static ResponseAttribute getResponseAttribute(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType, int version) {
         if (version == 2) {

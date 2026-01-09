@@ -1,6 +1,13 @@
 package com.czertainly.core.util;
 
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.DateAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.search.FilterConditionOperator;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.enums.FilterField;
@@ -8,6 +15,7 @@ import com.czertainly.core.model.SearchFieldObject;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.time.LocalDate;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -21,6 +29,42 @@ class SearchHelperTest extends BaseSpringBootTest {
         Assertions.assertFalse(searchFieldDataDto.getConditions().isEmpty());
         Assertions.assertFalse(searchFieldDataDto.getConditions().contains(FilterConditionOperator.IN_NEXT), "Condition should not contain IN_NEXT operator");
         Assertions.assertFalse(searchFieldDataDto.getConditions().contains(FilterConditionOperator.IN_PAST), "Condition should not contain IN_PAST operator");
+    }
+
+    @Test
+    void testCreateSearchFieldObject() {
+        DataAttributeV3 attributeV3 = new DataAttributeV3();
+        attributeV3.setName("name");
+        LocalDate now = LocalDate.now();
+        attributeV3.setContent(List.of(new DateAttributeContentV3(now)));
+        DataAttributeProperties dataAttributeProperties = new DataAttributeProperties();
+        dataAttributeProperties.setList(true);
+        attributeV3.setContentType(AttributeContentType.DATE);
+        attributeV3.setProperties(dataAttributeProperties);
+        SearchFieldObject searchFieldObject = new SearchFieldObject(attributeV3.getName(), attributeV3.getContentType(), AttributeType.DATA, "label", attributeV3);
+        Assertions.assertEquals(List.of(now.toString()), searchFieldObject.getContentItems());
+
+        dataAttributeProperties.setList(false);
+        attributeV3.setProperties(dataAttributeProperties);
+        searchFieldObject = new SearchFieldObject(attributeV3.getName(), attributeV3.getContentType(), AttributeType.DATA, "label", attributeV3);
+        Assertions.assertNull(searchFieldObject.getContentItems());
+
+
+        CustomAttributeV3 customAttributeV3 = new CustomAttributeV3();
+        customAttributeV3.setName("name");
+        customAttributeV3.setContent(List.of(new StringAttributeContentV3("string")));
+        CustomAttributeProperties customAttributeProperties = new CustomAttributeProperties();
+        customAttributeProperties.setList(true);
+        customAttributeV3.setContentType(AttributeContentType.DATE);
+        customAttributeV3.setProperties(customAttributeProperties);
+        searchFieldObject = new SearchFieldObject(customAttributeV3.getName(), customAttributeV3.getContentType(), AttributeType.CUSTOM, "label", customAttributeV3);
+        Assertions.assertEquals(List.of("string"), searchFieldObject.getContentItems());
+
+        customAttributeProperties.setList(false);
+        customAttributeV3.setProperties(customAttributeProperties);
+        searchFieldObject = new SearchFieldObject(customAttributeV3.getName(), customAttributeV3.getContentType(), AttributeType.CUSTOM, "label", customAttributeV3);
+        Assertions.assertNull(searchFieldObject.getContentItems());
+
     }
 
     @Test

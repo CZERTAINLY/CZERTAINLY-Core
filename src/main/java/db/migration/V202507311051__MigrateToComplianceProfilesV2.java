@@ -2,7 +2,7 @@ package db.migration;
 
 import com.czertainly.api.exception.CertificateOperationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeV2;
-import com.czertainly.api.model.common.attribute.v2.BaseAttributeV2;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.compliance.ComplianceStatus;
@@ -172,7 +172,7 @@ public class V202507311051__MigrateToComplianceProfilesV2 extends BaseJavaMigrat
                     String attributesStr = rulesRows.getString("attributes");
                     if (attributesStr != null && !attributesStr.isBlank()) {
                         try {
-                            Map<String, DataAttributeV2> attributes = Arrays.stream(mapper.readValue(attributesStr, BaseAttributeV2[].class))
+                            Map<String, DataAttributeV2> attributes = Arrays.stream(mapper.readValue(attributesStr, BaseAttribute[].class))
                                     .filter(DataAttributeV2.class::isInstance)
                                     .collect(HashMap::new, (m, a) -> m.put(a.getName(), (DataAttributeV2) a), HashMap::putAll);
                             ruleAttributesMap.put(ruleUuid, attributes);

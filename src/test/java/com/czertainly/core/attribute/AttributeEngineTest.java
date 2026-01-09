@@ -3,13 +3,11 @@ package com.czertainly.core.attribute;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.client.attribute.RequestAttributeV2;
-import com.czertainly.api.model.client.attribute.RequestAttributeV3;
-import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
@@ -207,6 +205,23 @@ class AttributeEngineTest extends BaseSpringBootTest {
     }
 
     @Test
+    void testGetResponseAttributesFromBaseAttributes() {
+        DataAttributeV2 dataAttributeV2 = new DataAttributeV2();
+        dataAttributeV2.setUuid(UUID.randomUUID().toString());
+        dataAttributeV2.setName("name");
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("label");
+        dataAttributeV2.setProperties(properties);
+        dataAttributeV2.setContent(List.of(new StringAttributeContentV2("data")));
+        dataAttributeV2.setContentType(AttributeContentType.STRING);
+        List<ResponseAttribute> responseAttributes = AttributeEngine.getResponseAttributesFromBaseAttributes(List.of(departmentCustomAttribute, dataAttributeV2));
+        Assertions.assertEquals(2, responseAttributes.size());
+        Assertions.assertEquals(departmentCustomAttribute.getContent(), responseAttributes.getFirst().getContent());
+        Assertions.assertEquals(dataAttributeV2.getContent(), responseAttributes.getLast().getContent());
+        Assertions.assertEquals(dataAttributeV2.getProperties().getLabel(), responseAttributes.getLast().getLabel());
+    }
+
+    @Test
     void validateCodeBlockAttributeContent() throws AttributeException {
         DataAttributeV2 codeBlockData = new DataAttributeV2();
         codeBlockData.setContentType(AttributeContentType.CODEBLOCK);
@@ -222,7 +237,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         codeBlockData.setProperties(props);
         UUID connectorUuid = connectorAuthority.getUuid();
-        List<BaseAttributeV2> codeBlockDataList = List.of(codeBlockData);
+        List<BaseAttribute> codeBlockDataList = List.of(codeBlockData);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, codeBlockDataList);
 
         RequestAttributeV2 requestAttribute = new RequestAttributeV2();
@@ -340,6 +355,19 @@ class AttributeEngineTest extends BaseSpringBootTest {
         departmentAttributeDto.setName(departmentCustomAttribute.getName());
         departmentAttributeDto.setContent(List.of(new StringAttributeContentV3("Sales")));
         attributeEngine.updateObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid(), List.of(departmentAttributeDto));
+    }
+
+    @Test
+    void testGetResponseAttributesFromRequestAttributes() {
+        RequestAttributeV2 requestAttributeV2 = new RequestAttributeV2();
+        requestAttributeV2.setContent(List.of(new DateAttributeContentV2(LocalDate.now())));
+        RequestAttributeV3 requestAttributeV3 = new RequestAttributeV3();
+        requestAttributeV3.setContent(List.of(new StringAttributeContentV3("STR")));
+        List<ResponseAttribute> responseAttributes = AttributeEngine.getResponseAttributesFromRequestAttributes(List.of(requestAttributeV2, requestAttributeV3));
+        Assertions.assertEquals(2, responseAttributes.size());
+        Assertions.assertNotNull(responseAttributes.getFirst().getContent());
+        Assertions.assertNotNull(responseAttributes.getLast().getContent());
+
     }
 
     @Test
@@ -477,7 +505,7 @@ class AttributeEngineTest extends BaseSpringBootTest {
         props.setList(false);
         requiredAttribute.setProperties(props);
         UUID connectorUuid = connectorAuthority.getUuid();
-        List<BaseAttributeV2> requiredAttributeList = List.of(requiredAttribute);
+        List<BaseAttribute> requiredAttributeList = List.of(requiredAttribute);
         attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, requiredAttributeList);
 
         RequestAttributeV2 requestAttribute = new RequestAttributeV2();

@@ -28,25 +28,25 @@ public class RaProfileProtocolAttribute extends UniquelyIdentified {
     /**
      * ACME related attributes
      */
-    @Column(name = "acme_issue_certificate_attributes")
+    @Column(name = "acme_issue_certificate_attributes", length = Integer.MAX_VALUE)
     private String acmeIssueCertificateAttributes;
 
-    @Column(name = "acme_revoke_certificate_attributes")
+    @Column(name = "acme_revoke_certificate_attributes", length = Integer.MAX_VALUE)
     private String acmeRevokeCertificateAttributes;
 
     /**
      * SCEP related attributes
      */
-    @Column(name = "scep_issue_certificate_attributes")
+    @Column(name = "scep_issue_certificate_attributes", length = Integer.MAX_VALUE)
     private String scepIssueCertificateAttributes;
 
     /**
      * CMP protocol related attributes
      */
-    @Column(name = "cmp_issue_certificate_attributes")
+    @Column(name = "cmp_issue_certificate_attributes", length = Integer.MAX_VALUE)
     private String cmpIssueCertificateAttributes;
 
-    @Column(name = "cmp_revoke_certificate_attributes")
+    @Column(name = "cmp_revoke_certificate_attributes", length = Integer.MAX_VALUE)
     private String cmpRevokeCertificateAttributes;
 
     public void setRaProfile(RaProfile raProfile) {

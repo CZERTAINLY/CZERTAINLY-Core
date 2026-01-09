@@ -43,10 +43,18 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
         Assertions.assertFalse(types.isEmpty());
     }
 
+    @Test
+    void testGetAuthAttributes() {
+        Assertions.assertDoesNotThrow(() -> connectorAuthService.getAuthAttributes(AuthType.BASIC));
+        Assertions.assertDoesNotThrow(() -> connectorAuthService.getAuthAttributes(AuthType.CERTIFICATE));
+        Assertions.assertDoesNotThrow(() -> connectorAuthService.getAuthAttributes(AuthType.API_KEY));
+        Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.getAuthAttributes(AuthType.JWT));
+    }
+
 
     @Test
     void testGetBasicAuthAttributes() {
-        List<DataAttribute<?>> attrs = connectorAuthService.getBasicAuthAttributes();
+        List<DataAttribute> attrs = connectorAuthService.getBasicAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -54,18 +62,19 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
     @Test
     void testValidateBasicAuthAttributes() {
         List<RequestAttribute> attrs = new ArrayList<>();
-
-
         attrs.addAll(createAttributes(ATTRIBUTE_USERNAME, List.of(new StringAttributeContentV2("username"))));
         attrs.addAll(createAttributes(ATTRIBUTE_PASSWORD, List.of(new StringAttributeContentV2("password"))));
 
         boolean result = connectorAuthService.validateBasicAuthAttributes(attrs);
         Assertions.assertTrue(result);
+
+        result = connectorAuthService.validateAuthAttributes(AuthType.BASIC, attrs);
+        Assertions.assertTrue(result);
     }
 
     @Test
     void testGetCertificateAttributes() {
-        List<DataAttribute<?>> attrs = connectorAuthService.getCertificateAttributes();
+        List<DataAttribute> attrs = connectorAuthService.getCertificateAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -83,11 +92,14 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
         boolean result = connectorAuthService.validateCertificateAttributes(attrs);
         Assertions.assertTrue(result);
+
+        result = connectorAuthService.validateAuthAttributes(AuthType.CERTIFICATE, attrs);
+        Assertions.assertTrue(result);
     }
 
     @Test
     void testGetApiKeyAuthAttributes() {
-        List<DataAttribute<?>> attrs = connectorAuthService.getApiKeyAuthAttributes();
+        List<DataAttribute> attrs = connectorAuthService.getApiKeyAuthAttributes();
         Assertions.assertNotNull(attrs);
         Assertions.assertFalse(attrs.isEmpty());
     }
@@ -106,6 +118,9 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
         boolean result = connectorAuthService.validateApiKeyAuthAttributes(attrs);
         Assertions.assertTrue(result);
+
+        result = connectorAuthService.validateAuthAttributes(AuthType.API_KEY, attrs);
+        Assertions.assertTrue(result);
     }
 
     @Test
@@ -115,7 +130,9 @@ class ConnectorAuthServiceTest extends BaseSpringBootTest {
 
     @Test
     void testValidateJWTAuthAttributes() {
-        Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.validateBasicAuthAttributes(List.of()));
+        List<RequestAttribute> attributes = List.of();
+        Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.validateBasicAuthAttributes(attributes));
+        Assertions.assertThrows(ValidationException.class, () -> connectorAuthService.validateAuthAttributes(AuthType.JWT, attributes));
     }
 
     private static List<RequestAttributeV2> createAttributes(String name, List<BaseAttributeContentV2<?>> content) {

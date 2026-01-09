@@ -6,7 +6,6 @@ import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
-import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.events.data.*;
 import com.czertainly.api.model.connector.notification.NotificationProviderNotifyRequestDto;
 import com.czertainly.api.model.connector.notification.NotificationRecipientDto;
@@ -16,7 +15,7 @@ import com.czertainly.api.model.core.auth.UserDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.records.AttributeVersionFactory;
+import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.Group;
 import com.czertainly.core.dao.entity.notifications.*;
 import com.czertainly.core.dao.repository.GroupRepository;
@@ -299,7 +298,7 @@ public class NotificationListener {
             throw new ValidationException("Notification instance does not have assigned connector");
         }
 
-        List<DataAttribute<?>> mappingAttributes;
+        List<DataAttribute> mappingAttributes;
         ConnectorDto connector = notificationInstanceReference.getConnector().mapToDto();
         try {
             mappingAttributes = notificationInstanceApiClient.listMappingAttributes(connector, notificationInstanceReference.getKind());
@@ -390,17 +389,16 @@ public class NotificationListener {
     }
 
     private List<RequestAttribute> getMappedAttributes(NotificationInstanceReference
-                                                               notificationInstanceReference, List<DataAttribute<?>> mappingAttributes, List<ResponseAttribute> recipientCustomAttributes) throws
+                                                               notificationInstanceReference, List<DataAttribute> mappingAttributes, List<ResponseAttribute> recipientCustomAttributes) throws
             ValidationException {
         List<RequestAttribute> mappedAttributes = new ArrayList<>();
         HashMap<String, ResponseAttribute> mappedContent = new HashMap<>();
         for (NotificationInstanceMappedAttributes mappedAttribute : notificationInstanceReference.getMappedAttributes()) {
-            Optional<ResponseAttribute> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid().toString())).findFirst();
+            Optional<ResponseAttribute> recipientCustomAttribute = recipientCustomAttributes.stream().filter(c -> c.getUuid().equals(mappedAttribute.getAttributeDefinitionUuid())).findFirst();
             recipientCustomAttribute.ifPresent(responseAttributeDto -> mappedContent.put(mappedAttribute.getMappingAttributeUuid().toString(), responseAttributeDto));
         }
 
-        for (DataAttribute<?> mappingAttributeBase : mappingAttributes) {
-            DataAttributeV3 mappingAttribute = (DataAttributeV3) mappingAttributeBase;
+        for (DataAttribute mappingAttribute : mappingAttributes) {
             ResponseAttribute recipientCustomAttribute = mappedContent.get(mappingAttribute.getUuid());
 
             if (recipientCustomAttribute == null) {
@@ -416,8 +414,8 @@ public class NotificationListener {
                         mappingAttribute.getName(), mappingAttribute.getUuid(), mappingAttribute.getContentType().getLabel()));
             }
 
-            RequestAttribute requestAttribute = AttributeVersionFactory
-                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getSchemaVersion().getVersion());
+            RequestAttribute requestAttribute = AttributeVersionHelper
+                    .getRequestAttribute(UUID.fromString(mappingAttribute.getUuid()), mappingAttribute.getName(), recipientCustomAttribute.getContent(), mappingAttribute.getContentType(), mappingAttribute.getVersion());
             mappedAttributes.add(requestAttribute);
         }
 

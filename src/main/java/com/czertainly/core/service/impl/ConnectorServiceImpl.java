@@ -267,7 +267,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         attributeEngine.validateCustomAttributesContent(Resource.CONNECTOR, request.getCustomAttributes());
         List<BaseAttribute> authAttributes = connectorAuthService.mergeAndValidateAuthAttributes(
                 request.getAuthType(),
-                attributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
+                AttributeEngine.getResponseAttributesFromRequestAttributes(request.getAuthAttributes()));
 
         Connector connector = connectorRepository.findByUuid(uuid)
                 .orElseThrow(() -> new NotFoundException(Connector.class, uuid));

@@ -11,7 +11,6 @@ import com.czertainly.api.model.client.location.EditLocationRequestDto;
 import com.czertainly.api.model.client.location.IssueToLocationRequestDto;
 import com.czertainly.api.model.client.location.PushToLocationRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
@@ -738,9 +737,11 @@ public class LocationServiceImpl implements LocationService {
     private LocationDto mapLocationToDto(Location location) {
         LocationDto locationDto = location.mapToDto();
         for (CertificateLocation certificateLocation : location.getCertificates()) {
-            CertificateInLocationDto certificateLocationDto = locationDto.getCertificates().stream().filter(cl -> cl.getCertificateUuid().equals(certificateLocation.getCertificate().getUuid().toString())).findFirst().get();
-            certificateLocationDto.setCsrAttributes(attributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
-            certificateLocationDto.setPushAttributes(attributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
+            CertificateInLocationDto certificateLocationDto = locationDto.getCertificates().stream().filter(cl -> cl.getCertificateUuid().equals(certificateLocation.getCertificate().getUuid().toString())).findFirst().orElse(null);
+            if (certificateLocationDto != null) {
+                certificateLocationDto.setCsrAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getCsrAttributes()));
+                certificateLocationDto.setPushAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(certificateLocation.getPushAttributes()));
+            }
         }
         return locationDto;
     }
@@ -1145,7 +1146,7 @@ public class LocationServiceImpl implements LocationService {
     private void validateLocationCreation(EntityInstanceReference entityInstance, List<RequestAttribute> requestDto) throws ValidationException {
 
         for (Location location : locationRepository.findByEntityInstanceReference(entityInstance)) {
-            List<DataAttribute<?>> locationAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, entityInstance.getConnectorUuid(), null, Resource.LOCATION, location.getUuid());
+            List<DataAttribute> locationAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, entityInstance.getConnectorUuid(), null, Resource.LOCATION, location.getUuid());
             if (AttributeDefinitionUtils.checkAttributeEquality(requestDto, locationAttributes)) {
                 throw new ValidationException(ValidationError.create("Location with same attributes already exists"));
             }

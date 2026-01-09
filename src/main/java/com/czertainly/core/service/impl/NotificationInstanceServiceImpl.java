@@ -202,7 +202,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     }
 
     @Override
-    public List<DataAttribute<?>> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
+    public List<DataAttribute> listMappingAttributes(String connectorUuid, String kind) throws ConnectorException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(connectorUuid));
         return notificationInstanceApiClient.listMappingAttributes(connector.mapToDto(), kind);
     }

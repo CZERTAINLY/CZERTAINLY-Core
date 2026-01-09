@@ -32,7 +32,7 @@ public interface CredentialService extends ResourceExtensionService {
 
     void bulkDeleteCredential(List<SecuredUUID> uuids) throws ValidationException, NotFoundException;
 
-    void loadFullCredentialData(List<DataAttribute<?>> attributes) throws NotFoundException;
+    void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException;
 
     void loadFullCredentialData(AttributeCallback callback, RequestAttributeCallback callbackRequest) throws NotFoundException;
 }

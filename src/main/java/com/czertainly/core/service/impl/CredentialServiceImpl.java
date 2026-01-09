@@ -188,14 +188,14 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.DETAIL)
-    public void loadFullCredentialData(List<DataAttribute<?>> attributes) throws NotFoundException {
+    public void loadFullCredentialData(List<DataAttribute> attributes) throws NotFoundException {
         // TODO: necessary to load full credentials this way?
         if (attributes == null || attributes.isEmpty()) {
             logger.warn("Given Attributes are null or empty");
             return;
         }
 
-        for (DataAttribute<?> attribute : attributes) {
+        for (DataAttribute attribute : attributes) {
             if (!AttributeContentType.CREDENTIAL.equals(attribute.getContentType())) {
                 logger.trace("Attribute not of type {} but {}.", AttributeContentType.CREDENTIAL, attribute.getType());
                 continue;
@@ -206,9 +206,9 @@ public class CredentialServiceImpl implements CredentialService {
 
             CredentialAttributeContentData credentialAttributeContentData = credential.mapToCredentialContent();
             credentialAttributeContentData.setAttributes(attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()).stream()
-                    .map(attr -> (DataAttributeV2) attr)   // only safe if you *know* all are V2
-                    .collect(Collectors.toList()));
-            ((DataAttributeV2) attribute).setContent(List.of(new CredentialAttributeContentV2(credentialId.getName(), credentialAttributeContentData)));
+                    .map(DataAttributeV2.class::cast)   // only safe if you *know* all are V2
+                    .toList());
+            attribute.setContent(List.of(new CredentialAttributeContentV2(credentialId.getName(), credentialAttributeContentData)));
             logger.debug("Value of Credential Attribute {} updated.", attribute.getName());
         }
     }
@@ -264,8 +264,8 @@ public class CredentialServiceImpl implements CredentialService {
                                 Credential credential = getCredentialEntity(SecuredUUID.fromString(credentialUuid));
                                 CredentialAttributeContentData credentialAttributeContentData = credential.mapToCredentialContent();
                                 credentialAttributeContentData.setAttributes(attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, credential.getConnectorUuid(), null, Resource.CREDENTIAL, credential.getUuid()).stream()
-                                        .map(attr -> (DataAttributeV2) attr)   // only safe if you *know* all are V2
-                                        .collect(Collectors.toList()));
+                                        .map(DataAttributeV2.class::cast)
+                                        .toList());
                                 requestAttributeCallback.getBody().put(mapping.getTo(), credentialAttributeContentData);
                                 break;
                         }
