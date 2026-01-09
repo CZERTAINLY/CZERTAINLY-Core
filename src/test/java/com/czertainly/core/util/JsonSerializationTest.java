@@ -27,7 +27,6 @@ class JsonSerializationTest {
     static {
         MAPPER.findAndRegisterModules();
         MAPPER.configure(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS, false);
-        MAPPER.setSerializationInclusion(JsonInclude.Include.NON_NULL);
     }
 
     @Test
