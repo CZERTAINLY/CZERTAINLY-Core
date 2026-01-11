@@ -1,6 +1,7 @@
 package com.czertainly.core.dao.repository;
 
 import com.czertainly.core.dao.entity.RaProfile;
+import org.springframework.data.jpa.repository.Query;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -25,4 +26,7 @@ public interface RaProfileRepository extends SecurityFilterRepository<RaProfile,
     List<RaProfile> findAllByCmpProfileUuid(UUID cmpProfileUuid);
 
     List<RaProfile> findAllByUuidIn(List<UUID>uuids);
+
+    @Query(value="SELECT name FROM core.ra_profile", nativeQuery = true)
+    List<String> findAllNames();
 }
