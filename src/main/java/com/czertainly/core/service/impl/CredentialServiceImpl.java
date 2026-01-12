@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -282,7 +283,7 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return credentialRepository.listResourceObjects(filter, Credential_.name);
     }
 

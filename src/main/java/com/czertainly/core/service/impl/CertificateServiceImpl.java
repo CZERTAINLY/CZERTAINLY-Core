@@ -7,10 +7,10 @@ import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -115,7 +115,7 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CERTIFICATE)
 @Transactional
-public class CertificateServiceImpl implements CertificateService {
+public class CertificateServiceImpl implements CertificateService, AttributeResourceService {
 
     // batch size will prevent bloating size of enqueued message and better utilize parallel processing
     // NOTE: improve handling of large batches vs many produced messages to queue
@@ -330,7 +330,7 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(request);
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(request.getFilters(), request.isIncludeArchived());
         final List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
         final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidInOrderByCreatedDesc(certificateUuids);
         final List<CertificateDto> listedKeyDTOs = certificates.stream().map(Certificate::mapToListDto).toList();
@@ -345,12 +345,11 @@ public class CertificateServiceImpl implements CertificateService {
         return responseDto;
     }
 
-    private static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> getAdditionalWhereClause(CertificateSearchRequestDto request) {
-        List<SearchFilterRequestDto> filters = new ArrayList<>(request.getFilters());
+    private static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> getAdditionalWhereClause(List<SearchFilterRequestDto> filters, boolean includeArchived) {
         return (root, cb, cr) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters));
-            if (!request.isIncludeArchived()) {
+            if (!includeArchived) {
                 predicates.add(cb.isFalse(root.get(Certificate_.ARCHIVED)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -1406,8 +1405,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        throw new NotSupportedException("Listing of resource objects is not supported for resource certificates.");
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(filters, false);
+        return certificateRepository.listResourceObjects(filter, Certificate_.commonName, additionalWhereClause);
     }
 
     @Override
@@ -2121,5 +2121,10 @@ public class CertificateServiceImpl implements CertificateService {
             throw new ValidationException("Unsupported certificate type validator for certificate type " + certificateType.getLabel());
         }
         return certificateValidator;
+    }
+
+    @Override
+    public List<ResourceObjectContentData> getResourceObjectContent(List<SearchFilterRequestDto> filters) {
+        return List.of();
     }
 }

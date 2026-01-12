@@ -373,7 +373,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create(), null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

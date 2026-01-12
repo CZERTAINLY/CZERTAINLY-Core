@@ -5,6 +5,7 @@ import com.czertainly.api.clients.ConnectorApiClient;
 import com.czertainly.api.clients.HealthApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.connector.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
@@ -673,7 +674,7 @@ public class ConnectorServiceImpl implements ConnectorService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return connectorRepository.listResourceObjects(filter, Connector_.name);
     }
 

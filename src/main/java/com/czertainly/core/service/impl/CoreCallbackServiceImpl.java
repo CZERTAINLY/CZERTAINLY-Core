@@ -1,13 +1,20 @@
 package com.czertainly.core.service.impl;
 
+import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
+import com.czertainly.api.model.core.auth.AttributeResource;
+import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.search.FilterConditionOperator;
+import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CoreCallbackService;
 import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.service.ResourceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -21,8 +28,19 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
 
     public static final String CREDENTIAL_KIND_PATH_VARIABLE = "credentialKind";
 
-    @Autowired
     private CredentialService credentialService;
+
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
+
+    @Autowired
+    public void setCredentialService(CredentialService credentialService) {
+        this.credentialService = credentialService;
+    }
 
     @Override
     public List<ObjectAttributeContentV2> coreGetCredentials(RequestAttributeCallback callback) throws ValidationException {
@@ -42,5 +60,19 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
 
         return jsonContent;
     }
+
+    @Override
+    public List<NameAndUuidDto> coreGetResources(RequestAttributeCallback callback, AttributeResource resource) throws NotFoundException {
+        List<SearchFilterRequestDto> filters = new ArrayList<>();
+        for (String filterDefinition : callback.getFilter().keySet()) {
+            String filterFieldString = filterDefinition.split("\\.")[0];
+            String filterOperatorString = filterDefinition.split("\\.")[1];
+            FilterConditionOperator operator = FilterConditionOperator.valueOf(filterOperatorString);
+            filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
+        }
+
+        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters);
+    }
+
 
 }

@@ -62,7 +62,7 @@ public class AuthControllerImpl implements AuthController {
 
     @Override
     public List<NameAndUuidDto> getObjectsForResource(Resource resourceName) throws NotFoundException {
-        return resourceService.getResourceObjects(resourceName);
+        return resourceService.getResourceObjects(resourceName, null);
     }
 
 

@@ -2,6 +2,7 @@ package com.czertainly.core.service.v2.impl;
 
 import com.czertainly.api.clients.v2.ComplianceApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.compliance.v2.*;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -486,7 +487,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.COMPLIANCE_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return complianceProfileRepository.listResourceObjects(filter, ComplianceProfile_.name);
     }
 

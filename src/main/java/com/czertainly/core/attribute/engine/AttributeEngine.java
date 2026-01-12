@@ -1148,7 +1148,7 @@ public class AttributeEngine {
                         .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
                         .disable(MapperFeature.USE_ANNOTATIONS)
                         .build();
-                objectMapper.convertValue(contentItem, contentTypeClass);
+                objectMapper.convertValue(contentItem, attributeDefinition.getContentType().getContentV2Class());
             } else {
                 ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
             }

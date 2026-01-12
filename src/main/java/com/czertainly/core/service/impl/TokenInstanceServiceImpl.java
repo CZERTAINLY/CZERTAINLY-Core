@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.cryptography.token.TokenInstanceRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -352,7 +353,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return tokenInstanceReferenceRepository.listResourceObjects(filter, TokenInstanceReference_.name);
     }
 

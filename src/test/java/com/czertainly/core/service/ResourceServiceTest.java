@@ -4,7 +4,6 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
@@ -181,13 +180,13 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
         for (Resource resource : resources) {
             // Call the method to test and check that it does not throw an exception
-            Assertions.assertDoesNotThrow(() -> resourceService.getResourceObjects(resource), "Should not throw exception for resource: " + resource);
+            Assertions.assertDoesNotThrow(() -> resourceService.getResourceObjects(resource, null), "Should not throw exception for resource: " + resource);
         }
 
         // Throw NotFoundException for unsupported resource
         Resource unsupportedResource = Resource.CERTIFICATE;
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(unsupportedResource), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(Resource.RULE), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(unsupportedResource, null), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(Resource.RULE, null), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
     }
 
     @Test

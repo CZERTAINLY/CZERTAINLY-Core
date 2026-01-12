@@ -14,6 +14,7 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.core.auth.AttributeResource;
 
 import java.io.Serializable;
 import java.util.List;

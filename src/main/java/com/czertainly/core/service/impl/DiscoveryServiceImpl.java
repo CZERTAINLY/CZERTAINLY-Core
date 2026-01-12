@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.DiscoveryApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
@@ -681,7 +682,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource discoveries.");
     }
 

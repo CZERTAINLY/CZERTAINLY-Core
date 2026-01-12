@@ -417,7 +417,7 @@ class LocationServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = locationService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = locationService.listResourceObjects(SecurityFilter.create(), null);
         Assertions.assertEquals(3, dtos.size());
     }
 

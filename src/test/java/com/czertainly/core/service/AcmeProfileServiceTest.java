@@ -268,7 +268,7 @@ class AcmeProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = acmeProfileService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = acmeProfileService.listResourceObjects(SecurityFilter.create(), null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

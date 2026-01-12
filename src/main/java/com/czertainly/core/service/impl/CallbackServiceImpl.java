@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
@@ -116,21 +117,30 @@ public class CallbackServiceImpl implements CallbackService {
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
+        BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connector.getUuid());
+        AttributeCallback attributeCallback = getAttributeCallback(attribute);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
         }
 
+        if (attributeCallback.getCallbackContext().equals("core/getResources")) {
+            return coreCallbackService.coreGetResources(callback, getAttributeResource(attribute));
+        }
+
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-        if (isGroupAttribute(callback.getName(), definitions)) {
+        if (attribute.getType().equals(AttributeType.GROUP)) {
             processGroupAttributes(connector.getUuid(), response);
         }
         return response;
+    }
+
+    private AttributeResource getAttributeResource(BaseAttribute attribute) {
+        return ((DataAttribute) attribute).getProperties().getResource();
     }
 
     @Override
@@ -191,8 +201,7 @@ public class CallbackServiceImpl implements CallbackService {
         }
 
         LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
-
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
+        AttributeCallback attributeCallback = getAttributeCallbackByName(callback.getName(), definitions, connector.getUuid());
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
         if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
@@ -210,7 +219,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
 
-    private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
+    private AttributeCallback getAttributeCallbackByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
                 AttributeType type = attributeDefinition.getType();
@@ -226,6 +235,32 @@ public class CallbackServiceImpl implements CallbackService {
         DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
         if (referencedAttribute != null) {
             return referencedAttribute.getAttributeCallback();
+        }
+
+        throw new NotFoundException(BaseAttribute.class, name);
+    }
+
+    private AttributeCallback getAttributeCallback(BaseAttribute attribute) {
+        AttributeType type = attribute.getType();
+        if (Objects.requireNonNull(type) == AttributeType.DATA) {
+            return ((DataAttribute) attribute).getAttributeCallback();
+        } else if (type == AttributeType.GROUP) {
+            return AttributeVersionHelper.getGroupAttributeCallback(attribute);
+        }
+        throw new IllegalArgumentException("Attribute %s is not of type DATA or GROUP, cannot get callback for this attribute".formatted(attribute.getName()));
+    }
+
+    private BaseAttribute getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
+        for (BaseAttribute attributeDefinition : attributes) {
+            if (attributeDefinition.getName().equals(name)) {
+                return attributeDefinition;
+            }
+        }
+
+        // if not present in definitions from connector, search in reference attributes in DB
+        DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
+        if (referencedAttribute != null) {
+            return referencedAttribute;
         }
 
         throw new NotFoundException(BaseAttribute.class, name);

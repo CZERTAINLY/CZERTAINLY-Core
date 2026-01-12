@@ -12,6 +12,7 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.CustomAttribute;
@@ -324,7 +325,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         List<AttributeDefinition> customAttributes = attributeDefinitionRepository.findUsingSecurityFilter(
                 filter, List.of(),
                 (root, cb, cr) -> cb.equal(root.get("type"), AttributeType.CUSTOM));

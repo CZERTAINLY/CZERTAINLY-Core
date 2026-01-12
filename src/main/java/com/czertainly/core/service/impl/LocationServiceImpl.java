@@ -5,6 +5,7 @@ import com.czertainly.api.clients.LocationApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.LocationsResponseDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.location.AddLocationRequestDto;
 import com.czertainly.api.model.client.location.EditLocationRequestDto;
@@ -753,7 +754,7 @@ public class LocationServiceImpl implements LocationService {
 
     @Override
     @ExternalAuthorization(resource = Resource.LOCATION, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return locationRepository.listResourceObjects(filter, Location_.name);
     }
 

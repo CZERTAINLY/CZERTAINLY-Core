@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.ComplianceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.compliance.*;
 import com.czertainly.api.model.client.raprofile.SimplifiedRaProfileDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -424,8 +425,8 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return complianceProfileServiceV2.listResourceObjects(filter);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
+        return complianceProfileServiceV2.listResourceObjects(filter, null);
     }
 
     @Override

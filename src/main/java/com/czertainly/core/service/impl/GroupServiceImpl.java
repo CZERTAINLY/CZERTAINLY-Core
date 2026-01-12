@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.group.GroupDto;
@@ -144,7 +145,7 @@ public class GroupServiceImpl implements GroupService {
 
     @Override
     @ExternalAuthorization(resource = Resource.GROUP, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return groupRepository.listResourceObjects(filter, Group_.name);
     }
 

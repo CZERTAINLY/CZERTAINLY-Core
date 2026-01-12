@@ -3,8 +3,11 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -39,9 +42,10 @@ public interface ResourceService {
      * Function to get the list of objects available to be displayed for object level access for Access Control
      *
      * @param resource Name of the resource to
+     * @param filters
      * @return List of NameAndUuidDto
      */
-    List<NameAndUuidDto> getResourceObjects(Resource resource) throws NotFoundException;
+    List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters) throws NotFoundException;
 
     /**
      * Update the attribute content for the object
@@ -85,5 +89,7 @@ public interface ResourceService {
      */
     Map<ResourceEvent, List<ResourceEventDto>> listAllResourceEvents();
 
-    public boolean hasResourceExtensionService(Resource resource);
+    boolean hasResourceExtensionService(Resource resource);
+
+    List<ResourceObjectContentData> getResourceObjectContentData(AttributeResource resource, List<SearchFilterRequestDto> filters);
 }

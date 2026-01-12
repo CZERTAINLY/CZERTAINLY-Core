@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.EditTokenProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -263,7 +264,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.TOKEN_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return tokenProfileRepository.listResourceObjects(filter, TokenProfile_.name);
     }
 

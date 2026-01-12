@@ -4,8 +4,11 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.NotSupportedException;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -42,6 +45,14 @@ public class ResourceServiceImpl implements ResourceService {
     private AttributeEngine attributeEngine;
 
     private Map<String, ResourceExtensionService> resourceExtensionServices;
+
+    private Map<String, AttributeResourceService> attributeResourceServices;
+
+    @Lazy
+    @Autowired
+    public void setAttributeResourceServices(Map<String, AttributeResourceService> attributeResourceServices) {
+        this.attributeResourceServices = attributeResourceServices;
+    }
 
     @Lazy
     @Autowired
@@ -95,11 +106,11 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<NameAndUuidDto> getResourceObjects(Resource resource) throws NotSupportedException {
+    public List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters) throws NotSupportedException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null)
             throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getLabel());
-        return resourceExtensionService.listResourceObjects(SecurityFilter.create());
+        return resourceExtensionService.listResourceObjects(SecurityFilter.create(), null);
     }
 
     @Override
@@ -136,7 +147,7 @@ public class ResourceServiceImpl implements ResourceService {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
                 else if (filterField.getFieldResource() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource())));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource(), null)));
                     // Filter field has values of all possible values of a property
                 else {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(filterField.getJoinAttributes(), filterField.getFieldAttribute()), resource, entityManager).getResultList()));
@@ -167,6 +178,11 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     public boolean hasResourceExtensionService(Resource resource) {
         return resourceExtensionServices.keySet().stream().anyMatch(key -> key.equals(resource.getCode()));
+    }
+
+    @Override
+    public List<ResourceObjectContentData> getResourceObjectContentData(AttributeResource resource, List<SearchFilterRequestDto> filters) {
+        return attributeResourceServices.get(resource.getCode()).getResourceObjectContent(filters);
     }
 
 }

@@ -5,6 +5,7 @@ import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.acme.AcmeAccountListResponseDto;
 import com.czertainly.api.model.client.acme.AcmeAccountResponseDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.core.acme.AccountStatus;
 import com.czertainly.api.model.core.auth.Resource;
@@ -161,7 +162,7 @@ public class AcmeAccountServiceImpl implements AcmeAccountService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return acmeAccountRepository.listResourceObjects(filter, AcmeAccount_.accountId);
     }
 

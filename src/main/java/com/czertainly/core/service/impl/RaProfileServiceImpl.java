@@ -5,6 +5,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileDto;
 import com.czertainly.api.model.client.approvalprofile.ApprovalProfileRelationDto;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.compliance.SimplifiedComplianceProfileDto;
 import com.czertainly.api.model.client.raprofile.*;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -545,7 +546,7 @@ public class RaProfileServiceImpl implements RaProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.RA_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return raProfileRepository.listResourceObjects(filter, RaProfile_.name);
     }
 

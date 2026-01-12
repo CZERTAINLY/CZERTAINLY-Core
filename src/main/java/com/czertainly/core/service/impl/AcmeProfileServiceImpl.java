@@ -4,6 +4,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.acme.AcmeProfileEditRequestDto;
 import com.czertainly.api.model.client.acme.AcmeProfileRequestDto;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
@@ -418,7 +419,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return acmeProfileRepository.listResourceObjects(filter, AcmeProfile_.name);
     }
 

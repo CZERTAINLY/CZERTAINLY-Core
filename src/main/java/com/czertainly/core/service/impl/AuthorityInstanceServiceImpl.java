@@ -6,6 +6,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -319,7 +320,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name);
     }
 

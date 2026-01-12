@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -373,7 +374,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return scepProfileRepository.listResourceObjects(filter, ScepProfile_.name);
     }
 

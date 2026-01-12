@@ -5,6 +5,7 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -265,7 +266,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
         return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name);
     }
 
