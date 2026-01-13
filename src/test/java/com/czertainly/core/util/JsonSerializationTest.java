@@ -29,13 +29,13 @@ class JsonSerializationTest {
     }
 
     @Test
-    void testSerializeMap() throws JsonProcessingException {
+    void testSerializeMap() {
         Map<Object, Object> data = new HashMap<>();
-        data.put("testKey", LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        data.put("testKey", now);
         data.put("nullKey", null);
 
-        String json = MAPPER.writeValueAsString(data);
-        System.out.println(json);
+        Assertions.assertDoesNotThrow(() -> MAPPER.writeValueAsString(data));
     }
 
     @Test
@@ -45,14 +45,14 @@ class JsonSerializationTest {
         };
 
         String json = MAPPER.writeValueAsString(data);
-        System.out.println(json);
+        Assertions.assertEquals("[[\"testKey\",\"testValue\"]]", json);
     }
 
     @Test
     void testSerializeKeystore() throws IOException {
         InputStream is = this.getClass().getClassLoader().getResourceAsStream("client1.p12");
         byte[] array = is.readAllBytes();
-        System.out.println(Base64.getEncoder().encodeToString(array));
+        Assertions.assertDoesNotThrow(() -> Base64.getEncoder().encodeToString(array));
     }
 
     @Test

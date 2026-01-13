@@ -7,6 +7,7 @@ import com.czertainly.api.model.common.attribute.common.callback.RequestAttribut
 import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.czertainly.api.model.core.auth.AttributeResource;
 
+
 import java.util.List;
 
 public interface CoreCallbackService {
