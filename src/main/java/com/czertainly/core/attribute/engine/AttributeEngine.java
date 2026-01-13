@@ -1141,7 +1141,7 @@ public class AttributeEngine {
 
     private static void validateConvertingContentItemsToClasses(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
         try {
-            Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV3Class();
+            Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV2Class();
             if (attributeDefinition.getVersion() == 2) {
                 ObjectMapper objectMapper = JsonMapper.builder()
                         .findAndAddModules()
