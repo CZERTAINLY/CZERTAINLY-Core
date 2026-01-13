@@ -36,7 +36,6 @@ import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.SearchHelper;
 import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.MapperFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
 import jakarta.persistence.EntityManager;
@@ -1142,16 +1141,7 @@ public class AttributeEngine {
     private static void validateConvertingContentItemsToClasses(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
         try {
             Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV2Class();
-            if (attributeDefinition.getVersion() == 2) {
-                ObjectMapper objectMapper = JsonMapper.builder()
-                        .findAndAddModules()
-                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                        .disable(MapperFeature.USE_ANNOTATIONS)
-                        .build();
-                objectMapper.convertValue(contentItem, contentTypeClass);
-            } else {
-                ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
-            }
+            ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
         } catch (IllegalArgumentException e) {
             throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
         }
