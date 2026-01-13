@@ -1141,17 +1141,9 @@ public class AttributeEngine {
 
     private static void validateConvertingContentItemsToClasses(AttributeDefinition attributeDefinition, AttributeContent contentItem, String connectorUuidStr) throws AttributeException {
         try {
-            Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV3Class();
-            if (attributeDefinition.getVersion() == 2) {
-                ObjectMapper objectMapper = JsonMapper.builder()
-                        .findAndAddModules()
-                        .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false)
-                        .disable(MapperFeature.USE_ANNOTATIONS)
-                        .build();
-                objectMapper.convertValue(contentItem, contentTypeClass);
-            } else {
-                ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
-            }
+            Class<?> contentTypeClass = attributeDefinition.getVersion() == 3 ? contentItem.getClass() : attributeDefinition.getContentType().getContentV2Class();
+
+            ATTRIBUTES_OBJECT_MAPPER.convertValue(contentItem, contentTypeClass);
         } catch (IllegalArgumentException e) {
             throw new AttributeException("Wrong content for attribute of content type " + attributeDefinition.getContentType().getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), connectorUuidStr);
         }
