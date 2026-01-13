@@ -1,15 +1,28 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.NotSupportedException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.ObjectAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
@@ -18,13 +31,16 @@ import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
@@ -34,6 +50,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -181,8 +198,78 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<ResourceObjectContentData> getResourceObjectContentData(AttributeResource resource, List<SearchFilterRequestDto> filters) {
-        return attributeResourceServices.get(resource.getCode()).getResourceObjectContent(filters);
+    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException {
+        if (callback == null) {
+            logger.warn("Given Callback is null");
+            return;
+        }
+
+        if (callback.getMappings() != null) {
+            for (AttributeCallbackMapping mapping : callback.getMappings()) {
+                if (AttributeContentType.RESOURCE.equals(mapping.getAttributeContentType())) {
+                    for (AttributeValueTarget target : mapping.getTargets()) {
+                        switch (target) {
+                            case PATH_VARIABLE, REQUEST_PARAMETER:
+                                logger.warn("Illegal 'from' Attribute type {} for target {}",
+                                        mapping.getAttributeType(), target);
+                                break;
+                            case BODY:
+                                Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
+
+                                String resourceUuid = getResourceUuid(bodyKeyValue);
+
+                                ResourceObjectContentData data = attributeResourceServices.get(resource.getCode()).getResourceObjectContent(UUID.fromString(resourceUuid));
+                                requestAttributeCallback.getBody().put(mapping.getTo(), data);
+                                break;
+                        }
+                    }
+                }
+            }
+        }
     }
+
+    private static String getResourceUuid(Serializable bodyKeyValue) {
+        String resourceUuid;
+        switch (bodyKeyValue) {
+            case NameAndUuidDto nameAndUuidDto -> resourceUuid = nameAndUuidDto.getUuid();
+            case ResourceObjectContent ignored ->
+                    resourceUuid = ignored.getData().getUuid();
+            case List<?> list when list.getFirst() instanceof CredentialAttributeContentV2 ->
+                    resourceUuid = ((List<ResourceObjectContent>) bodyKeyValue).getFirst().getData().getUuid();
+            case Map<?, ?> map -> {
+                if (map.containsKey("uuid")) {
+                    resourceUuid = (String) map.get("uuid");
+                } else {
+                    try {
+                        resourceUuid = (String) ((Map) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContentV3.class)).getData()).get("uuid");
+                    } catch (Exception e) {
+                        logger.error(e.getMessage(), e);
+                        throw new ValidationException(ValidationError.create(
+                                "Invalid value {}, because of {}.", bodyKeyValue, e.getMessage()));
+                    }
+                }
+            }
+            case null, default -> throw new ValidationException(ValidationError.create(
+                    "Invalid value {}. Instance of {} is expected.", bodyKeyValue, NameAndUuidDto.class));
+        }
+        return resourceUuid;
+    }
+
+    @Override
+    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException {
+        if (attributes == null || attributes.isEmpty()) {
+            return;
+        }
+
+        for (DataAttribute attribute : attributes) {
+            if (!AttributeContentType.RESOURCE.equals(attribute.getContentType())) {
+                continue;
+            }
+            NameAndUuidDto resourceId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
+            ResourceObjectContentData data = attributeResourceServices.get(attribute.getProperties().getResource()).getResourceObjectContent(UUID.fromString(resourceId.getUuid()));
+            attribute.setContent(List.of(new ResourceObjectContent(resourceId.getName(), data)));
+        }
+    }
+
 
 }

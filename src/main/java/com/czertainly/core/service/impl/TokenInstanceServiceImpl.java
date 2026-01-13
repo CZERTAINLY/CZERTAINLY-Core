@@ -25,6 +25,7 @@ import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.CredentialService;
+import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.service.TokenInstanceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
@@ -51,11 +52,17 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
     private ConnectorServiceImpl connectorService;
     private CredentialService credentialService;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
 
     // --------------------------------------------------------------------------------
     // Repositories
     // --------------------------------------------------------------------------------
     private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -159,6 +166,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceRequestDto tokenInstanceRequestDto =
                 new com.czertainly.api.model.connector.cryptography.token.TokenInstanceRequestDto();
@@ -219,6 +227,7 @@ public class TokenInstanceServiceImpl implements TokenInstanceService {
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         com.czertainly.api.model.connector.cryptography.token.TokenInstanceRequestDto tokenInstanceRequestDto =
                 new com.czertainly.api.model.connector.cryptography.token.TokenInstanceRequestDto();

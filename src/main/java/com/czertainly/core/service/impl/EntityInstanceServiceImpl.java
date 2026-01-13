@@ -31,6 +31,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
+import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
@@ -62,6 +63,12 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private CredentialService credentialService;
     private EntityInstanceApiClient entityInstanceApiClient;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -160,9 +167,10 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         attributeEngine.validateCustomAttributesContent(Resource.ENTITY, request.getCustomAttributes());
         connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch, request.getAttributes(), request.getKind());
 
-        // Load complete credential data
+        // Load complete credential and resource data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -203,6 +211,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));

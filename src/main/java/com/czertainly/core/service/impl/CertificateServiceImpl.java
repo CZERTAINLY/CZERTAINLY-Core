@@ -13,6 +13,7 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
@@ -2124,7 +2125,8 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public List<ResourceObjectContentData> getResourceObjectContent(List<SearchFilterRequestDto> filters) {
-        return List.of();
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException {
+        return new ResourceObjectContentData(AttributeResource.CERTIFICATE, getCertificateEntity(SecuredUUID.fromUUID(uuid)).getContentData(), List.of());
     }
+
 }

@@ -10,9 +10,12 @@ import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -23,10 +26,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AuthorityInstanceService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -41,7 +41,7 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.AUTHORITY)
 @Transactional
-public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
+public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, AttributeResourceService {
     private static final Logger logger = LoggerFactory.getLogger(AuthorityInstanceServiceImpl.class);
 
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
@@ -51,6 +51,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private EndEntityProfileApiClient endEntityProfileApiClient;
     private RaProfileService raProfileService;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
@@ -151,9 +157,10 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         attributeEngine.validateCustomAttributesContent(Resource.AUTHORITY, request.getCustomAttributes());
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), request.getKind());
 
-        // Load complete credential data
+        // Load complete credential data and resource data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -198,6 +205,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
         authorityInstanceDto.setKind(ref.getKind());
@@ -359,5 +367,11 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
         attributeEngine.deleteAllObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
+    }
+
+    @Override
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException {
+        AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Resource.AUTHORITY.getCode(), uuid));
+        return new ResourceObjectContentData(AttributeResource.AUTHORITY, null, attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, authorityInstanceReference.getConnectorUuid(), null, null, uuid));
     }
 }

@@ -57,6 +57,12 @@ public class CallbackServiceImpl implements CallbackService {
     private CryptographicKeyService cryptographicKeyService;
     private TokenProfileService tokenProfileService;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setConnectorService(ConnectorService connectorService) {
@@ -117,6 +123,10 @@ public class CallbackServiceImpl implements CallbackService {
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
+        return getCallbackObject(callback, definitions, connector);
+    }
+
+    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, Connector connector) throws NotFoundException, ConnectorException {
         BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeCallback attributeCallback = getAttributeCallback(attribute);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
@@ -131,6 +141,7 @@ public class CallbackServiceImpl implements CallbackService {
 
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
+        if (attribute.getType() == AttributeType.DATA) resourceService.loadResourceObjectContentData(attributeCallback, callback, getAttributeResource(attribute));
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
         if (attribute.getType().equals(AttributeType.GROUP)) {
@@ -201,43 +212,7 @@ public class CallbackServiceImpl implements CallbackService {
         }
 
         LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
-        AttributeCallback attributeCallback = getAttributeCallbackByName(callback.getName(), definitions, connector.getUuid());
-        AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
-
-        if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
-            return coreCallbackService.coreGetCredentials(callback);
-        }
-        // Load complete credential data for mapping of type credential
-        credentialService.loadFullCredentialData(attributeCallback, callback);
-
-        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-
-        if (isGroupAttribute(callback.getName(), definitions)) {
-            processGroupAttributes(connector.getUuid(), response);
-        }
-        return response;
-    }
-
-
-    private AttributeCallback getAttributeCallbackByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
-        for (BaseAttribute attributeDefinition : attributes) {
-            if (attributeDefinition.getName().equals(name)) {
-                AttributeType type = attributeDefinition.getType();
-                if (Objects.requireNonNull(type) == AttributeType.DATA) {
-                    return ((DataAttribute) attributeDefinition).getAttributeCallback();
-                } else if (type == AttributeType.GROUP) {
-                    return AttributeVersionHelper.getGroupAttributeCallback(attributeDefinition);
-                }
-            }
-        }
-
-        // if not present in definitions from connector, search in reference attributes in DB
-        DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
-        if (referencedAttribute != null) {
-            return referencedAttribute.getAttributeCallback();
-        }
-
-        throw new NotFoundException(BaseAttribute.class, name);
+        return getCallbackObject(callback, definitions, connector);
     }
 
     private AttributeCallback getAttributeCallback(BaseAttribute attribute) {

@@ -6,7 +6,9 @@ import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
-import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
@@ -91,5 +93,8 @@ public interface ResourceService {
 
     boolean hasResourceExtensionService(Resource resource);
 
-    List<ResourceObjectContentData> getResourceObjectContentData(AttributeResource resource, List<SearchFilterRequestDto> filters);
+    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException;
+
+    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException;
+
 }

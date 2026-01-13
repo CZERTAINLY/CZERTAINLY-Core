@@ -96,6 +96,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private CertificateContentRepository certificateContentRepository;
 
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
+
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
         this.triggerService = triggerService;
@@ -419,6 +426,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
 
             credentialService.loadFullCredentialData(dataAttributes);
+            resourceService.loadResourceObjectContentData(dataAttributes);
+
         } catch (Exception e) {
             message = e.getMessage();
         }
