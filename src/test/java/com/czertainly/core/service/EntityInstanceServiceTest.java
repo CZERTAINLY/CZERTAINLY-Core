@@ -204,7 +204,7 @@ class EntityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = entityInstanceService.listResourceObjects(SecurityFilter.create(), null);
+        List<NameAndUuidDto> dtos = entityInstanceService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

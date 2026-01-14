@@ -5,33 +5,27 @@ import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
-import com.czertainly.api.model.common.attribute.common.AttributeType;
-import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
-import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
 import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
-import com.czertainly.api.model.common.attribute.v2.content.ObjectAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.content.ObjectAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.credential.CredentialDto;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.enums.FilterField;
 import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -123,11 +117,11 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters) throws NotSupportedException {
+    public List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null)
             throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getLabel());
-        return resourceExtensionService.listResourceObjects(SecurityFilter.create(), null);
+        return resourceExtensionService.listResourceObjects(SecurityFilter.create(), filters, pagination);
     }
 
     @Override
@@ -164,7 +158,7 @@ public class ResourceServiceImpl implements ResourceService {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
                 else if (filterField.getFieldResource() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource(), null)));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource(), null, null)));
                     // Filter field has values of all possible values of a property
                 else {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(filterField.getJoinAttributes(), filterField.getFieldAttribute()), resource, entityManager).getResultList()));
@@ -198,7 +192,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException {
+    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException, AttributeException {
         if (callback == null) {
             logger.warn("Given Callback is null");
             return;
@@ -256,7 +250,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException {
+    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException {
         if (attributes == null || attributes.isEmpty()) {
             return;
         }
@@ -266,7 +260,7 @@ public class ResourceServiceImpl implements ResourceService {
                 continue;
             }
             NameAndUuidDto resourceId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
-            ResourceObjectContentData data = attributeResourceServices.get(attribute.getProperties().getResource()).getResourceObjectContent(UUID.fromString(resourceId.getUuid()));
+            ResourceObjectContentData data = attributeResourceServices.get(attribute.getProperties().getResource().getCode()).getResourceObjectContent(UUID.fromString(resourceId.getUuid()));
             attribute.setContent(List.of(new ResourceObjectContent(resourceId.getName(), data)));
         }
     }

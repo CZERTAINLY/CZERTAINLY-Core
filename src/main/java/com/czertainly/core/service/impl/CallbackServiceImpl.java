@@ -3,10 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EntityInstanceApiClient;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
@@ -120,13 +117,13 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Override
-    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
+    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
         return getCallbackObject(callback, definitions, connector);
     }
 
-    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, Connector connector) throws NotFoundException, ConnectorException {
+    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, Connector connector) throws NotFoundException, ConnectorException, AttributeException {
         BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeCallback attributeCallback = getAttributeCallback(attribute);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
@@ -135,7 +132,7 @@ public class CallbackServiceImpl implements CallbackService {
             return coreCallbackService.coreGetCredentials(callback);
         }
 
-        if (attributeCallback.getCallbackContext().equals("core/getResources")) {
+        if (attributeCallback.getCallbackContext().equals("core/getResources")) { // if getAttributeResource(attribute) != null
             return coreCallbackService.coreGetResources(callback, getAttributeResource(attribute));
         }
 
@@ -155,7 +152,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Override
-    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
+    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
         List<BaseAttribute> definitions = null;
         Connector connector = null;
         switch (resource) {

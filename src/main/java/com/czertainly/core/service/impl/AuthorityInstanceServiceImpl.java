@@ -20,6 +20,7 @@ import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
@@ -329,7 +330,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name);
     }
 
@@ -373,6 +374,6 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     @Override
     public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException {
         AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Resource.AUTHORITY.getCode(), uuid));
-        return new ResourceObjectContentData(AttributeResource.AUTHORITY, null, attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, authorityInstanceReference.getConnectorUuid(), null, null, uuid));
+        return new ResourceObjectContentData(AttributeResource.AUTHORITY, null, attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, uuid));
     }
 }

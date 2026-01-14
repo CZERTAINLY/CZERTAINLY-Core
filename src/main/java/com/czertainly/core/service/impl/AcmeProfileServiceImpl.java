@@ -11,6 +11,7 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.core.acme.AcmeProfileDto;
 import com.czertainly.api.model.core.acme.AcmeProfileListDto;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -419,7 +420,7 @@ public class AcmeProfileServiceImpl implements AcmeProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ACME_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return acmeProfileRepository.listResourceObjects(filter, AcmeProfile_.name);
     }
 

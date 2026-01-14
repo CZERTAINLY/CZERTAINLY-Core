@@ -3,6 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -17,7 +18,7 @@ public interface ResourceExtensionService {
      * Function to get the list of name and uuid dto for the objects available in the database.
      * @return List of NameAndUuidDto
      */
-    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters);
+    List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination);
 
     /**
      * Function to evaluate the permission for the objects and its parents based on the UUID

@@ -22,6 +22,7 @@ import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -1406,9 +1407,9 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(filters, false);
-        return certificateRepository.listResourceObjects(filter, Certificate_.commonName, additionalWhereClause);
+        return certificateRepository.listResourceObjects(filter, Certificate_.commonName, additionalWhereClause, pagination);
     }
 
     @Override
@@ -2125,8 +2126,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException {
-        return new ResourceObjectContentData(AttributeResource.CERTIFICATE, getCertificateEntity(SecuredUUID.fromUUID(uuid)).getContentData(), List.of());
+    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException {
+        Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
+        if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
+        return new ResourceObjectContentData(AttributeResource.CERTIFICATE, certificate.getContentData(), List.of());
     }
 
 }

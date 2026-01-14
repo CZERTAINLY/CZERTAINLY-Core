@@ -63,15 +63,21 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
 
     @Override
     public List<NameAndUuidDto> coreGetResources(RequestAttributeCallback callback, AttributeResource resource) throws NotFoundException {
+
+
+        // Filters are in form: property_name.operator
+
         List<SearchFilterRequestDto> filters = new ArrayList<>();
-        for (String filterDefinition : callback.getFilter().keySet()) {
-            String filterFieldString = filterDefinition.split("\\.")[0];
-            String filterOperatorString = filterDefinition.split("\\.")[1];
-            FilterConditionOperator operator = FilterConditionOperator.valueOf(filterOperatorString);
-            filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
+        if (callback.getFilter() != null) {
+            for (String filterDefinition : callback.getFilter().keySet()) {
+                String filterFieldString = filterDefinition.split("\\.")[0];
+                String filterOperatorString = filterDefinition.split("\\.")[1];
+                FilterConditionOperator operator = FilterConditionOperator.valueOf(filterOperatorString);
+                filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
+            }
         }
 
-        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters);
+        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, null);
     }
 
 

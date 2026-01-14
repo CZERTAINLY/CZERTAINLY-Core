@@ -23,6 +23,7 @@ import com.czertainly.api.model.common.attribute.common.properties.MetadataAttri
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.AttributeDefinition;
@@ -325,7 +326,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         List<AttributeDefinition> customAttributes = attributeDefinitionRepository.findUsingSecurityFilter(
                 filter, List.of(),
                 (root, cb, cr) -> cb.equal(root.get("type"), AttributeType.CUSTOM));

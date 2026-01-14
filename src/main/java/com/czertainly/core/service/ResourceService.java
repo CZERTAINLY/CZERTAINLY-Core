@@ -15,6 +15,7 @@ import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -43,11 +44,12 @@ public interface ResourceService {
     /**
      * Function to get the list of objects available to be displayed for object level access for Access Control
      *
-     * @param resource Name of the resource to
-     * @param filters
+     * @param resource   Name of the resource to
+     * @param filters Filters for the resource objects
+     * @param pagination Pagination of the response
      * @return List of NameAndUuidDto
      */
-    List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters) throws NotFoundException;
+    List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotFoundException;
 
     /**
      * Update the attribute content for the object
@@ -93,8 +95,8 @@ public interface ResourceService {
 
     boolean hasResourceExtensionService(Resource resource);
 
-    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException;
+    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException, AttributeException;
 
-    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException;
+    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException;
 
 }

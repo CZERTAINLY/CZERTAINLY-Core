@@ -4,6 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.common.NameAndUuidDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.dao.AggregateResultDto;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
 import com.czertainly.core.dao.entity.CryptographicKeyItem_;
@@ -15,6 +16,7 @@ import com.czertainly.core.util.AuthHelper;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.NoResultException;
+import jakarta.persistence.TypedQuery;
 import jakarta.persistence.criteria.*;
 import jakarta.persistence.metamodel.Attribute;
 import jakarta.persistence.metamodel.SingularAttribute;
@@ -157,6 +159,12 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
+        CriteriaQuery<NameAndUuidDto> query = createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause);
+
+        return entityManager.createQuery(query).getResultList();
+    }
+
+    private CriteriaQuery<NameAndUuidDto> createResourceObjectsQuery(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<NameAndUuidDto> query = cb.createQuery(NameAndUuidDto.class);
@@ -174,8 +182,18 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         if (!predicates.isEmpty()) {
             query = query.where(predicates.toArray(new Predicate[]{}));
         }
+        return query;
+    }
 
-        return entityManager.createQuery(query).getResultList();
+    @Override
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter securityFilter, SingularAttribute<T, String> nameAttribute, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause, PaginationRequestDto page) {
+        TypedQuery<NameAndUuidDto> query = entityManager
+                .createQuery(createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause));
+        if (page != null) {
+            query.setFirstResult(page.getPageNumber());
+            query.setMaxResults(page.getItemsPerPage());
+        }
+        return query.getResultList();
     }
 
     @Override
