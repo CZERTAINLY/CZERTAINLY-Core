@@ -285,7 +285,7 @@ public class CredentialServiceImpl implements CredentialService {
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        return credentialRepository.listResourceObjects(filter, Credential_.name);
+        return credentialRepository.listResourceObjects(filter, Credential_.name, null, pagination);
     }
 
     @Override

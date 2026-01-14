@@ -277,7 +277,8 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name);
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+        return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name, additionalWhereClause, pagination);
     }
 
     @Override

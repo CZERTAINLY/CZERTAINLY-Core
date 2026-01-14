@@ -331,7 +331,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name);
+        return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name, null, pagination);
     }
 
     @Override
