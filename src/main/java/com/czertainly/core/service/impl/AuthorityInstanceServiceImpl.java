@@ -372,8 +372,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, A
     }
 
     @Override
-    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException {
-        AuthorityInstanceReference authorityInstanceReference = authorityInstanceReferenceRepository.findByUuid(uuid).orElseThrow(() -> new NotFoundException(Resource.AUTHORITY.getCode(), uuid));
-        return new ResourceObjectContentData(AttributeResource.AUTHORITY, null, attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, uuid));
+    public String getResourceObjectContent(UUID uuid) {
+        return null;
     }
 }

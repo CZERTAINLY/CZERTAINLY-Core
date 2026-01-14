@@ -2126,10 +2126,10 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     }
 
     @Override
-    public ResourceObjectContentData getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException {
+    public String getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException {
         Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
         if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
-        return new ResourceObjectContentData(AttributeResource.CERTIFICATE, certificate.getContentData(), List.of());
+        return certificate.getContentData();
     }
 
 }

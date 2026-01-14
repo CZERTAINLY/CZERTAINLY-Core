@@ -627,6 +627,11 @@ public class AttributeEngine {
         return getObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
     }
 
+    public List<ResponseAttribute> getObjectDataAttributesContent(Resource objectType, UUID objectUuid) {
+        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getAllObjectDataAttributesContent(objectType, objectUuid);
+        return getResponseAttributes(objectContents);
+    }
+
     public List<ResponseAttribute> getObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {} for purpose {}.", objectType.getLabel(), objectUuid, connectorUuid, operation, purpose);
         List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);

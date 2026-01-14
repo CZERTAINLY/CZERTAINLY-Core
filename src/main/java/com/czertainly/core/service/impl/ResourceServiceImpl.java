@@ -5,6 +5,7 @@ import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
@@ -260,7 +261,11 @@ public class ResourceServiceImpl implements ResourceService {
                 continue;
             }
             NameAndUuidDto resourceId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
-            ResourceObjectContentData data = attributeResourceServices.get(attribute.getProperties().getResource().getCode()).getResourceObjectContent(UUID.fromString(resourceId.getUuid()));
+            if (resourceId == null || resourceId.getUuid() == null) throw new AttributeException("UUID of Resource Object is missing.", attribute.getUuid(), attribute.getName(), AttributeType.DATA, "");
+            ResourceObjectContentData data = new ResourceObjectContentData();
+            String resourceCode = attribute.getProperties().getResource().getCode();
+            if (attribute.getProperties().getResource().isHasContent()) data.setBase64Content(attributeResourceServices.get(resourceCode).getResourceObjectContent(UUID.fromString(resourceId.getUuid())));
+            data.setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resourceCode), UUID.fromString(resourceId.getUuid())));
             attribute.setContent(List.of(new ResourceObjectContent(resourceId.getName(), data)));
         }
     }
