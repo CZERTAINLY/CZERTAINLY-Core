@@ -1,5 +1,6 @@
 package com.czertainly.core.service;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
@@ -31,7 +32,7 @@ class CallbackServiceTest extends BaseSpringBootTest {
     private CallbackService callbackService;
 
     @Test
-    void testCallback() throws ConnectorException, NotFoundException {
+    void testCallback() throws ConnectorException, NotFoundException, AttributeException {
         WireMockServer mockServer = new WireMockServer(0);
         mockServer.start();
 

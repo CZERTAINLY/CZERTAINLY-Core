@@ -132,13 +132,15 @@ public class CallbackServiceImpl implements CallbackService {
             return coreCallbackService.coreGetCredentials(callback);
         }
 
-        if (attributeCallback.getCallbackContext().equals("core/getResources")) { // if getAttributeResource(attribute) != null
-            return coreCallbackService.coreGetResources(callback, getAttributeResource(attribute));
+        AttributeResource attributeResource = getAttributeResource(attribute);
+
+        if (attributeCallback.getCallbackContext().equals("core/getResources")) {
+            return coreCallbackService.coreGetResources(callback, attributeResource);
         }
 
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
-        if (attribute.getType() == AttributeType.DATA) resourceService.loadResourceObjectContentData(attributeCallback, callback, getAttributeResource(attribute));
+        if (attribute.getType() == AttributeType.DATA) resourceService.loadResourceObjectContentData(attributeCallback, callback, attributeResource);
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
         if (attribute.getType().equals(AttributeType.GROUP)) {

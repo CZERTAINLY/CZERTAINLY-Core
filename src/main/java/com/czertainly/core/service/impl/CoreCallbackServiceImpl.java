@@ -70,14 +70,20 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
         List<SearchFilterRequestDto> filters = new ArrayList<>();
         if (callback.getFilter() != null) {
             for (String filterDefinition : callback.getFilter().keySet()) {
-                String filterFieldString = filterDefinition.split("\\.")[0];
-                String filterOperatorString = filterDefinition.split("\\.")[1];
-                FilterConditionOperator operator = FilterConditionOperator.valueOf(filterOperatorString);
+                String filterFieldString;
+                FilterConditionOperator operator;
+                try {
+                    filterFieldString = filterDefinition.split("\\.")[0];
+                    String filterOperatorString = filterDefinition.split("\\.")[1];
+                    operator = FilterConditionOperator.valueOf(filterOperatorString);
+                } catch (Exception e) {
+                    throw new ValidationException("Filter %s for callback mapping is invalid: %s".formatted(filterDefinition, e.getMessage()));
+                }
                 filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
             }
         }
 
-        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, null);
+        return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, callback.getPagination());
     }
 
 
