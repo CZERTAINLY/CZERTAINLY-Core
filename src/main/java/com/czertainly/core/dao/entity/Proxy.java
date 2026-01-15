@@ -68,6 +68,18 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
         return dto;
     }
 
+    public ProxyDto mapToDtoSimple() {
+        ProxyDto dto = new ProxyDto();
+        dto.setUuid(this.uuid.toString());
+        dto.setName(this.name);
+        dto.setDescription(this.description);
+        dto.setCode(this.code);
+        dto.setStatus(this.status);
+        dto.setLastActivity(this.lastActivity);
+        // Don't set connectors to avoid circular reference
+        return dto;
+    }
+
     @Override
     public NameAndUuidDto mapToAccessControlObjects() {
         return new NameAndUuidDto(uuid.toString(), name);

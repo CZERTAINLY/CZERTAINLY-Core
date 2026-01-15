@@ -1,7 +1,7 @@
 package com.czertainly.core.service.scep.impl;
 
-import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
+import com.czertainly.api.interfaces.client.CryptographicOperationsSyncApiClient;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -19,6 +19,7 @@ import com.czertainly.api.model.core.v2.ClientCertificateRequestDto;
 import com.czertainly.api.model.core.v2.ClientCertificateSignRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CryptographicKey;
 import com.czertainly.core.dao.entity.CryptographicKeyItem;
@@ -108,7 +109,7 @@ public class ScepServiceImpl implements ScepService {
     private ClientOperationService clientOperationService;
     private CertificateService certificateService;
     private CryptographicKeyService cryptographicKeyService;
-    private CryptographicOperationsApiClient cryptographicOperationsApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private AttributeEngine attributeEngine;
 
     @Autowired
@@ -147,8 +148,8 @@ public class ScepServiceImpl implements ScepService {
     }
 
     @Autowired
-    public void setCryptographicOperationsApiClient(CryptographicOperationsApiClient cryptographicOperationsApiClient) {
-        this.cryptographicOperationsApiClient = cryptographicOperationsApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     public void setRecipient(String certificateContent) {
@@ -322,7 +323,9 @@ public class ScepServiceImpl implements ScepService {
                 item.getKeyAlgorithm().getLabel()
         );
 
-        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
+        var connectorDto = key.getTokenInstanceReference().getConnector().mapToDto();
+        CryptographicOperationsSyncApiClient cryptoApiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
+        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptoApiClient);
 
         // decrypt the PKCS#10 request
         try {
@@ -420,8 +423,10 @@ public class ScepServiceImpl implements ScepService {
 
     private ResponseEntity<Object> buildResponse(ScepRequest scepRequest, ScepResponse scepResponse) throws ScepException {
         prepareMessage(scepRequest, scepResponse);
-        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptographicOperationsApiClient);
         CryptographicKey key = scepProfile.getCaCertificate().getKey();
+        var connectorDto = key.getTokenInstanceReference().getConnector().mapToDto();
+        CryptographicOperationsSyncApiClient cryptoApiClient = connectorApiFactory.getCryptographicOperationsApiClient(connectorDto);
+        CzertainlyProvider czertainlyProvider = CzertainlyProvider.getInstance(scepProfile.getName(), true, cryptoApiClient);
         CryptographicKeyItem item = cryptographicKeyService.getKeyItemFromKey(key, KeyType.PRIVATE_KEY);
         // Get the private key from the configuration of SCEP Profile
         CzertainlyPrivateKey czertainlyPrivateKey = new CzertainlyPrivateKey(

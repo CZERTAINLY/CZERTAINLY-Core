@@ -1,7 +1,8 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.CertificateApiClient;
 import com.czertainly.api.clients.EndEntityApiClient;
+import com.czertainly.api.interfaces.client.CertificateSyncApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
@@ -52,7 +53,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
 
     private RaProfileRepository raProfileRepository;
     private EndEntityApiClient endEntityApiClient;
-    private CertificateApiClient certificateApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private CertificateService certificateService;
     private AttributeEngine attributeEngine;
 
@@ -67,8 +68,8 @@ public class ClientOperationServiceImpl implements ClientOperationService {
     }
 
     @Autowired
-    public void setCertificateApiClient(CertificateApiClient certificateApiClient) {
-        this.certificateApiClient = certificateApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -91,6 +92,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setPassword(request.getPassword());
         caRequest.setPkcs10(request.getPkcs10());
 
+        CertificateSyncApiClient certificateApiClient = connectorApiFactory.getCertificateApiClient(raProfile.getAuthorityInstanceReference().getConnector().mapToDto());
         CertificateSignResponseDto caResponse = certificateApiClient.issueCertificate(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),
@@ -120,6 +122,7 @@ public class ClientOperationServiceImpl implements ClientOperationService {
         caRequest.setIssuerDN(request.getIssuerDN());
         caRequest.setReason(request.getReason());
 
+        CertificateSyncApiClient certificateApiClient = connectorApiFactory.getCertificateApiClient(raProfile.getAuthorityInstanceReference().getConnector().mapToDto());
         certificateApiClient.revokeCertificate(
                 raProfile.getAuthorityInstanceReference().getConnector().mapToDto(),
                 raProfile.getAuthorityInstanceReference().getAuthorityInstanceUuid(),

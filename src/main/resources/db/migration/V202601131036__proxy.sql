@@ -1,9 +1,6 @@
-create sequence if not exists proxy_id_seq start 1 increment 1;
-
 create table if not exists proxy
 (
-    id            int8         not null,
-    uuid          varchar(255),
+    uuid          uuid         not null,
     i_author      varchar(255),
     i_cre         timestamp    not null,
     i_upd         timestamp    not null,
@@ -12,13 +9,13 @@ create table if not exists proxy
     code          varchar(255) not null,
     status        varchar(255) not null,
     last_activity timestamp,
-    primary key (id)
+    primary key (uuid)
 );
 
 alter table if exists connector
-    add column proxy_id int8;
+    add column proxy_uuid uuid;
 
 alter table if exists connector
     add constraint connector_to_proxy_key
-    foreign key (proxy_id)
+    foreign key (proxy_uuid)
     references proxy;

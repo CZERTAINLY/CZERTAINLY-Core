@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.DiscoveryApiClient;
+import com.czertainly.api.interfaces.client.DiscoverySyncApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
@@ -90,7 +91,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private TriggerService triggerService;
     private DiscoveryRepository discoveryRepository;
     private CertificateRepository certificateRepository;
-    private DiscoveryApiClient discoveryApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private ConnectorService connectorService;
     private CredentialService credentialService;
     private DiscoveryCertificateRepository discoveryCertificateRepository;
@@ -122,8 +123,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Autowired
-    public void setDiscoveryApiClient(DiscoveryApiClient discoveryApiClient) {
-        this.discoveryApiClient = discoveryApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -245,7 +246,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             String referenceUuid = discovery.getDiscoveryConnectorReference();
             if (referenceUuid != null && !referenceUuid.isEmpty()) {
                 Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromUUID(discovery.getConnectorUuid()));
-                discoveryApiClient.removeDiscovery(connector.mapToDto(), referenceUuid);
+                connectorApiFactory.getDiscoveryApiClient(connector.mapToDto()).removeDiscovery(connector.mapToDto(), referenceUuid);
             }
         } catch (ConnectorException e) {
             logger.warn("Failed to delete discovery in the connector. But core history is deleted");
@@ -416,6 +417,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         credentialService.loadFullCredentialData(dataAttributes);
         dtoRequest.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
 
+        DiscoverySyncApiClient discoveryApiClient = connectorApiFactory.getDiscoveryApiClient(connector.mapToDto());
         DiscoveryProviderDto response = discoveryApiClient.discoverCertificates(connector.mapToDto(), dtoRequest);
 
         logger.debug("Discovery response: name={}, uuid={}, status={}, total={}",
@@ -483,6 +485,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         Set<String> uniqueCertificateContents = new HashSet<>();
         List<DiscoveryProviderCertificateDataDto> duplicateCertificates = new ArrayList<>();
 
+        DiscoverySyncApiClient discoveryApiClient = connectorApiFactory.getDiscoveryApiClient(connector.mapToDto());
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             while (currentTotal < response.getTotalCertificatesDiscovered()) {
                 getRequest.setPageNumber(currentPage);

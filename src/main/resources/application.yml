@@ -102,6 +102,11 @@ settings:
     refresh-interval: ${SETTINGS_CACHE_REFRESH_INTERVAL:30}
 
 spring:
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
   datasource:
     driver-class-name: org.postgresql.Driver
     hikari:
@@ -172,6 +177,23 @@ messaging:
     scheduler: 10
     validation: 5
     audit-logs: 5
+
+# Proxy configuration for connector communication via message queue
+proxy:
+  # Azure Service Bus topic / RabbitMQ exchange name for proxy messages
+  exchange: ${PROXY_EXCHANGE:czertainly-proxy}
+  # Azure Service Bus subscription / RabbitMQ queue name for receiving responses
+  response-queue: ${PROXY_RESPONSE_QUEUE:core}
+  # Maximum time to wait for a response from the proxy
+  request-timeout: ${PROXY_REQUEST_TIMEOUT:30s}
+  # Maximum number of concurrent pending requests (prevents memory exhaustion)
+  max-pending-requests: ${PROXY_MAX_PENDING_REQUESTS:1000}
+  # Redis pub/sub for distributed response routing in multi-instance deployments
+  redis:
+    # Channel name for broadcasting proxy responses across Core instances
+    channel: ${PROXY_REDIS_CHANNEL:proxy:responses}
+    # Enable Redis-based response distribution (required for multiple Core instances)
+    enabled: ${PROXY_REDIS_ENABLED:false}
 
 validation:
   crl:

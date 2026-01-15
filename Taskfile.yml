@@ -1,0 +1,16 @@
+version: '3'
+
+tasks:
+  run:second:
+    desc: Run second Core instance on port 8082
+    dotenv: ['.env']
+    env:
+      PORT: 8082
+      SCHEDULED_TASKS_ENABLED: false
+    cmds:
+      - mvn spring-boot:run
+
+  run:second:stop:
+    desc: Stop the second Core instance
+    cmds:
+      - lsof -ti:8082 | xargs kill 2>/dev/null || true

@@ -1,8 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.AttributeApiClient;
-import com.czertainly.api.clients.AuthorityInstanceApiClient;
-import com.czertainly.api.clients.EntityInstanceApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationError;
@@ -45,13 +43,11 @@ public class CallbackServiceImpl implements CallbackService {
     private static final Logger logger = LoggerFactory.getLogger(CallbackServiceImpl.class);
 
     private ConnectorService connectorService;
-    private AttributeApiClient attributeApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private CoreCallbackService coreCallbackService;
     private CredentialService credentialService;
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    private AuthorityInstanceApiClient authorityInstanceApiClient;
     private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    private EntityInstanceApiClient entityInstanceApiClient;
     private CryptographicKeyService cryptographicKeyService;
     private TokenProfileService tokenProfileService;
     private AttributeEngine attributeEngine;
@@ -62,8 +58,8 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Autowired
-    public void setAttributeApiClient(AttributeApiClient attributeApiClient) {
-        this.attributeApiClient = attributeApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -82,18 +78,8 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Autowired
-    public void setAuthorityInstanceApiClient(AuthorityInstanceApiClient authorityInstanceApiClient) {
-        this.authorityInstanceApiClient = authorityInstanceApiClient;
-    }
-
-    @Autowired
     public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
         this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setEntityInstanceApiClient(EntityInstanceApiClient entityInstanceApiClient) {
-        this.entityInstanceApiClient = entityInstanceApiClient;
     }
 
     @Autowired
@@ -114,7 +100,7 @@ public class CallbackServiceImpl implements CallbackService {
     @Override
     public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
-        List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
+        List<BaseAttribute> definitions = listAttributeDefinitions(connector, functionGroup, kind);
         AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
@@ -125,7 +111,7 @@ public class CallbackServiceImpl implements CallbackService {
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
-        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
+        Object response = attributeCallback(connector, attributeCallback, callback);
         if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(connector.getUuid(), response);
         }
@@ -147,7 +133,7 @@ public class CallbackServiceImpl implements CallbackService {
                                 )
                         );
                 connector = authorityInstance.getConnector();
-                definitions = authorityInstanceApiClient.listRAProfileAttributes(
+                definitions = connectorApiFactory.getAuthorityInstanceApiClient(connector.mapToDto()).listRAProfileAttributes(
                         connector.mapToDto(),
                         authorityInstance.getAuthorityInstanceUuid()
                 );
@@ -178,7 +164,7 @@ public class CallbackServiceImpl implements CallbackService {
                         )
                 );
                 connector = entityInstance.getConnector();
-                definitions = entityInstanceApiClient.listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
+                definitions = connectorApiFactory.getEntityInstanceApiClient(connector.mapToDto()).listLocationAttributes(connector.mapToDto(), entityInstance.getEntityInstanceUuid());
                 break;
 
             default:
@@ -200,7 +186,7 @@ public class CallbackServiceImpl implements CallbackService {
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
 
-        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
+        Object response = attributeCallback(connector, attributeCallback, callback);
 
         if (isGroupAttribute(callback.getName(), definitions)) {
             processGroupAttributes(connector.getUuid(), response);
@@ -266,5 +252,21 @@ public class CallbackServiceImpl implements CallbackService {
             }
         }
         return false;
+    }
+
+    /**
+     * List attribute definitions using appropriate client (REST or MQ) based on connector configuration.
+     */
+    private List<BaseAttribute> listAttributeDefinitions(Connector connector, FunctionGroupCode functionGroup, String kind) throws ConnectorException {
+        com.czertainly.api.model.core.connector.ConnectorDto connectorDto = connector.mapToDto();
+        return connectorApiFactory.getAttributeApiClient(connectorDto).listAttributeDefinitions(connectorDto, functionGroup, kind);
+    }
+
+    /**
+     * Execute attribute callback using appropriate client (REST or MQ) based on connector configuration.
+     */
+    private Object attributeCallback(Connector connector, AttributeCallback attributeCallback, RequestAttributeCallback callback) throws ConnectorException {
+        com.czertainly.api.model.core.connector.ConnectorDto connectorDto = connector.mapToDto();
+        return connectorApiFactory.getAttributeApiClient(connectorDto).attributeCallback(connectorDto, attributeCallback, callback);
     }
 }

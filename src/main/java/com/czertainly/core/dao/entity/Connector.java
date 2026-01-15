@@ -52,7 +52,7 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     private ConnectorStatus status;
 
     @ManyToOne
-    @JoinColumn(name = "proxy_id")
+    @JoinColumn(name = "proxy_uuid")
     private Proxy proxy;
 
     @OneToMany(fetch = FetchType.LAZY, mappedBy = "connector")
@@ -94,6 +94,9 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
             functionGroupDto.setKinds(MetaDefinitions.deserializeArrayString(f.getKinds()));
             return functionGroupDto;
         }).collect(Collectors.toList()));
+        if (this.proxy != null) {
+            dto.setProxy(this.proxy.mapToDtoSimple());
+        }
         return dto;
     }
 

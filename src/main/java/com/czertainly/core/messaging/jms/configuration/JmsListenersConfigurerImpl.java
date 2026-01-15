@@ -6,6 +6,7 @@ import com.czertainly.core.messaging.jms.listeners.event.EventJmsEndpointConfig;
 import com.czertainly.core.messaging.jms.listeners.notification.NotificationJmsEndpointConfig;
 import com.czertainly.core.messaging.jms.listeners.scheduler.SchedulerJmsEndpointConfig;
 import com.czertainly.core.messaging.jms.listeners.validation.ValidationJmsEndpointConfig;
+import com.czertainly.core.messaging.proxy.ProxyMessageJmsEndpointConfig;
 import lombok.AllArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Profile;
@@ -23,6 +24,7 @@ public class JmsListenersConfigurerImpl implements JmsListenerConfigurer {
     private final NotificationJmsEndpointConfig notificationJmsEndpointConfig;
     private final SchedulerJmsEndpointConfig schedulerJmsEndpointConfig;
     private final ValidationJmsEndpointConfig validationJmsEndpointConfig;
+    private final ProxyMessageJmsEndpointConfig proxyMessageJmsEndpointConfig;
 
     @Override
     public void configureJmsListeners(JmsListenerEndpointRegistrar registrar) {
@@ -32,5 +34,6 @@ public class JmsListenersConfigurerImpl implements JmsListenerConfigurer {
         registrar.registerEndpoint(notificationJmsEndpointConfig.listenerEndpoint());
         registrar.registerEndpoint(schedulerJmsEndpointConfig.listenerEndpoint());
         registrar.registerEndpoint(validationJmsEndpointConfig.listenerEndpoint());
+        registrar.registerEndpoint(proxyMessageJmsEndpointConfig.listenerEndpoint());
     }
 }

@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.connector.InfoResponse;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.dao.entity.Endpoint;
 import com.czertainly.core.dao.entity.FunctionGroup;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.FunctionGroupRepository;
 import com.czertainly.core.service.impl.ConnectorServiceImpl;
@@ -31,6 +32,9 @@ public class ConnectorServiceMockTest {
 
     @Mock
     private FunctionGroupRepository functionGroupRepository;
+
+    @Mock
+    private ConnectorApiFactory connectorApiFactory;
 
     @InjectMocks
     private ConnectorService connectorService = new ConnectorServiceImpl();
@@ -69,6 +73,8 @@ public class ConnectorServiceMockTest {
 
         Mockito.when(functionGroupRepository.findByCode(Mockito.any())).thenReturn(Optional.empty());
         Mockito.when(functionGroupRepository.findByCode(Mockito.eq(FunctionGroupCode.CREDENTIAL_PROVIDER))).thenReturn(Optional.of(functionGroup));
+
+        Mockito.when(connectorApiFactory.getConnectorApiClient(Mockito.any())).thenReturn(connectorApiClient);
     }
 
     @Test

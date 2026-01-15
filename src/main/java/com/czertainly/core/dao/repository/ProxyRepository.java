@@ -15,5 +15,7 @@ public interface ProxyRepository extends SecurityFilterRepository<Proxy, Long> {
 
     Optional<Proxy> findByName(String name);
 
+    Optional<Proxy> findByCode(String code);
+
     List<Proxy> findByStatus(ProxyStatus status);
 }

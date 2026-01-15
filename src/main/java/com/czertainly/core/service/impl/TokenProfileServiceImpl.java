@@ -1,6 +1,6 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.clients.cryptography.TokenInstanceApiClient;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.cryptography.tokenprofile.AddTokenProfileRequestDto;
@@ -49,7 +49,7 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     // Services & API Clients
     // --------------------------------------------------------------------------------
     private PermissionEvaluator permissionEvaluator;
-    private TokenInstanceApiClient tokenInstanceApiClient;
+    private ConnectorApiFactory connectorApiFactory;
     private AttributeEngine attributeEngine;
     // --------------------------------------------------------------------------------
     // Repositories
@@ -73,8 +73,8 @@ public class TokenProfileServiceImpl implements TokenProfileService {
     }
 
     @Autowired
-    public void setTokenInstanceApiClient(TokenInstanceApiClient tokenInstanceApiClient) {
-        this.tokenInstanceApiClient = tokenInstanceApiClient;
+    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
+        this.connectorApiFactory = connectorApiFactory;
     }
 
     @Autowired
@@ -289,10 +289,10 @@ public class TokenProfileServiceImpl implements TokenProfileService {
         ConnectorDto connectorDto = tokenInstanceRef.getConnector().mapToDto();
 
         // validate first by connector
-        tokenInstanceApiClient.validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
+        connectorApiFactory.getTokenInstanceApiClient(connectorDto).validateTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid(), attributes);
 
         // list definitions
-        List<BaseAttribute> definitions = tokenInstanceApiClient.listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
+        List<BaseAttribute> definitions = connectorApiFactory.getTokenInstanceApiClient(connectorDto).listTokenProfileAttributes(connectorDto, tokenInstanceRef.getTokenInstanceUuid());
 
         // validate and update definitions with attribute engine
         attributeEngine.validateUpdateDataAttributes(tokenInstanceRef.getConnectorUuid(), null, definitions, attributes);

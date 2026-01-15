@@ -1,7 +1,7 @@
 package com.czertainly.core.config;
 
-import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
+import com.czertainly.api.interfaces.client.CryptographicOperationsSyncApiClient;
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
@@ -31,7 +31,7 @@ public class TokenContentSigner implements ContentSigner {
 
     private static final Logger logger = LoggerFactory.getLogger(TokenContentSigner.class);
 
-    private final CryptographicOperationsApiClient apiClient;
+    private final CryptographicOperationsSyncApiClient apiClient;
     private final ConnectorDto connector;
     private final UUID privateKeyUuid;
     private final UUID publicKeyUuid;
@@ -44,7 +44,7 @@ public class TokenContentSigner implements ContentSigner {
 
     private final ByteArrayOutputStream outputStream;
 
-    public TokenContentSigner(CryptographicOperationsApiClient apiClient,
+    public TokenContentSigner(CryptographicOperationsSyncApiClient apiClient,
                               ConnectorDto connector,
                               UUID tokenInstanceUuid,
                               UUID privateKeyUuid,
