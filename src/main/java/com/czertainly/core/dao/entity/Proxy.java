@@ -15,6 +15,7 @@ import org.hibernate.proxy.HibernateProxy;
 
 import java.io.Serial;
 import java.io.Serializable;
+import java.time.OffsetDateTime;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
@@ -44,6 +45,9 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
     @Enumerated(EnumType.STRING)
     private ProxyStatus status;
 
+    @Column(name = "last_activity")
+    private OffsetDateTime lastActivity;
+
     @OneToMany(fetch = FetchType.LAZY, mappedBy = "proxy")
     @ToString.Exclude
     @JsonManagedReference
@@ -57,6 +61,7 @@ public class Proxy extends UniquelyIdentifiedAndAudited implements Serializable,
         dto.setDescription(this.description);
         dto.setCode(this.code);
         dto.setStatus(this.status);
+        dto.setLastActivity(this.lastActivity);
         dto.setConnectors(this.connectors.stream()
             .map(Connector::mapToDto)
             .collect(Collectors.toList()));
