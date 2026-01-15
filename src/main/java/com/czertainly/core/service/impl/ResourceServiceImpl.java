@@ -221,16 +221,24 @@ public class ResourceServiceImpl implements ResourceService {
 
     private static NameAndUuidDto getResourceId(Serializable bodyKeyValue) {
         if (bodyKeyValue instanceof List<?> list && list.getFirst() instanceof Map<?, ?> map) {
-                if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
-                return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
-            }
+            if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
+        }
 
         if (bodyKeyValue instanceof Map<?, ?> map) {
             if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
             return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
         }
 
-        throw new ValidationException("Invalid data in body %s of request callback. Cannot extract name and UUID.".formatted(bodyKeyValue));
+        if (bodyKeyValue instanceof String uuid) {
+            try {
+                return new NameAndUuidDto(UUID.fromString(uuid).toString(), null);
+            } catch (Exception e) {
+                throw new ValidationException("Cannot convert body value %s to UUID.".formatted(uuid));
+            }
+        }
+
+        throw new ValidationException("Invalid data in body %s of request callback. Cannot extract UUID.".formatted(bodyKeyValue));
     }
 
     @Override
@@ -253,7 +261,8 @@ public class ResourceServiceImpl implements ResourceService {
 
     private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException {
         ResourceObjectContentData data = new ResourceObjectContentData();
-        if (resource.isWithContent()) data.setBase64Content(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
+        if (resource.isWithContent())
+            data.setBase64Content(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
         data.setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
         data.setResource(resource);
         data.setUuid(uuid.toString());

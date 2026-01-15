@@ -326,11 +326,15 @@ class ResourceServiceTest extends BaseSpringBootTest {
         requestAttributeCallback.setBody(body);
         resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
+        Assertions.assertEquals("name", ((ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
+
 
         body.put(resourceMapping.getTo(), (Serializable) List.of(Map.of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName())));
         requestAttributeCallback.setBody(body);
         resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY);
         assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
+        Assertions.assertEquals("name", ((ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo())).getAttributes().getFirst().getName());
+
 
         body.put(resourceMapping.getTo(), (Serializable) Map.of("name", authorityInstance.getName()));
         requestAttributeCallback.setBody(body);
@@ -340,19 +344,26 @@ class ResourceServiceTest extends BaseSpringBootTest {
         requestAttributeCallback.setBody(body);
         Assertions.assertThrows(ValidationException.class, () -> resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY));
 
-        body.put(resourceMapping.getTo(), "somethingElse");
+        body.put(resourceMapping.getTo(), 1);
         requestAttributeCallback.setBody(body);
         Assertions.assertThrows(ValidationException.class, () -> resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY));
+
+        body.put(resourceMapping.getTo(), "notUuid");
+        requestAttributeCallback.setBody(body);
+        Assertions.assertThrows(ValidationException.class, () -> resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY));
+
+        body.put(resourceMapping.getTo(), authorityInstance.getUuid().toString());
+        requestAttributeCallback.setBody(body);
+        resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY);
+        assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
 
     }
 
     private static void assertCorrectBodyData(RequestAttributeCallback requestAttributeCallback, AttributeCallbackMapping resourceMapping, AuthorityInstanceReference authorityInstance) {
         ResourceObjectContentData data = (ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo());
         Assertions.assertEquals(authorityInstance.getUuid().toString(), data.getUuid());
-        Assertions.assertEquals(authorityInstance.getName(), data.getName());
         List<ResponseAttribute> attributes = data.getAttributes();
         Assertions.assertEquals(1, attributes.size());
-        Assertions.assertEquals("name", attributes.getFirst().getName());
         List<StringAttributeContentV3> attributeContent = attributes.getFirst().getContent();
         Assertions.assertEquals("data", attributeContent.getFirst().getData());
     }
