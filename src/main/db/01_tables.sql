@@ -14,6 +14,7 @@ create sequence discovery_id_seq start 1 increment 1;
 create sequence endpoint_id_seq start 1 increment 1;
 create sequence function_group_id_seq start 1 increment 1;
 create sequence ra_profile_id_seq start 1 increment 1;
+create sequence proxy_id_seq start 1 increment 1;
 
     create table admin (
        id int8 not null,
@@ -151,17 +152,19 @@ CREATE TABLE "certificate_group" (
         primary key (ra_profile_id, client_id)
     );
 
-    create table connector (
-       id int8 not null,
-        uuid varchar(255),
-        i_author varchar(255),
-        i_cre timestamp not null,
-        i_upd timestamp not null,
+    create table connector
+    (
+        id              int8      not null,
+        uuid            varchar(255),
+        i_author        varchar(255),
+        i_cre           timestamp not null,
+        i_upd           timestamp not null,
         auth_attributes text,
-        auth_type varchar(255),
-        name varchar(255),
-        status varchar(255),
-        url varchar(255),
+        auth_type       varchar(255),
+        name            varchar(255),
+        status          varchar(255),
+        url             varchar(255),
+        proxy_id        int8
         primary key (id)
     );
 
@@ -260,6 +263,20 @@ CREATE TABLE "discovery_certificate" (
         primary key (id)
     );
 
+    create table proxy
+    (
+        id          int8         not null,
+        uuid        varchar(255),
+        i_author    varchar(255),
+        i_cre       timestamp    not null,
+        i_upd       timestamp    not null,
+        name        varchar(255) not null,
+        description text,
+        code        varchar(255) not null,
+        status      varchar(255) not null,
+        primary key (id)
+    );
+
     alter table if exists admin
        add constraint FKrq5yjsxacu7105ihrfcp662xe
        foreign key (certificate_id)
@@ -339,6 +356,11 @@ CREATE TABLE "discovery_certificate" (
        add constraint FK1ybgp06wf8uoegwfhsg4fev2a
        foreign key (authority_instance_ref_id)
        references authority_instance_reference;
+
+    alter table if exists connector
+        add constraint FK1qvna5rijfjsxr9t892wv59
+        foreign key (proxy_id)
+        references proxy;
 
 ALTER TABLE if exists client
     ADD CONSTRAINT client_name_unique

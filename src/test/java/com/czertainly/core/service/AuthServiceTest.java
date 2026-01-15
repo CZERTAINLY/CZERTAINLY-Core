@@ -659,8 +659,21 @@ class AuthServiceTest extends BaseSpringBootTest {
                                 "displayName": "List"
                             }
                         ]
+                    },
+                    {
+                        "uuid": "df7604bb-1cfb-45cb-a948-e2faa78722c6",
+                        "name": "proxies",
+                        "displayName": "Proxies",
+                        "listObjectsEndpoint": "/v1/proxies",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "53421445-5d6e-4257-b59d-235aaf26e61e",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
                     }
-               
                 ]
                 """;
     }

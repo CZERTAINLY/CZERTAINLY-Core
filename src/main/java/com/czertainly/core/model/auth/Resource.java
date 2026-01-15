@@ -20,6 +20,7 @@ public enum Resource {
     ATTRIBUTE("attributes"),
     SCHEDULED_JOB("jobs"),
     OID("oids"),
+    PROXY("proxies"),
 
     // AUTH
     USER("users"),

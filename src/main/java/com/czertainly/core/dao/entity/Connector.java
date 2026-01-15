@@ -51,6 +51,10 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
     @Enumerated(EnumType.STRING)
     private ConnectorStatus status;
 
+    @ManyToOne
+    @JoinColumn(name = "proxy_id")
+    private Proxy proxy;
+
     @OneToMany(fetch = FetchType.LAZY, mappedBy = "connector")
     @ToString.Exclude
     @JsonManagedReference
