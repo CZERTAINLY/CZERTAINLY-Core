@@ -807,8 +807,21 @@ public class AttributeEngine {
         // custom attributes content is automatically replaced
         deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
         if (attributeContentItems != null && !attributeContentItems.isEmpty()) {
-            validateAttributeContent(attributeDefinition, attributeContentItems);
-            createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), attributeContentItems);
+            List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
+            for (AttributeContent content : attributeContentItems) {
+                BaseAttributeContentV3<?> baseAttributeContentV3;
+                if (content.getContentType() == null) {
+                    baseAttributeContentV3 = new BaseAttributeContentV3<>();
+                    baseAttributeContentV3.setContentType(attributeDefinition.getContentType());
+                    baseAttributeContentV3.setData(content.getData());
+                    baseAttributeContentV3.setReference(content.getReference());
+                } else {
+                    baseAttributeContentV3 = (BaseAttributeContentV3<?>) content;
+                }
+                contentV3s.add((baseAttributeContentV3));
+            }
+            validateAttributeContent(attributeDefinition, contentV3s);
+            createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), contentV3s);
         }
     }
 
