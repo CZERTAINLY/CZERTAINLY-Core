@@ -3,11 +3,23 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.NotSupportedException;
+import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -15,12 +27,8 @@ import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.AttributeDefinition;
-import com.czertainly.core.dao.entity.Certificate;
-import com.czertainly.core.dao.entity.CertificateContent;
-import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
-import com.czertainly.core.dao.repository.CertificateContentRepository;
-import com.czertainly.core.dao.repository.CertificateRepository;
+import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.util.BaseSpringBootTest;
 import com.github.tomakehurst.wiremock.WireMockServer;
@@ -33,9 +41,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.io.Serializable;
+import java.util.*;
 
 class ResourceServiceTest extends BaseSpringBootTest {
 
@@ -59,8 +66,16 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AttributeDefinitionRepository attributeDefinitionRepository;
+    @Autowired
+    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    @Autowired
+    private AttributeContentItemRepository attributeContentItemRepository;
+    @Autowired
+    private AttributeContent2ObjectRepository attributeContent2ObjectRepository;
 
     private WireMockServer mockServer;
+
+    private Certificate certificate;
 
     @AfterEach
     void tearDown() {
@@ -112,7 +127,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
 
-        Certificate certificate = new Certificate();
+        certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
         certificate.setIssuerDn("testCercertificatetificate");
         certificate.setSerialNumber("123456789");
@@ -166,6 +181,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
                 Resource.ATTRIBUTE,
                 Resource.COMPLIANCE_PROFILE,
                 Resource.CONNECTOR,
+                Resource.CERTIFICATE,
                 Resource.CREDENTIAL,
                 Resource.ENTITY,
                 Resource.GROUP,
@@ -184,9 +200,9 @@ class ResourceServiceTest extends BaseSpringBootTest {
         }
 
         // Throw NotFoundException for unsupported resource
-        Resource unsupportedResource = Resource.CERTIFICATE;
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(unsupportedResource, null, null), "Should throw NotFoundException for unsupported resource: " + unsupportedResource);
-        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(Resource.RULE, null, null), "Should throw NotFoundException for unsupported resource: " + Resource.RULE);
+        Resource unsupportedResource = Resource.ROLE;
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(unsupportedResource, null, null), "Should throw NotSupportedException for unsupported resource: " + unsupportedResource);
+        Assertions.assertThrows(NotSupportedException.class, () -> resourceService.getResourceObjects(Resource.RULE, null, null), "Should throw NotSupportedException for unsupported resource: " + Resource.RULE);
     }
 
     @Test
@@ -255,5 +271,113 @@ class ResourceServiceTest extends BaseSpringBootTest {
         Assertions.assertTrue(events.keySet().stream().anyMatch(
                 event -> event.getCode().equals(ResourceEvent.CERTIFICATE_DISCOVERED.getCode())),
                 "Resource event map should contain CERTIFICATE_DISCOVERED event");
+    }
+
+    @Test
+    void testLoadResourceObjectContentDataFromDataAttributes() throws NotFoundException, AttributeException {
+        DataAttributeV3 nonResourceAttribute = new DataAttributeV3();
+        nonResourceAttribute.setName("name");
+        nonResourceAttribute.setContentType(AttributeContentType.DATE);
+
+        DataAttributeV3 resourceAttribute = new DataAttributeV3();
+        resourceAttribute.setContentType(AttributeContentType.RESOURCE);
+        resourceAttribute.setName("resource");
+        ResourceObjectContentData data = new ResourceObjectContentData();
+        data.setUuid(certificate.getUuid().toString());
+        resourceAttribute.setContent(List.of(new ResourceObjectContent("ref", data)));
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setResource(AttributeResource.CERTIFICATE);
+        resourceAttribute.setProperties(properties);
+
+        resourceService.loadResourceObjectContentData(List.of(nonResourceAttribute, resourceAttribute));
+        Assertions.assertNull(nonResourceAttribute.getContent());
+        ResourceObjectContentData dataWithResource = (ResourceObjectContentData) resourceAttribute.getContent().getFirst().getData();
+        Assertions.assertEquals(certificate.getContentData(), dataWithResource.getBase64Content());
+        Assertions.assertEquals(AttributeResource.CERTIFICATE, dataWithResource.getResource());
+        Assertions.assertEquals(certificate.getCommonName(), dataWithResource.getName());
+        Assertions.assertEquals(certificate.getUuid().toString(), dataWithResource.getUuid());
+    }
+
+    @Test
+    void testLoadResourceObjectContentDataToBody() throws NotFoundException, AttributeException {
+        AuthorityInstanceReference authorityInstance = new AuthorityInstanceReference();
+        authorityInstance.setName("auth");
+        authorityInstanceReferenceRepository.save(authorityInstance);
+
+        createAttributes(authorityInstance);
+
+        RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
+        resourceService.loadResourceObjectContentData(null, requestAttributeCallback, AttributeResource.AUTHORITY);
+        Assertions.assertNull(requestAttributeCallback.getBody());
+        AttributeCallback attributeCallback = new AttributeCallback();
+        resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY);
+        Assertions.assertNull(requestAttributeCallback.getBody());
+        AttributeCallbackMapping stringMapping = new AttributeCallbackMapping();
+        stringMapping.setAttributeContentType(AttributeContentType.STRING);
+        AttributeCallbackMapping resourceMapping = new AttributeCallbackMapping();
+        resourceMapping.setAttributeContentType(AttributeContentType.RESOURCE);
+        resourceMapping.setTo("to");
+        resourceMapping.setTargets(Set.of(AttributeValueTarget.PATH_VARIABLE, AttributeValueTarget.BODY));
+        attributeCallback.setMappings(Set.of(stringMapping, resourceMapping));
+
+        Map<String, Serializable> body = new HashMap<>();
+
+        body.put(resourceMapping.getTo(), (Serializable) Map.of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName()));
+        requestAttributeCallback.setBody(body);
+        resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY);
+        assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
+
+        body.put(resourceMapping.getTo(), (Serializable) List.of(Map.of("uuid", authorityInstance.getUuid().toString(), "name", authorityInstance.getName())));
+        requestAttributeCallback.setBody(body);
+        resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY);
+        assertCorrectBodyData(requestAttributeCallback, resourceMapping, authorityInstance);
+
+        body.put(resourceMapping.getTo(), (Serializable) Map.of("name", authorityInstance.getName()));
+        requestAttributeCallback.setBody(body);
+        Assertions.assertThrows(ValidationException.class, () -> resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY));
+
+        body.put(resourceMapping.getTo(), (Serializable) List.of(Map.of("name", authorityInstance.getName())));
+        requestAttributeCallback.setBody(body);
+        Assertions.assertThrows(ValidationException.class, () -> resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY));
+
+        body.put(resourceMapping.getTo(), "somethingElse");
+        requestAttributeCallback.setBody(body);
+        Assertions.assertThrows(ValidationException.class, () -> resourceService.loadResourceObjectContentData(attributeCallback, requestAttributeCallback, AttributeResource.AUTHORITY));
+
+    }
+
+    private static void assertCorrectBodyData(RequestAttributeCallback requestAttributeCallback, AttributeCallbackMapping resourceMapping, AuthorityInstanceReference authorityInstance) {
+        ResourceObjectContentData data = (ResourceObjectContentData) requestAttributeCallback.getBody().get(resourceMapping.getTo());
+        Assertions.assertEquals(authorityInstance.getUuid().toString(), data.getUuid());
+        Assertions.assertEquals(authorityInstance.getName(), data.getName());
+        List<ResponseAttribute> attributes = data.getAttributes();
+        Assertions.assertEquals(1, attributes.size());
+        Assertions.assertEquals("name", attributes.getFirst().getName());
+        List<StringAttributeContentV3> attributeContent = attributes.getFirst().getContent();
+        Assertions.assertEquals("data", attributeContent.getFirst().getData());
+    }
+
+    private void createAttributes(AuthorityInstanceReference authorityInstance) {
+        AttributeDefinition definition = new AttributeDefinition();
+        definition.setType(AttributeType.DATA);
+        definition.setName("name");
+        definition.setLabel("label");
+        definition.setVersion(3);
+        DataAttributeV3 dataAttributeV3 = new DataAttributeV3();
+        dataAttributeV3.setContentType(AttributeContentType.STRING);
+        definition.setDefinition(dataAttributeV3);
+        definition.setAttributeUuid(UUID.randomUUID());
+        definition.setContentType(AttributeContentType.STRING);
+        attributeDefinitionRepository.save(definition);
+        AttributeContentItem attributeContentItem = new AttributeContentItem();
+        attributeContentItem.setAttributeDefinitionUuid(definition.getUuid());
+        attributeContentItem.setJson(new StringAttributeContentV3("data"));
+        attributeContentItemRepository.save(attributeContentItem);
+        AttributeContent2Object attributeContent2Object = new AttributeContent2Object();
+        attributeContent2Object.setAttributeContentItemUuid(attributeContentItem.getUuid());
+        attributeContent2Object.setObjectUuid(authorityInstance.getUuid());
+        attributeContent2Object.setObjectType(Resource.AUTHORITY);
+        attributeContent2Object.setOrder(1);
+        attributeContent2ObjectRepository.save(attributeContent2Object);
     }
 }

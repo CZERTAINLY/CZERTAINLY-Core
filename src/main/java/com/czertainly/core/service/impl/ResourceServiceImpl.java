@@ -12,8 +12,6 @@ import com.czertainly.api.model.common.attribute.common.callback.AttributeCallba
 import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
-import com.czertainly.api.model.common.attribute.v3.content.ObjectAttributeContentV3;
 import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
 import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
@@ -35,11 +33,9 @@ import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
-import org.codehaus.janino.IClass;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -196,7 +192,7 @@ public class ResourceServiceImpl implements ResourceService {
     @Override
     public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException, AttributeException {
         if (callback == null) {
-            logger.warn("Given Callback is null");
+            logger.warn("Missing attribute callback for request attribute callback {}", requestAttributeCallback);
             return;
         }
 
@@ -204,52 +200,37 @@ public class ResourceServiceImpl implements ResourceService {
             for (AttributeCallbackMapping mapping : callback.getMappings()) {
                 if (AttributeContentType.RESOURCE == mapping.getAttributeContentType()) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
-                        if (target != AttributeValueTarget.BODY) {
-                            logger.warn("Illegal 'from' Attribute type {} for target {}",
-                                    mapping.getAttributeType(), target);
-                            continue;
-                        }
-                        Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
-                        NameAndUuidDto resourceId = getResourceId(bodyKeyValue);
-                        String resourceUuid = resourceId.getUuid();
-                        ResourceObjectContentData data = getResourceObjectContentData(resource, UUID.fromString(resourceUuid), resourceId.getName());
-                        requestAttributeCallback.getBody().put(mapping.getTo(), data);
+                        processMapping(requestAttributeCallback, resource, mapping, target);
                     }
                 }
             }
         }
     }
 
+    private void processMapping(RequestAttributeCallback requestAttributeCallback, AttributeResource resource, AttributeCallbackMapping mapping, AttributeValueTarget target) throws NotFoundException, AttributeException {
+        if (target != AttributeValueTarget.BODY) {
+            return;
+        }
+        Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
+        NameAndUuidDto resourceId = getResourceId(bodyKeyValue);
+        String resourceUuid = resourceId.getUuid();
+        ResourceObjectContentData data = getResourceObjectContentData(resource, UUID.fromString(resourceUuid), resourceId.getName());
+        requestAttributeCallback.getBody().put(mapping.getTo(), data);
+    }
+
 
     private static NameAndUuidDto getResourceId(Serializable bodyKeyValue) {
-        switch (bodyKeyValue) {
-            case NameAndUuidDto nameAndUuidDto -> {
-                return nameAndUuidDto;
+        if (bodyKeyValue instanceof List<?> list && list.getFirst() instanceof Map<?, ?> map) {
+                if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+                return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
             }
-            case ResourceObjectContent resourceObjectContent -> {
-                return new NameAndUuidDto(resourceObjectContent.getData().getName(), resourceObjectContent.getData().getUuid());
-            }
-            case List<?> list when list.getFirst() instanceof ResourceObjectContent resourceObjectContent -> {
-                return new NameAndUuidDto(resourceObjectContent.getData().getName(), resourceObjectContent.getData().getUuid());
-            }
-            case Map<?, ?> map -> {
-                if (map.containsKey("uuid") && map.containsKey("name")) {
-                    return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
-                } else {
-                    try {
-                        Map<?, ?> data = (Map<?, ?>) (new ObjectMapper().convertValue(bodyKeyValue, ObjectAttributeContentV3.class)).getData();
-                        String resourceUuid = data.get("uuid").toString();
-                        String name = data.get("name").toString();
-                        return new NameAndUuidDto(name, resourceUuid);
-                    } catch (Exception e) {
-                        throw new ValidationException(ValidationError.create(
-                                "Invalid value {}, because of {}.", bodyKeyValue, e.getMessage()));
-                    }
-                }
-            }
-            case null, default -> throw new ValidationException(ValidationError.create(
-                    "Invalid value {}. Instance of {} is expected.", bodyKeyValue, NameAndUuidDto.class));
+
+        if (bodyKeyValue instanceof Map<?, ?> map) {
+            if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
         }
+
+        throw new ValidationException("Invalid data in body %s of request callback. Cannot extract name and UUID.".formatted(bodyKeyValue));
     }
 
     @Override
@@ -272,8 +253,7 @@ public class ResourceServiceImpl implements ResourceService {
 
     private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException {
         ResourceObjectContentData data = new ResourceObjectContentData();
-        if (resource.isHasContent())
-            data.setBase64Content(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
+        if (resource.isWithContent()) data.setBase64Content(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
         data.setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
         data.setResource(resource);
         data.setUuid(uuid.toString());
