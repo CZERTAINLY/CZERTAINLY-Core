@@ -140,7 +140,7 @@ public class CallbackServiceImpl implements CallbackService {
 
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
-        if (attribute.getType() == AttributeType.DATA) {
+        if (attribute.getType() == AttributeType.DATA && callback.getBody() != null) {
             Map<String, AttributeResource> toResource = new HashMap<>();
             for (String to : callback.getBody().keySet()) {
                 AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
@@ -161,7 +161,7 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     private AttributeResource getAttributeResource(BaseAttribute attribute) {
-        return ((DataAttribute) attribute).getProperties().getResource();
+        return attribute instanceof DataAttribute dataAttribute ? dataAttribute.getProperties().getResource() : null;
     }
 
     @Override

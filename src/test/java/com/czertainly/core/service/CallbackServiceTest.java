@@ -88,6 +88,7 @@ class CallbackServiceTest extends BaseSpringBootTest {
         DataAttributeV2 extraAttribute = new DataAttributeV2();
         extraAttribute.setName("extra");
         extraAttribute.setAttributeCallback(callback);
+        extraAttribute.setProperties(new DataAttributeProperties());
         mockServer.stubFor(WireMock.get(WireMock.urlPathMatching("/v1/[^/]+/[^/]+/attributes")).willReturn(WireMock.okJson(AttributeDefinitionUtils.serialize(List.of(groupAttributeV2, extraAttribute, groupAttributeV3)))));
 
         RequestAttributeCallback requestAttributeCallback = new RequestAttributeCallback();
