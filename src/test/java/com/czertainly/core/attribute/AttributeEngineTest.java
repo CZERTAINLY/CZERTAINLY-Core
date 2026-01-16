@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
@@ -17,8 +18,10 @@ import com.czertainly.api.model.common.attribute.common.properties.CustomAttribu
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.*;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -143,6 +146,26 @@ class AttributeEngineTest extends BaseSpringBootTest {
         loadMetadata();
         loadCustomAttributesData();
     }
+
+    @Test
+    void testUpdateValidateResourceAttribute() {
+        DataAttributeV3 resourceAttribute = new DataAttributeV3();
+        resourceAttribute.setContentType(AttributeContentType.RESOURCE);
+        resourceAttribute.setName("resource");
+        resourceAttribute.setUuid(UUID.randomUUID().toString());
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setLabel("l");
+        resourceAttribute.setProperties(properties);
+        List<DataAttributeV3> attributes = List.of(resourceAttribute);
+        UUID connectorUuid = connectorAuthority.getUuid();
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
+        properties.setResource(AttributeResource.AUTHORITY);
+        Assertions.assertThrows(AttributeException.class, () -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
+        resourceAttribute.setAttributeCallback(new AttributeCallback());
+        Assertions.assertDoesNotThrow(() -> attributeEngine.updateDataAttributeDefinitions(connectorUuid, null, attributes));
+    }
+
+
 
     @Test
     void testMetaContents() {
