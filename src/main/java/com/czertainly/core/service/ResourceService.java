@@ -95,7 +95,7 @@ public interface ResourceService {
 
     boolean hasResourceExtensionService(Resource resource);
 
-    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException, AttributeException;
+    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException;
 
     void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException;
 

@@ -190,7 +190,7 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, AttributeResource resource) throws NotFoundException, AttributeException {
+    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException {
         if (callback == null) {
             logger.warn("Missing attribute callback for request attribute callback {}", requestAttributeCallback);
             return;
@@ -200,7 +200,7 @@ public class ResourceServiceImpl implements ResourceService {
             for (AttributeCallbackMapping mapping : callback.getMappings()) {
                 if (AttributeContentType.RESOURCE == mapping.getAttributeContentType()) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
-                        processMapping(requestAttributeCallback, resource, mapping, target);
+                        processMapping(requestAttributeCallback, resources.get(mapping.getTo()), mapping, target);
                     }
                 }
             }

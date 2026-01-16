@@ -9,7 +9,9 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
 import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -33,9 +35,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -128,19 +128,30 @@ public class CallbackServiceImpl implements CallbackService {
         AttributeCallback attributeCallback = getAttributeCallback(attribute);
         AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
 
-        if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
+        if (Objects.equals(attributeCallback.getCallbackContext(), "core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
         }
 
         AttributeResource attributeResource = getAttributeResource(attribute);
 
-        if (attributeCallback.getCallbackContext().equals("core/getResources")) {
+        if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE)  {
             return coreCallbackService.coreGetResources(callback, attributeResource);
         }
 
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
-        if (attribute.getType() == AttributeType.DATA) resourceService.loadResourceObjectContentData(attributeCallback, callback, attributeResource);
+        if (attribute.getType() == AttributeType.DATA) {
+            Map<String, AttributeResource> toResource = new HashMap<>();
+            for (String to : callback.getBody().keySet()) {
+                AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
+                if (callbackMapping != null) {
+                    String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
+                    DataAttribute fromAttribute =  (DataAttribute) getAttributeByName(fromAttributeName, definitions, connector.getUuid());
+                    toResource.put(to, fromAttribute.getProperties().getResource());
+                }
+            }
+            resourceService.loadResourceObjectContentData(attributeCallback, callback, toResource);
+        }
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
         if (attribute.getType().equals(AttributeType.GROUP)) {
