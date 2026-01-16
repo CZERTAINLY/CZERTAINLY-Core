@@ -427,7 +427,7 @@ public class ComplianceProfileServiceImpl implements ComplianceProfileService {
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        return complianceProfileServiceV2.listResourceObjects(filter, null, null);
+        return complianceProfileServiceV2.listResourceObjects(filter, filters, pagination);
     }
 
     @Override

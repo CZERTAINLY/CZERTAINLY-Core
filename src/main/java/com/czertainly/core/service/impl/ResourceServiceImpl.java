@@ -234,7 +234,7 @@ public class ResourceServiceImpl implements ResourceService {
             try {
                 return new NameAndUuidDto(UUID.fromString(uuid).toString(), null);
             } catch (Exception e) {
-                throw new ValidationException("Cannot convert body value %s to UUID.".formatted(uuid));
+                throw new ValidationException("Cannot convert body value %s to UUID: %s".formatted(uuid, e.getMessage()));
             }
         }
 

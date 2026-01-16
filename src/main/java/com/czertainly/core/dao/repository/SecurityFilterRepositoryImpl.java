@@ -190,7 +190,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         TypedQuery<NameAndUuidDto> query = entityManager
                 .createQuery(createResourceObjectsQuery(securityFilter, nameAttribute, additionalWhereClause));
         if (page != null) {
-            query.setFirstResult(page.getPageNumber() - 1);
+            query.setFirstResult((page.getPageNumber() - 1) * page.getItemsPerPage());
             query.setMaxResults(page.getItemsPerPage());
         }
         return query.getResultList();
