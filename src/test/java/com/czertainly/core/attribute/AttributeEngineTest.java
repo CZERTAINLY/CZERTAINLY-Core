@@ -7,6 +7,8 @@ import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.v2.*;
+import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.v2.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.attribute.v2.content.data.CodeBlockAttributeContentData;
@@ -39,6 +41,7 @@ import java.security.cert.CertificateException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -489,6 +492,38 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContent("value123")));
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
 
+    }
+
+    @Test
+    void testUpdateAttributeDefinition() throws AttributeException {
+        DataAttribute validAttribute = new DataAttribute();
+        validAttribute.setUuid(UUID.randomUUID().toString());
+        validAttribute.setName("validAttribute");
+        validAttribute.setType(AttributeType.DATA);
+        validAttribute.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Valid Label");
+        props.setRequired(true);
+        props.setReadOnly(false);
+        props.setVisible(false);
+        props.setList(false);
+        validAttribute.setProperties(props);
+
+        List<BaseAttributeConstraint> constraints = new ArrayList<>();
+        RegexpAttributeConstraint constraint = new RegexpAttributeConstraint("", "", ".");
+        constraints.add(constraint);
+        validAttribute.setConstraints(constraints);
+
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
+
+        validAttribute.setConstraints(null);
+        validAttribute.setAttributeCallback(new AttributeCallback());
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
+
+        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(),validAttribute.getName());
+        Assertions.assertNotNull(dataAttribute.getAttributeCallback());
+        Assertions.assertNull(dataAttribute.getConstraints());
     }
 
     @Test
