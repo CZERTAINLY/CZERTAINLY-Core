@@ -6,6 +6,7 @@ import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitio
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.*;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
@@ -101,6 +102,10 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     @ToString.Exclude
     private List<AttributeRelation> relations = new ArrayList<>();
 
+    @Column(name = "protection_level")
+    @Enumerated(EnumType.STRING)
+    private ProtectionLevel protectionLevel;
+
     public void setConnector(Connector connector) {
         this.connector = connector;
         if (connector != null) this.connectorUuid = connector.getUuid();
@@ -166,6 +171,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             dto.setMultiSelect(properties.isMultiSelect());
             dto.setReadOnly(properties.isReadOnly());
             dto.setVisible(properties.isVisible());
+            dto.setProtectionLevel(properties.getProtectionLevel());
         }
         return dto;
     }
@@ -184,6 +190,7 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
             dto.setGroup(properties.getGroup());
             dto.setLabel(properties.getLabel());
             dto.setVisible(properties.isVisible());
+            dto.setProtectionLevel(properties.getProtectionLevel());
         }
         return dto;
     }

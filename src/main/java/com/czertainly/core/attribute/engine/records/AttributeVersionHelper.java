@@ -12,8 +12,10 @@ import com.czertainly.api.model.common.attribute.v2.GroupAttributeV2;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 
 import java.io.Serializable;
 import java.util.List;
@@ -97,6 +99,16 @@ public class AttributeVersionHelper {
         if (!responseMetadataV3.getContent().contains(contentItem)) {
             responseMetadataV3.getContent().add(attributeContentV3);
         }
+    }
+
+    public static AttributeContent createEncryptedStringContent(String encryptedData, String reference, int version, AttributeContentType contentType) {
+        if (version == 2) return new StringAttributeContentV2(reference, encryptedData);
+        if (version == 3) {
+            StringAttributeContentV3 stringAttributeContentV3 = new StringAttributeContentV3(reference, encryptedData);
+            stringAttributeContentV3.setContentType(contentType);
+            return stringAttributeContentV3;
+        }
+        return null;
     }
 
 

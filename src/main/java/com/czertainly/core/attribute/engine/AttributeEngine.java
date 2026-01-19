@@ -9,6 +9,7 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.client.metadata.ResponseMetadata;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.*;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
@@ -32,9 +33,7 @@ import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
-import com.czertainly.core.util.AttributeDefinitionUtils;
-import com.czertainly.core.util.AuthHelper;
-import com.czertainly.core.util.SearchHelper;
+import com.czertainly.core.util.*;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -1046,8 +1045,14 @@ public class AttributeEngine {
         logger.debug("Creating the attribute content for attribute {} of type {}. Info: {}", attributeDefinition.getName(), attributeDefinition.getType().getLabel(), objectAttributeContentInfo);
 
         validateAttributeContent(attributeDefinition, attributeContentItems);
+
         for (int i = 0; i < attributeContentItems.size(); i++) {
             AttributeContent attributeContentItem = attributeContentItems.get(i);
+            if (attributeDefinition.getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+                String encryptedData = SecretsUtil.encryptAndEncodeSecretString(attributeContentItem.getData().toString(), SecretEncodingVersion.V1);
+                // Save as String Attribute Content for serialization purpose - or maybe a new content type if serialization of v3 not possible? only in core
+                attributeContentItem = AttributeVersionHelper.createEncryptedStringContent(encryptedData, attributeContentItem.getReference(), attributeDefinition.getVersion(), attributeDefinition.getContentType());
+            }
             AttributeContentItem contentItemEntity = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinition.getUuid());
 
             // check if content item for this attribute definition exists to don't create duplicate items
