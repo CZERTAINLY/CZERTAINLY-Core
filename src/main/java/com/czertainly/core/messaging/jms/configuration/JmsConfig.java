@@ -1,9 +1,12 @@
 package com.czertainly.core.messaging.jms.configuration;
 
+import com.azure.identity.ClientSecretCredentialBuilder;
+import com.azure.core.credential.TokenCredential;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import jakarta.jms.ConnectionFactory;
+import org.apache.qpid.jms.JmsConnectionExtensions;
 import org.apache.qpid.jms.JmsConnectionFactory;
 import org.slf4j.Logger;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
@@ -39,22 +42,52 @@ public class JmsConfig {
         }
         String brokerUrl = builder.build().toUriString();
 
-        logger.info("Connecting to broker: {} with vhost: {}", props.brokerUrl(), props.vhost());
-
         JmsConnectionFactory factory = new JmsConnectionFactory(brokerUrl);
-        factory.setUsername(props.user());
-        factory.setPassword(props.password());
         factory.setForceSyncSend(true);
+
         if (props.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {
+            configureServiceBusAuthentication(factory, props);
             return factory;
         }
 
-        // caching connection favtory for non-ServiceBus (RabbitMQ)
+        // RabbitMQ - standard username/password authentication
+        logger.info("Connecting to RabbitMQ broker: {} with vhost: {}", props.brokerUrl(), props.vhost());
+        factory.setUsername(props.user());
+        factory.setPassword(props.password());
+
+        // caching connection factory for non-ServiceBus (RabbitMQ)
         CachingConnectionFactory cachingConnectionFactory = new CachingConnectionFactory(factory);
         cachingConnectionFactory.setSessionCacheSize(props.sessionCacheSize());
         cachingConnectionFactory.setReconnectOnException(true);
 
         return cachingConnectionFactory;
+    }
+
+    private void configureServiceBusAuthentication(JmsConnectionFactory factory, MessagingProperties props) {
+        if (props.aadAuth() != null && props.aadAuth().isEnabled()) {
+            // AAD (Azure Active Directory) OAuth2 authentication
+            logger.info("Connecting to Azure ServiceBus: {} using AAD authentication", props.brokerUrl());
+
+            TokenCredential credential = new ClientSecretCredentialBuilder()
+                    .tenantId(props.aadAuth().tenantId())
+                    .clientId(props.aadAuth().clientId())
+                    .clientSecret(props.aadAuth().clientSecret())
+                    .build();
+
+            AadTokenProvider tokenProvider = new AadTokenProvider(credential);
+
+            // Azure ServiceBus requires "$jwt" username for OAuth2 token authentication
+            factory.setUsername("$jwt");
+            factory.setExtension(
+                    JmsConnectionExtensions.PASSWORD_OVERRIDE.toString(),
+                    tokenProvider
+            );
+        } else {
+            // SAS (Shared Access Signature) token authentication
+            logger.info("Connecting to Azure ServiceBus: {} using SAS authentication", props.brokerUrl());
+            factory.setUsername(props.user());
+            factory.setPassword(props.password());
+        }
     }
 
     @Bean

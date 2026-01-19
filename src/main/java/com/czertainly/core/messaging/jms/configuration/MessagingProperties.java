@@ -4,6 +4,7 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.boot.context.properties.ConfigurationProperties;
 import org.springframework.validation.annotation.Validated;
 
@@ -15,13 +16,39 @@ public record MessagingProperties(
         @Positive int sessionCacheSize,
         @NotBlank String exchange,
         String vhost,
-        @NotBlank String user,
-        @NotBlank String password,
+        String user,      // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
+        String password,  // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
+        @Valid AadAuth aadAuth,
         @Valid Listener listener,
         @Valid Producer producer,
         @Valid Queue queue,
         @NotNull @Valid RoutingKey routingKey
 ) {
+
+    /**
+     * Compact constructor that validates authentication configuration based on broker type.
+     */
+    public MessagingProperties {
+        boolean hasUserAndPassword = StringUtils.isNotBlank(user) && StringUtils.isNotBlank(password);
+        boolean hasAadAuth = aadAuth != null && aadAuth.isEnabled();
+
+        switch (brokerType) {
+            case RABBITMQ -> {
+                if (!hasUserAndPassword) {
+                    throw new IllegalArgumentException(
+                            "RabbitMQ requires BROKER_USER and BROKER_PASSWORD to be configured");
+                }
+            }
+            case SERVICEBUS -> {
+                if (!hasUserAndPassword && !hasAadAuth) {
+                    throw new IllegalArgumentException(
+                            "ServiceBus requires either BROKER_USER/BROKER_PASSWORD (SAS) " +
+                                    "or BROKER_AZURE_TENANT_ID/BROKER_AZURE_CLIENT_ID/BROKER_AZURE_CLIENT_SECRET (AAD) to be configured");
+                }
+            }
+        }
+    }
+
     private String producerDestination(String routingKey) {
         if (brokerType == BrokerType.SERVICEBUS) {
             return exchange();
@@ -99,6 +126,23 @@ public record MessagingProperties(
             if (maxAttempts == null) maxAttempts = 3;
             if (maxInterval == null) maxInterval = 10000L;
             if (multiplier == null) multiplier = 2L;
+        }
+    }
+
+    /**
+     * AAD (Azure Active Directory) authentication configuration for ServiceBus.
+     * When enabled is true, the connection will use OAuth2 token authentication
+     * instead of SAS token (user/password).
+     */
+    public record AadAuth(
+            String tenantId,
+            String clientId,
+            String clientSecret,
+            int tokenRefreshInterval,
+            int tokenGettingTimeout
+    ) {
+        public boolean isEnabled() {
+            return StringUtils.isNotBlank(tenantId) && StringUtils.isNotBlank(clientId) && StringUtils.isNotBlank(clientSecret);
         }
     }
 

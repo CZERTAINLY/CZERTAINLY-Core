@@ -132,11 +132,24 @@ spring:
         type:
           preferred_duration_jdbc_type: INTERVAL_SECOND
   messaging:
-    broker-type: ${BROKER_TYPE:RABBITMQ} # possible values: RABBITMQ, SERVICEBUS
+    broker-type: ${BROKER_TYPE:RABBITMQ}  # RABBITMQ or SERVICEBUS
     broker-url: ${BROKER_URL}
-    user: ${BROKER_USERNAME}
-    password: ${BROKER_PASSWORD}
     session-cache-size: ${BROKER_SESSION_CACHE_SIZE:25}
+    exchange: ${BROKER_EXCHANGE:czertainly}
+    # --- Authentication ---
+    # For RabbitMQ: user/password required
+    # For ServiceBus: either user/password (SAS) OR aad-auth (AAD) required
+    user: ${BROKER_USERNAME:}
+    password: ${BROKER_PASSWORD:}
+    aad-auth: # Azure Active Directory (Entra) authentication for ServiceBus
+      tenant-id: ${BROKER_AZURE_TENANT_ID:}
+      client-id: ${BROKER_AZURE_CLIENT_ID:}
+      client-secret: ${BROKER_AZURE_CLIENT_SECRET:}
+      token-refresh-interval: ${BROKER_AZURE_TOKEN_REFRESH_INTERVAL:300} # seconds
+      token-getting-timeout: ${BROKER_AZURE_TOKEN_GETTING_TIMEOUT:30} # seconds
+    # --- RabbitMQ specific ---
+    vhost: ${BROKER_VHOST:}
+    # --- Listener/Producer settings ---
     listener:
       recovery-interval: 5000
     producer:
@@ -146,9 +159,7 @@ spring:
         max-attempts: 3
         max-interval: 10000
         multiplier: 2
-    exchange: ${BROKER_EXCHANGE:czertainly}
-    vhost: ${BROKER_VHOST:czertainly}
- # for rabbitMQ
+    # --- Queue names (RabbitMQ) / Subscription names (ServiceBus) ---
     queue:
       actions: ${BROKER_QUEUE_ACTIONS:core.actions}
       audit-logs: ${BROKER_QUEUE_AUDIT_LOGS:core.audit-logs}
