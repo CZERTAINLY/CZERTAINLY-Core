@@ -108,6 +108,8 @@ public class AttributeServiceImpl implements AttributeService {
             throw new AlreadyExistException("Custom Attribute with same name already exists");
         }
 
+        if (request.getContentType() == AttributeContentType.RESOURCE) throw new AttributeException("Resource Object cannot be set as content type for custom attribute.");
+
         CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setType(AttributeType.CUSTOM);
         attribute.setContentType(request.getContentType());
@@ -139,6 +141,8 @@ public class AttributeServiceImpl implements AttributeService {
         if (attributeDefinitionRepository.existsByTypeAndNameAndGlobalTrue(AttributeType.META, request.getName())) {
             throw new AlreadyExistException("Global Metadata with same name already exists");
         }
+
+        if (request.getContentType() == AttributeContentType.RESOURCE) throw new AttributeException("Resource Object cannot be set as content type for metadata attribute.");
 
         MetadataAttributeV2 attribute = new MetadataAttributeV2();
         attribute.setType(AttributeType.META);

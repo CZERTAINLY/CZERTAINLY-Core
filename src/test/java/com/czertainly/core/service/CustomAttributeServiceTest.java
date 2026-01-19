@@ -125,11 +125,14 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         request.setName("testAttribute");
         request.setDescription("Sample description");
         request.setLabel("TestAttribute");
-        request.setContentType(AttributeContentType.STRING);
+        request.setContentType(AttributeContentType.RESOURCE);
         request.setRequired(true);
         request.setVisible(true);
         request.setResources(List.of(Resource.USER, Resource.ROLE));
+        Assertions.assertThrows(AttributeException.class, () -> attributeService.createCustomAttribute(request));
 
+
+        request.setContentType(AttributeContentType.STRING);
         CustomAttributeDefinitionDetailDto response = attributeService.createCustomAttribute(request);
         Assertions.assertNotNull(response);
         Assertions.assertFalse(response.getUuid().isEmpty());

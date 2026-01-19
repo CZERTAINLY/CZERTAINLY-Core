@@ -159,9 +159,11 @@ class GlobalMetadataServiceTest extends BaseSpringBootTest {
         request.setName("testAttribute");
         request.setDescription("Sample description");
         request.setLabel("TestAttribute");
-        request.setContentType(AttributeContentType.STRING);
+        request.setContentType(AttributeContentType.RESOURCE);
         request.setVisible(true);
+        Assertions.assertThrows(AttributeException.class, () -> attributeService.createGlobalMetadata(request));
 
+        request.setContentType(AttributeContentType.STRING);
         GlobalMetadataDefinitionDetailDto response = attributeService.createGlobalMetadata(request);
         Assertions.assertNotNull(response);
         Assertions.assertFalse(response.getUuid().isEmpty());
