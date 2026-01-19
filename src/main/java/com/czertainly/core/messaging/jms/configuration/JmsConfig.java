@@ -74,7 +74,7 @@ public class JmsConfig {
                     .clientSecret(props.aadAuth().clientSecret())
                     .build();
 
-            AadTokenProvider tokenProvider = new AadTokenProvider(credential);
+            AadTokenProvider tokenProvider = new AadTokenProvider(credential, props.aadAuth().tokenRefreshInterval(), props.aadAuth().tokenGettingTimeout());
 
             // Azure ServiceBus requires "$jwt" username for OAuth2 token authentication
             factory.setUsername("$jwt");
