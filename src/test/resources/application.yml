@@ -22,11 +22,6 @@ logging:
   level:
     org:
       hibernate: warn
-      hibernate.SQL: debug
-      # Hibernate 6 – bind parameters
-      hibernate.orm.jdbc.bind: trace
-      # Hibernate 5 – bind parameters
-      hibernate.type.descriptor.sql: trace
 
   pattern:
     console: '[%d{yyyy-MM-dd HH:mm:ss.SSS}] %-5level [%t] [%logger - %line]: %m%n'
