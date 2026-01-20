@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 @Transactional
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
+    public static final String CBOM_REPOSITORY_URL_NAME = "cbomRepositoryUrl";
     public static final String CERTIFICATES_VALIDATION_SETTINGS_NAME = "certificatesValidation";
 
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
@@ -89,8 +90,10 @@ public class SettingServiceImpl implements SettingService {
         // Utils
         Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
-        if (utilsSettings != null)
+        if (utilsSettings != null) {
             utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
+            utilsSettingsDto.setCbomRepositoryUrl(utilsSettings.get(CBOM_REPOSITORY_URL_NAME).getValue());
+        }
         platformSettings.setUtils(utilsSettingsDto);
 
         // Certificates
@@ -123,7 +126,7 @@ public class SettingServiceImpl implements SettingService {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
-        // Utils
+        // Auxiliary services: utils service and cbom repository
         if (platformSettings.getUtils() != null) {
             Setting utilSetting;
             Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
@@ -135,6 +138,17 @@ public class SettingServiceImpl implements SettingService {
             }
 
             utilSetting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
+
+            Setting cbomRepositorySetting;
+            if (utilsSettings == null || (utilSetting = utilsSettings.get(CBOM_REPOSITORY_URL_NAME)) == null) {
+                cbomRepositorySetting = new Setting();
+                cbomRepositorySetting.setSection(SettingsSection.PLATFORM);
+                cbomRepositorySetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+                cbomRepositorySetting.setName(CBOM_REPOSITORY_URL_NAME);
+            }
+
+            utilSetting.setValue(platformSettings.getUtils().getCbomRepositoryUrl());
+
             settingRepository.save(utilSetting);
         }
 
