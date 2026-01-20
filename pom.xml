@@ -60,9 +60,9 @@
 
     <dependencies>
         <dependency>
-            <groupId>com.czertainly</groupId>
-            <artifactId>interfaces</artifactId>
-            <version>2.16.1</version>
+            <groupId>com.github.cloudfieldcz</groupId>
+            <artifactId>CZERTAINLY-Interfaces</artifactId>
+            <version>2.17.0.SAAS</version>
         </dependency>
 
         <!-- Spring  -->
@@ -415,6 +415,10 @@
     </build>
 
     <repositories>
+        <repository>
+            <id>jitpack.io</id>
+            <url>https://jitpack.io</url>
+        </repository>
         <repository>
             <id>github</id>
             <url>https://maven.pkg.github.com/czertainly/*</url>
