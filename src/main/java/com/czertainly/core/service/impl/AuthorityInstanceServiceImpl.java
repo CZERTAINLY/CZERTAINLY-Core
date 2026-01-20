@@ -3,13 +3,13 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EndEntityProfileApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -100,7 +100,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     public AuthorityInstanceDto getAuthorityInstance(SecuredUUID uuid) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstanceReference = getAuthorityInstanceReferenceEntity(uuid);
 
-        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid());
+        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid());
 
         AuthorityInstanceDto authorityInstanceDto = authorityInstanceReference.mapToDto();
         authorityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.AUTHORITY, uuid.getValue()));
@@ -118,7 +118,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
         if (attributes.isEmpty() && authorityProviderInstanceDto.getAttributes() != null && !authorityProviderInstanceDto.getAttributes().isEmpty()) {
             try {
-                List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(authorityProviderInstanceDto.getAttributes());
+                List<RequestAttribute> requestAttributes = AttributeDefinitionUtils.getClientAttributes(authorityProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(authorityInstanceReference.getConnectorUuid(), null, authorityProviderInstanceDto.getAttributes());
                 attributes = attributeEngine.updateObjectDataAttributesContent(authorityInstanceReference.getConnectorUuid(), null, Resource.AUTHORITY, authorityInstanceReference.getUuid(), requestAttributes);
             } catch (AttributeException e) {
@@ -258,7 +258,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.ANY)
-    public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public Boolean validateRAProfileAttributes(SecuredUUID uuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         AuthorityInstanceReference authorityInstance = getAuthorityInstanceReferenceEntity(uuid);
         Connector connector = authorityInstance.getConnector();
 

@@ -1,9 +1,9 @@
 package com.czertainly.core.util;
 
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -67,10 +67,10 @@ public class DatabaseAttributeMigration {
                         continue;
                     }
 
-                    List<DataAttribute> attributes = AttributeDefinitionUtils.deserialize(json, DataAttribute.class);
+                    List<DataAttributeV2> attributes = AttributeDefinitionUtils.deserialize(json, DataAttributeV2.class);
                     Timestamp currentTimestamp = new Timestamp(System.currentTimeMillis());
-                    for (DataAttribute dataAttribute : attributes) {
-                        // check if attribute was not deserialized from RequestAttributeDto
+                    for (DataAttributeV2 dataAttribute : attributes) {
+                        // check if attribute was not deserialized from RequestAttribute
                         if (dataAttribute.getProperties() == null) {
                             dataAttribute.setContentType(AttributeContentType.OBJECT); // default for now
                             if (dataAttribute.getUuid() == null) {
@@ -84,7 +84,7 @@ public class DatabaseAttributeMigration {
                             dataAttribute.setDescription(AttributeEngine.ATTRIBUTE_DEFINITION_FORCE_UPDATE_LABEL);
                         }
 
-                        List<BaseAttributeContent> dataAttributeContent = dataAttribute.getContent();
+                        List<BaseAttributeContentV2<?>> dataAttributeContent = dataAttribute.getContent();
                         if (!dataAttribute.getProperties().isReadOnly()) {
                             dataAttribute.setContent(null);
                         }
@@ -127,7 +127,7 @@ public class DatabaseAttributeMigration {
 
                         // create content items for definition
                         for (int orderNo = 0; orderNo < dataAttributeContent.size(); orderNo++) {
-                            BaseAttributeContent attributeContent = dataAttributeContent.get(orderNo);
+                            BaseAttributeContentV2 attributeContent = dataAttributeContent.get(orderNo);
                             String serializedContent = ATTRIBUTES_OBJECT_MAPPER.writeValueAsString(attributeContent);
                             UUID contentItemUuid = definitionItemsContentMapping.get(serializedContent);
                             if (contentItemUuid == null) {
@@ -189,7 +189,7 @@ public class DatabaseAttributeMigration {
                     loadRaProfileConnectorMapping(context);
                 }
                 UUID raProfileUuid = rows.getObject("ra_profile_uuid", UUID.class);
-                return raProfilesConnectorMapping.get(raProfileUuid);
+                return raProfilesConnectorMapping == null ? null : raProfilesConnectorMapping.getOrDefault(raProfileUuid, null);
             }
             case RA_PROFILE -> {
                 if (authoritiesConnectorMapping == null) {

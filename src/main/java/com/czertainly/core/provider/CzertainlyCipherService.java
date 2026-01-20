@@ -2,7 +2,7 @@ package com.czertainly.core.provider;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.connector.cryptography.operations.CipherDataRequestDto;
 import com.czertainly.api.model.connector.cryptography.operations.DecryptDataResponseDto;
@@ -20,7 +20,7 @@ public class CzertainlyCipherService {
 
     private static final Logger log = LoggerFactory.getLogger(CzertainlyCipherService.class);
     private final CryptographicOperationsApiClient apiClient;
-    private final List<RequestAttributeDto> cipherAttributes;
+    private final List<RequestAttribute> cipherAttributes;
     private final String algorithm;
 
     public CzertainlyCipherService(CryptographicOperationsApiClient apiClient, String algorithm) {
@@ -29,7 +29,7 @@ public class CzertainlyCipherService {
         this.algorithm = algorithm;
     }
 
-    public List<RequestAttributeDto> mapCipherAttributesFromCipherAlgorithm(String algorithm) {
+    public List<RequestAttribute> mapCipherAttributesFromCipherAlgorithm(String algorithm) {
         switch (algorithm) {
             case "RSA", "RSA/NONE/PKCS1Padding", "RSA/ECB/PKCS1Padding" -> {
                 return List.of(

@@ -1,10 +1,7 @@
 package com.czertainly.core.model;
 
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.*;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import lombok.Data;
 
 import java.time.LocalDate;
@@ -41,7 +38,7 @@ public class SearchFieldObject {
         this.attributeType = attributeType;
     }
 
-    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType, AttributeType attributeType, String label, BaseAttribute<?> attributeDefinition) {
+    public SearchFieldObject(String attributeName, AttributeContentType attributeContentType, AttributeType attributeType, String label, BaseAttribute attributeDefinition) {
         this.attributeName = attributeName;
         this.attributeContentType = attributeContentType;
         this.attributeType = attributeType;
@@ -52,15 +49,16 @@ public class SearchFieldObject {
                 list = customAttribute.getProperties().isList();
                 multiSelect = customAttribute.getProperties().isMultiSelect();
                 if (list && customAttribute.getContent() != null) {
-                    contentItems = customAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
+                    contentItems = ((List<? extends AttributeContent>) customAttribute.getContent()).stream().map(item -> item.getData().toString()).toList();
                 }
             } else {
                 DataAttribute dataAttribute = (DataAttribute) attributeDefinition;
                 // data attributes that are list can have content provided later by callback so do not mark it as list if content is empty
-                list = dataAttribute.getProperties().isList() && dataAttribute.getContent() != null && !dataAttribute.getContent().isEmpty();
+                List<? extends AttributeContent> content = dataAttribute.getContent();
+                list = dataAttribute.getProperties().isList() && content != null && !content.isEmpty();
                 multiSelect = dataAttribute.getProperties().isMultiSelect();
                 if (list) {
-                    contentItems = dataAttribute.getContent().stream().map(item -> item.getData().toString()).toList();
+                    contentItems = content.stream().map(item -> item.getData().toString()).toList();
                 }
             }
         }

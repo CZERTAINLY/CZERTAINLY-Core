@@ -9,10 +9,10 @@ import com.czertainly.api.model.client.discovery.DiscoveryDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDetailDto;
 import com.czertainly.api.model.client.discovery.DiscoveryHistoryDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.connector.discovery.DiscoveryDataRequestDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderCertificateDataDto;
 import com.czertainly.api.model.connector.discovery.DiscoveryProviderDto;
@@ -571,7 +571,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private Future<?> downloadDiscoveredCertificatesBatchAsync(final DiscoveryHistory discovery, final DiscoveryProviderDto response, final Connector connector, final Set<String> uniqueCertificateContents, final List<DiscoveryProviderCertificateDataDto> duplicateCertificates, final ExecutorService executor, final int currentPage) {
         // categorize certs and collect metadata definitions
         List<MetadataAttribute> metadataDefinitions = new ArrayList<>();
-        Map<String, Set<BaseAttributeContent>> metadataContentsMapping = new HashMap<>();
+        Map<String, Set<AttributeContent>> metadataContentsMapping = new HashMap<>();
         List<DiscoveryProviderCertificateDataDto> discoveredCertificates = new ArrayList<>();
         response.getCertificateData().forEach(c -> {
             if (uniqueCertificateContents.contains(c.getBase64Content())) {
@@ -582,7 +582,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             }
 
             for (MetadataAttribute m : c.getMeta()) {
-                Set<BaseAttributeContent> metadataContents = metadataContentsMapping.get(m.getUuid());
+                Set<AttributeContent> metadataContents = metadataContentsMapping.get(m.getUuid());
                 if (metadataContents == null) {
                     metadataDefinitions.add(m);
                     metadataContents = new HashSet<>();

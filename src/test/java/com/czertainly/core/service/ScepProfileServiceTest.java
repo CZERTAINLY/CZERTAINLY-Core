@@ -1,15 +1,15 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
@@ -68,22 +68,13 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     @Autowired
     private ProtocolCertificateAssociationsRepository protocolCertificateAssociationsRepository;
 
-    private TokenInstanceReference tokenInstanceReference;
-    private CryptographicKeyItem content;
-    private CryptographicKeyItem content1;
-    private TokenProfile tokenProfile;
-    private Connector connector;
-    private CryptographicKey key;
-
     private ScepProfile scepProfile;
-    private CertificateContent certificateContent;
     private Certificate certificate;
-    private CustomAttribute domainAttr;
-    private RequestAttributeDto domainAttrRequestAttribute;
+    private RequestAttributeV3 domainAttrRequestAttribute;
 
     @BeforeEach
     void setUp() throws AttributeException {
-        domainAttr = new CustomAttribute();
+        CustomAttributeV3 domainAttr = new CustomAttributeV3();
         domainAttr.setUuid(UUID.randomUUID().toString());
         domainAttr.setName("domain");
         domainAttr.setType(AttributeType.CUSTOM);
@@ -93,23 +84,23 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         domainAttr.setProperties(customProps);
         attributeEngine.updateCustomAttributeDefinition(domainAttr, List.of(Resource.CERTIFICATE));
 
-        domainAttrRequestAttribute = new RequestAttributeDto();
-        domainAttrRequestAttribute.setUuid(domainAttr.getUuid());
+        domainAttrRequestAttribute = new RequestAttributeV3();
+        domainAttrRequestAttribute.setUuid(UUID.fromString(domainAttr.getUuid()));
         domainAttrRequestAttribute.setName(domainAttr.getName());
         domainAttrRequestAttribute.setContentType(domainAttr.getContentType());
-        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContent("test")));
+        domainAttrRequestAttribute.setContent(List.of(new StringAttributeContentV3("test")));
 
-        connector = new Connector();
+        Connector connector = new Connector();
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
-        tokenInstanceReference = new TokenInstanceReference();
+        TokenInstanceReference tokenInstanceReference = new TokenInstanceReference();
         tokenInstanceReference.setTokenInstanceUuid("1l");
         tokenInstanceReference.setConnector(connector);
         tokenInstanceReferenceRepository.save(tokenInstanceReference);
 
-        tokenProfile = new TokenProfile();
+        TokenProfile tokenProfile = new TokenProfile();
         tokenProfile.setName("profile1");
         tokenProfile.setTokenInstanceReference(tokenInstanceReference);
         tokenProfile.setDescription("sample description");
@@ -117,14 +108,14 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         tokenProfile.setTokenInstanceName("testInstance");
         tokenProfileRepository.save(tokenProfile);
 
-        key = new CryptographicKey();
+        CryptographicKey key = new CryptographicKey();
         key.setName("testKey1");
         key.setTokenProfile(tokenProfile);
         key.setTokenInstanceReference(tokenInstanceReference);
         key.setDescription("initial description");
         cryptographicKeyRepository.save(key);
 
-        content = new CryptographicKeyItem();
+        CryptographicKeyItem content = new CryptographicKeyItem();
         content.setLength(1024);
         content.setKey(key);
         content.setKeyUuid(key.getUuid());
@@ -137,7 +128,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         content.setUsage(List.of(KeyUsage.DECRYPT, KeyUsage.SIGN));
         cryptographicKeyItemRepository.save(content);
 
-        content1 = new CryptographicKeyItem();
+        CryptographicKeyItem content1 = new CryptographicKeyItem();
         content1.setLength(1024);
         content1.setKey(key);
         content1.setKeyUuid(key.getUuid());
@@ -161,7 +152,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
         key.setItems(items);
         cryptographicKeyRepository.save(key);
 
-        certificateContent = new CertificateContent();
+        CertificateContent certificateContent = new CertificateContent();
         certificateContent.setContent("123456");
         certificateContent = certificateContentRepository.save(certificateContent);
 

@@ -2,9 +2,9 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
@@ -53,11 +53,11 @@ public interface ResourceService {
      * @return List of attributes for the resource
      * @throws NotFoundException When the attribute or the object without the UUID is not found
      */
-    List<ResponseAttributeDto> updateAttributeContentForObject(
+    List<ResponseAttribute> updateAttributeContentForObject(
             Resource resourceName,
             SecuredUUID objectUuid,
             UUID attributeUuid,
-            List<BaseAttributeContent> request
+            List<? extends AttributeContent> request
     ) throws NotFoundException, AttributeException;
 
 

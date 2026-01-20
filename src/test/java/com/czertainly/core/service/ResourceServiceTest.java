@@ -3,12 +3,19 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.NotSupportedException;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV2;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.other.ResourceDto;
@@ -16,9 +23,11 @@ import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.dao.entity.AttributeDefinition;
+import com.czertainly.core.dao.entity.AttributeRelation;
 import com.czertainly.core.dao.entity.Certificate;
 import com.czertainly.core.dao.entity.CertificateContent;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
+import com.czertainly.core.dao.repository.AttributeRelationRepository;
 import com.czertainly.core.dao.repository.CertificateContentRepository;
 import com.czertainly.core.dao.repository.CertificateRepository;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -33,6 +42,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 
+import java.io.IOException;
+import java.security.cert.CertificateException;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -59,6 +70,12 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AttributeDefinitionRepository attributeDefinitionRepository;
+
+    @Autowired
+    private AttributeRelationRepository attributeRelationRepository;
+
+    @Autowired
+    private CertificateService certificateService;
 
     private WireMockServer mockServer;
 
@@ -123,7 +140,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         certificate.setUuid(UUID.fromString(CERTIFICATE_UUID));
         certificateRepository.save(certificate);
 
-        CustomAttribute attribute = new CustomAttribute();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(ATTRIBUTE_UUID);
         attribute.setName("testAttribute");
         attribute.setDescription("description");
@@ -142,7 +159,13 @@ class ResourceServiceTest extends BaseSpringBootTest {
         attributeDefinition.setType(AttributeType.CUSTOM);
         attributeDefinition.setDefinition(attribute);
         attributeDefinition.setEnabled(true);
+        attributeDefinition.setVersion(3);
         attributeDefinitionRepository.save(attributeDefinition);
+
+        AttributeRelation attributeRelation = new AttributeRelation();
+        attributeRelation.setResource(Resource.CERTIFICATE);
+        attributeRelation.setAttributeDefinitionUuid(attributeDefinition.getUuid());
+        attributeRelationRepository.save(attributeRelation);
     }
 
     @Test
@@ -190,17 +213,28 @@ class ResourceServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    void testUpdateAttributeContentForObject() {
-        // Should throw AttributeException
+    void testUpdateAttributeContentForObject() throws NotFoundException, AttributeException {
         SecuredUUID certificateUuid = SecuredUUID.fromString(CERTIFICATE_UUID);
         UUID attributeUuid = UUID.fromString(ATTRIBUTE_UUID);
-        List<BaseAttributeContent> request = List.of();
-        Assertions.assertThrows(AttributeException.class, () -> resourceService.updateAttributeContentForObject(
+        List<BaseAttributeContentV3<?>> request = List.of(new StringAttributeContentV3("test3"));
+        List<ResponseAttribute> responseAttributes = resourceService.updateAttributeContentForObject(
                 Resource.CERTIFICATE,
                 certificateUuid,
                 attributeUuid,
                 request
-        ));
+        );
+
+        Assertions.assertEquals("test3", ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().getFirst().getData());
+
+        List<BaseAttributeContentV2<?>> requestV2 = List.of(new StringAttributeContentV2("test2"));
+        responseAttributes = resourceService.updateAttributeContentForObject(
+                Resource.CERTIFICATE,
+                certificateUuid,
+                attributeUuid,
+                requestV2
+        );
+
+        Assertions.assertEquals("test2", ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().getFirst().getData());
 
         // Should throw NotSupported
         Assertions.assertThrows(NotSupportedException.class, () -> resourceService.updateAttributeContentForObject(

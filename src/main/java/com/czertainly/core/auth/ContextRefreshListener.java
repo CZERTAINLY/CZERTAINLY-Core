@@ -1,7 +1,7 @@
 package com.czertainly.core.auth;
 
 import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.CoreAttributeDefinitions;
 import com.czertainly.core.attribute.engine.AttributeEngine;

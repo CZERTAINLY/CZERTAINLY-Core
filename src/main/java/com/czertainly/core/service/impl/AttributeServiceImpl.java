@@ -13,15 +13,17 @@ import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRe
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
@@ -104,13 +106,15 @@ public class AttributeServiceImpl implements AttributeService {
             throw new AlreadyExistException("Custom Attribute with same name already exists");
         }
 
-        CustomAttribute attribute = new CustomAttribute();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setType(AttributeType.CUSTOM);
         attribute.setContentType(request.getContentType());
         attribute.setName(request.getName());
         attribute.setUuid(UUID.randomUUID().toString());
         attribute.setDescription(request.getDescription());
-        attribute.setContent(request.getContent());
+        if (request.getContent() != null) {
+            attribute.setContent(request.getContent().stream().<BaseAttributeContentV3<?>>map(attributeContent -> AttributeVersionHelper.convertAttributeContentToV3(attributeContent, request.getContentType())).toList());
+        }
 
         // Setting the attribute properties based on the information from the request
         CustomAttributeProperties properties = new CustomAttributeProperties();
@@ -134,7 +138,7 @@ public class AttributeServiceImpl implements AttributeService {
             throw new AlreadyExistException("Global Metadata with same name already exists");
         }
 
-        MetadataAttribute attribute = new MetadataAttribute();
+        MetadataAttributeV2 attribute = new MetadataAttributeV2();
         attribute.setType(AttributeType.META);
         attribute.setContentType(request.getContentType());
         attribute.setName(request.getName());
@@ -158,14 +162,16 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update custom attribute with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndType(uuid, AttributeType.CUSTOM).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        CustomAttribute attribute = new CustomAttribute();
+        CustomAttributeV3 attribute = new CustomAttributeV3();
         attribute.setUuid(definition.getUuid().toString());
         attribute.setName(definition.getName());
         attribute.setContentType(definition.getContentType());
 
         attribute.setDescription(request.getDescription());
-        attribute.setContent(request.getContent());
-        attribute.setProperties(new CustomAttributeProperties());
+
+        if (request.getContent() != null) {
+            attribute.setContent(request.getContent().stream().<BaseAttributeContentV3<?>>map(attributeContent -> AttributeVersionHelper.convertAttributeContentToV3(attributeContent, definition.getContentType())).toList());
+        }        attribute.setProperties(new CustomAttributeProperties());
         attribute.getProperties().setGroup(request.getGroup());
         attribute.getProperties().setLabel(request.getLabel());
         attribute.getProperties().setVisible(request.isVisible());
@@ -183,7 +189,7 @@ public class AttributeServiceImpl implements AttributeService {
         logger.debug("Update global metadata with uuid: {}, request: {}", uuid, request);
         AttributeDefinition definition = attributeDefinitionRepository.findByUuidAndTypeAndGlobalTrue(uuid, AttributeType.META).orElseThrow(() -> new NotFoundException(AttributeDefinition.class, uuid.toString()));
 
-        MetadataAttribute attribute = new MetadataAttribute();
+        MetadataAttributeV2 attribute = new MetadataAttributeV2();
         attribute.setUuid(definition.getAttributeUuid().toString());
         attribute.setName(definition.getName());
         attribute.setContentType(definition.getContentType());
@@ -300,7 +306,7 @@ public class AttributeServiceImpl implements AttributeService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ATTRIBUTE, action = ResourceAction.MEMBERS)
-    public List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource) {
+    public List<CustomAttribute> getResourceAttributes(SecurityFilter filter, Resource resource) {
         return attributeEngine.getCustomAttributesByResource(resource, filter.getResourceFilter());
     }
 

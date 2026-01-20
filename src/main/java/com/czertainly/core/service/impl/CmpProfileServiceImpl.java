@@ -1,12 +1,12 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.cmp.CmpProfileEditRequestDto;
 import com.czertainly.api.model.client.cmp.CmpProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.cmp.CmpProfileDetailDto;
@@ -489,9 +489,9 @@ public class CmpProfileServiceImpl implements CmpProfileService {
     }
 
     private CmpProfileDetailDto updateAndMapDtoAttributes(CmpProfile cmpProfile, RaProfile raProfile,
-                                     List<RequestAttributeDto> issueCertificateAttributes,
-                                     List<RequestAttributeDto> revokeCertificateAttributes,
-                                     List<RequestAttributeDto> customAttributes) throws NotFoundException, AttributeException {
+                                     List<RequestAttribute> issueCertificateAttributes,
+                                     List<RequestAttribute> revokeCertificateAttributes,
+                                     List<RequestAttribute> customAttributes) throws NotFoundException, AttributeException {
         CmpProfileDetailDto dto = cmpProfile.mapToDetailDto();
         dto.setCustomAttributes(
                 attributeEngine.updateObjectCustomAttributesContent(

@@ -2,7 +2,7 @@ package com.czertainly.core.api.web;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.interfaces.core.web.ConnectorController;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.connector.ConnectDto;
 import com.czertainly.api.model.client.connector.ConnectRequestDto;
 import com.czertainly.api.model.client.connector.ConnectorRequestDto;
@@ -10,7 +10,7 @@ import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -149,7 +149,7 @@ public class ConnectorControllerImpl implements ConnectorController {
     public void validateAttributes(@LogResource(uuid = true, affiliated = true) @PathVariable String uuid,
                                    @PathVariable String functionGroup,
                                    @LogResource(name = true) @PathVariable String kind,
-                                   @RequestBody List<RequestAttributeDto> attributes)
+                                   @RequestBody List<RequestAttribute> attributes)
             throws NotFoundException, ConnectorException {
         connectorService.validateAttributes(SecuredUUID.fromString(uuid), FunctionGroupCode.findByCode(functionGroup), attributes,
                 kind);
