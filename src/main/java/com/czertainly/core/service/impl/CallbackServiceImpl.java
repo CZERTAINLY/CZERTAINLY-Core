@@ -126,13 +126,15 @@ public class CallbackServiceImpl implements CallbackService {
     private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, Connector connector) throws NotFoundException, ConnectorException, AttributeException {
         BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connector.getUuid());
         AttributeCallback attributeCallback = getAttributeCallback(attribute);
-        AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
+
+        AttributeResource attributeResource = getAttributeResource(attribute);
+        AttributeDefinitionUtils.validateCallback(attributeCallback, callback, attributeResource != null);
+
 
         if (Objects.equals(attributeCallback.getCallbackContext(), "core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
         }
 
-        AttributeResource attributeResource = getAttributeResource(attribute);
 
         if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE)  {
             return coreCallbackService.coreGetResources(callback, attributeResource);
