@@ -129,8 +129,8 @@ public class SettingServiceImpl implements SettingService {
         // Auxiliary services: utils service and cbom repository
         if (platformSettings.getUtils() != null) {
             Setting utilSetting;
-            Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-            if (utilsSettings == null || (utilSetting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
+            Map<String, Setting> platformUtilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+            if (platformUtilsSettings == null || (utilSetting = platformUtilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
                 utilSetting = new Setting();
                 utilSetting.setSection(SettingsSection.PLATFORM);
                 utilSetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
@@ -138,18 +138,18 @@ public class SettingServiceImpl implements SettingService {
             }
 
             utilSetting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
+            settingRepository.save(utilSetting);
 
             Setting cbomRepositorySetting;
-            if (utilsSettings == null || (utilSetting = utilsSettings.get(CBOM_REPOSITORY_URL_NAME)) == null) {
+            if (platformUtilsSettings == null || (cbomRepositorySetting = platformUtilsSettings.get(CBOM_REPOSITORY_URL_NAME)) == null) {
                 cbomRepositorySetting = new Setting();
                 cbomRepositorySetting.setSection(SettingsSection.PLATFORM);
                 cbomRepositorySetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
                 cbomRepositorySetting.setName(CBOM_REPOSITORY_URL_NAME);
             }
 
-            utilSetting.setValue(platformSettings.getUtils().getCbomRepositoryUrl());
-
-            settingRepository.save(utilSetting);
+            cbomRepositorySetting.setValue(platformSettings.getUtils().getCbomRepositoryUrl());
+            settingRepository.save(cbomRepositorySetting);
         }
 
         // Certificate Settings
