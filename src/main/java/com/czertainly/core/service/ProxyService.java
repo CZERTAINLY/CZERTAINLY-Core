@@ -7,6 +7,7 @@ import com.czertainly.api.model.client.proxy.ProxyUpdateRequestDto;
 import com.czertainly.api.model.core.proxy.ProxyDto;
 import com.czertainly.api.model.core.proxy.ProxyStatus;
 import com.czertainly.core.dao.entity.Proxy;
+import com.czertainly.core.provisioning.ProxyProvisioningException;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 
@@ -21,9 +22,11 @@ public interface ProxyService extends ResourceExtensionService {
 
     Proxy getProxyEntity(SecuredUUID uuid) throws NotFoundException;
 
-    ProxyDto createProxy(ProxyRequestDto request) throws AlreadyExistException;
+    ProxyDto createProxy(ProxyRequestDto request) throws AlreadyExistException, ProxyProvisioningException;
 
     ProxyDto editProxy(SecuredUUID uuid, ProxyUpdateRequestDto request) throws NotFoundException;
 
     void deleteProxy(SecuredUUID uuid) throws NotFoundException;
+
+    ProxyDto getInstallationInstructions(SecuredUUID uuid) throws NotFoundException;
 }

@@ -15,6 +15,8 @@ import com.czertainly.core.dao.entity.Proxy;
 import com.czertainly.core.dao.entity.Proxy_;
 import com.czertainly.core.dao.repository.ProxyRepository;
 import com.czertainly.core.model.auth.ResourceAction;
+import com.czertainly.core.provisioning.ProxyProvisioningException;
+import com.czertainly.core.provisioning.ProxyProvisioningService;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
@@ -41,6 +43,7 @@ public class ProxyServiceImpl implements ProxyService {
 
     private final ProxyRepository proxyRepository;
     private final ProxyCodeHelper proxyCodeHelper;
+    private final ProxyProvisioningService proxyProvisioningService;
 
     @Override
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.LIST)
@@ -56,7 +59,19 @@ public class ProxyServiceImpl implements ProxyService {
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.DETAIL)
     public ProxyDto getProxy(SecuredUUID uuid) throws NotFoundException {
         Proxy proxy = getProxyEntity(uuid);
-        return proxy.mapToDto();
+        ProxyDto dto = proxy.mapToDto();
+
+        // If the proxy is waiting for installation, fetch the installation instructions
+        if (ProxyStatus.WAITING_FOR_INSTALLATION.equals(proxy.getStatus())) {
+            try {
+                String installInstructions = proxyProvisioningService.getProxyInstallationInstructions(proxy.getCode());
+                dto.setInstallationInstructions(installInstructions);
+            } catch (ProxyProvisioningException e) {
+                logger.warn("Failed to fetch installation instructions for proxy with code {}", proxy.getCode(), e);
+            }
+        }
+
+        return dto;
     }
 
     @Override
@@ -68,7 +83,7 @@ public class ProxyServiceImpl implements ProxyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.CREATE)
-    public ProxyDto createProxy(ProxyRequestDto request) throws AlreadyExistException {
+    public ProxyDto createProxy(ProxyRequestDto request) throws AlreadyExistException, ProxyProvisioningException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("name must not be empty"));
         }
@@ -83,10 +98,19 @@ public class ProxyServiceImpl implements ProxyService {
         proxy.setName(request.getName());
         proxy.setDescription(request.getDescription());
         proxy.setCode(proxyCode);
-        proxy.setStatus(ProxyStatus.INITIALIZED);
+
+        // INITIALIZED and PROVISIONING are currently skipped because the provisioning is synchronous
+        proxy.setStatus(ProxyStatus.WAITING_FOR_INSTALLATION);
+
         proxyRepository.save(proxy);
 
-        return proxy.mapToDto();
+        // Provision the proxy using the provisioning service
+        String installInstructions = proxyProvisioningService.provisionProxy(proxyCode);
+
+        ProxyDto dto = proxy.mapToDto();
+        dto.setInstallationInstructions(installInstructions);
+
+        return dto;
     }
 
     @Override
@@ -109,8 +133,10 @@ public class ProxyServiceImpl implements ProxyService {
     public void deleteProxy(SecuredUUID uuid) throws NotFoundException {
         Proxy proxy = proxyRepository.findByUuid(uuid)
             .orElseThrow(() -> new NotFoundException(Proxy.class, uuid));
+
         deleteProxy(proxy);
 
+        proxyProvisioningService.decommissionProxy(proxy.getCode());
     }
 
     private void deleteProxy(Proxy proxy) {
@@ -124,6 +150,19 @@ public class ProxyServiceImpl implements ProxyService {
         }
 
         proxyRepository.delete(proxy);
+    }
+
+    @Override
+    @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.DETAIL)
+    public ProxyDto getInstallationInstructions(SecuredUUID uuid) throws NotFoundException {
+        Proxy proxy = getProxyEntity(uuid);
+
+        String installInstructions = proxyProvisioningService.getProxyInstallationInstructions(proxy.getCode());
+
+        ProxyDto dto = proxy.mapToDto();
+        dto.setInstallationInstructions(installInstructions);
+
+        return dto;
     }
 
     @Override

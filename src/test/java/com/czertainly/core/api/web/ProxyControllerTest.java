@@ -3,12 +3,18 @@ package com.czertainly.core.api.web;
 import com.czertainly.api.model.core.proxy.ProxyStatus;
 import com.czertainly.core.dao.entity.Proxy;
 import com.czertainly.core.dao.repository.ProxyRepository;
+import com.czertainly.core.provisioning.ProxyProvisioningService;
 import com.czertainly.core.util.BaseSpringBootTest;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.Mockito.doNothing;
+import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -24,6 +30,17 @@ class ProxyControllerTest extends BaseSpringBootTest {
 
     @Autowired
     private ProxyRepository proxyRepository;
+
+    @MockitoBean
+    private ProxyProvisioningService proxyProvisioningService;
+
+    @BeforeEach
+    void setUp() {
+        String command = "helm install test-proxy ...";
+        when(proxyProvisioningService.provisionProxy(anyString())).thenReturn(command);
+        when(proxyProvisioningService.getProxyInstallationInstructions(anyString())).thenReturn(command);
+        doNothing().when(proxyProvisioningService).decommissionProxy(anyString());
+    }
 
     @Test
     void listProxies_empty() throws Exception {
