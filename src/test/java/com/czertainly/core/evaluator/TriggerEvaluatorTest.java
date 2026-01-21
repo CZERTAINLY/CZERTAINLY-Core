@@ -705,6 +705,16 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
         List<ResponseAttribute> responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
         Assertions.assertEquals(1, ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().size());
+
+        executionItem.setData(null);
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertTrue(responseAttributes.isEmpty());
+
+        executionItem.setData(List.of());
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertTrue(responseAttributes.isEmpty());
     }
 
     @Test
