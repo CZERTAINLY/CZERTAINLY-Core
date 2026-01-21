@@ -8,9 +8,11 @@ import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
+import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.attribute.v2.*;
-import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.*;
 import com.czertainly.api.model.common.attribute.common.content.data.CodeBlockAttributeContentData;
 import com.czertainly.api.model.common.attribute.common.content.data.ProgrammingLanguageEnum;
@@ -18,6 +20,7 @@ import com.czertainly.api.model.common.attribute.common.properties.CustomAttribu
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.*;
 import com.czertainly.api.model.core.auth.Resource;
@@ -530,6 +533,38 @@ class AttributeEngineTest extends BaseSpringBootTest {
         requestAttribute.setContent(List.of(new StringAttributeContentV2("value123")));
         Assertions.assertThrows(ValidationException.class, () -> attributeEngine.validateUpdateDataAttributes(connectorUuid, null, requiredAttributeList, requestAttributeList));
 
+    }
+
+    @Test
+    void testUpdateAttributeDefinition() throws AttributeException {
+        DataAttributeV3 validAttribute = new DataAttributeV3();
+        validAttribute.setUuid(UUID.randomUUID().toString());
+        validAttribute.setName("validAttribute");
+        validAttribute.setType(AttributeType.DATA);
+        validAttribute.setContentType(AttributeContentType.STRING);
+
+        DataAttributeProperties props = new DataAttributeProperties();
+        props.setLabel("Valid Label");
+        props.setRequired(true);
+        props.setReadOnly(false);
+        props.setVisible(false);
+        props.setList(false);
+        validAttribute.setProperties(props);
+
+        List<BaseAttributeConstraint<?>> constraints = new ArrayList<>();
+        RegexpAttributeConstraint constraint = new RegexpAttributeConstraint("", "", ".");
+        constraints.add(constraint);
+        validAttribute.setConstraints(constraints);
+
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
+
+        validAttribute.setConstraints(null);
+        validAttribute.setAttributeCallback(new AttributeCallback());
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(validAttribute));
+
+        DataAttribute dataAttribute = attributeEngine.getDataAttributeDefinition(connectorAuthority.getUuid(),validAttribute.getName());
+        Assertions.assertNotNull(dataAttribute.getAttributeCallback());
+        Assertions.assertNull(dataAttribute.getConstraints());
     }
 
     @Test
