@@ -91,8 +91,14 @@ public class SettingServiceImpl implements SettingService {
         Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
         if (utilsSettings != null) {
-            utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
-            utilsSettingsDto.setCbomRepositoryUrl(utilsSettings.get(CBOM_REPOSITORY_URL_NAME).getValue());
+            Setting utilsServiceSetting = utilsSettings.get(UTILS_SERVICE_URL_NAME);
+            if (utilsServiceSetting != null) {
+                utilsSettingsDto.setUtilsServiceUrl(utilsServiceSetting.getValue());
+            }
+            Setting cbomRepositorySetting = utilsSettings.get(CBOM_REPOSITORY_URL_NAME);
+            if (cbomRepositorySetting != null) {
+                utilsSettingsDto.setCbomRepositoryUrl(cbomRepositorySetting.getValue());
+            }
         }
         platformSettings.setUtils(utilsSettingsDto);
 
