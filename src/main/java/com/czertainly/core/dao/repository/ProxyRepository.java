@@ -9,9 +9,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 @Repository
-public interface ProxyRepository extends SecurityFilterRepository<Proxy, Long> {
-
-    Optional<Proxy> findByUuid(UUID uuid);
+public interface ProxyRepository extends SecurityFilterRepository<Proxy, UUID> {
 
     Optional<Proxy> findByName(String name);
 

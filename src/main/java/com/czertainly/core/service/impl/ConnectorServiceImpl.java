@@ -1,6 +1,5 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttributeDto;
 import com.czertainly.api.model.client.connector.*;
@@ -12,22 +11,23 @@ import com.czertainly.api.model.common.attribute.v2.DataAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.*;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.client.ConnectorApiFactory;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.ComplianceService;
 import com.czertainly.core.service.ConnectorAuthService;
 import com.czertainly.core.service.ConnectorService;
+import com.czertainly.core.service.ProxyService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.MetaDefinitions;
 import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
 import org.apache.commons.lang3.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import reactor.core.Exceptions;
 
@@ -36,81 +36,23 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CONNECTOR)
 @Transactional
+@RequiredArgsConstructor
 public class ConnectorServiceImpl implements ConnectorService {
     private static final Logger logger = LoggerFactory.getLogger(ConnectorServiceImpl.class);
 
-    private ConnectorRepository connectorRepository;
-    private FunctionGroupRepository functionGroupRepository;
-    private Connector2FunctionGroupRepository connector2FunctionGroupRepository;
-    private ConnectorApiFactory connectorApiFactory;
-    private CredentialRepository credentialRepository;
-    private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
-    private EntityInstanceReferenceRepository entityInstanceReferenceRepository;
-    private TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
-    private ComplianceProfileRepository complianceProfileRepository;
-    private ComplianceProfileRuleRepository complianceProfileRuleRepository;
-    private ConnectorAuthService connectorAuthService;
-    private AttributeEngine attributeEngine;
-
-    @Autowired
-    public void setConnectorRepository(ConnectorRepository connectorRepository) {
-        this.connectorRepository = connectorRepository;
-    }
-
-    @Autowired
-    public void setFunctionGroupRepository(FunctionGroupRepository functionGroupRepository) {
-        this.functionGroupRepository = functionGroupRepository;
-    }
-
-    @Autowired
-    public void setConnector2FunctionGroupRepository(Connector2FunctionGroupRepository connector2FunctionGroupRepository) {
-        this.connector2FunctionGroupRepository = connector2FunctionGroupRepository;
-    }
-
-    @Autowired
-    public void setConnectorApiFactory(ConnectorApiFactory connectorApiFactory) {
-        this.connectorApiFactory = connectorApiFactory;
-    }
-
-    @Autowired
-    public void setCredentialRepository(CredentialRepository credentialRepository) {
-        this.credentialRepository = credentialRepository;
-    }
-
-    @Autowired
-    public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
-        this.authorityInstanceReferenceRepository = authorityInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setEntityInstanceReferenceRepository(EntityInstanceReferenceRepository entityInstanceReferenceRepository) {
-        this.entityInstanceReferenceRepository = entityInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setTokenInstanceReferenceRepository(TokenInstanceReferenceRepository tokenInstanceReferenceRepository) {
-        this.tokenInstanceReferenceRepository = tokenInstanceReferenceRepository;
-    }
-
-    @Autowired
-    public void setConnectorAuthService(ConnectorAuthService connectorAuthService) {
-        this.connectorAuthService = connectorAuthService;
-    }
-
-    @Autowired
-    public void setComplianceProfileRepository(ComplianceProfileRepository complianceProfileRepository) {
-        this.complianceProfileRepository = complianceProfileRepository;
-    }
-
-    @Autowired
-    public void setComplianceProfileRuleRepository(ComplianceProfileRuleRepository complianceProfileRuleRepository) {
-        this.complianceProfileRuleRepository = complianceProfileRuleRepository;
-    }
-
-    @Autowired
-    public void setAttributeEngine(AttributeEngine attributeEngine) {
-        this.attributeEngine = attributeEngine;
-    }
+    private final ConnectorRepository connectorRepository;
+    private final FunctionGroupRepository functionGroupRepository;
+    private final Connector2FunctionGroupRepository connector2FunctionGroupRepository;
+    private final ConnectorApiFactory connectorApiFactory;
+    private final CredentialRepository credentialRepository;
+    private final AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
+    private final EntityInstanceReferenceRepository entityInstanceReferenceRepository;
+    private final TokenInstanceReferenceRepository tokenInstanceReferenceRepository;
+    private final ComplianceProfileRepository complianceProfileRepository;
+    private final ComplianceProfileRuleRepository complianceProfileRuleRepository;
+    private final ConnectorAuthService connectorAuthService;
+    private final AttributeEngine attributeEngine;
+    private final ProxyService proxyService;
 
     @Override
     @ExternalAuthorization(resource = Resource.CONNECTOR, action = ResourceAction.LIST)
@@ -208,6 +150,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connector.setStatus(connectorStatus);
+
+        if (StringUtils.isNotBlank(request.getProxyUuid())) {
+            Proxy proxy = proxyService.getProxyEntity(SecuredUUID.fromString(request.getProxyUuid()));
+            connector.setProxy(proxy);
+        }
+
         connectorRepository.save(connector);
 
         setFunctionGroups(functionGroupDtos, connector);
@@ -242,6 +190,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         connector.setAuthType(request.getAuthType());
         connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
         connector.setStatus(connectorStatus);
+
+        if (request.getProxy() != null) {
+            Proxy proxy = proxyService.getProxyEntity(SecuredUUID.fromString(request.getProxy().getUuid()));
+            connector.setProxy(proxy);
+        }
+
         connectorRepository.save(connector);
 
         setFunctionGroups(request.getFunctionGroups(), connector);
@@ -266,6 +220,12 @@ public class ConnectorServiceImpl implements ConnectorService {
         if (request.getAuthType() != null) {
             connector.setAuthType(request.getAuthType());
             connector.setAuthAttributes(AttributeDefinitionUtils.serialize(authAttributes));
+        }
+        if (StringUtils.isNotBlank(request.getProxyUuid())) {
+            Proxy proxy = proxyService.getProxyEntity(SecuredUUID.fromString(request.getProxyUuid()));
+            connector.setProxy(proxy);
+        } else {
+            connector.setProxy(null);
         }
 
         connectorRepository.save(connector);
@@ -364,6 +324,7 @@ public class ConnectorServiceImpl implements ConnectorService {
         dto.setAuthType(request.getAuthType());
         dto.setUrl(request.getUrl());
         dto.setUuid(request.getUuid());
+        dto.setProxy(request.getProxy());
         return validateConnector(dto);
     }
 

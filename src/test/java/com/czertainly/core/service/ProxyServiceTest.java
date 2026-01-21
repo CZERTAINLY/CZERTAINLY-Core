@@ -191,7 +191,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
 
         proxyService.deleteProxy(proxyToDelete.getSecuredUuid());
 
-        Assertions.assertTrue(proxyRepository.findByUuid(proxyToDelete.getUuid()).isEmpty());
+        Assertions.assertTrue(proxyRepository.findByUuid(SecuredUUID.fromUUID(proxyToDelete.getUuid())).isEmpty());
     }
 
     @Test
@@ -321,7 +321,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
         Assertions.assertThrows(ProxyProvisioningException.class, () -> proxyService.deleteProxy(proxyUuid));
 
         // Verify proxy still exists due to transaction rollback
-        Assertions.assertTrue(proxyRepository.findByUuid(proxyToDelete.getUuid()).isPresent());
+        Assertions.assertTrue(proxyRepository.findByUuid(SecuredUUID.fromUUID(proxyToDelete.getUuid())).isPresent());
     }
 
     @Test
