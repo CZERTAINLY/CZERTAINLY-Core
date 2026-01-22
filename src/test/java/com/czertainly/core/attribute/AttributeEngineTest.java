@@ -7,8 +7,9 @@ import com.czertainly.api.model.client.attribute.*;
 import com.czertainly.api.model.client.metadata.MetadataResponseDto;
 import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
-import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.content.data.FileAttributeContentData;
+import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.*;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.v2.content.*;
@@ -18,6 +19,7 @@ import com.czertainly.api.model.common.attribute.common.properties.CustomAttribu
 import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
 import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
+import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.*;
 import com.czertainly.api.model.core.auth.Resource;
@@ -26,6 +28,7 @@ import com.czertainly.api.model.core.certificate.CertificateState;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.EncryptedAttributeContent;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.*;
@@ -44,6 +47,8 @@ import java.io.IOException;
 import java.security.cert.CertificateException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.ZonedDateTime;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
@@ -484,6 +489,61 @@ class AttributeEngineTest extends BaseSpringBootTest {
         Assertions.assertEquals(dataAttribute.getProperties().getLabel(), responseAttributes.getFirst().getLabel());
         Assertions.assertEquals(requestAttribute.getContent(), responseAttributes.getFirst().getContent());
     }
+
+    @Test
+    void testAttributeEncryption() throws AttributeException, NotFoundException {
+        testAttributeEncryption(AttributeContentType.STRING, new StringAttributeContentV3("sensitiveData"), "sensitiveData");
+        testAttributeEncryption(AttributeContentType.INTEGER, new IntegerAttributeContentV3(1), 1);
+        testAttributeEncryption(AttributeContentType.TEXT, new TextAttributeContentV3("text"), "text");
+        testAttributeEncryption(AttributeContentType.DATE, new DateAttributeContentV3(LocalDate.of(2024, 1, 1)), LocalDate.of(2024, 1, 1));
+        testAttributeEncryption(AttributeContentType.TIME, new TimeAttributeContentV3(LocalTime.of(12, 0)), LocalTime.of(12, 0));
+        testAttributeEncryption(AttributeContentType.DATETIME, new DateTimeAttributeContentV3(ZonedDateTime.parse("2024-01-01T12:00:00+00:00")), ZonedDateTime.parse("2024-01-01T12:00:00+00:00"));
+        FileAttributeContentData fileAttributeContentData = new FileAttributeContentData();
+        fileAttributeContentData.setContent("test");
+        fileAttributeContentData.setFileName("filename.txt");
+        fileAttributeContentData.setMimeType("text/plain");
+        testAttributeEncryption(AttributeContentType.FILE, new FileAttributeContentV3("filename.txt", fileAttributeContentData), fileAttributeContentData);
+        testAttributeEncryption(AttributeContentType.FLOAT, new FloatAttributeContentV3(1.5f), 1.5f);
+        testAttributeEncryption(AttributeContentType.OBJECT, new ObjectAttributeContentV3("{\"key\":\"value\"}"), "{\"key\":\"value\"}");
+        CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
+        testAttributeEncryption(AttributeContentType.CODEBLOCK, new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
+    }
+
+
+    private void testAttributeEncryption(AttributeContentType contentType, BaseAttributeContentV3<?> contentV3, Object data) throws AttributeException, NotFoundException {
+        DataAttributeV3 secretAttribute = new DataAttributeV3();
+        secretAttribute.setUuid(UUID.randomUUID().toString());
+        secretAttribute.setName("secretAttribute");
+        secretAttribute.setType(AttributeType.DATA);
+        secretAttribute.setContentType(contentType);
+        DataAttributeProperties properties = new DataAttributeProperties();
+        properties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
+        properties.setLabel("Secret Attribute");
+        secretAttribute.setProperties(properties);
+        attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(secretAttribute));
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString(secretAttribute.getUuid()));
+        requestAttribute.setName(secretAttribute.getName());
+        requestAttribute.setContentType(secretAttribute.getContentType());
+        requestAttribute.setContent(List.of(contentV3));
+        List<ResponseAttribute> responseAttributes = attributeEngine.updateObjectDataAttributesContent(
+                connectorAuthority.getUuid(), null,
+                Resource.CERTIFICATE,
+                certificate.getUuid(),
+                List.of(requestAttribute)
+        );
+        Assertions.assertEquals(1, responseAttributes.size());
+        ResponseAttributeV3 responseAttribute = (ResponseAttributeV3) responseAttributes.getFirst();
+        EncryptedAttributeContent content = (EncryptedAttributeContent) responseAttribute.getContent().getFirst();
+        Assertions.assertTrue(content.getData().startsWith("v1"));
+
+        // Decrypt check
+        secretAttribute.setContent(List.of(content));
+        List<RequestAttribute> decryptedAttributes = AttributeEngine.getClientAttributes(List.of(secretAttribute));
+        List<BaseAttributeContentV3<?>> content1 = decryptedAttributes.getFirst().getContent();
+        Assertions.assertEquals(data, content1.getFirst().getData());
+    }
+
 
     @Test
     void validateRequestDataAttributesThrowsValidationExceptionForMissingRequiredAttributes() throws AttributeException {

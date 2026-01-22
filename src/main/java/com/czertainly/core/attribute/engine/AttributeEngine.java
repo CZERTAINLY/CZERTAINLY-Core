@@ -34,6 +34,7 @@ import com.czertainly.core.model.SearchFieldObject;
 import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.SecurityResourceFilter;
 import com.czertainly.core.util.*;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.json.JsonMapper;
@@ -418,6 +419,7 @@ public class AttributeEngine {
             attributeDefinition.setOperation(operation);
             attributeDefinition.setVersion(dataAttribute.getVersion());
         }
+        attributeDefinition.setProtectionLevel(dataAttribute.getProperties().getProtectionLevel());
         attributeDefinition.setLabel(dataAttribute.getProperties().getLabel());
         attributeDefinition.setRequired(dataAttribute.getProperties().isRequired());
         attributeDefinition.setReadOnly(dataAttribute.getProperties().isReadOnly());
@@ -771,6 +773,34 @@ public class AttributeEngine {
         }
     }
 
+    public static List<RequestAttribute> getClientAttributes(List<? extends DataAttribute> attributes) {
+        if (attributes == null || attributes.isEmpty()) {
+            return new ArrayList<>();
+        }
+        decryptAttributeContents(attributes);
+        List<RequestAttribute> convertedDefinition = new ArrayList<>();
+        for (DataAttribute attribute : attributes) {
+            convertedDefinition.add(AttributeVersionHelper.getRequestAttribute(UUID.fromString(attribute.getUuid()), attribute.getName(), attribute.getContent(), attribute.getContentType(), attribute.getVersion()));
+        }
+
+        return convertedDefinition;
+    }
+
+    public static void decryptAttributeContents(List<? extends DataAttribute> dataAttributes) {
+        if (dataAttributes == null) {
+            return;
+        }
+        for (DataAttribute attribute : dataAttributes) {
+            if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+                List<AttributeContent> decryptedContent = new ArrayList<>();
+                for (AttributeContent content : (List<AttributeContent>) attribute.getContent()) {
+                    decryptedContent.add(AttributeVersionHelper.decryptContent(content, attribute.getVersion(), attribute.getContentType()));
+                }
+                attribute.setContent(decryptedContent);
+            }
+        }
+    }
+
     public void updateObjectCustomAttributeContent(Resource objectType, UUID objectUuid, UUID definitionUuid, String attributeName, List<? extends AttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
         AttributeDefinition attributeDefinition;
         if (definitionUuid != null) {
@@ -1049,9 +1079,7 @@ public class AttributeEngine {
         for (int i = 0; i < attributeContentItems.size(); i++) {
             AttributeContent attributeContentItem = attributeContentItems.get(i);
             if (attributeDefinition.getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
-                String encryptedData = SecretsUtil.encryptAndEncodeSecretString(attributeContentItem.getData().toString(), SecretEncodingVersion.V1);
-                // Save as String Attribute Content for serialization purpose - or maybe a new content type if serialization of v3 not possible? only in core
-                attributeContentItem = AttributeVersionHelper.createEncryptedStringContent(encryptedData, attributeContentItem.getReference(), attributeDefinition.getVersion(), attributeDefinition.getContentType());
+                attributeContentItem = encryptAttributeContent(attributeDefinition, attributeContentItem);
             }
             AttributeContentItem contentItemEntity = attributeContentItemRepository.findByJsonAndAttributeDefinitionUuid(attributeContentItem, attributeDefinition.getUuid());
 
@@ -1082,6 +1110,23 @@ public class AttributeEngine {
             objectContentItem.setAttributeContentItem(contentItemEntity);
             attributeContent2ObjectRepository.save(objectContentItem);
         }
+    }
+
+    private static AttributeContent encryptAttributeContent(AttributeDefinition attributeDefinition, AttributeContent attributeContentItem) throws AttributeException {
+        String encryptedData;
+        if ((AttributeContentData.class.isAssignableFrom(attributeDefinition.getContentType().getContentDataClass()))) {
+            try {
+                encryptedData = SecretsUtil.encryptAndEncodeSecretString(ATTRIBUTES_OBJECT_MAPPER.writeValueAsString(attributeContentItem.getData()), SecretEncodingVersion.V1);
+            } catch (JsonProcessingException e) {
+                throw new AttributeException("Error encrypting attribute content data: " + e.getMessage(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), attributeDefinition.getConnectorUuid() == null ? null : attributeDefinition.getConnectorUuid().toString());
+            }
+
+        } else {
+            encryptedData = SecretsUtil.encryptAndEncodeSecretString(attributeContentItem.getData().toString(), SecretEncodingVersion.V1);
+        }
+        // Save as String Attribute Content for serialization purpose - or maybe a new content type if serialization of v3 not possible? only in core
+        attributeContentItem = AttributeVersionHelper.createEncryptedContent(encryptedData, attributeContentItem.getReference(), attributeDefinition.getVersion());
+        return attributeContentItem;
     }
 
     private List<ValidationError> validateAttributesContent(Map<String, AttributeDefinition> definitionsMapping, List<RequestAttribute> attributes) {
