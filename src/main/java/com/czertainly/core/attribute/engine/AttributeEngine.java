@@ -797,6 +797,18 @@ public class AttributeEngine {
                 .orElseThrow(() -> new AttributeException("Cannot update content of attribute since it is not associated with resource " + objectType.getLabel(), attributeDefinition.getUuid().toString(), attributeDefinition.getName(), attributeDefinition.getType(), null));
 
         // filter out updating
+        processSecurityFilter(definitionUuid, attributeDefinition);
+
+        // custom attributes content is automatically replaced
+        deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
+        if (attributeContentItems != null && !attributeContentItems.isEmpty()) {
+            List<BaseAttributeContentV3<?>> contentV3s = AttributeVersionHelper.getBaseAttributeContentV3s(attributeContentItems, attributeDefinition);
+            validateAttributeContent(attributeDefinition, contentV3s);
+            createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), contentV3s);
+        }
+    }
+
+    private void processSecurityFilter(UUID definitionUuid, AttributeDefinition attributeDefinition) throws AttributeException {
         SecurityResourceFilter securityResourceFilter = loadCustomAttributesSecurityResourceFilter();
         if (securityResourceFilter != null) {
             if ((securityResourceFilter.areOnlySpecificObjectsAllowed())) {
@@ -808,13 +820,6 @@ public class AttributeEngine {
                     throw new AttributeException(String.format("Updating custom attribute `%s` is not allowed", attributeDefinition.getName()));
                 }
             }
-        }
-
-        // custom attributes content is automatically replaced
-        deleteObjectAttributeDefinitionContent(attributeDefinition.getUuid(), objectType, objectUuid);
-        if (attributeContentItems != null && !attributeContentItems.isEmpty()) {
-            validateAttributeContent(attributeDefinition, attributeContentItems);
-            createObjectAttributeContent(attributeDefinition, new ObjectAttributeContentInfo(objectType, objectUuid), attributeContentItems);
         }
     }
 

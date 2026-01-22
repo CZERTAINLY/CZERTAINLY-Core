@@ -17,8 +17,9 @@ RUN jdeps \
 
 # Create a custom Java runtime
 # - 'jdk.crypto.ec' is required for elliptic-curve cryptography support.
+# - 'jdk.naming.dns' is required for DNS lookups for ACME challenges.
 # These modules can be overridden or extended using the ADDITIONAL_MODULES environment variable.
-ENV ADDITIONAL_MODULES=jdk.crypto.ec
+ENV ADDITIONAL_MODULES=jdk.crypto.ec,jdk.naming.dns
 RUN $JAVA_HOME/bin/jlink \
   --add-modules $(cat modules.txt),${ADDITIONAL_MODULES} \
   --strip-debug \

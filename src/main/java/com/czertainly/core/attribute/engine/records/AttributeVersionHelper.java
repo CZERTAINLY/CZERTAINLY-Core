@@ -14,9 +14,11 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.core.dao.entity.AttributeDefinition;
 
 
 import java.io.Serializable;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -170,5 +172,22 @@ public class AttributeVersionHelper {
         v3.setReference(v2.getReference());
         v3.setData(v2.getData());
         return v3;
+    }
+
+    public static List<BaseAttributeContentV3<?>> getBaseAttributeContentV3s(List<? extends AttributeContent> attributeContentItems, AttributeDefinition attributeDefinition) {
+        List<BaseAttributeContentV3<?>> contentV3s = new ArrayList<>();
+        for (AttributeContent content : attributeContentItems) {
+            BaseAttributeContentV3<?> baseAttributeContentV3;
+            if (content.getContentType() == null) {
+                baseAttributeContentV3 = new BaseAttributeContentV3<>();
+                baseAttributeContentV3.setContentType(attributeDefinition.getContentType());
+                baseAttributeContentV3.setData(content.getData());
+                baseAttributeContentV3.setReference(content.getReference());
+            } else {
+                baseAttributeContentV3 = (BaseAttributeContentV3<?>) content;
+            }
+            contentV3s.add((baseAttributeContentV3));
+        }
+        return contentV3s;
     }
 }
