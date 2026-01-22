@@ -35,7 +35,7 @@ public abstract class BaseMessagingIntTest extends BaseSpringBootTest {
         registry.add("spring.messaging.broker-url",
                 () -> String.format("amqp://%s:%d", rabbitMQContainer.getHost(), rabbitMQContainer.getAmqpPort()));
         registry.add("spring.messaging.name", () -> "RABBITMQ");
-        registry.add("spring.messaging.user", rabbitMQContainer::getAdminUsername);
+        registry.add("spring.messaging.username", rabbitMQContainer::getAdminUsername);
         registry.add("spring.messaging.password", rabbitMQContainer::getAdminPassword);
     }
 

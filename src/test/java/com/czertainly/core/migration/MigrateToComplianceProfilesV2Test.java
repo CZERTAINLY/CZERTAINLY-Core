@@ -54,16 +54,16 @@ class MigrateToComplianceProfilesV2Test extends BaseSpringBootTest {
 
             V202507311051__MigrateToComplianceProfilesV2 migration = new V202507311051__MigrateToComplianceProfilesV2();
             migration.migrate(context);
+        }
 
-            // Use single connection for all assertions
-            try (Connection assertConn = dataSource.getConnection()) {
-                assertNewFunctionGroupAndEndpointsExists(assertConn);
-                assertMigratedDataPresence(assertConn);
+        // Use single connection for all assertions
+        try (Connection assertConn = dataSource.getConnection()) {
+            assertNewFunctionGroupAndEndpointsExists(assertConn);
+            assertMigratedDataPresence(assertConn);
 
-                // check cleanup of removed tables
-                try (Statement statement = assertConn.createStatement()) {
-                    Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("SELECT * FROM ra_profile_2_compliance_profile"));
-                }
+            // check cleanup of removed tables
+            try (Statement statement = assertConn.createStatement()) {
+                Assertions.assertThrows(SQLException.class, () -> statement.executeQuery("SELECT * FROM ra_profile_2_compliance_profile"));
             }
         }
     }

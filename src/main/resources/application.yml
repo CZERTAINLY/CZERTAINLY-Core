@@ -133,13 +133,16 @@ spring:
           preferred_duration_jdbc_type: INTERVAL_SECOND
   messaging:
     broker-type: ${BROKER_TYPE:RABBITMQ}  # RABBITMQ or SERVICEBUS
-    broker-url: ${BROKER_URL}
+    broker-url: ${BROKER_URL:}
+    # Legacy RabbitMQ connection properties (used if broker-url is not set)
+    host: ${BROKER_HOST:}
+    port: ${BROKER_PORT:5672}
     session-cache-size: ${BROKER_SESSION_CACHE_SIZE:25}
     exchange: ${BROKER_EXCHANGE:czertainly}
     # --- Authentication ---
-    # For RabbitMQ: user/password required
-    # For ServiceBus: either user/password (SAS) OR aad-auth (AAD) required
-    user: ${BROKER_USERNAME:}
+    # For RabbitMQ: username/password required
+    # For ServiceBus: either username/password (SAS) OR aad-auth (AAD) required
+    username: ${BROKER_USERNAME:}
     password: ${BROKER_PASSWORD:}
     aad-auth: # Azure Active Directory (Entra) authentication for ServiceBus
       tenant-id: ${BROKER_AZURE_TENANT_ID:}
@@ -148,7 +151,7 @@ spring:
       token-refresh-interval: ${BROKER_AZURE_TOKEN_REFRESH_INTERVAL:300} # seconds
       token-getting-timeout: ${BROKER_AZURE_TOKEN_GETTING_TIMEOUT:30} # seconds
     # --- RabbitMQ specific ---
-    vhost: ${BROKER_VHOST:}
+    virtual-host: ${BROKER_VIRTUAL_HOST:}
     # --- Listener/Producer settings ---
     listener:
       recovery-interval: 5000

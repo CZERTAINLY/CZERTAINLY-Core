@@ -80,7 +80,7 @@ spring:
   messaging:
     broker-type: RABBITMQ
     broker-url: amqp://localhost:5672
-    user: guest
+    username: guest
     password: guest
     session-cache-size: 5
     queue:

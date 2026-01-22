@@ -48,7 +48,7 @@ public abstract class AbstractJmsEndpointConfig<T> {
                                                               Supplier<String> routingKey, Supplier<String> concurrency,
                                                               Class<T> messageClass) {
         logger.debug("Configuring JMS listener endpoint: id={}, destination={}, routingKey={}, broker={}, vhost={}",
-            endpointId.get(), destination.get(), routingKey.get(), messagingProperties.brokerType(), messagingProperties.vhost());
+            endpointId.get(), destination.get(), routingKey.get(), messagingProperties.brokerType(), messagingProperties.virtualHost());
 
         SimpleJmsListenerEndpoint endpoint;
         if (messagingProperties.brokerType() == MessagingProperties.BrokerType.SERVICEBUS) {

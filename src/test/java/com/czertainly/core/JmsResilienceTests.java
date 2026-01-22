@@ -65,7 +65,7 @@ public abstract class JmsResilienceTests extends BaseSpringBootTest {
         String proxyUrl = String.format("amqp://%s:%d", toxiproxy.getHost(), toxiproxy.getMappedPort(8666));
         registry.add("spring.messaging.broker-url", () -> proxyUrl);
         registry.add("spring.messaging.name", () -> "RABBITMQ");
-        registry.add("spring.messaging.user", rabbitMQContainer::getAdminUsername);
+        registry.add("spring.messaging.username", rabbitMQContainer::getAdminUsername);
         registry.add("spring.messaging.password", rabbitMQContainer::getAdminPassword);
     }
 

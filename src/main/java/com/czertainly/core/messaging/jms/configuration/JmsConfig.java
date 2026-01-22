@@ -31,14 +31,14 @@ public class JmsConfig {
 
     @Bean
     public ConnectionFactory connectionFactory(MessagingProperties props) {
-        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(props.brokerUrl());
+        UriComponentsBuilder builder = UriComponentsBuilder.fromUriString(props.getEffectiveBrokerUrl());
 
         // For RabbitMQ with AMQP 1.0, vhost is specified in the AMQP Open frame hostname field
         // The hostname field must be "vhost:name" format according to RabbitMQ AMQP 1.0 docs
         // We use amqp.vhost connection property to set this value
         if (props.brokerType() == MessagingProperties.BrokerType.RABBITMQ &&
-                props.vhost() != null && !props.vhost().isEmpty()) {
-            builder.queryParam("amqp.vhost", "vhost:" + props.vhost());
+                props.virtualHost() != null && !props.virtualHost().isEmpty()) {
+            builder.queryParam("amqp.vhost", "vhost:" + props.virtualHost());
         }
         String brokerUrl = builder.build().toUriString();
 
@@ -51,8 +51,8 @@ public class JmsConfig {
         }
 
         // RabbitMQ - standard username/password authentication
-        logger.info("Connecting to RabbitMQ broker: {} with vhost: {}", props.brokerUrl(), props.vhost());
-        factory.setUsername(props.user());
+        logger.info("Connecting to RabbitMQ broker: {} with vhost: {}", props.getEffectiveBrokerUrl(), props.virtualHost());
+        factory.setUsername(props.username());
         factory.setPassword(props.password());
 
         // caching connection factory for non-ServiceBus (RabbitMQ)
@@ -66,7 +66,7 @@ public class JmsConfig {
     private void configureServiceBusAuthentication(JmsConnectionFactory factory, MessagingProperties props) {
         if (props.aadAuth() != null && props.aadAuth().isEnabled()) {
             // AAD (Azure Active Directory) OAuth2 authentication
-            logger.info("Connecting to Azure ServiceBus: {} using AAD authentication", props.brokerUrl());
+            logger.info("Connecting to Azure ServiceBus: {} using AAD authentication", props.getEffectiveBrokerUrl());
 
             TokenCredential credential = new ClientSecretCredentialBuilder()
                     .tenantId(props.aadAuth().tenantId())
@@ -84,8 +84,8 @@ public class JmsConfig {
             );
         } else {
             // SAS (Shared Access Signature) token authentication
-            logger.info("Connecting to Azure ServiceBus: {} using SAS authentication", props.brokerUrl());
-            factory.setUsername(props.user());
+            logger.info("Connecting to Azure ServiceBus: {} using SAS authentication", props.getEffectiveBrokerUrl());
+            factory.setUsername(props.username());
             factory.setPassword(props.password());
         }
     }

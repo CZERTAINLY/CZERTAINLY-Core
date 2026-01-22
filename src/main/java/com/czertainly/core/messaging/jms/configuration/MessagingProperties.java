@@ -12,11 +12,13 @@ import org.springframework.validation.annotation.Validated;
 @Validated
 public record MessagingProperties(
         @NotNull MessagingProperties.BrokerType brokerType,
-        @NotBlank String brokerUrl,
+        String brokerUrl,
+        String host,
+        Integer port,
         @Positive int sessionCacheSize,
         @NotBlank String exchange,
-        String vhost,
-        String user,      // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
+        String virtualHost,
+        String username,      // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
         String password,  // Required for RabbitMQ and ServiceBus+SAS, optional for ServiceBus+AAD
         @Valid AadAuth aadAuth,
         @Valid Listener listener,
@@ -26,27 +28,49 @@ public record MessagingProperties(
 ) {
 
     /**
-     * Compact constructor that validates authentication configuration based on broker type.
+     * Compact constructor that validates authentication and connection configuration based on broker type.
      */
     public MessagingProperties {
-        boolean hasUserAndPassword = StringUtils.isNotBlank(user) && StringUtils.isNotBlank(password);
+        boolean hasUserAndPassword = StringUtils.isNotBlank(username) && StringUtils.isNotBlank(password);
         boolean hasAadAuth = aadAuth != null && aadAuth.isEnabled();
+        boolean hasBrokerUrl = StringUtils.isNotBlank(brokerUrl);
+        boolean hasHostAndPort = StringUtils.isNotBlank(host) && port != null;
 
         switch (brokerType) {
             case RABBITMQ -> {
+                if (!hasBrokerUrl && !hasHostAndPort) {
+                    throw new IllegalArgumentException(
+                            "RabbitMQ requires either BROKER_URL or BROKER_HOST and BROKER_PORT to be configured");
+                }
                 if (!hasUserAndPassword) {
                     throw new IllegalArgumentException(
-                            "RabbitMQ requires BROKER_USER and BROKER_PASSWORD to be configured");
+                            "RabbitMQ requires BROKER_USERNAME and BROKER_PASSWORD to be configured");
                 }
             }
             case SERVICEBUS -> {
+                if (!hasBrokerUrl) {
+                    throw new IllegalArgumentException(
+                            "ServiceBus requires BROKER_URL to be configured");
+                }
                 if (!hasUserAndPassword && !hasAadAuth) {
                     throw new IllegalArgumentException(
-                            "ServiceBus requires either BROKER_USER/BROKER_PASSWORD (SAS) " +
+                            "ServiceBus requires either BROKER_USERNAME/BROKER_PASSWORD (SAS) " +
                                     "or BROKER_AZURE_TENANT_ID/BROKER_AZURE_CLIENT_ID/BROKER_AZURE_CLIENT_SECRET (AAD) to be configured");
                 }
             }
         }
+    }
+
+    /**
+     * Returns the effective broker URL for connection.
+     * Uses brokerUrl if provided, otherwise constructs from host and port (for RabbitMQ legacy support).
+     */
+    public String getEffectiveBrokerUrl() {
+        if (StringUtils.isNotBlank(brokerUrl)) {
+            return brokerUrl;
+        }
+        // Construct URL from host and port (RabbitMQ legacy support)
+        return "amqp://" + host + ":" + port;
     }
 
     private String producerDestination(String routingKey) {
