@@ -85,7 +85,7 @@ public class Certificate extends UniquelyIdentifiedAndAudited implements Complia
     @Column(name = "extended_key_usage")
     private String extendedKeyUsage;
 
-    @Column(name = "key_usage")
+    @Column(name = "key_usage", nullable = false)
     private int keyUsage;
 
     @Column(name = "subject_type", nullable = false)

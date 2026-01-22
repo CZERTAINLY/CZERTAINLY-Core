@@ -594,7 +594,7 @@ public class CertificateServiceImpl implements CertificateService {
                 SearchHelper.prepareSearch(FilterField.COMMON_NAME),
                 SearchHelper.prepareSearch(FilterField.SERIAL_NUMBER),
                 SearchHelper.prepareSearch(FilterField.ISSUER_SERIAL_NUMBER),
-                SearchHelper.prepareSearch(FilterField.RA_PROFILE_NAME, raProfileRepository.findAll().stream().map(RaProfile::getName).toList()),
+                SearchHelper.prepareSearch(FilterField.RA_PROFILE_NAME, raProfileRepository.findAllNames()),
                 SearchHelper.prepareSearch(FilterField.GROUP_NAME, groupRepository.findAll().stream().map(Group::getName).toList()),
                 SearchHelper.prepareSearch(FilterField.CERT_LOCATION_NAME, locationRepository.findAll().stream().map(Location::getName).toList()),
                 SearchHelper.prepareSearch(FilterField.OWNER, userManagementApiClient.getUsers().getData().stream().map(UserDto::getUsername).toList()),
