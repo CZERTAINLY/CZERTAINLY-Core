@@ -65,3 +65,12 @@ jobs:
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Dispatch Helm Chart update
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.HELM_CHARTS_PAT }}
+          repository: cloudfieldcz/CZERTAINLY-Helm-Charts
+          event-type: update-chart-version
+          client-payload: '{"chart": "czertainly", "version": "${{ github.ref_name }}"}'
