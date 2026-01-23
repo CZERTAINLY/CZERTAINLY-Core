@@ -227,7 +227,7 @@ public class CredentialServiceImpl implements CredentialService {
                 if (AttributeContentType.CREDENTIAL.equals(mapping.getAttributeContentType())) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
                         switch (target) {
-                            case PATH_VARIABLE, REQUEST_PARAMETER:
+                            case PATH_VARIABLE, REQUEST_PARAMETER, FILTER:
                                 logger.warn("Illegal 'from' Attribute type {} for target {}",
                                         mapping.getAttributeType(), target);
                                 break;

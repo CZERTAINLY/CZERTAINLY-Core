@@ -9,7 +9,6 @@ import com.czertainly.api.model.common.attribute.common.AttributeType;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.DataAttribute;
-import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
 import com.czertainly.api.model.common.attribute.common.constraint.BaseAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.constraint.RegexpAttributeConstraint;
 import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
