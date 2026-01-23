@@ -272,20 +272,4 @@ public class CallbackServiceImpl implements CallbackService {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
         }
     }
-
-    /**
-     * Function to check if the attribute is of type group
-     *
-     * @param name       Name of the attribute
-     * @param attributes List of the attribute definitions
-     * @return If the attribute is group or not
-     */
-    private boolean isGroupAttribute(String name, List<BaseAttribute> attributes) {
-        for (BaseAttribute attributeDefinition : attributes) {
-            if (attributeDefinition.getName().equals(name) && attributeDefinition.getType().equals(AttributeType.GROUP)) {
-                    return true;
-                }
-        }
-        return false;
-    }
 }
