@@ -115,7 +115,7 @@ class CoreCallbackServiceTest extends BaseSpringBootTest {
 
         String invalidFilter = "xxx";
         requestAttributeCallback.setFilter(Map.of(invalidFilter, CertificateState.ISSUED));
-        Assertions.assertThrows(ValidationException.class, ()-> coreCallbackService.coreGetResources(requestAttributeCallback, AttributeResource.CERTIFICATE));
+        Assertions.assertThrows(ValidationException.class, () -> coreCallbackService.coreGetResources(requestAttributeCallback, AttributeResource.CERTIFICATE));
 
         requestAttributeCallback.setFilter(null);
         result = coreCallbackService.coreGetResources(requestAttributeCallback, AttributeResource.CERTIFICATE);

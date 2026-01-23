@@ -222,12 +222,12 @@ public class ResourceServiceImpl implements ResourceService {
     private static NameAndUuidDto getResourceId(Serializable bodyKeyValue) {
         if (bodyKeyValue instanceof List<?> list && list.getFirst() instanceof Map<?, ?> map) {
             if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
-            return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
+            return new NameAndUuidDto(map.get("uuid").toString(), Objects.toString(map.get("name"), null));
         }
 
         if (bodyKeyValue instanceof Map<?, ?> map) {
             if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
-            return new NameAndUuidDto(map.get("uuid").toString(), map.get("name").toString());
+            return new NameAndUuidDto(map.get("uuid").toString(), Objects.toString(map.get("name"), null));
         }
 
         if (bodyKeyValue instanceof String uuid) {

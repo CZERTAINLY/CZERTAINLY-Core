@@ -146,7 +146,7 @@ public class CallbackServiceImpl implements CallbackService {
             Map<String, AttributeResource> toResource = new HashMap<>();
             for (String to : callback.getBody().keySet()) {
                 AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
-                if (callbackMapping != null) {
+                if (callbackMapping != null && callbackMapping.getFrom() != null) {
                     String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
                     DataAttribute fromAttribute =  (DataAttribute) getAttributeByName(fromAttributeName, definitions, connector.getUuid());
                     toResource.put(to, fromAttribute.getProperties().getResource());

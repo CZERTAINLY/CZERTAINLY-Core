@@ -149,7 +149,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
 
         certificate = new Certificate();
         certificate.setSubjectDn("testCertificate");
-        certificate.setIssuerDn("testCercertificatetificate");
+        certificate.setIssuerDn("testCertificate");
         certificate.setSerialNumber("123456789");
         certificate.setState(CertificateState.ISSUED);
         certificate.setValidationStatus(CertificateValidationStatus.VALID);
