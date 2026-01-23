@@ -329,7 +329,7 @@ class ResourceServiceTest extends BaseSpringBootTest {
         resourceService.loadResourceObjectContentData(List.of(nonResourceAttribute, resourceAttribute));
         Assertions.assertNull(nonResourceAttribute.getContent());
         ResourceObjectContentData dataWithResource = (ResourceObjectContentData) resourceAttribute.getContent().getFirst().getData();
-        Assertions.assertEquals(certificate.getContentData(), dataWithResource.getBase64Content());
+        Assertions.assertEquals(certificate.getContentData(), dataWithResource.getContent());
         Assertions.assertEquals(AttributeResource.CERTIFICATE, dataWithResource.getResource());
         Assertions.assertEquals(certificate.getCommonName(), dataWithResource.getName());
         Assertions.assertEquals(certificate.getUuid().toString(), dataWithResource.getUuid());

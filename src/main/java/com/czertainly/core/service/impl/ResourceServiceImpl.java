@@ -262,7 +262,7 @@ public class ResourceServiceImpl implements ResourceService {
     private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException {
         ResourceObjectContentData data = new ResourceObjectContentData();
         if (resource.isWithContent())
-            data.setBase64Content(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
+            data.setContent(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
         data.setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
         data.setResource(resource);
         data.setUuid(uuid.toString());
