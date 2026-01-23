@@ -65,6 +65,9 @@ public enum Resource {
     RULE("rules"),
     ACTION("actions"),
     TRIGGER("triggers"),
+
+    // SAAS
+    TRUSTED_CERTIFICATE("trustedCertificates")
     ;
 
     @Schema(description = "Resource Name",

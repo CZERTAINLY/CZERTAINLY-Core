@@ -15,7 +15,7 @@ import com.czertainly.core.dao.entity.Proxy;
 import com.czertainly.core.dao.entity.Proxy_;
 import com.czertainly.core.dao.repository.ProxyRepository;
 import com.czertainly.core.model.auth.ResourceAction;
-import com.czertainly.core.provisioning.ProxyProvisioningException;
+import com.czertainly.core.provisioning.ProvisioningException;
 import com.czertainly.core.provisioning.ProxyProvisioningService;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
@@ -66,7 +66,7 @@ public class ProxyServiceImpl implements ProxyService {
             try {
                 String installInstructions = proxyProvisioningService.getProxyInstallationInstructions(proxy.getCode());
                 dto.setInstallationInstructions(installInstructions);
-            } catch (ProxyProvisioningException e) {
+            } catch (ProvisioningException e) {
                 logger.warn("Failed to fetch installation instructions for proxy with code {}", proxy.getCode(), e);
             }
         }
@@ -83,7 +83,7 @@ public class ProxyServiceImpl implements ProxyService {
 
     @Override
     @ExternalAuthorization(resource = Resource.PROXY, action = ResourceAction.CREATE)
-    public ProxyDto createProxy(ProxyRequestDto request) throws AlreadyExistException, ProxyProvisioningException {
+    public ProxyDto createProxy(ProxyRequestDto request) throws AlreadyExistException {
         if (StringUtils.isBlank(request.getName())) {
             throw new ValidationException(ValidationError.create("name must not be empty"));
         }

@@ -15,39 +15,39 @@ public class ProxyProvisioningServiceImpl implements ProxyProvisioningService {
     private static final Logger logger = LoggerFactory.getLogger(ProxyProvisioningServiceImpl.class);
 
     private final ProxyProvisioningApiClient proxyProvisioningApiClient;
-    private final ProxyProvisioningApiProperties properties;
+    private final ProvisioningApiProperties properties;
 
     @Override
-    public String provisionProxy(String proxyCode) throws ProxyProvisioningException {
+    public String provisionProxy(String proxyCode) throws ProvisioningException {
         logger.info("Provisioning proxy: {}", proxyCode);
         try {
             proxyProvisioningApiClient.provisionProxy(new ProxyProvisioningRequestDTO(proxyCode));
             return getProxyInstallationInstructions(proxyCode);
-        } catch (ProxyProvisioningException e) {
+        } catch (ProvisioningException e) {
             throw e;
         } catch (Exception e) {
-            throw new ProxyProvisioningException("Failed to provision proxy " + proxyCode, e);
+            throw new ProvisioningException("Failed to provision proxy " + proxyCode, e);
         }
     }
 
     @Override
-    public String getProxyInstallationInstructions(String proxyCode) throws ProxyProvisioningException {
+    public String getProxyInstallationInstructions(String proxyCode) throws ProvisioningException {
         logger.info("Fetching installation instructions for proxy: {}", proxyCode);
         try {
             InstallationInstructionsDTO instructions = proxyProvisioningApiClient.getInstallationInstructions(proxyCode, properties.installationFormat());
             return instructions.command().shell();
         } catch (Exception e) {
-            throw new ProxyProvisioningException("Failed to get proxy installation instructions " + proxyCode, e);
+            throw new ProvisioningException("Failed to get proxy installation instructions " + proxyCode, e);
         }
     }
 
     @Override
-    public void decommissionProxy(String proxyCode) throws ProxyProvisioningException {
+    public void decommissionProxy(String proxyCode) throws ProvisioningException {
         logger.info("Decommissioning proxy: {}", proxyCode);
         try {
             proxyProvisioningApiClient.decommissionProxy(proxyCode);
         } catch (Exception e) {
-            throw new ProxyProvisioningException("Failed to decommission proxy " + proxyCode, e);
+            throw new ProvisioningException("Failed to decommission proxy " + proxyCode, e);
         }
     }
 }

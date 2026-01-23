@@ -11,32 +11,39 @@ import org.springframework.web.client.support.RestClientAdapter;
 import org.springframework.web.service.invoker.HttpServiceProxyFactory;
 
 /**
- * Configuration for the proxy provisioning API client.
+ * Configuration for the provisioning API clients.
  */
 @Configuration
-@EnableConfigurationProperties(ProxyProvisioningApiProperties.class)
+@EnableConfigurationProperties(ProvisioningApiProperties.class)
 @RequiredArgsConstructor
-public class ProxyProvisioningApiConfig {
+public class ProvisioningApiConfig {
 
-    private final ProxyProvisioningApiProperties proxyProvisioningApiProperties;
+    private final ProvisioningApiProperties provisioningApiProperties;
 
     @Bean
     public RestClient provisioningRestClient() {
         ClientHttpRequestFactorySettings settings = ClientHttpRequestFactorySettings.defaults()
-            .withConnectTimeout(proxyProvisioningApiProperties.connectTimeout())
-            .withReadTimeout(proxyProvisioningApiProperties.readTimeout());
+            .withConnectTimeout(provisioningApiProperties.connectTimeout())
+            .withReadTimeout(provisioningApiProperties.readTimeout());
 
         return RestClient.builder()
-            .baseUrl(proxyProvisioningApiProperties.url())
+            .baseUrl(provisioningApiProperties.url())
             .requestFactory(ClientHttpRequestFactoryBuilder.detect().build(settings))
-            .defaultHeader("X-API-Key", proxyProvisioningApiProperties.apiKey())
+            .defaultHeader("X-API-Key", provisioningApiProperties.apiKey())
             .build();
     }
 
     @Bean
-    public ProxyProvisioningApiClient provisioningApiClient(RestClient provisioningRestClient) {
+    public ProxyProvisioningApiClient proxyProvisioningApiClient(RestClient provisioningRestClient) {
         HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(provisioningRestClient))
             .build();
         return httpServiceProxyFactory.createClient(ProxyProvisioningApiClient.class);
+    }
+
+    @Bean
+    public TrustedCertificateProvisioningApiClient trustedCertificateProvisioningApiClient(RestClient provisioningRestClient) {
+        HttpServiceProxyFactory httpServiceProxyFactory = HttpServiceProxyFactory.builderFor(RestClientAdapter.create(provisioningRestClient))
+            .build();
+        return httpServiceProxyFactory.createClient(TrustedCertificateProvisioningApiClient.class);
     }
 }

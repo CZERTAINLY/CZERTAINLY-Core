@@ -10,24 +10,24 @@ public interface ProxyProvisioningService {
      *
      * @param proxyCode unique identifier for the proxy
      * @return installation instructions as a shell command
-     * @throws ProxyProvisioningException if provisioning fails
+     * @throws ProvisioningException if provisioning fails
      */
-    String provisionProxy(String proxyCode) throws ProxyProvisioningException;
+    String provisionProxy(String proxyCode) throws ProvisioningException;
 
     /**
      * Retrieves installation instructions for an existing proxy.
      *
      * @param proxyCode unique identifier for the proxy
      * @return installation instructions as a shell command
-     * @throws ProxyProvisioningException if retrieval fails
+     * @throws ProvisioningException if retrieval fails
      */
-    String getProxyInstallationInstructions(String proxyCode) throws ProxyProvisioningException;
+    String getProxyInstallationInstructions(String proxyCode) throws ProvisioningException;
 
     /**
      * Decommissions an existing proxy.
      *
      * @param proxyCode unique identifier for the proxy
-     * @throws ProxyProvisioningException if decommissioning fails
+     * @throws ProvisioningException if decommissioning fails
      */
-    void decommissionProxy(String proxyCode) throws ProxyProvisioningException;
+    void decommissionProxy(String proxyCode) throws ProvisioningException;
 }

@@ -31,7 +31,7 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
 
     @DynamicPropertySource
     static void proxyProvisioningTestProperties(@NonNull DynamicPropertyRegistry registry) {
-        registry.add("proxy.provisioning.api.url", wireMockServer::baseUrl);
+        registry.add("provisioning.api.url", wireMockServer::baseUrl);
     }
 
     @Autowired
@@ -65,7 +65,7 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
                 .withStatus(500)
                 .withBody("Internal Server Error")));
 
-        ProxyProvisioningException exception = assertThrows(ProxyProvisioningException.class,
+        ProvisioningException exception = assertThrows(ProvisioningException.class,
             () -> proxyProvisioningService.provisionProxy(PROXY_CODE));
 
         assertTrue(exception.getMessage().contains("Failed to provision proxy"));
@@ -83,7 +83,7 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
                 .withStatus(503)
                 .withBody("Service Unavailable")));
 
-        ProxyProvisioningException exception = assertThrows(ProxyProvisioningException.class,
+        ProvisioningException exception = assertThrows(ProvisioningException.class,
             () -> proxyProvisioningService.provisionProxy(PROXY_CODE));
 
         assertTrue(exception.getMessage().contains("Failed to get proxy installation instructions"));
@@ -112,7 +112,7 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
                 .withStatus(404)
                 .withBody("Not Found")));
 
-        ProxyProvisioningException exception = assertThrows(ProxyProvisioningException.class,
+        ProvisioningException exception = assertThrows(ProvisioningException.class,
             () -> proxyProvisioningService.getProxyInstallationInstructions(PROXY_CODE));
 
         assertTrue(exception.getMessage().contains("Failed to get proxy installation instructions"));
@@ -136,7 +136,7 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
                 .withStatus(500)
                 .withBody("Internal Server Error")));
 
-        ProxyProvisioningException exception = assertThrows(ProxyProvisioningException.class,
+        ProvisioningException exception = assertThrows(ProvisioningException.class,
             () -> proxyProvisioningService.decommissionProxy(PROXY_CODE));
 
         assertTrue(exception.getMessage().contains("Failed to decommission proxy"));

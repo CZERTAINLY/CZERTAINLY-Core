@@ -7,11 +7,11 @@ import org.springframework.validation.annotation.Validated;
 import java.time.Duration;
 
 /**
- * Configuration properties for the proxy provisioning API client.
+ * Configuration properties for the provisioning API client.
  */
-@ConfigurationProperties(prefix = "proxy.provisioning.api")
+@ConfigurationProperties(prefix = "provisioning.api")
 @Validated
-public record ProxyProvisioningApiProperties(
+public record ProvisioningApiProperties(
     @NotNull
     String url,
     @NotNull

@@ -208,19 +208,20 @@ proxy:
     channel: ${PROXY_REDIS_CHANNEL:proxy:responses}
     # Enable Redis-based response distribution (required for multiple Core instances)
     enabled: ${PROXY_REDIS_ENABLED:false}
-  # Proxy provisioning API client configuration
-  provisioning:
-    api:
-      url: ${PROXY_PROVISIONING_API_URL}
-      api-key: ${PROXY_PROVISIONING_API_KEY}
-      connect-timeout: ${PROXY_PROVISIONING_CONNECT_TIMEOUT:500}
-      read-timeout: ${PROXY_PROVISIONING_READ_TIMEOUT:10s}
-      installation-format: ${PROXY_PROVISIONING_INSTALLATION_FORMAT:helm}
-      retry:
-        max-attempts: ${PROXY_PROVISIONING_RETRY_MAX_ATTEMPTS:3}
-        delay: ${PROXY_PROVISIONING_RETRY_DELAY:1000}
-        max-delay: ${PROXY_PROVISIONING_RETRY_MAX_DELAY:5000}
-        multiplier: ${PROXY_PROVISIONING_RETRY_MULTIPLIER:2}
+
+# Provisioning API client configuration
+provisioning:
+  api:
+    url: ${PROVISIONING_API_URL}
+    api-key: ${PROVISIONING_API_KEY}
+    connect-timeout: ${PROVISIONING_CONNECT_TIMEOUT:500}
+    read-timeout: ${PROVISIONING_READ_TIMEOUT:10s}
+    installation-format: ${PROVISIONING_INSTALLATION_FORMAT:helm}
+    retry:
+      max-attempts: ${PROVISIONING_RETRY_MAX_ATTEMPTS:3}
+      delay: ${PROVISIONING_RETRY_DELAY:1000}
+      max-delay: ${PROVISIONING_RETRY_MAX_DELAY:5000}
+      multiplier: ${PROVISIONING_RETRY_MULTIPLIER:2}
 
 validation:
   crl:

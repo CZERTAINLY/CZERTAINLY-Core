@@ -124,16 +124,15 @@ settings:
   cache:
     refresh-interval: 30
 
-proxy:
-  provisioning:
-    api:
-      url: http://localhost:8080
-      api-key: test-api-key
-      connect-timeout: 500
-      read-timeout: 1s
-      installation-format: helm
-      retry:
-        max-attempts: 2
-        delay: 500
-        max-delay: 1000
-        multiplier: 2
+provisioning:
+  api:
+    url: http://localhost:8080
+    api-key: test-api-key
+    connect-timeout: 500
+    read-timeout: 1s
+    installation-format: helm
+    retry:
+      max-attempts: 2
+      delay: 500
+      max-delay: 1000
+      multiplier: 2

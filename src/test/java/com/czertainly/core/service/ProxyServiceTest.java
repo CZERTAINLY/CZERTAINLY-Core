@@ -12,7 +12,7 @@ import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.Proxy;
 import com.czertainly.core.dao.repository.ConnectorRepository;
 import com.czertainly.core.dao.repository.ProxyRepository;
-import com.czertainly.core.provisioning.ProxyProvisioningException;
+import com.czertainly.core.provisioning.ProvisioningException;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
@@ -50,7 +50,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
 
     @DynamicPropertySource
     static void proxyProvisioningTestProperties(@NonNull DynamicPropertyRegistry registry) {
-        registry.add("proxy.provisioning.api.url", () -> wireMockServer.baseUrl());
+        registry.add("provisioning.api.url", () -> wireMockServer.baseUrl());
     }
 
     @Autowired
@@ -275,7 +275,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
         request.setName("failingProxy");
         request.setDescription("Proxy that fails to provision");
 
-        Assertions.assertThrows(ProxyProvisioningException.class, () -> proxyService.createProxy(request));
+        Assertions.assertThrows(ProvisioningException.class, () -> proxyService.createProxy(request));
 
         // Verify proxy was not persisted due to transaction rollback
         Assertions.assertTrue(proxyRepository.findByName("failingProxy").isEmpty());
@@ -297,7 +297,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
         request.setName("failingProxy2");
         request.setDescription("Proxy that fails to get installation instructions");
 
-        Assertions.assertThrows(ProxyProvisioningException.class, () -> proxyService.createProxy(request));
+        Assertions.assertThrows(ProvisioningException.class, () -> proxyService.createProxy(request));
 
         // Verify proxy was not persisted due to transaction rollback
         Assertions.assertTrue(proxyRepository.findByName("failingProxy2").isEmpty());
@@ -318,7 +318,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
         proxyToDelete = proxyRepository.save(proxyToDelete);
 
         SecuredUUID proxyUuid = proxyToDelete.getSecuredUuid();
-        Assertions.assertThrows(ProxyProvisioningException.class, () -> proxyService.deleteProxy(proxyUuid));
+        Assertions.assertThrows(ProvisioningException.class, () -> proxyService.deleteProxy(proxyUuid));
 
         // Verify proxy still exists due to transaction rollback
         Assertions.assertTrue(proxyRepository.findByUuid(SecuredUUID.fromUUID(proxyToDelete.getUuid())).isPresent());
@@ -353,7 +353,7 @@ class ProxyServiceTest extends BaseSpringBootTest {
                 .withStatus(500)
                 .withBody("Internal Server Error")));
 
-        Assertions.assertThrows(ProxyProvisioningException.class,
+        Assertions.assertThrows(ProvisioningException.class,
             () -> proxyService.getInstallationInstructions(proxy.getSecuredUuid()));
     }
 }

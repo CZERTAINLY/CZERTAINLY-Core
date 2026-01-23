@@ -673,6 +673,20 @@ class AuthServiceTest extends BaseSpringBootTest {
                                 "displayName": "List"
                             }
                         ]
+                    },
+                    {
+                        "uuid": "f3f2f6e1-6c8b-4f7c-9a9b-4d6e9b5c3e2a",
+                        "name": "trustedCertificates",
+                        "displayName": "Trusted Certificates",
+                        "listObjectsEndpoint": "/v1/trustedCertificates",
+                        "objectAccess": true,
+                        "actions": [
+                            {
+                                "uuid": "53421445-5d6e-4257-b59d-235aaf26e61e",
+                                "name": "list",
+                                "displayName": "List"
+                            }
+                        ]
                     }
                 ]
                 """;
