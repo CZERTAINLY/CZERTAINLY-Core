@@ -154,7 +154,7 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         parentResourceFilter.setAreOnlySpecificObjectsAllowed(true);
         parentResourceFilter.addAllowedObjects(List.of(raProfile.getUuid().toString(), raProfile2.getUuid().toString()));
 
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), TEST_SERIAL_NUMBER);
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Certificate_.serialNumber), TEST_SERIAL_NUMBER);
         certificates = certificateRepository.findUsingSecurityFilter(filter, List.of(Certificate_.raProfile.getName()), additionalWhereClause);
         Assertions.assertEquals(1, certificates.size());
         Assertions.assertEquals(certificateRaProfile1.getUuid().toString(), certificates.getFirst().getUuid().toString());
@@ -188,7 +188,7 @@ class SecurityFilterRepositoryTest extends BaseSpringBootTest {
         List<Group> groups = groupRepository.findUsingSecurityFilter(filter);
         Assertions.assertEquals(1, groups.size());
 
-        final TriFunction<Root<Group>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Group_.name), "ABCD");
+        final TriFunction<Root<Group>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(Group_.name), "ABCD");
         groups = groupRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause);
         Assertions.assertEquals(0, groups.size());
     }

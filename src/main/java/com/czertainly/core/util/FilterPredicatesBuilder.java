@@ -48,11 +48,13 @@ public class FilterPredicatesBuilder {
         Map<String, From> joinedAssociations = new HashMap<>();
 
         List<Predicate> predicates = new ArrayList<>();
-        for (SearchFilterRequestDto filterDto : filterDtos) {
-            if (filterDto.getFieldSource() == FilterFieldSource.PROPERTY) {
-                predicates.add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto, joinedAssociations));
-            } else {
-                predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto));
+        if (filterDtos != null) {
+            for (SearchFilterRequestDto filterDto : filterDtos) {
+                if (filterDto.getFieldSource() == FilterFieldSource.PROPERTY) {
+                    predicates.add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto, joinedAssociations));
+                } else {
+                    predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto));
+                }
             }
         }
 
