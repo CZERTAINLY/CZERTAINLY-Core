@@ -16,7 +16,6 @@ import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 
-
 import java.io.Serializable;
 import java.util.ArrayList;
 import java.util.List;

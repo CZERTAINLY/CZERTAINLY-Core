@@ -63,10 +63,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
 
     @Override
     public List<NameAndUuidDto> coreGetResources(RequestAttributeCallback callback, AttributeResource resource) throws NotFoundException {
-
-
         // Filters are in form: property_name.operator
-
         List<SearchFilterRequestDto> filters = new ArrayList<>();
         if (callback.getFilter() != null) {
             for (String filterDefinition : callback.getFilter().keySet()) {
@@ -82,9 +79,7 @@ public class CoreCallbackServiceImpl implements CoreCallbackService {
                 filters.add(new SearchFilterRequestDto(FilterFieldSource.PROPERTY, filterFieldString, operator, callback.getFilter().get(filterDefinition)));
             }
         }
-
         return resourceService.getResourceObjects(Resource.findByCode(resource.getCode()), filters, callback.getPagination());
     }
-
 
 }
