@@ -102,7 +102,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
     }
 
     @Override
-    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute join, SingularAttribute groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression> groupByExpression, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
+    public Map<String, Long> countGroupedUsingSecurityFilter(SecurityFilter filter, Attribute<?, ?> join, SingularAttribute<?, ?> groupBy, BiFunction<Root<T>, CriteriaBuilder, Expression<?>> groupByExpression, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause) {
         final Class<T> entity = this.entityInformation.getJavaType();
         final CriteriaBuilder cb = entityManager.getCriteriaBuilder();
         CriteriaQuery<AggregateResultDto> cr = cb.createQuery(AggregateResultDto.class);
@@ -310,7 +310,7 @@ public class SecurityFilterRepositoryImpl<T, ID> extends SimpleJpaRepository<T, 
         return predicates;
     }
 
-    private List<Predicate> getPredicates(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb, CriteriaQuery cr) {
+    private List<Predicate> getPredicates(SecurityFilter filter, TriFunction<Root<T>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause, Root<T> root, CriteriaBuilder cb, CriteriaQuery<?> cr) {
         Predicate additionalWhereClausePredicate = null;
         if (additionalWhereClause != null) {
             additionalWhereClausePredicate = additionalWhereClause.apply(root, cb, cr);

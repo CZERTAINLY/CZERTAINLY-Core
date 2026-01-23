@@ -1335,7 +1335,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
                     (Callable<Void>) () -> {
                         Date now = new Date();
                         Instant nowInstant = now.toInstant();
-                        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> groupByExpressionExpiry = (root, cb) -> cb.selectCase()
+                        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression<?>> groupByExpressionExpiry = (root, cb) -> cb.selectCase()
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(10))))), "10")
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(20))))), "20")
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(30))))), "30")
