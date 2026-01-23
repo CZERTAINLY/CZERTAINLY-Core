@@ -332,7 +332,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(request.getFilters(), request.isIncludeArchived());
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(request.getFilters(), request.isIncludeArchived());
         final List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
         final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidInOrderByCreatedDesc(certificateUuids);
         final List<CertificateDto> listedKeyDTOs = certificates.stream().map(Certificate::mapToListDto).toList();
@@ -347,7 +347,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         return responseDto;
     }
 
-    private static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> getAdditionalWhereClause(List<SearchFilterRequestDto> filters, boolean includeArchived) {
+    private static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> getAdditionalWhereClause(List<SearchFilterRequestDto> filters, boolean includeArchived) {
         return (root, cb, cr) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters));
@@ -1286,7 +1286,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
     public Long statisticsCertificateCount(SecurityFilter filter, boolean includeArchived) {
         setupSecurityFilter(filter);
         if (includeArchived) return certificateRepository.countUsingSecurityFilter(filter);
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
         return certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
     }
 
@@ -1296,7 +1296,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         setupSecurityFilter(filter);
 
         long start = System.nanoTime();
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = includeArchived ? null : (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = includeArchived ? null : (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.invokeAll(List.of(
@@ -1408,7 +1408,7 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
 
     @Override
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(filters, false);
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(filters, false);
         return certificateRepository.listResourceObjects(filter, Certificate_.commonName, additionalWhereClause, pagination);
     }
 

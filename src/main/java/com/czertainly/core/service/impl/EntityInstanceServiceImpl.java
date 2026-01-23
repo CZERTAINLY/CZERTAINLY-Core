@@ -102,7 +102,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(EntityInstanceReference::mapToDto).toList();
@@ -277,7 +277,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
     public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
-        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
         return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name, additionalWhereClause, pagination);
     }
 

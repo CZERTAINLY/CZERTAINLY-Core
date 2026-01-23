@@ -576,7 +576,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
 
-        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
+        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
             final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
             return cb.and(resourcePredicate, resourceUuidPredicate);
@@ -620,7 +620,7 @@ public class RaProfileServiceImpl implements RaProfileService {
         //Evaluate RA profile permissions
         ((RaProfileService) AopContext.currentProxy()).getRaProfile(SecuredParentUUID.fromString(authorityInstanceUuid), SecuredUUID.fromString(raProfileUuid));
 
-        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> {
+        final TriFunction<Root<ApprovalProfileRelation>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> {
             final Predicate resourcePredicate = cb.equal(root.get("resource"), Resource.RA_PROFILE);
             final Predicate resourceUuidPredicate = cb.equal(root.get("resourceUuid"), UUID.fromString(raProfileUuid));
             final Predicate approvalProfileUuidPredicate = cb.equal(root.get("approvalProfileUuid"), approvalProfileUuid.getValue());

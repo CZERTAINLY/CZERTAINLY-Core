@@ -180,7 +180,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
 
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(
                 filter,
@@ -225,7 +225,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
 
-        TriFunction<Root<CryptographicKey>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = null;
+        TriFunction<Root<CryptographicKey>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = null;
         if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
             additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(CryptographicKey_.tokenProfileUuid), UUID.fromString(tokenProfileUuid.get()));
         }
