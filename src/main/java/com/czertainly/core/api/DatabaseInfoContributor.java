@@ -1,5 +1,6 @@
 package com.czertainly.core.api;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.actuate.info.Info;
 import org.springframework.boot.actuate.info.InfoContributor;
 import org.springframework.context.annotation.Profile;
@@ -10,6 +11,7 @@ import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 @Component
 @Profile("!test")
@@ -17,7 +19,16 @@ public class DatabaseInfoContributor implements InfoContributor {
 
     private final Map<String, Object> cachedDatabaseInfo = new HashMap<>();
 
-    public DatabaseInfoContributor() {
+    private final String jdbcUrl;
+    private final String jdbcUsername;
+    private final String jdbcPassword;
+
+    public DatabaseInfoContributor(@Value("${spring.datasource.url}") String jdbcUrl,
+                                   @Value("${spring.datasource.username}") String jdbcUsername,
+                                   @Value("${spring.datasource.password}") String  jdbcPassword) {
+        this.jdbcUrl = jdbcUrl;
+        this.jdbcUsername = jdbcUsername;
+        this.jdbcPassword = jdbcPassword;
         precomputeDatabaseInfo();
     }
 
@@ -27,9 +38,9 @@ public class DatabaseInfoContributor implements InfoContributor {
     }
 
     private void precomputeDatabaseInfo() {
-        String url = System.getenv("JDBC_URL");
-        String username = System.getenv("JDBC_USERNAME");
-        String password = System.getenv("JDBC_PASSWORD");
+        String url = Optional.ofNullable(System.getenv("JDBC_URL")).orElse(jdbcUrl);
+        String username = Optional.ofNullable(System.getenv("JDBC_USERNAME")).orElse(jdbcUsername);
+        String password = Optional.ofNullable(System.getenv("JDBC_PASSWORD")).orElse(jdbcPassword);
 
         try (Connection connection = DriverManager.getConnection(url, username, password)) {
             DatabaseMetaData metaData = connection.getMetaData();

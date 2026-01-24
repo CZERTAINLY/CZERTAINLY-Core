@@ -11,6 +11,7 @@ import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 import org.springframework.web.reactive.function.client.WebClient;
+import org.yaml.snakeyaml.Yaml;
 
 import java.io.File;
 import java.io.FileInputStream;
@@ -33,7 +34,6 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
 
     private static final String AUTH_SERVICE_BASE_URL_PROPERTY = "AUTH_SERVICE_BASE_URL";
 
-    private static Properties properties;
     private final List<String> certificateUserUpdateCommands = new ArrayList<>();
     private final List<String> detailPermissionObjects = List.of(Resource.ACME_PROFILE.getCode(),
             Resource.RA_PROFILE.getCode(),
@@ -153,14 +153,16 @@ public class V202209211100__Access_Control extends BaseJavaMigration {
         }
 
         ClassLoader classLoader = getClass().getClassLoader();
-        URL resource = classLoader.getResource("application.properties");
+        URL resource = classLoader.getResource("application.yml");
         File file = new File(resource.toURI());
 
-        InputStream targetStream = new FileInputStream(file);
-        Properties properties = new Properties();
-        properties.load(targetStream);
-        String[] splitData = ((String) properties.get("auth-service.base-url")).split(AUTH_SERVICE_BASE_URL_PROPERTY);
-        return splitData[splitData.length - 1].replace("}", "");
+        Map<String, Map<String, String>> config;
+        try (InputStream targetStream = new FileInputStream(file)) {
+            Yaml yaml = new Yaml();
+            config = yaml.load(targetStream);
+        }
+        Map<String, String> authServiceConfig = config.get("auth-service");
+        return authServiceConfig.get("base-url");
     }
 
     private String createClientRoles(String clientUuid, String clientName) {
