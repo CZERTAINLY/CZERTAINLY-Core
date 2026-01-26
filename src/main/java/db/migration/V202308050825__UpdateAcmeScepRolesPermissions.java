@@ -7,21 +7,14 @@ import com.czertainly.core.model.auth.ResourceSyncRequestDto;
 import com.czertainly.core.security.authn.client.ResourceApiClient;
 import com.czertainly.core.security.authn.client.RoleManagementApiClient;
 import com.czertainly.core.util.AuthHelper;
+import com.czertainly.core.util.DatabaseAuthMigration;
 import com.czertainly.core.util.DatabaseMigration;
 import org.flywaydb.core.api.migration.BaseJavaMigration;
 import org.flywaydb.core.api.migration.Context;
 import org.springframework.web.reactive.function.client.WebClient;
-import org.yaml.snakeyaml.Yaml;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.net.URISyntaxException;
-import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 /**
  * Migration script for the Access control changes.
@@ -29,9 +22,6 @@ import java.util.Map;
  * Auth Service for updating ACME and SCEP role, to add all necessary certificate permissions
  */
 public class V202308050825__UpdateAcmeScepRolesPermissions extends BaseJavaMigration {
-
-    private static final String AUTH_SERVICE_BASE_URL_PROPERTY = "AUTH_SERVICE_BASE_URL";
-
     private final List<String> certificatePermissions = List.of(
             ResourceAction.CREATE.getCode(),
             ResourceAction.ISSUE.getCode(),
@@ -51,7 +41,7 @@ public class V202308050825__UpdateAcmeScepRolesPermissions extends BaseJavaMigra
     }
 
     public void migrate(Context context) throws Exception {
-        String authUrl = getAuthServiceUrl();
+        String authUrl = DatabaseAuthMigration.getAuthServiceUrl();
         roleManagementApiClient = new RoleManagementApiClient(authUrl, client);
         resourceApiClient = new ResourceApiClient(authUrl, client);
 
@@ -96,25 +86,5 @@ public class V202308050825__UpdateAcmeScepRolesPermissions extends BaseJavaMigra
         }
         request.setResources(resourcePermissionsRequests);
         roleManagementApiClient.savePermissions(role.getUuid(), request);
-    }
-
-    private String getAuthServiceUrl() throws IOException, URISyntaxException {
-
-        String authServiceUrl = System.getenv(AUTH_SERVICE_BASE_URL_PROPERTY);
-        if (authServiceUrl != null && !authServiceUrl.isEmpty()) {
-            return authServiceUrl;
-        }
-
-        ClassLoader classLoader = getClass().getClassLoader();
-        URL resource = classLoader.getResource("application.yml");
-        File file = new File(resource.toURI());
-
-        Map<String, Map<String, String>> config;
-        try (InputStream targetStream = new FileInputStream(file)) {
-            Yaml yaml = new Yaml();
-            config = yaml.load(targetStream);
-        }
-        Map<String, String> authServiceConfig = config.get("auth-service");
-        return authServiceConfig.get("base-url");
     }
 }

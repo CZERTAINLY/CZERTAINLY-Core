@@ -21,7 +21,6 @@ public class DatabaseAuthMigration {
 
     private static final String AUTH_SERVICE_BASE_URL_PROPERTY = "AUTH_SERVICE_BASE_URL";
 
-    private static String authUrl;
     private static WebClient client;
 
     private static ResourceApiClient resourceApiClient;
@@ -33,10 +32,6 @@ public class DatabaseAuthMigration {
     }
 
     public static String getAuthServiceUrl() throws IOException, URISyntaxException {
-        if (authUrl != null && !authUrl.isEmpty()) {
-            return authUrl;
-        }
-
         String authServiceUrl = System.getenv(AUTH_SERVICE_BASE_URL_PROPERTY);
         if (authServiceUrl != null && !authServiceUrl.isEmpty()) {
             return authServiceUrl;
@@ -52,10 +47,14 @@ public class DatabaseAuthMigration {
         Map<String, Map<String, String>> config;
         try (InputStream targetStream = new FileInputStream(file)) {
             Yaml yaml = new Yaml();
-            config = yaml.load(targetStream);
+            config = yaml.loadAs(targetStream, Map.class);
         }
+
         Map<String, String> authServiceConfig = config.get("auth-service");
-        return authServiceConfig.get("base-url");
+        if (authServiceConfig != null) {
+            return authServiceConfig.get("base-url");
+        }
+        return null;
     }
 
     public static void seedResources(Map<Resource, List<ResourceAction>> resources) throws IOException, URISyntaxException {
