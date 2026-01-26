@@ -291,7 +291,7 @@ class TokenProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> response = tokenProfileService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> response = tokenProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, response.size());
     }
 }

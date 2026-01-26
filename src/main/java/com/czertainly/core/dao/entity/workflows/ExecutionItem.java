@@ -64,10 +64,10 @@ public class ExecutionItem extends UniquelyIdentified {
 
         if (fieldSource != FilterFieldSource.CUSTOM) {
             executionItemDto.setData((Serializable) data);
-        } else {
+        } else if (data != null) {
             ObjectMapper mapper = new ObjectMapper()
                     .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-            List<BaseAttributeContentV2<?>> contentItems =
+            List<BaseAttributeContentV3<?>> contentItems =
                     mapper.convertValue(data, new TypeReference<>() {
                     });
             executionItemDto.setData((Serializable) (contentItems.size() == 1 ? contentItems.getFirst().getData().toString() : contentItems.stream().map(i -> i.getData().toString()).toList()));

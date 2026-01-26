@@ -132,7 +132,7 @@ public class GroupServiceTest extends BaseSpringBootTest {
 
     @Test
     public void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = groupService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = groupService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 }
