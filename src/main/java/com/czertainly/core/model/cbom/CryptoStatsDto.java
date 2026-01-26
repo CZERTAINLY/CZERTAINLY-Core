@@ -10,30 +10,20 @@ import jakarta.validation.constraints.NotNull;
 
 @Setter
 @Getter
-@Schema(description = "Cryptographic statistics")
 public class CryptoStatsDto {
 
     @NotNull
     @Valid
     @Schema(
-            description = "Cryptographic assets breakdown",
+            description = "Cryptographic assets statistics",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
-    private CryptoAssetsDto assets;
-
-    @NotNull
-    @Valid
-    @Schema(
-            description = "Algorithm usage statistics",
-            requiredMode = Schema.RequiredMode.REQUIRED
-    )
-    private AlgorithmStatsDto algorithms;
+    private CryptoAssetsDto cryptoAssets;
 
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
-                .append("assets", assets)
-                .append("algorithms", algorithms)
+                .append("cryptoAssets", cryptoAssets)
                 .toString();
     }
 }

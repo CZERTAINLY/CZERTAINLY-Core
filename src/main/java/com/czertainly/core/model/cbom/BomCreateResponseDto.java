@@ -28,11 +28,19 @@ public class BomCreateResponseDto {
     )
     private Integer version;
 
+    @NotNull
+    @Schema(
+            description = "CBOM statistics",
+            requiredMode = Schema.RequiredMode.REQUIRED
+    )
+    private CryptoStatsDto cryptoStats;
+
     @Override
     public String toString() {
         return new ToStringBuilder(this, ToStringStyle.SHORT_PREFIX_STYLE)
                 .append("serialNumber", serialNumber)
                 .append("version", version)
+                .append("cryptoStats", cryptoStats)
                 .toString();
     }
 }

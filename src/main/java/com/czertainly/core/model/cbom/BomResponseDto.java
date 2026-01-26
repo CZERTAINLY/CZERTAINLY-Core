@@ -11,7 +11,7 @@ import jakarta.validation.constraints.NotNull;
 
 @Setter
 @Getter
-@Schema(description = "Response containing CBOM metadata and statistics")
+@Schema(description = "Response containing BOM metadata and statistics")
 public class BomResponseDto {
 
     @NotNull

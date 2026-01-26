@@ -9,12 +9,12 @@ import jakarta.validation.constraints.NotNull;
 
 @Setter
 @Getter
-@Schema(description = "Statistical information about CBOM")
+@Schema(description = "Statistical information about the BOM")
 public class BomStatsDto {
 
     @NotNull
     @Schema(
-            description = "Crypto statiscits",
+            description = "Crypto statistics",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
     private CryptoStatsDto cryptoStats;
