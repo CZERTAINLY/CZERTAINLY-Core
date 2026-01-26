@@ -42,6 +42,7 @@ import java.util.concurrent.TimeUnit;
 @Transactional
 public class SettingServiceImpl implements SettingService {
     public static final String UTILS_SERVICE_URL_NAME = "utilsServiceUrl";
+    public static final String CBOM_REPOSITORY_URL_NAME = "cbomRepositoryUrl";
     public static final String CERTIFICATES_VALIDATION_SETTINGS_NAME = "certificatesValidation";
 
     public static final String LOGGING_AUDIT_LOG_OUTPUT_NAME = "output";
@@ -89,8 +90,16 @@ public class SettingServiceImpl implements SettingService {
         // Utils
         Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
         UtilsSettingsDto utilsSettingsDto = new UtilsSettingsDto();
-        if (utilsSettings != null)
-            utilsSettingsDto.setUtilsServiceUrl(utilsSettings.get(UTILS_SERVICE_URL_NAME).getValue());
+        if (utilsSettings != null) {
+            Setting utilsServiceSetting = utilsSettings.get(UTILS_SERVICE_URL_NAME);
+            if (utilsServiceSetting != null) {
+                utilsSettingsDto.setUtilsServiceUrl(utilsServiceSetting.getValue());
+            }
+            Setting cbomRepositorySetting = utilsSettings.get(CBOM_REPOSITORY_URL_NAME);
+            if (cbomRepositorySetting != null) {
+                utilsSettingsDto.setCbomRepositoryUrl(cbomRepositorySetting.getValue());
+            }
+        }
         platformSettings.setUtils(utilsSettingsDto);
 
         // Certificates
@@ -123,11 +132,11 @@ public class SettingServiceImpl implements SettingService {
         List<Setting> settings = settingRepository.findBySection(SettingsSection.PLATFORM);
         Map<String, Map<String, Setting>> mappedSettings = mapSettingsByCategory(settings);
 
-        // Utils
+        // Auxiliary services: utils service and cbom repository
         if (platformSettings.getUtils() != null) {
             Setting utilSetting;
-            Map<String, Setting> utilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
-            if (utilsSettings == null || (utilSetting = utilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
+            Map<String, Setting> platformUtilsSettings = mappedSettings.get(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+            if (platformUtilsSettings == null || (utilSetting = platformUtilsSettings.get(UTILS_SERVICE_URL_NAME)) == null) {
                 utilSetting = new Setting();
                 utilSetting.setSection(SettingsSection.PLATFORM);
                 utilSetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
@@ -136,6 +145,17 @@ public class SettingServiceImpl implements SettingService {
 
             utilSetting.setValue(platformSettings.getUtils().getUtilsServiceUrl());
             settingRepository.save(utilSetting);
+
+            Setting cbomRepositorySetting;
+            if (platformUtilsSettings == null || (cbomRepositorySetting = platformUtilsSettings.get(CBOM_REPOSITORY_URL_NAME)) == null) {
+                cbomRepositorySetting = new Setting();
+                cbomRepositorySetting.setSection(SettingsSection.PLATFORM);
+                cbomRepositorySetting.setCategory(SettingsSectionCategory.PLATFORM_UTILS.getCode());
+                cbomRepositorySetting.setName(CBOM_REPOSITORY_URL_NAME);
+            }
+
+            cbomRepositorySetting.setValue(platformSettings.getUtils().getCbomRepositoryUrl());
+            settingRepository.save(cbomRepositorySetting);
         }
 
         // Certificate Settings
