@@ -15,7 +15,7 @@ import lombok.Setter;
 @Getter
 public class BomVersionDto {
 
-        @NotNull
+    @NotNull
     @Schema(
             description = "CycloneDX version number for the CBOM document",
             example = "1",
