@@ -6,6 +6,8 @@ import com.czertainly.core.model.cbom.BomCreateResponseDto;
 import com.czertainly.core.model.cbom.BomEntryDto;
 import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.model.cbom.BomSearchRequestDto;
+import com.czertainly.core.model.cbom.BomVersionDto;
+
 import lombok.NoArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.ParameterizedTypeReference;
@@ -25,6 +27,7 @@ public class CbomRepositoryClient extends CzertainlyBaseApiClient {
     private static final String CBOM_CREATE = "/v1/bom";
     private static final String CBOM_SEARCH = "/v1/bom";
     private static final String CBOM_READ = "/v1/bom/{urn}";
+    private static final String CBOM_READ_VERSIONS = "/v1/bom/{urn}/versions";
 
     public void create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
@@ -39,11 +42,11 @@ public class CbomRepositoryClient extends CzertainlyBaseApiClient {
 
     public List<BomEntryDto> search(final BomSearchRequestDto query) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-    return processRequest(r -> r
+        return processRequest(r -> r
                     .uri(uriBuilder -> uriBuilder
-                            .path(cbomRepositoryBaseUrl + CBOM_SEARCH)
-                            .queryParam("after", query.getAfter())
-                            .build())
+                        .path(cbomRepositoryBaseUrl + CBOM_SEARCH)
+                        .queryParam("after", query.getAfter())
+                        .build())
                     .retrieve()
                     .toEntity(new ParameterizedTypeReference<List<BomEntryDto>>() {})
                     .block().getBody(),
@@ -62,6 +65,21 @@ public class CbomRepositoryClient extends CzertainlyBaseApiClient {
                         })
                         .retrieve()
                         .toEntity(BomResponseDto.class)
+                        .block().getBody(),
+                        request);
+    }
+
+    public List<BomVersionDto> versions(final String urn) throws CbomRepositoryException {
+        final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
+        return processRequest(r -> r
+                        .uri(uriBuilder -> {
+                            UriBuilder builder = uriBuilder
+                                .path(cbomRepositoryBaseUrl)
+                                .path(CBOM_READ_VERSIONS);
+                            return builder.build(urn);
+                        })
+                        .retrieve()
+                        .toEntity(new ParameterizedTypeReference<List<BomVersionDto>>() {})
                         .block().getBody(),
                         request);
     }
