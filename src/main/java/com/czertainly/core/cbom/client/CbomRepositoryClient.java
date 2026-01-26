@@ -21,7 +21,7 @@ import java.util.List;
 @NoArgsConstructor
 public class CbomRepositoryClient extends CzertainlyBaseApiClient {
 
-    @Value("${scheduler.base-url}")
+    @Value("${cbom-repository.base-url}")
     private String cbomRepositoryBaseUrl;
 
     private static final String CBOM_CREATE = "/v1/bom";

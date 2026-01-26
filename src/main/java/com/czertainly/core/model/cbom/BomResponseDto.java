@@ -23,7 +23,7 @@ public class BomResponseDto {
     private String serialNumber;
 
     @Schema(
-            description = "CycloneDX Integereger version number for the CBOM document",
+            description = "CycloneDX integer version number for the CBOM document",
             example = "2",
             requiredMode = Schema.RequiredMode.REQUIRED
     )
