@@ -96,7 +96,7 @@ public class CbomRepositoryClient extends CzertainlyBaseApiClient {
                 .block().getBody(),
                 request);
         } catch (Exception e) {
-            throw new CbomRepositoryException("Can't create new CBOM document", e);
+            throw new CbomRepositoryException("Can't retrieve CBOM versions", e);
         }
     }
 

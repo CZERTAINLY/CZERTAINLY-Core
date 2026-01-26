@@ -5,18 +5,16 @@ import lombok.Getter;
 import lombok.Setter;
 import org.apache.commons.lang3.builder.ToStringBuilder;
 import org.apache.commons.lang3.builder.ToStringStyle;
-import jakarta.validation.constraints.NotNull;
 
 @Setter
 @Getter
 @Schema(description = "Search BOMs created after a timestamp")
 public class BomSearchRequestDto {
 
-        @NotNull
         @Schema(
                 description = "Unix timestamp",
                 example = "1769156084",
-                requiredMode = Schema.RequiredMode.REQUIRED
+                requiredMode = Schema.RequiredMode.NOT_REQUIRED
         )
         private Long after;
 
