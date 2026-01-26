@@ -27,7 +27,7 @@ public class BomVersionDto {
     @Schema(
             description = "Timestamp",
             example = "2026-01-19T21:35:05Z",
-            requiredMode = Schema.RequiredMode.NOT_REQUIRED
+            requiredMode = Schema.RequiredMode.REQUIRED
     )
     @JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ss'Z'", timezone = "UTC")
     private String timestamp;
