@@ -1,11 +1,15 @@
 package com.czertainly.core.cbom.client;
 
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
+import com.czertainly.api.model.core.settings.UtilsSettingsDto;
 import com.czertainly.core.model.cbom.BomCreateResponseDto;
 import com.czertainly.core.model.cbom.BomEntryDto;
 import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
+import com.czertainly.core.settings.SettingsCache;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeEach;
@@ -35,9 +39,16 @@ class CbomRepositoryClientTest {
 
     @BeforeEach
     void setUp() {
-        client = new CbomRepositoryClient();
         baseUrl = wireMock.baseUrl();
-        ReflectionTestUtils.setField(client, "cbomRepositoryBaseUrl", baseUrl);
+
+        PlatformSettingsDto platformSettings = new PlatformSettingsDto();
+        UtilsSettingsDto utilsSettings = new UtilsSettingsDto();
+        utilsSettings.setCbomRepositoryUrl(baseUrl);
+        platformSettings.setUtils(utilsSettings);
+        SettingsCache cache = new SettingsCache();
+        cache.cacheSettings(SettingsSection.PLATFORM, platformSettings);
+
+        client = new CbomRepositoryClient();
         objectMapper = new ObjectMapper();
         objectMapper.findAndRegisterModules();
     }

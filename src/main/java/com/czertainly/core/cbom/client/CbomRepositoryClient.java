@@ -1,33 +1,38 @@
 package com.czertainly.core.cbom.client;
 
+import java.util.List;
+
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpMethod;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriBuilder;
+
 import com.czertainly.api.clients.CzertainlyBaseApiClient;
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
+import com.czertainly.api.model.core.settings.PlatformSettingsDto;
+import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.core.model.cbom.BomCreateResponseDto;
 import com.czertainly.core.model.cbom.BomEntryDto;
 import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
+import com.czertainly.core.settings.SettingsCache;
 
-import lombok.NoArgsConstructor;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriBuilder;
 import reactor.core.publisher.Mono;
 
-import java.util.List;
-
-@NoArgsConstructor
 public class CbomRepositoryClient extends CzertainlyBaseApiClient {
 
-    @Value("${cbom-repository.base-url}")
     private String cbomRepositoryBaseUrl;
 
     private static final String CBOM_CREATE = "/v1/bom";
     private static final String CBOM_SEARCH = "/v1/bom";
     private static final String CBOM_READ = "/v1/bom/{urn}";
     private static final String CBOM_READ_VERSIONS = "/v1/bom/{urn}/versions";
+
+    public CbomRepositoryClient() {
+        PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);
+        this.cbomRepositoryBaseUrl = platformSettings.getUtils().getCbomRepositoryUrl();
+    }
 
     public void create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
