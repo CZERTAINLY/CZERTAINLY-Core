@@ -4,10 +4,7 @@ import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.cmp.PkiMessageError;
 import com.czertainly.api.interfaces.core.cmp.error.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
-import com.czertainly.api.model.common.attribute.common.AttributeContent;
-import com.czertainly.api.model.common.attribute.common.content.data.ProtectionLevel;
 import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.certificate.CertificateValidationStatus;
@@ -38,8 +35,6 @@ import com.czertainly.core.dao.repository.cmp.CmpProfileRepository;
 import com.czertainly.core.service.cmp.CmpService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.CertificateUtil;
-import com.czertainly.core.util.SecretEncodingVersion;
-import com.czertainly.core.util.SecretsUtil;
 import org.bouncycastle.asn1.ASN1OctetString;
 import org.bouncycastle.asn1.cmp.PKIBody;
 import org.bouncycastle.asn1.cmp.PKIFailureInfo;
@@ -58,7 +53,6 @@ import static com.czertainly.core.service.cmp.CmpConstants.*;
 
 import java.io.IOException;
 import java.security.cert.CertificateException;
-import java.util.ArrayList;
 import java.util.Base64;
 import java.util.List;
 
@@ -361,10 +355,9 @@ public class CmpServiceImpl implements CmpService {
             LoggingHelper.putLogResourceInfo(Resource.CMP_PROFILE, true, cmpProfile.getUuid().toString(), cmpProfile.getName());
 
             String attributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpIssueCertificateAttributes() : null;
-            List<DataAttributeV2> deserialized = AttributeDefinitionUtils.deserialize(attributesJson, DataAttributeV2.class);
-            issueAttributes = AttributeEngine.getClientAttributes(deserialized);
+            issueAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(attributesJson, DataAttributeV2.class));
             String revokeAttributesJson = raProfile.getProtocolAttribute() != null ? raProfile.getProtocolAttribute().getCmpRevokeCertificateAttributes() : null;
-            revokeAttributes = AttributeEngine.getClientAttributes(AttributeDefinitionUtils.deserialize(revokeAttributesJson, DataAttributeV2.class));
+            revokeAttributes = AttributeDefinitionUtils.getClientAttributes(AttributeDefinitionUtils.deserialize(revokeAttributesJson, DataAttributeV2.class));
         } else {
             cmpProfile = cmpProfileRepository.findByName(profileName).orElse(null);
             if (cmpProfile == null) {

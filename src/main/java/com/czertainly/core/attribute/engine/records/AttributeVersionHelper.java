@@ -79,17 +79,17 @@ public class AttributeVersionHelper {
         return null;
     }
 
-    public static AttributeContent decryptContent(AttributeContent content, int version, AttributeContentType contentType) {
+    public static AttributeContent decryptContent(AttributeContent content, int version, AttributeContentType contentType, String encryptedData) {
         if (version == 2) {
             BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
             contentV2.setReference(content.getReference());
-            contentV2.setData(content.getDataFromDecrypted(SecretsUtil.decodeAndDecryptSecretString(content.getData(), SecretEncodingVersion.V1)));
+            contentV2.setData(content.getDataFromDecrypted(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1)));
             return contentV2;
         }
         if (version == 3) {
             BaseAttributeContentV3 contentV3 = new BaseAttributeContentV3<>();
             contentV3.setReference(content.getReference());
-            contentV3.setData((Serializable) AttributeContentType.DATA_FROM_DECRYPTED_MAP.get(contentType).apply(SecretsUtil.decodeAndDecryptSecretString(content.getData(), SecretEncodingVersion.V1)));
+            contentV3.setData((Serializable) AttributeContentType.DATA_FROM_DECRYPTED_MAP.get(contentType).apply(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1)));
             return contentV3;
         }
         return content;
@@ -122,8 +122,19 @@ public class AttributeVersionHelper {
         }
     }
 
-    public static AttributeContent createEncryptedContent(String encryptedData, String reference, int version) {
-        return new EncryptedAttributeContent(encryptedData, reference, version == 3 ? AttributeContentType.ENCRYPTED : null);
+    public static AttributeContent createEncryptedContent(String reference, AttributeContentType contentType, int version) {
+        if (version == 2) {
+            BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
+            contentV2.setReference(reference);
+            return contentV2;
+        }
+        if (version == 3) {
+           BaseAttributeContentV3<?> contentV3 = new BaseAttributeContentV3<>();
+           contentV3.setReference(reference);
+           contentV3.setContentType(contentType);
+           return contentV3;
+        }
+        return null;
     }
 
 

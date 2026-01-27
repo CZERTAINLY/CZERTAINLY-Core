@@ -81,6 +81,8 @@ class AttributeEngineTest extends BaseSpringBootTest {
     private AttributeDefinitionRepository attributeDefinitionRepository;
     @Autowired
     private AttributeRelationRepository attributeRelationRepository;
+    @Autowired
+    private AttributeContentItemRepository attributeContentItemRepository;
 
     private Connector connectorAuthority;
     private Connector connectorDiscovery;
@@ -558,12 +560,10 @@ class AttributeEngineTest extends BaseSpringBootTest {
         );
         Assertions.assertEquals(1, responseAttributes.size());
         ResponseAttributeV3 responseAttribute = (ResponseAttributeV3) responseAttributes.getFirst();
-        EncryptedAttributeContent content = (EncryptedAttributeContent) responseAttribute.getContent().getFirst();
-        Assertions.assertTrue(content.getData().startsWith("v1"));
+        Assertions.assertNull(responseAttribute.getContent().getFirst().getData());
 
         // Decrypt check
-        secretAttribute.setContent(List.of(content));
-        List<RequestAttribute> decryptedAttributes = AttributeEngine.getClientAttributes(List.of(secretAttribute));
+        List<RequestAttribute> decryptedAttributes = attributeEngine.getRequestObjectDataAttributesContent(connectorAuthority.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid());
         List<BaseAttributeContentV3<?>> content1 = decryptedAttributes.getFirst().getContent();
         Assertions.assertEquals(data, content1.getFirst().getData());
     }
