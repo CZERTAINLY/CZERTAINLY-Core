@@ -106,6 +106,9 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
     @Enumerated(EnumType.STRING)
     private ProtectionLevel protectionLevel;
 
+    @Column(name = "encrypted_data")
+    private List<String> encryptedData;
+
     public void setConnector(Connector connector) {
         this.connector = connector;
         if (connector != null) this.connectorUuid = connector.getUuid();
