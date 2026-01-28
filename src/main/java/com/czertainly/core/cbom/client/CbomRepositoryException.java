@@ -5,7 +5,7 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Getter
-public class CbomRepositoryException extends Exception {
+public class CbomRepositoryException extends RuntimeException {
     private final ProblemDetail problemDetail;
 
     public CbomRepositoryException(String message) {
