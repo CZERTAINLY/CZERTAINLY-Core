@@ -2,15 +2,10 @@ package com.czertainly.core.cbom.client;
 
 import java.util.List;
 import java.util.function.Function;
-import java.util.stream.Collectors;
 
-import com.czertainly.api.exception.ConnectionServiceException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ProblemDetail;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.ClientResponse;
@@ -59,21 +54,6 @@ public class CbomRepositoryClient extends CzertainlyBaseApiClient {
         } catch (Exception e) {
             throw new CbomRepositoryException("Can't create new CBOM document", e);
         }
-    }
-
-    @Override
-    protected Function<ClientResponse, Mono<ClientResponse>> getHttpExceptionHandler() {
-        return CbomRepositoryClient::handleHttpExceptions;
-    }
-
-    static Mono<ClientResponse> handleHttpExceptions(final ClientResponse clientResponse) {
-        if (clientResponse.statusCode().isError()) {
-            // parse body as ProblemDetail and create new CbomRepositoryException
-            clientResponse.bodyToMono(ProblemDetail.class)
-                    .flatMap(problemDetail -> Mono.error(new CbomRepositoryException(problemDetail)));
-        }
-
-        return Mono.just(clientResponse);
     }
 
     public List<BomEntryDto> search(final BomSearchRequestDto query) throws CbomRepositoryException {
@@ -135,5 +115,20 @@ public class CbomRepositoryClient extends CzertainlyBaseApiClient {
     @Override
     protected String getServiceUrl() {
         return cbomRepositoryBaseUrl;
+    }
+
+    @Override
+    protected Function<ClientResponse, Mono<ClientResponse>> getHttpExceptionHandler() {
+        return CbomRepositoryClient::handleHttpExceptions;
+    }
+
+    static Mono<ClientResponse> handleHttpExceptions(final ClientResponse clientResponse) {
+        if (clientResponse.statusCode().isError()) {
+            // parse body as ProblemDetail and create new CbomRepositoryException
+            clientResponse.bodyToMono(ProblemDetail.class)
+                    .flatMap(problemDetail -> Mono.error(new CbomRepositoryException(problemDetail)));
+        }
+
+        return Mono.just(clientResponse);
     }
 }
