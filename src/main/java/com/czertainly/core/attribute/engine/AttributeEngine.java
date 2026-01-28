@@ -17,6 +17,7 @@ import com.czertainly.api.model.common.attribute.common.content.data.AttributeCo
 import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
@@ -626,6 +627,11 @@ public class AttributeEngine {
         return getObjectDataAttributesContent(connectorUuid, operation, null, objectType, objectUuid);
     }
 
+    public List<ResponseAttribute> getObjectDataAttributesContent(Resource objectType, UUID objectUuid) {
+        List<ObjectAttributeContent> objectContents = attributeContent2ObjectRepository.getAllObjectDataAttributesContent(objectType, objectUuid);
+        return getResponseAttributes(objectContents);
+    }
+
     public List<ResponseAttribute> getObjectDataAttributesContent(UUID connectorUuid, String operation, String purpose, Resource objectType, UUID objectUuid) {
         logger.debug("Getting the data attributes for {} with UUID {} from connector {} and operation {} for purpose {}.", objectType.getLabel(), objectUuid, connectorUuid, operation, purpose);
         List<ObjectAttributeContent> objectContents = loadDataAttributesContent(connectorUuid, operation, purpose, objectType, objectUuid);
@@ -843,6 +849,7 @@ public class AttributeEngine {
         boolean multiSelect;
         boolean hasCallback;
         boolean hasContent;
+        AttributeResource attributeResource = null;
         if (attribute.getType() == AttributeType.CUSTOM) {
             CustomAttributeV3 customAttribute = (CustomAttributeV3) attribute;
 
@@ -861,6 +868,7 @@ public class AttributeEngine {
             multiSelect = dataAttribute.getProperties().isMultiSelect();
             hasCallback = dataAttribute.getAttributeCallback() != null;
             hasContent = dataAttribute.getContent() != null && !((List<? extends AttributeContent>) dataAttribute.getContent()).isEmpty();
+            attributeResource = dataAttribute.getProperties().getResource();
         }
 
         if (label == null || label.isBlank()) {
@@ -870,6 +878,8 @@ public class AttributeEngine {
         if (multiSelect && !list) {
             throw new AttributeException("Attribute has to be defined as list to be multiselect", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
+
+        validateResourceAttributeProperties(attribute, connectorUuidStr, attributeResource, hasCallback);
 
         if (readOnly) {
             if (hasCallback) {
@@ -881,6 +891,13 @@ public class AttributeEngine {
             if (list) {
                 throw new AttributeException("Read only attribute cannot be list", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
             }
+        }
+    }
+
+    private static void validateResourceAttributeProperties(BaseAttribute attribute, String connectorUuidStr, AttributeResource attributeResource, boolean hasCallback) throws AttributeException {
+        if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE) {
+            if (attributeResource == null) throw new AttributeException("Attribute with Resource Content Type is missing resource type in properties", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
+            if (!hasCallback) throw new AttributeException("Attribute with Resource Content Type is missing callback", attribute.getUuid(), attribute.getName(), attribute.getType(), connectorUuidStr);
         }
     }
 

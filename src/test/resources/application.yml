@@ -22,6 +22,7 @@ logging:
   level:
     org:
       hibernate: warn
+
   pattern:
     console: '[%d{yyyy-MM-dd HH:mm:ss.SSS}] %-5level [%t] [%logger - %line]: %m%n'
   schema-version: '@log-schema.version@'

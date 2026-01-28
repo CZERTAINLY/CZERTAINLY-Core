@@ -1,5 +1,6 @@
 package com.czertainly.core.api.web;
 
+import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
@@ -40,7 +41,7 @@ public class CallbackControllerImpl implements CallbackController {
             String functionGroup,
             @LogResource(name = true) String kind,
             RequestAttributeCallback callback
-    ) throws NotFoundException, ConnectorException, ValidationException {
+    ) throws NotFoundException, ConnectorException, ValidationException, AttributeException {
         return callbackService.callback(
                 uuid,
                 FunctionGroupCode.findByCode(functionGroup),
@@ -55,7 +56,7 @@ public class CallbackControllerImpl implements CallbackController {
             Resource resource,
             String parentObjectUuid,
             RequestAttributeCallback callback
-    ) throws NotFoundException, ConnectorException, ValidationException {
+    ) throws NotFoundException, ConnectorException, ValidationException, AttributeException {
         return callbackService.resourceCallback(
                 resource,
                 parentObjectUuid,

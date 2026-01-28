@@ -80,6 +80,17 @@ public interface AttributeContent2ObjectRepository extends SecurityFilterReposit
     List<ObjectAttributeContent> getObjectDataAttributesContentNoConnectorNoOperation(AttributeType attributeType, Resource objectType, UUID objectUuid);
 
     @Query("""
+            SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContent(
+                ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, ad.version)
+                FROM AttributeContent2Object aco
+                JOIN AttributeContentItem aci ON aci.uuid = aco.attributeContentItemUuid
+                JOIN AttributeDefinition ad ON ad.uuid = aci.attributeDefinitionUuid
+                WHERE ad.type = ?#{T(com.czertainly.api.model.common.attribute.common.AttributeType).DATA} AND aco.objectType = ?1 AND aco.objectUuid = ?2
+                ORDER BY aci.attributeDefinitionUuid, aco.order
+            """)
+    List<ObjectAttributeContent> getAllObjectDataAttributesContent(Resource objectType, UUID objectUuid);
+
+    @Query("""
             SELECT new com.czertainly.core.attribute.engine.records.ObjectAttributeContentDetail(
                 ad.attributeUuid, ad.name, ad.label, ad.type, ad.contentType, aci.json, aco.connectorUuid, c.name, aco.sourceObjectType, aco.sourceObjectUuid, aco.sourceObjectName, ad.version)
                 FROM AttributeContent2Object aco
