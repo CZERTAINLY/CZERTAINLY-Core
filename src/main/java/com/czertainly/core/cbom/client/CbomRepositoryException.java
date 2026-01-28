@@ -13,6 +13,11 @@ public class CbomRepositoryException extends Exception {
         this.problemDetail = null;
     }
 
+    public CbomRepositoryException(ProblemDetail problemDetail) {
+        super(problemDetail.getDetail());
+        this.problemDetail = problemDetail;
+    }
+
     public CbomRepositoryException(String message, Throwable cause) {
         super(message, cause);
         this.problemDetail = extractProblemDetail(cause);
