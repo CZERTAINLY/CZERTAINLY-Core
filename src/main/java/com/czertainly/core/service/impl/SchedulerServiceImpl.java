@@ -154,7 +154,7 @@ public class SchedulerServiceImpl implements SchedulerService {
     @Override
     @ExternalAuthorization(resource = Resource.SCHEDULED_JOB, action = ResourceAction.DETAIL)
     public ScheduledJobHistoryResponseDto getScheduledJobHistory(final SecurityFilter filter, final PaginationRequestDto paginationRequestDto, final String uuid) {
-        final TriFunction<Root<ScheduledJobHistory>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
+        final TriFunction<Root<ScheduledJobHistory>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.constructFilterForJobHistory(cb, root, UUID.fromString(uuid));
 
         RequestValidatorHelper.revalidatePaginationRequestDto(paginationRequestDto);
         final Pageable pageable = PageRequest.of(paginationRequestDto.getPageNumber() - 1, paginationRequestDto.getItemsPerPage());

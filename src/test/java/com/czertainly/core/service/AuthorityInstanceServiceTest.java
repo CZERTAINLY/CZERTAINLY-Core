@@ -221,7 +221,7 @@ class AuthorityInstanceServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = authorityInstanceService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = authorityInstanceService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

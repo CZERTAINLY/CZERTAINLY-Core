@@ -89,7 +89,7 @@ public class AuditLogServiceImpl implements AuditLogService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery<?>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<AuditLogDto> auditLogs = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get(AuditLog_.id)))
                 .stream()
                 .map(AuditLog::mapToDto).toList();
@@ -108,7 +108,7 @@ public class AuditLogServiceImpl implements AuditLogService {
     @Override
     @ExternalAuthorization(resource = Resource.AUDIT_LOG, action = ResourceAction.EXPORT)
     public ExportResultDto exportAuditLogs(final List<SearchFilterRequestDto> filters) {
-        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+        final TriFunction<Root<AuditLog>, CriteriaBuilder, CriteriaQuery<?>, jakarta.persistence.criteria.Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
 
         final List<AuditLog> auditLogsEntities = auditLogRepository.findUsingSecurityFilter(SecurityFilter.create(), List.of(), additionalWhereClause, Pageable.ofSize(Integer.MAX_VALUE), (root, cb) -> cb.desc(root.get(AuditLog_.id)));
         final List<AuditLogExportDto> auditLogs = auditLogsEntities

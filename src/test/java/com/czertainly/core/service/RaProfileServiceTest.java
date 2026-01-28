@@ -37,7 +37,6 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.testcontainers.shaded.org.checkerframework.checker.units.qual.C;
 
 import java.util.*;
 
@@ -304,7 +303,7 @@ class RaProfileServiceTest extends ApprovalProfileData {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = raProfileService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = raProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 
