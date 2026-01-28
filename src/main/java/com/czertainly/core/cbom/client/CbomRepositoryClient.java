@@ -3,6 +3,7 @@ package com.czertainly.core.cbom.client;
 import java.util.List;
 import java.util.function.Function;
 
+import lombok.Getter;
 import org.apache.commons.logging.Log;
 import org.apache.commons.logging.LogFactory;
 import org.springframework.context.annotation.DependsOn;
@@ -35,12 +36,13 @@ public class CbomRepositoryClient {
     private static final Log logger = LogFactory.getLog(CbomRepositoryClient.class);
 
     private WebClient client;
-    private final String cbomRepositoryBaseUrl;
-
     private static final String CBOM_CREATE = "/v1/bom";
     private static final String CBOM_SEARCH = "/v1/bom";
     private static final String CBOM_READ = "/v1/bom/{urn}";
     private static final String CBOM_READ_VERSIONS = "/v1/bom/{urn}/versions";
+
+    @Getter
+    private final String cbomRepositoryBaseUrl;
 
     public CbomRepositoryClient() {
         PlatformSettingsDto platformSettings = SettingsCache.getSettings(SettingsSection.PLATFORM);

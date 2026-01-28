@@ -270,7 +270,7 @@ class CbomRepositoryClientTest {
     @Test
     void testGetServiceUrl() {
         // Act
-        String result = client.getServiceUrl();
+        String result = client.getCbomRepositoryBaseUrl();
 
         // Assert
         assertEquals(baseUrl, result);
