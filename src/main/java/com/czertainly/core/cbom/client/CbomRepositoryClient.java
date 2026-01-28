@@ -2,8 +2,10 @@ package com.czertainly.core.cbom.client;
 
 import java.util.List;
 
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
+import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.util.UriBuilder;
 
@@ -20,6 +22,8 @@ import com.czertainly.core.settings.SettingsCache;
 
 import reactor.core.publisher.Mono;
 
+@Component
+@DependsOn("settingService")
 public class CbomRepositoryClient extends CzertainlyBaseApiClient {
 
     private String cbomRepositoryBaseUrl;
