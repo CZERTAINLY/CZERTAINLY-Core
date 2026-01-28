@@ -140,8 +140,6 @@ class ProxyServiceTest extends BaseSpringBootTest {
         ProxyDto dto = proxyService.createProxy(request);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(request.getName(), dto.getName());
-        Assertions.assertNotNull(dto.getInstallationInstructions());
-        Assertions.assertTrue(dto.getInstallationInstructions().contains("helm install"));
     }
 
     @Test
@@ -279,28 +277,6 @@ class ProxyServiceTest extends BaseSpringBootTest {
 
         // Verify proxy was not persisted due to transaction rollback
         Assertions.assertTrue(proxyRepository.findByName("failingProxy").isEmpty());
-    }
-
-    @Test
-    void testCreateProxy_getInstallationInstructionsFails() {
-        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/proxies"))
-            .willReturn(aResponse()
-                .withStatus(201)));
-
-        wireMockServer.stubFor(get(urlPathMatching("/api/v1/proxies/.*/installation"))
-            .withQueryParam("format", equalTo("helm"))
-            .willReturn(aResponse()
-                .withStatus(503)
-                .withBody("Service Unavailable")));
-
-        ProxyRequestDto request = new ProxyRequestDto();
-        request.setName("failingProxy2");
-        request.setDescription("Proxy that fails to get installation instructions");
-
-        Assertions.assertThrows(ProvisioningException.class, () -> proxyService.createProxy(request));
-
-        // Verify proxy was not persisted due to transaction rollback
-        Assertions.assertTrue(proxyRepository.findByName("failingProxy2").isEmpty());
     }
 
     @Test

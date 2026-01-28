@@ -18,13 +18,10 @@ public class ProxyProvisioningServiceImpl implements ProxyProvisioningService {
     private final ProvisioningApiProperties properties;
 
     @Override
-    public String provisionProxy(String proxyCode) throws ProvisioningException {
+    public void provisionProxy(String proxyCode) throws ProvisioningException {
         logger.info("Provisioning proxy: {}", proxyCode);
         try {
             proxyProvisioningApiClient.provisionProxy(new ProxyProvisioningRequestDTO(proxyCode));
-            return getProxyInstallationInstructions(proxyCode);
-        } catch (ProvisioningException e) {
-            throw e;
         } catch (Exception e) {
             throw new ProvisioningException("Failed to provision proxy " + proxyCode, e);
         }

@@ -105,12 +105,9 @@ public class ProxyServiceImpl implements ProxyService {
         proxyRepository.save(proxy);
 
         // Provision the proxy using the provisioning service
-        String installInstructions = proxyProvisioningService.provisionProxy(proxyCode);
+        proxyProvisioningService.provisionProxy(proxyCode);
 
-        ProxyDto dto = proxy.mapToDto();
-        dto.setInstallationInstructions(installInstructions);
-
-        return dto;
+        return proxy.mapToDto();
     }
 
     @Override

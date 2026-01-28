@@ -9,10 +9,9 @@ public interface ProxyProvisioningService {
      * Provisions a new proxy and returns installation instructions.
      *
      * @param proxyCode unique identifier for the proxy
-     * @return installation instructions as a shell command
      * @throws ProvisioningException if provisioning fails
      */
-    String provisionProxy(String proxyCode) throws ProvisioningException;
+    void provisionProxy(String proxyCode) throws ProvisioningException;
 
     /**
      * Retrieves installation instructions for an existing proxy.

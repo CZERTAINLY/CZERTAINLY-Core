@@ -15,10 +15,7 @@ import org.springframework.test.web.servlet.MockMvc;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doNothing;
 import static org.mockito.Mockito.when;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -37,7 +34,7 @@ class ProxyControllerTest extends BaseSpringBootTest {
     @BeforeEach
     void setUp() {
         String command = "helm install test-proxy ...";
-        when(proxyProvisioningService.provisionProxy(anyString())).thenReturn(command);
+        doNothing().when(proxyProvisioningService).provisionProxy(anyString());
         when(proxyProvisioningService.getProxyInstallationInstructions(anyString())).thenReturn(command);
         doNothing().when(proxyProvisioningService).decommissionProxy(anyString());
     }

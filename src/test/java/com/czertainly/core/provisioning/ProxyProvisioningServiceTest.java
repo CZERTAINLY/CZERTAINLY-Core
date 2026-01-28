@@ -29,13 +29,13 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
         .options(wireMockConfig().dynamicPort())
         .build();
 
+    @Autowired
+    private ProxyProvisioningService proxyProvisioningService;
+
     @DynamicPropertySource
     static void proxyProvisioningTestProperties(@NonNull DynamicPropertyRegistry registry) {
         registry.add("provisioning.api.url", wireMockServer::baseUrl);
     }
-
-    @Autowired
-    private ProxyProvisioningService proxyProvisioningService;
 
     @Test
     void testProvisionProxy_success() {
@@ -49,10 +49,7 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
                 .withHeader("Content-Type", "application/json")
                 .withBody(INSTALLATION_INSTRUCTIONS_JSON)));
 
-        String result = proxyProvisioningService.provisionProxy(PROXY_CODE);
-
-        assertNotNull(result);
-        assertTrue(result.contains("helm install"));
+        proxyProvisioningService.provisionProxy(PROXY_CODE);
 
         wireMockServer.verify(postRequestedFor(urlPathEqualTo("/api/v1/proxies"))
             .withRequestBody(matchingJsonPath("$.proxyCode", equalTo(PROXY_CODE))));
@@ -70,23 +67,6 @@ class ProxyProvisioningServiceTest extends BaseSpringBootTest {
 
         assertTrue(exception.getMessage().contains("Failed to provision proxy"));
         assertTrue(exception.getMessage().contains(PROXY_CODE));
-    }
-
-    @Test
-    void testProvisionProxy_getInstallationFails() {
-        wireMockServer.stubFor(post(urlPathEqualTo("/api/v1/proxies"))
-            .willReturn(aResponse().withStatus(201)));
-
-        wireMockServer.stubFor(get(urlPathEqualTo("/api/v1/proxies/" + PROXY_CODE + "/installation"))
-            .withQueryParam("format", equalTo("helm"))
-            .willReturn(aResponse()
-                .withStatus(503)
-                .withBody("Service Unavailable")));
-
-        ProvisioningException exception = assertThrows(ProvisioningException.class,
-            () -> proxyProvisioningService.provisionProxy(PROXY_CODE));
-
-        assertTrue(exception.getMessage().contains("Failed to get proxy installation instructions"));
     }
 
     @Test
