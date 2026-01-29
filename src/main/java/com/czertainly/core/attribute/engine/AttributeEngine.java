@@ -166,12 +166,28 @@ public class AttributeEngine {
         // filter definitions that are not allowed for user
         if (securityResourceFilter.areOnlySpecificObjectsAllowed()) {
             return relations.stream()
-                    .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
-                    .map(r -> (CustomAttribute) r.getAttributeDefinition().getDefinition())
-                    .toList();
+                .filter(r -> securityResourceFilter.getAllowedObjects().contains(r.getAttributeDefinition().getUuid()))
+                .map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation)
+                .toList();
         } else {
-            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(r -> (CustomAttribute) r.getAttributeDefinition().getDefinition()).toList();
+            return relations.stream().filter(r -> !securityResourceFilter.getForbiddenObjects().contains(r.getAttributeDefinition().getUuid())).map(AttributeEngine::getCustomAttributeWithDecryptedContentFromRelation).toList();
         }
+    }
+
+    private static CustomAttribute getCustomAttributeWithDecryptedContentFromRelation(AttributeRelation r) {
+        CustomAttribute attribute = (CustomAttribute) r.getAttributeDefinition().getDefinition();
+        if (attribute.getProperties().getProtectionLevel() == ProtectionLevel.ENCRYPTED) {
+            List<String> encryptedDataList = r.getAttributeDefinition().getEncryptedData();
+            List<AttributeContent> decryptedData = ((List<AttributeContent>) attribute.getContent()).stream()
+                .map(contentItem -> AttributeVersionHelper.decryptContent(
+                        contentItem, 3, attribute.getContentType(),
+                        encryptedDataList != null && !encryptedDataList.isEmpty()
+                                ? encryptedDataList.get(((List<AttributeContent>) attribute.getContent()).indexOf(contentItem))
+                                : null))
+                .toList();
+            attribute.setContent(decryptedData);
+        }
+        return attribute;
     }
 
     public DataAttribute getDataAttributeDefinition(UUID connectorUuid, String name) {
@@ -311,8 +327,12 @@ public class AttributeEngine {
         attributeDefinition.setReadOnly(customAttribute.getProperties().isReadOnly());
         attributeDefinition.setVersion(AttributeVersion.V3.getVersion());
 
+        CustomAttributeV3 customAttributeV3NotEncrypted = new CustomAttributeV3(customAttribute);
         encryptOrDecryptExistingContent(attributeDefinition, customAttribute.getProperties().getProtectionLevel());
         encryptCustomAttributeContent(customAttribute, attributeDefinition, customAttribute.getProperties().getProtectionLevel());
+        if (customAttribute.getProperties().getProtectionLevel() != ProtectionLevel.ENCRYPTED) {
+            attributeDefinition.setEncryptedData(null);
+        }
 
         attributeDefinition.setDefinition(customAttribute);
         attributeDefinition.setProtectionLevel(customAttribute.getProperties().getProtectionLevel());
@@ -341,6 +361,9 @@ public class AttributeEngine {
             }
         }
 
+        // Return without encrypted content
+        attributeDefinition.setDefinition(customAttributeV3NotEncrypted);
+
         return attributeDefinition;
     }
 
@@ -364,7 +387,6 @@ public class AttributeEngine {
                     contentItem.setEncryptedData(null);
                     attributeContentItemRepository.save(contentItem);
                 }
-
             }
         }
     }
