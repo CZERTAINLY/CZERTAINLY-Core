@@ -51,7 +51,6 @@ public class CbomRepositoryClient {
 
     public void create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
-        try {
             processRequest(r -> r
                             .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
                             .body(Mono.just(data), CbomUploadRequestDto.class)
@@ -59,14 +58,10 @@ public class CbomRepositoryClient {
                             .toEntity(BomCreateResponseDto.class)
                             .block().getBody(),
                     request);
-        } catch (Exception e) {
-            throw new CbomRepositoryException("Can't create new CBOM document", e);
-        }
     }
 
     public List<BomEntryDto> search(final BomSearchRequestDto query) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-        try {
             return processRequest(r -> r
                             .uri(uriBuilder -> uriBuilder
                                     .path(CBOM_SEARCH)
@@ -77,14 +72,10 @@ public class CbomRepositoryClient {
                             })
                             .block().getBody(),
                     request);
-        } catch (Exception e) {
-            throw new CbomRepositoryException("Can't search for CBOM documents", e);
-        }
     }
 
     public BomResponseDto read(final String urn, final Integer version) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-        try {
             return processRequest(r -> r
                             .uri(uriBuilder -> {
                                 UriBuilder builder = uriBuilder
@@ -98,14 +89,10 @@ public class CbomRepositoryClient {
                             .toEntity(BomResponseDto.class)
                             .block().getBody(),
                     request);
-        } catch (Exception e) {
-            throw new CbomRepositoryException("Can't read CBOM document", e);
-        }
     }
 
     public List<BomVersionDto> versions(final String urn) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-        try {
             return processRequest(r -> r
                             .uri(uriBuilder -> {
                                 UriBuilder builder = uriBuilder
@@ -117,9 +104,6 @@ public class CbomRepositoryClient {
                             })
                             .block().getBody(),
                     request);
-        } catch (Exception e) {
-            throw new CbomRepositoryException("Can't retrieve CBOM versions", e);
-        }
     }
 
     private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) {
