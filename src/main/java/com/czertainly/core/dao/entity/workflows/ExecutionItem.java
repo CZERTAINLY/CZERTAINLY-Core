@@ -1,12 +1,16 @@
 package com.czertainly.core.dao.entity.workflows;
 
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
+import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.workflows.ExecutionItemDto;
 import com.czertainly.core.dao.converter.ObjectToJsonConverter;
 import com.czertainly.core.dao.entity.UniquelyIdentified;
 import com.czertainly.core.dao.entity.notifications.NotificationProfile;
 import com.czertainly.core.util.AttributeDefinitionUtils;
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.DeserializationFeature;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.JdbcTypeCode;
@@ -60,9 +64,13 @@ public class ExecutionItem extends UniquelyIdentified {
 
         if (fieldSource != FilterFieldSource.CUSTOM) {
             executionItemDto.setData((Serializable) data);
-        } else {
-            List<BaseAttributeContent> contentItems = AttributeDefinitionUtils.convertContentItemsFromObject(data);
-            executionItemDto.setData((Serializable) (contentItems.size() == 1 ? contentItems.get(0).getData().toString() : contentItems.stream().map(i -> i.getData().toString()).toList()));
+        } else if (data != null) {
+            ObjectMapper mapper = new ObjectMapper()
+                    .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+            List<BaseAttributeContentV3<?>> contentItems =
+                    mapper.convertValue(data, new TypeReference<>() {
+                    });
+            executionItemDto.setData((Serializable) (contentItems.size() == 1 ? contentItems.getFirst().getData().toString() : contentItems.stream().map(i -> i.getData().toString()).toList()));
         }
 
         return executionItemDto;

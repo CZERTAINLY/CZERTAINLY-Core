@@ -5,13 +5,13 @@ import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.ConnectorException;
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.interfaces.core.web.EntityInstanceController;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.UuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
 import com.czertainly.api.model.core.logging.enums.Module;
@@ -95,7 +95,7 @@ public class EntityInstanceControllerImpl implements EntityInstanceController {
 
     @Override
     @AuditLogged(module = Module.ENTITIES, resource = Resource.ATTRIBUTE, name = "location", affiliatedResource = Resource.ENTITY, operation = Operation.VALIDATE_ATTRIBUTES)
-    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public void validateLocationAttributes(@LogResource(uuid = true, affiliated = true) String entityUuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         entityInstanceService.validateLocationAttributes(SecuredUUID.fromString(entityUuid), attributes);
     }
 }

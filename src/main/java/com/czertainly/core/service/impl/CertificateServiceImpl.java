@@ -2,16 +2,18 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.v2.CertificateApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.*;
 import com.czertainly.api.model.client.dashboard.StatisticsDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationRequestDto;
 import com.czertainly.api.model.connector.v2.CertificateIdentificationResponseDto;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.certificate.*;
@@ -20,6 +22,7 @@ import com.czertainly.api.model.core.compliance.v2.ComplianceCheckResultDto;
 import com.czertainly.api.model.core.enums.CertificateRequestFormat;
 import com.czertainly.api.model.core.location.LocationDto;
 import com.czertainly.api.model.core.oid.OidCategory;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -114,7 +117,7 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.CERTIFICATE)
 @Transactional
-public class CertificateServiceImpl implements CertificateService {
+public class CertificateServiceImpl implements CertificateService, AttributeResourceService {
 
     // batch size will prevent bloating size of enqueued message and better utilize parallel processing
     // NOTE: improve handling of large batches vs many produced messages to queue
@@ -329,7 +332,7 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = getAdditionalWhereClause(request);
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(request.getFilters(), request.isIncludeArchived());
         final List<UUID> certificateUuids = certificateRepository.findUuidsUsingSecurityFilter(filter, additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")));
         final List<Certificate> certificates = certificateRepository.findWithAssociationsByUuidInOrderByCreatedDesc(certificateUuids);
         final List<CertificateDto> listedKeyDTOs = certificates.stream().map(Certificate::mapToListDto).toList();
@@ -344,12 +347,11 @@ public class CertificateServiceImpl implements CertificateService {
         return responseDto;
     }
 
-    private static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> getAdditionalWhereClause(CertificateSearchRequestDto request) {
-        List<SearchFilterRequestDto> filters = new ArrayList<>(request.getFilters());
+    private static TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> getAdditionalWhereClause(List<SearchFilterRequestDto> filters, boolean includeArchived) {
         return (root, cb, cr) -> {
             List<Predicate> predicates = new ArrayList<>();
             predicates.add(FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters));
-            if (!request.isIncludeArchived()) {
+            if (!includeArchived) {
                 predicates.add(cb.isFalse(root.get(Certificate_.ARCHIVED)));
             }
             return cb.and(predicates.toArray(new Predicate[0]));
@@ -1284,7 +1286,7 @@ public class CertificateServiceImpl implements CertificateService {
     public Long statisticsCertificateCount(SecurityFilter filter, boolean includeArchived) {
         setupSecurityFilter(filter);
         if (includeArchived) return certificateRepository.countUsingSecurityFilter(filter);
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
         return certificateRepository.countUsingSecurityFilter(filter, additionalWhereClause);
     }
 
@@ -1294,7 +1296,7 @@ public class CertificateServiceImpl implements CertificateService {
         setupSecurityFilter(filter);
 
         long start = System.nanoTime();
-        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = includeArchived ? null : (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = includeArchived ? null : (root, cb, cr) -> cb.isFalse(root.get(Certificate_.ARCHIVED));
 
         try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
             executor.invokeAll(List.of(
@@ -1333,7 +1335,7 @@ public class CertificateServiceImpl implements CertificateService {
                     (Callable<Void>) () -> {
                         Date now = new Date();
                         Instant nowInstant = now.toInstant();
-                        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression> groupByExpressionExpiry = (root, cb) -> cb.selectCase()
+                        final BiFunction<Root<Certificate>, CriteriaBuilder, Expression<?>> groupByExpressionExpiry = (root, cb) -> cb.selectCase()
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(10))))), "10")
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(20))))), "20")
                                 .when(cb.between(root.get(Certificate_.notAfter), cb.literal(now), cb.literal(Date.from(nowInstant.plus(Duration.ofDays(30))))), "30")
@@ -1405,8 +1407,9 @@ public class CertificateServiceImpl implements CertificateService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        throw new NotSupportedException("Listing of resource objects is not supported for resource certificates.");
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        final TriFunction<Root<Certificate>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = getAdditionalWhereClause(filters, false);
+        return certificateRepository.listResourceObjects(filter, Certificate_.commonName, additionalWhereClause, pagination);
     }
 
     @Override
@@ -1450,10 +1453,10 @@ public class CertificateServiceImpl implements CertificateService {
     public CertificateDetailDto submitCertificateRequest(
             String certificateRequest,
             CertificateRequestFormat certificateRequestFormat,
-            List<RequestAttributeDto> signatureAttributes,
-            List<RequestAttributeDto> altSignatureAttributes,
-            List<RequestAttributeDto> csrAttributes,
-            List<RequestAttributeDto> issueAttributes,
+            List<RequestAttribute> signatureAttributes,
+            List<RequestAttribute> altSignatureAttributes,
+            List<RequestAttribute> csrAttributes,
+            List<RequestAttribute> issueAttributes,
             UUID keyUuid,
             UUID altKeyUuid,
             UUID raProfileUuid,
@@ -1485,9 +1488,9 @@ public class CertificateServiceImpl implements CertificateService {
         Optional<CertificateRequestEntity> certificateRequestOptional =
                 certificateRequestRepository.findByFingerprint(certificateRequestFingerprint);
 
-        List<ResponseAttributeDto> requestAttributes;
-        List<ResponseAttributeDto> requestSignatureAttributes;
-        List<ResponseAttributeDto> requestAltSignatureAttributes;
+        List<ResponseAttribute> requestAttributes;
+        List<ResponseAttribute> requestSignatureAttributes;
+        List<ResponseAttribute> requestAltSignatureAttributes;
         if (certificateRequestOptional.isPresent()) {
             certificateRequestEntity = certificateRequestOptional.get();
             // if no CSR attributes are assigned to CSR, update them with ones provided
@@ -2121,4 +2124,12 @@ public class CertificateServiceImpl implements CertificateService {
         }
         return certificateValidator;
     }
+
+    @Override
+    public String getResourceObjectContent(UUID uuid) throws NotFoundException, AttributeException {
+        Certificate certificate = getCertificateEntity(SecuredUUID.fromUUID(uuid));
+        if (certificate.getCertificateContent() == null) throw new AttributeException("Certificate without content cannot be set as resource object in attribute.");
+        return certificate.getContentData();
+    }
+
 }

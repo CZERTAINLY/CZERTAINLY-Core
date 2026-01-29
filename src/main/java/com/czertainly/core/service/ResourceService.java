@@ -2,14 +2,20 @@ package com.czertainly.core.service;
 
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.core.security.authz.SecuredUUID;
 
@@ -38,10 +44,12 @@ public interface ResourceService {
     /**
      * Function to get the list of objects available to be displayed for object level access for Access Control
      *
-     * @param resource Name of the resource to
+     * @param resource   Name of the resource to
+     * @param filters Filters for the resource objects
+     * @param pagination Pagination of the response
      * @return List of NameAndUuidDto
      */
-    List<NameAndUuidDto> getResourceObjects(Resource resource) throws NotFoundException;
+    List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotFoundException;
 
     /**
      * Update the attribute content for the object
@@ -53,11 +61,11 @@ public interface ResourceService {
      * @return List of attributes for the resource
      * @throws NotFoundException When the attribute or the object without the UUID is not found
      */
-    List<ResponseAttributeDto> updateAttributeContentForObject(
+    List<ResponseAttribute> updateAttributeContentForObject(
             Resource resourceName,
             SecuredUUID objectUuid,
             UUID attributeUuid,
-            List<BaseAttributeContent> request
+            List<? extends AttributeContent> request
     ) throws NotFoundException, AttributeException;
 
 
@@ -85,5 +93,10 @@ public interface ResourceService {
      */
     Map<ResourceEvent, List<ResourceEventDto>> listAllResourceEvents();
 
-    public boolean hasResourceExtensionService(Resource resource);
+    boolean hasResourceExtensionService(Resource resource);
+
+    void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException;
+
+    void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException;
+
 }

@@ -11,7 +11,9 @@ import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
 import com.czertainly.core.dao.entity.*;
+import com.czertainly.core.dao.entity.acme.AcmeNonce;
 import com.czertainly.core.dao.repository.*;
+import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.messaging.listeners.ValidationListener;
 import com.czertainly.core.messaging.model.ValidationMessage;
 import com.czertainly.core.messaging.producers.ValidationProducer;
@@ -29,6 +31,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 
 import java.time.OffsetDateTime;
+import java.util.Date;
 import java.util.List;
 
 import static org.mockito.ArgumentMatchers.any;
@@ -47,6 +50,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
     @Autowired
     private CertificateRelationRepository certificateRelationRepository;
+    @Autowired
+    private AcmeNonceRepository acmeNonceRepository;
 
     @Autowired
     private SettingsCache settingsCache;
@@ -71,7 +76,6 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
     Certificate alreadyValidatedCert;
     Certificate certToRevalidate;
     Certificate certToRevalidate2;
-
 
     @BeforeEach
     void setUp() {
@@ -133,6 +137,8 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
         }).when(validationProducer).produceMessage(Mockito.any());
 
     }
+
+
 
     @Test
     void testCertificatesValidationDefaultSettings() {
@@ -311,5 +317,41 @@ class UpdateCertificateStatusTaskTest extends BaseSpringBootTest {
                 .toList();
         Assertions.assertEquals(correctCertificates.size(), validatedCertificates.size());
         Assertions.assertTrue(validatedCertificates.containsAll(correctCertificates));
+    }
+
+    @Test
+    void testAcmeNonceCleanup() {
+        // Create expired ACME nonces
+        AcmeNonce expiredNonce1 = new AcmeNonce();
+        expiredNonce1.setNonce("expired-nonce-1");
+        expiredNonce1.setCreated(new Date(System.currentTimeMillis() - 3600000)); // 1 hour ago
+        expiredNonce1.setExpires(new Date(System.currentTimeMillis() - 1800000)); // 30 minutes ago (expired)
+        acmeNonceRepository.save(expiredNonce1);
+
+        AcmeNonce expiredNonce2 = new AcmeNonce();
+        expiredNonce2.setNonce("expired-nonce-2");
+        expiredNonce2.setCreated(new Date(System.currentTimeMillis() - 7200000)); // 2 hours ago
+        expiredNonce2.setExpires(new Date(System.currentTimeMillis() - 3600000)); // 1 hour ago (expired)
+        acmeNonceRepository.save(expiredNonce2);
+
+        // Create valid (not expired) ACME nonce
+        AcmeNonce validNonce = new AcmeNonce();
+        validNonce.setNonce("valid-nonce");
+        validNonce.setCreated(new Date());
+        validNonce.setExpires(new Date(System.currentTimeMillis() + 3600000)); // Expires in 1 hour
+        acmeNonceRepository.save(validNonce);
+
+        long initialCount = acmeNonceRepository.count();
+        Assertions.assertEquals(3, initialCount);
+
+        // Run the scheduled task
+        updateCertificateStatusTask.performJob(scheduledJobInfo, null);
+
+        // Verify expired nonces were deleted
+        long finalCount = acmeNonceRepository.count();
+        Assertions.assertEquals(1, finalCount);
+        Assertions.assertTrue(acmeNonceRepository.findByNonce("valid-nonce").isPresent());
+        Assertions.assertFalse(acmeNonceRepository.findByNonce("expired-nonce-1").isPresent());
+        Assertions.assertFalse(acmeNonceRepository.findByNonce("expired-nonce-2").isPresent());
     }
 }

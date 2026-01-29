@@ -2,9 +2,9 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.NotificationInstanceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceDto;
 import com.czertainly.api.model.connector.notification.NotificationProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
@@ -26,6 +26,7 @@ import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.NotificationInstanceService;
+import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -50,6 +51,13 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     private CredentialService credentialService;
     private NotificationInstanceApiClient notificationInstanceApiClient;
     private AttributeEngine attributeEngine;
+
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -99,7 +107,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
     public NotificationInstanceDto getNotificationInstance(UUID uuid) throws ConnectorException, NotFoundException {
         NotificationInstanceReference notificationInstanceReference = getNotificationInstanceReferenceEntity(uuid);
 
-        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid());
+        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid());
 
         NotificationInstanceDto notificationInstanceDto = notificationInstanceReference.mapToDto();
         notificationInstanceDto.setAttributeMappings(notificationInstanceReference.getMappedAttributes()
@@ -120,7 +128,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
 
         if (attributes.isEmpty() && notificationProviderInstanceDto.getAttributes() != null && !notificationProviderInstanceDto.getAttributes().isEmpty()) {
             try {
-                List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(notificationProviderInstanceDto.getAttributes());
+                List<RequestAttribute> requestAttributes = AttributeDefinitionUtils.getClientAttributes(notificationProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(notificationInstanceReference.getConnectorUuid(), null, notificationProviderInstanceDto.getAttributes());
                 attributes = attributeEngine.updateObjectDataAttributesContent(notificationInstanceReference.getConnectorUuid(), null, Resource.NOTIFICATION_INSTANCE, notificationInstanceReference.getUuid(), requestAttributes);
             } catch (AttributeException e) {
@@ -218,6 +226,7 @@ public class NotificationInstanceServiceImpl implements NotificationInstanceServ
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         NotificationProviderInstanceRequestDto notificationInstanceDto = new NotificationProviderInstanceRequestDto();
         notificationInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));

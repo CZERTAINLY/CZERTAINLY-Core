@@ -3,20 +3,20 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.AttributeApiClient;
 import com.czertainly.api.clients.AuthorityInstanceApiClient;
 import com.czertainly.api.clients.EntityInstanceApiClient;
-import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationError;
-import com.czertainly.api.exception.ValidationException;
+import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.cryptography.key.KeyRequestType;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.GroupAttribute;
-import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
-import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.core.attribute.engine.AttributeEngine;
+import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.AuthorityInstanceReference;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.entity.EntityInstanceReference;
@@ -35,8 +35,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import java.util.List;
-import java.util.UUID;
+import java.util.*;
 
 @Service
 @Transactional
@@ -55,6 +54,12 @@ public class CallbackServiceImpl implements CallbackService {
     private CryptographicKeyService cryptographicKeyService;
     private TokenProfileService tokenProfileService;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setConnectorService(ConnectorService connectorService) {
@@ -112,28 +117,57 @@ public class CallbackServiceImpl implements CallbackService {
     }
 
     @Override
-    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
+    public Object callback(String uuid, FunctionGroupCode functionGroup, String kind, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
         Connector connector = connectorService.getConnectorEntity(SecuredUUID.fromString(uuid));
         List<BaseAttribute> definitions = attributeApiClient.listAttributeDefinitions(connector.mapToDto(), functionGroup, kind);
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
-        AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
+        return getCallbackObject(callback, definitions, connector);
+    }
 
-        if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
+    private Object getCallbackObject(RequestAttributeCallback callback, List<BaseAttribute> definitions, Connector connector) throws NotFoundException, ConnectorException, AttributeException {
+        BaseAttribute attribute = getAttributeByName(callback.getName(), definitions, connector.getUuid());
+        AttributeCallback attributeCallback = getAttributeCallback(attribute);
+
+        AttributeResource attributeResource = getAttributeResource(attribute);
+        AttributeDefinitionUtils.validateCallback(attributeCallback, callback, attributeResource != null);
+
+
+        if (Objects.equals(attributeCallback.getCallbackContext(), "core/getCredentials")) {
             return coreCallbackService.coreGetCredentials(callback);
+        }
+
+
+        if (attribute instanceof DataAttribute dataAttribute && dataAttribute.getContentType() == AttributeContentType.RESOURCE)  {
+            return coreCallbackService.coreGetResources(callback, attributeResource);
         }
 
         // Load complete credential data for mapping of type credential
         credentialService.loadFullCredentialData(attributeCallback, callback);
+        if (attribute.getType() == AttributeType.DATA && callback.getBody() != null) {
+            Map<String, AttributeResource> toResource = new HashMap<>();
+            for (String to : callback.getBody().keySet()) {
+                AttributeCallbackMapping callbackMapping = attributeCallback.getMappings().stream().filter(attributeCallbackMapping -> attributeCallbackMapping.getTo().equals(to)).findFirst().orElse(null);
+                if (callbackMapping != null && callbackMapping.getFrom() != null) {
+                    String fromAttributeName = callbackMapping.getFrom().split("\\.", 2)[0];
+                    DataAttribute fromAttribute =  (DataAttribute) getAttributeByName(fromAttributeName, definitions, connector.getUuid());
+                    toResource.put(to, fromAttribute.getProperties().getResource());
+                }
+            }
+            resourceService.loadResourceObjectContentData(attributeCallback, callback, toResource);
+        }
 
         Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-        if (isGroupAttribute(callback.getName(), definitions)) {
+        if (attribute.getType().equals(AttributeType.GROUP)) {
             processGroupAttributes(connector.getUuid(), response);
         }
         return response;
     }
 
+    private AttributeResource getAttributeResource(BaseAttribute attribute) {
+        return attribute instanceof DataAttribute dataAttribute ? dataAttribute.getProperties().getResource() : null;
+    }
+
     @Override
-    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException {
+    public Object resourceCallback(Resource resource, String resourceUuid, RequestAttributeCallback callback) throws ConnectorException, ValidationException, NotFoundException, AttributeException {
         List<BaseAttribute> definitions = null;
         Connector connector = null;
         switch (resource) {
@@ -190,41 +224,30 @@ public class CallbackServiceImpl implements CallbackService {
         }
 
         LoggingHelper.putLogResourceInfo(Resource.CONNECTOR, true, connector.getUuid().toString(), connector.getName());
-
-        AttributeCallback attributeCallback = getAttributeByName(callback.getName(), definitions, connector.getUuid());
-        AttributeDefinitionUtils.validateCallback(attributeCallback, callback);
-
-        if (attributeCallback.getCallbackContext().equals("core/getCredentials")) {
-            return coreCallbackService.coreGetCredentials(callback);
-        }
-        // Load complete credential data for mapping of type credential
-        credentialService.loadFullCredentialData(attributeCallback, callback);
-
-        Object response = attributeApiClient.attributeCallback(connector.mapToDto(), attributeCallback, callback);
-
-        if (isGroupAttribute(callback.getName(), definitions)) {
-            processGroupAttributes(connector.getUuid(), response);
-        }
-        return response;
+        return getCallbackObject(callback, definitions, connector);
     }
 
+    private AttributeCallback getAttributeCallback(BaseAttribute attribute) {
+        AttributeType type = attribute.getType();
+        if (Objects.requireNonNull(type) == AttributeType.DATA) {
+            return ((DataAttribute) attribute).getAttributeCallback();
+        } else if (type == AttributeType.GROUP) {
+            return AttributeVersionHelper.getGroupAttributeCallback(attribute);
+        }
+        throw new IllegalArgumentException("Attribute %s is not of type DATA or GROUP, cannot get callback for this attribute".formatted(attribute.getName()));
+    }
 
-    private AttributeCallback getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
+    private BaseAttribute getAttributeByName(String name, List<BaseAttribute> attributes, UUID connectorUuid) throws NotFoundException {
         for (BaseAttribute attributeDefinition : attributes) {
             if (attributeDefinition.getName().equals(name)) {
-                switch (attributeDefinition.getType()) {
-                    case DATA:
-                        return ((DataAttribute) attributeDefinition).getAttributeCallback();
-                    case GROUP:
-                        return ((GroupAttribute) attributeDefinition).getAttributeCallback();
-                }
+                return attributeDefinition;
             }
         }
 
         // if not present in definitions from connector, search in reference attributes in DB
         DataAttribute referencedAttribute = attributeEngine.getDataAttributeDefinition(connectorUuid, name);
         if (referencedAttribute != null) {
-            return referencedAttribute.getAttributeCallback();
+            return referencedAttribute;
         }
 
         throw new NotFoundException(BaseAttribute.class, name);
@@ -248,23 +271,5 @@ public class CallbackServiceImpl implements CallbackService {
         } catch (Exception e) {
             logger.debug("Failed to create the reference attributes. Exception is {}", e.getMessage());
         }
-    }
-
-    /**
-     * Function to check if the attribute is of type group
-     *
-     * @param name       Name of the attribute
-     * @param attributes List of the attribute definitions
-     * @return If the attribute is group or not
-     */
-    private boolean isGroupAttribute(String name, List<BaseAttribute> attributes) {
-        for (BaseAttribute attributeDefinition : attributes) {
-            if (attributeDefinition.getName().equals(name)) {
-                if (attributeDefinition.getType().equals(AttributeType.GROUP)) {
-                    return true;
-                }
-            }
-        }
-        return false;
     }
 }

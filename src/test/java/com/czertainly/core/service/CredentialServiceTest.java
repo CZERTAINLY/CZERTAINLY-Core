@@ -1,18 +1,22 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.RequestAttributeV2;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallback;
-import com.czertainly.api.model.common.attribute.v2.callback.AttributeCallbackMapping;
-import com.czertainly.api.model.common.attribute.v2.callback.AttributeValueTarget;
-import com.czertainly.api.model.common.attribute.v2.callback.RequestAttributeCallback;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.content.data.CredentialAttributeContentData;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.CredentialAttributeContentV2;
+import com.czertainly.api.model.common.attribute.common.content.data.CredentialAttributeContentData;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
@@ -224,23 +228,27 @@ class CredentialServiceTest extends BaseSpringBootTest {
     @Test
     void testLoadFullData_attributes() throws NotFoundException {
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
-        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        CredentialAttributeContentV2 nameAndUuidMap = new CredentialAttributeContentV2();
         dto.setUuid(credential.getUuid().toString());
         dto.setName(credential.getName());
         nameAndUuidMap.setReference(credential.getUuid().toString());
         nameAndUuidMap.setData(dto);
 
 
-        List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", List.of(nameAndUuidMap)));
-        attrs.get(0).setType(AttributeType.DATA);
-        attrs.get(0).setContentType(AttributeContentType.CREDENTIAL);
+        List<RequestAttribute> requestAttributes = new ArrayList<>();
+        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "testCredentialAttribute", AttributeContentType.CREDENTIAL,List.of(nameAndUuidMap)));
+
+        List<BaseAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(requestAttributes);
+        DataAttributeV2 dataAttributeV2 = (DataAttributeV2) attrs.getFirst();
+        dataAttributeV2.setType(AttributeType.DATA);
+        dataAttributeV2.setContentType(AttributeContentType.CREDENTIAL);
 
 
-        credentialService.loadFullCredentialData(attrs);
+        credentialService.loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList());
 
-        Assertions.assertTrue(attrs.get(0).getContent().get(0).getData() instanceof CredentialAttributeContentData);
+        Assertions.assertInstanceOf(CredentialAttributeContentData.class, dataAttributeV2.getContent().getFirst().getData());
 
-        CredentialAttributeContentData credentialDto = ((CredentialAttributeContent) attrs.get(0).getContent().get(0)).getData();
+        CredentialAttributeContentData credentialDto = ((CredentialAttributeContentV2) dataAttributeV2.getContent().getFirst()).getData();
         Assertions.assertEquals(credential.getUuid().toString(), credentialDto.getUuid());
         Assertions.assertEquals(credential.getName(), credentialDto.getName());
     }
@@ -248,24 +256,30 @@ class CredentialServiceTest extends BaseSpringBootTest {
     @Test
     void testLoadFullData_attributesNotFound() {
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
-        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        CredentialAttributeContentV2 nameAndUuidMap = new CredentialAttributeContentV2();
         dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setName("wrong-name");
         nameAndUuidMap.setReference("wrong-name");
         nameAndUuidMap.setData(dto);
 
+        List<RequestAttribute> requestAttributes = new ArrayList<>();
+        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "testCredentialAttribute", AttributeContentType.CREDENTIAL, List.of(nameAndUuidMap)));
 
-        List<DataAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("testCredentialAttribute", List.of(nameAndUuidMap)));
-        attrs.get(0).setType(AttributeType.DATA);
-        attrs.get(0).setContentType(AttributeContentType.CREDENTIAL);
+        List<BaseAttribute> attrs = AttributeDefinitionUtils.clientAttributeConverter(requestAttributes);
+        DataAttributeV2 dataAttributeV2 = (DataAttributeV2) attrs.getFirst();
 
-        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs));
+        dataAttributeV2.setType(AttributeType.DATA);
+        dataAttributeV2.setContentType(AttributeContentType.CREDENTIAL);
+
+        Assertions.assertThrows(NotFoundException.class, () -> credentialService.loadFullCredentialData(attrs.stream().map(DataAttribute.class::cast).toList()));
     }
 
 
     @Test
     void testLoadFullData_attributesNonCredential() {
-        Assertions.assertDoesNotThrow(() -> credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(AttributeDefinitionUtils.createAttributes("dummyAttributes", null)))); // this should not throw exception
+        List<RequestAttribute> requestAttributes = new ArrayList<>();
+        requestAttributes.add(new RequestAttributeV2(UUID.randomUUID(), "dummyAttributes", AttributeContentType.CREDENTIAL, null));
+        Assertions.assertDoesNotThrow(() -> credentialService.loadFullCredentialData(AttributeDefinitionUtils.clientAttributeConverter(requestAttributes).stream().map(DataAttribute.class::cast).toList())); // this should not throw exception
     }
 
     @Test
@@ -273,7 +287,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
         String credentialBodyKey = "testCredential";
 
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
-        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        CredentialAttributeContentV2 nameAndUuidMap = new CredentialAttributeContentV2();
         dto.setUuid(credential.getUuid().toString());
         dto.setName(credential.getName());
         nameAndUuidMap.setReference(credential.getUuid().toString());
@@ -285,7 +299,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
                 AttributeContentType.CREDENTIAL,
                 credentialBodyKey,
                 Collections.singleton(AttributeValueTarget.BODY));
-        ArrayList<CredentialAttributeContent> cont = new ArrayList<>();
+        ArrayList<CredentialAttributeContentV2> cont = new ArrayList<>();
         cont.add(nameAndUuidMap);
         HashMap<String, Serializable> requestBodyMap = new HashMap<>();
         requestBodyMap.put(credentialBodyKey, cont);
@@ -310,7 +324,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
         String credentialBodyKey = "testCredential";
 
         CredentialAttributeContentData dto = new CredentialAttributeContentData();
-        CredentialAttributeContent nameAndUuidMap = new CredentialAttributeContent();
+        CredentialAttributeContentV2 nameAndUuidMap = new CredentialAttributeContentV2();
         dto.setUuid("abfbc322-29e1-11ed-a261-0242ac120002");
         dto.setName("wrong-name");
         nameAndUuidMap.setReference("wrong-name");
@@ -359,7 +373,7 @@ class CredentialServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = credentialService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

@@ -1,16 +1,26 @@
 package com.czertainly.core.service.impl;
 
-import com.czertainly.api.exception.AttributeException;
-import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.NotSupportedException;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.DataAttribute;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallback;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeCallbackMapping;
+import com.czertainly.api.model.common.attribute.common.callback.AttributeValueTarget;
+import com.czertainly.api.model.common.attribute.common.callback.RequestAttributeCallback;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v3.content.ResourceObjectContent;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
+import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.other.ResourceDto;
 import com.czertainly.api.model.core.other.ResourceEvent;
 import com.czertainly.api.model.core.other.ResourceEventDto;
 import com.czertainly.api.model.core.other.ResourceObjectDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -20,6 +30,7 @@ import com.czertainly.core.enums.SearchFieldTypeEnum;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.*;
+import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.SearchHelper;
 import jakarta.persistence.EntityManager;
@@ -31,6 +42,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
+import java.io.Serializable;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -42,6 +54,14 @@ public class ResourceServiceImpl implements ResourceService {
     private AttributeEngine attributeEngine;
 
     private Map<String, ResourceExtensionService> resourceExtensionServices;
+
+    private Map<String, AttributeResourceService> attributeResourceServices;
+
+    @Lazy
+    @Autowired
+    public void setAttributeResourceServices(Map<String, AttributeResourceService> attributeResourceServices) {
+        this.attributeResourceServices = attributeResourceServices;
+    }
 
     @Lazy
     @Autowired
@@ -95,15 +115,15 @@ public class ResourceServiceImpl implements ResourceService {
     }
 
     @Override
-    public List<NameAndUuidDto> getResourceObjects(Resource resource) throws NotSupportedException {
+    public List<NameAndUuidDto> getResourceObjects(Resource resource, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) throws NotSupportedException {
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (resourceExtensionService == null)
             throw new NotSupportedException("Cannot list objects for requested resource: " + resource.getLabel());
-        return resourceExtensionService.listResourceObjects(SecurityFilter.create());
+        return resourceExtensionService.listResourceObjects(SecurityFilter.create(), filters, pagination);
     }
 
     @Override
-    public List<ResponseAttributeDto> updateAttributeContentForObject(Resource resource, SecuredUUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
+    public List<ResponseAttribute> updateAttributeContentForObject(Resource resource, SecuredUUID objectUuid, UUID attributeUuid, List<? extends AttributeContent> attributeContentItems) throws NotFoundException, AttributeException {
         logger.info("Updating the attribute {} for resource {} with value {}", attributeUuid, resource, attributeUuid);
         ResourceExtensionService resourceExtensionService = resourceExtensionServices.get(resource.getCode());
         if (!resource.hasCustomAttributes() || resourceExtensionService == null)
@@ -136,7 +156,7 @@ public class ResourceServiceImpl implements ResourceService {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, filterField.getEnumClass().getEnumConstants()));
                     // Filter field has values of all objects of another entity
                 else if (filterField.getFieldResource() != null)
-                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource())));
+                    fieldDataDtos.add(SearchHelper.prepareSearch(filterField, getResourceObjects(filterField.getFieldResource(), null, null)));
                     // Filter field has values of all possible values of a property
                 else {
                     fieldDataDtos.add(SearchHelper.prepareSearch(filterField, FilterPredicatesBuilder.getAllValuesOfProperty(FilterPredicatesBuilder.buildPathToProperty(filterField.getJoinAttributes(), filterField.getFieldAttribute()), resource, entityManager).getResultList()));
@@ -168,5 +188,87 @@ public class ResourceServiceImpl implements ResourceService {
     public boolean hasResourceExtensionService(Resource resource) {
         return resourceExtensionServices.keySet().stream().anyMatch(key -> key.equals(resource.getCode()));
     }
+
+    @Override
+    public void loadResourceObjectContentData(AttributeCallback callback, RequestAttributeCallback requestAttributeCallback, Map<String, AttributeResource> resources) throws NotFoundException, AttributeException {
+        if (callback == null) {
+            logger.warn("Missing attribute callback for request attribute callback {}", requestAttributeCallback);
+            return;
+        }
+
+        if (callback.getMappings() != null) {
+            for (AttributeCallbackMapping mapping : callback.getMappings()) {
+                if (AttributeContentType.RESOURCE == mapping.getAttributeContentType()) {
+                    for (AttributeValueTarget target : mapping.getTargets()) {
+                        processMapping(requestAttributeCallback, resources.get(mapping.getTo()), mapping, target);
+                    }
+                }
+            }
+        }
+    }
+
+    private void processMapping(RequestAttributeCallback requestAttributeCallback, AttributeResource resource, AttributeCallbackMapping mapping, AttributeValueTarget target) throws NotFoundException, AttributeException {
+        if (target != AttributeValueTarget.BODY) {
+            return;
+        }
+        Serializable bodyKeyValue = requestAttributeCallback.getBody().get(mapping.getTo());
+        NameAndUuidDto resourceId = getResourceId(bodyKeyValue);
+        String resourceUuid = resourceId.getUuid();
+        ResourceObjectContentData data = getResourceObjectContentData(resource, UUID.fromString(resourceUuid), resourceId.getName());
+        requestAttributeCallback.getBody().put(mapping.getTo(), data);
+    }
+
+
+    private static NameAndUuidDto getResourceId(Serializable bodyKeyValue) {
+        if (bodyKeyValue instanceof List<?> list && list.getFirst() instanceof Map<?, ?> map) {
+            if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            return new NameAndUuidDto(map.get("uuid").toString(), Objects.toString(map.get("name"), null));
+        }
+
+        if (bodyKeyValue instanceof Map<?, ?> map) {
+            if (map.get("uuid") == null) throw new ValidationException("Missing UUID in body " + bodyKeyValue);
+            return new NameAndUuidDto(map.get("uuid").toString(), Objects.toString(map.get("name"), null));
+        }
+
+        if (bodyKeyValue instanceof String uuid) {
+            try {
+                return new NameAndUuidDto(UUID.fromString(uuid).toString(), null);
+            } catch (Exception e) {
+                throw new ValidationException("Cannot convert body value %s to UUID: %s".formatted(uuid, e.getMessage()));
+            }
+        }
+
+        throw new ValidationException("Invalid data in body %s of request callback. Cannot extract UUID.".formatted(bodyKeyValue));
+    }
+
+    @Override
+    public void loadResourceObjectContentData(List<DataAttribute> attributes) throws NotFoundException, AttributeException {
+        if (attributes == null || attributes.isEmpty()) {
+            return;
+        }
+
+        for (DataAttribute attribute : attributes) {
+            if (!AttributeContentType.RESOURCE.equals(attribute.getContentType())) {
+                continue;
+            }
+            NameAndUuidDto resourceId = AttributeDefinitionUtils.getNameAndUuidData(attribute.getName(), AttributeDefinitionUtils.getClientAttributes(attributes));
+            if (resourceId == null || resourceId.getUuid() == null)
+                throw new AttributeException("UUID of Resource Object is missing.", attribute.getUuid(), attribute.getName(), AttributeType.DATA, "");
+            ResourceObjectContentData data = getResourceObjectContentData(attribute.getProperties().getResource(), UUID.fromString(resourceId.getUuid()), resourceId.getName());
+            attribute.setContent(List.of(new ResourceObjectContent(resourceId.getName(), data)));
+        }
+    }
+
+    private ResourceObjectContentData getResourceObjectContentData(AttributeResource resource, UUID uuid, String name) throws NotFoundException, AttributeException {
+        ResourceObjectContentData data = new ResourceObjectContentData();
+        if (resource.isWithContent())
+            data.setContent(attributeResourceServices.get(resource.getCode()).getResourceObjectContent(uuid));
+        data.setAttributes(attributeEngine.getObjectDataAttributesContent(Resource.findByCode(resource.getCode()), uuid));
+        data.setResource(resource);
+        data.setUuid(uuid.toString());
+        data.setName(name);
+        return data;
+    }
+
 
 }

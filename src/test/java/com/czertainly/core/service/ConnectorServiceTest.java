@@ -6,7 +6,7 @@ import com.czertainly.api.model.client.connector.ConnectorUpdateRequestDto;
 import com.czertainly.api.model.common.HealthDto;
 import com.czertainly.api.model.common.HealthStatus;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
@@ -59,7 +59,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         connector = new Connector();
         connector.setName(CONNECTOR_NAME);
-        connector.setUrl("http://localhost:"+mockServer.port());
+        connector.setUrl("http://localhost:" + mockServer.port());
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
@@ -192,7 +192,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
         ConnectorRequestDto request = new ConnectorRequestDto();
         request.setName("testConnector2");
-        request.setUrl("http://localhost:"+mockServer.port());
+        request.setUrl("http://localhost:" + mockServer.port());
 
         ConnectorDto dto = connectorService.createConnector(request);
         Assertions.assertNotNull(dto);
@@ -219,7 +219,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
                 .willReturn(WireMock.okJson("[]")));
 
         ConnectorUpdateRequestDto request = new ConnectorUpdateRequestDto();
-        request.setUrl("http://localhost:"+mockServer.port());
+        request.setUrl("http://localhost:" + mockServer.port());
 
         ConnectorDto dto = connectorService.editConnector(connector.getSecuredUuid(), request);
         Assertions.assertNotNull(dto);
@@ -403,7 +403,7 @@ class ConnectorServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = connectorService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = connectorService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

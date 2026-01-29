@@ -2,17 +2,19 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.EntityInstanceApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.certificate.EntityInstanceResponseDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.entity.EntityInstanceUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.connector.entity.EntityInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.entity.EntityInstanceDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -30,6 +32,7 @@ import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.service.ConnectorService;
 import com.czertainly.core.service.CredentialService;
 import com.czertainly.core.service.EntityInstanceService;
+import com.czertainly.core.service.ResourceService;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.FilterPredicatesBuilder;
 import com.czertainly.core.util.RequestValidatorHelper;
@@ -61,6 +64,12 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     private CredentialService credentialService;
     private EntityInstanceApiClient entityInstanceApiClient;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setAttributeEngine(AttributeEngine attributeEngine) {
@@ -93,7 +102,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<EntityInstanceDto> listedKeyDTOs = entityInstanceReferenceRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(EntityInstanceReference::mapToDto).toList();
@@ -113,7 +122,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
     public EntityInstanceDto getEntityInstance(SecuredUUID entityUuid) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstanceReference = getEntityInstanceReferenceEntity(entityUuid);
 
-        List<ResponseAttributeDto> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
+        List<ResponseAttribute> attributes = attributeEngine.getObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid());
 
         EntityInstanceDto entityInstanceDto = entityInstanceReference.mapToDto();
         entityInstanceDto.setCustomAttributes(attributeEngine.getObjectCustomAttributesContent(Resource.ENTITY, entityUuid.getValue()));
@@ -130,7 +139,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
         if (attributes.isEmpty() && entityProviderInstanceDto.getAttributes() != null && !entityProviderInstanceDto.getAttributes().isEmpty()) {
             try {
-                List<RequestAttributeDto> requestAttributes = AttributeDefinitionUtils.getClientAttributes(entityProviderInstanceDto.getAttributes());
+                List<RequestAttribute> requestAttributes = AttributeDefinitionUtils.getClientAttributes(entityProviderInstanceDto.getAttributes());
                 attributeEngine.updateDataAttributeDefinitions(entityInstanceReference.getConnectorUuid(), null, entityProviderInstanceDto.getAttributes());
                 attributes = attributeEngine.updateObjectDataAttributesContent(entityInstanceReference.getConnectorUuid(), null, Resource.ENTITY, entityInstanceReference.getUuid(), requestAttributes);
             } catch (AttributeException e) {
@@ -159,9 +168,10 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         attributeEngine.validateCustomAttributesContent(Resource.ENTITY, request.getCustomAttributes());
         connectorService.mergeAndValidateAttributes(SecuredUUID.fromUUID(connector.getUuid()), codeToSearch, request.getAttributes(), request.getKind());
 
-        // Load complete credential data
+        // Load complete credential and resource data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -202,6 +212,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         EntityInstanceRequestDto entityInstanceDto = new EntityInstanceRequestDto();
         entityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -249,7 +260,7 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.ANY)
-    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttributeDto> attributes) throws ConnectorException, NotFoundException {
+    public void validateLocationAttributes(SecuredUUID entityUuid, List<RequestAttribute> attributes) throws ConnectorException, NotFoundException {
         EntityInstanceReference entityInstance = getEntityInstanceReferenceEntity(entityUuid);
 
         Connector connector = entityInstance.getConnector();
@@ -265,8 +276,9 @@ public class EntityInstanceServiceImpl implements EntityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.ENTITY, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        final TriFunction<Root<EntityInstanceReference>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, filters);
+        return entityInstanceReferenceRepository.listResourceObjects(filter, EntityInstanceReference_.name, additionalWhereClause, pagination);
     }
 
     @Override

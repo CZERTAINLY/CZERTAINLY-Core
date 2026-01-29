@@ -2,9 +2,10 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.cryptography.operations.*;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+import com.czertainly.api.model.common.attribute.v3.BaseAttributeV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyType;
 import com.czertainly.api.model.connector.cryptography.operations.data.CipherRequestData;
@@ -383,9 +384,9 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
     }
 
     @Override
-    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttributeDto> signatureAttributes, UUID altKeyUUid,
+    public String generateCsr(UUID keyUuid, UUID tokenProfileUuid, X500Principal principal, List<RequestAttribute> signatureAttributes, UUID altKeyUUid,
                               UUID altTokenProfileUuid,
-                              List<RequestAttributeDto> altSignatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException {
+                              List<RequestAttribute> altSignatureAttributes) throws NotFoundException, NoSuchAlgorithmException, InvalidKeySpecException, IOException, AttributeException {
         // Check if the UUID of the Key is empty
         if (keyUuid == null) {
             throw new ValidationException(
@@ -485,8 +486,8 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         return key;
     }
 
-    private String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttributeDto> signatureAttributes,
-                               String altKey, CryptographicKeyItem altPrivateKeyItem, CryptographicKeyItem altPublicKeyItem, List<RequestAttributeDto> altSignatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
+    private String generateCsr(X500Principal principal, String key, CryptographicKeyItem privateKeyItem, CryptographicKeyItem publicKeyItem, List<RequestAttribute> signatureAttributes,
+                               String altKey, CryptographicKeyItem altPrivateKeyItem, CryptographicKeyItem altPublicKeyItem, List<RequestAttribute> altSignatureAttributes) throws NoSuchAlgorithmException, InvalidKeySpecException, IOException {
         // Build bouncy castle p10 builder
         PKCS10CertificationRequestBuilder p10Builder = new JcaPKCS10CertificationRequestBuilder(
                 principal,
@@ -568,7 +569,7 @@ public class CryptographicOperationServiceImpl implements CryptographicOperation
         }
     }
 
-    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttributeDto> attributes) {
+    private boolean validateSignatureAttributes(KeyAlgorithm keyAlgorithm, List<RequestAttribute> attributes) {
         if (attributes == null) {
             return false;
         }

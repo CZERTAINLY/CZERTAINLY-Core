@@ -1,17 +1,21 @@
 package com.czertainly.core.evaluator;
 
 import com.czertainly.api.exception.*;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
+import com.czertainly.api.model.client.attribute.ResponseAttribute;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileDetailDto;
 import com.czertainly.api.model.client.notification.NotificationProfileRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
-import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeContent;
+import com.czertainly.api.model.common.attribute.common.MetadataAttribute;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
+import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.content.StringAttributeContentV3;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -555,7 +559,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         customAttributeRequest.setContentType(AttributeContentType.STRING);
 
         CustomAttributeDefinitionDetailDto customAttribute = attributeService.createCustomAttribute(customAttributeRequest);
-        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, newCertificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContent("ref", "data1"), new StringAttributeContent("ref", "data")));
+        attributeEngine.updateObjectCustomAttributeContent(Resource.CERTIFICATE, newCertificate.getUuid(), null, customAttribute.getName(), List.of(new StringAttributeContentV3("ref", "data1"), new StringAttributeContentV3("ref", "data")));
 
         ConditionItem newCondition = new ConditionItem();
         newCondition.setFieldSource(FilterFieldSource.CUSTOM);
@@ -572,18 +576,20 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         Connector connector = new Connector();
         connectorRepository.save(connector);
         UUID connectorUuid = connector.getUuid();
-        MetadataAttribute metadataAttribute = new MetadataAttribute();
+        MetadataAttributeV2 metadataAttribute = new MetadataAttributeV2();
         metadataAttribute.setContentType(AttributeContentType.STRING);
         metadataAttribute.setName("meta");
         metadataAttribute.setUuid(UUID.randomUUID().toString());
-        metadataAttribute.setContent(List.of(new StringAttributeContent("ref", "data")));
+        metadataAttribute.setContent(List.of(new StringAttributeContentV2("ref", "data")));
         metadataAttribute.setType(AttributeType.META);
 
         MetadataAttributeProperties props = new MetadataAttributeProperties();
         props.setLabel("Test meta");
         metadataAttribute.setProperties(props);
 
-        attributeEngine.updateMetadataAttributes(List.of(metadataAttribute), new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, newCertificate.getUuid()));
+        List<MetadataAttribute> content = new ArrayList<>();
+        content.add(metadataAttribute);
+        attributeEngine.updateMetadataAttributes(content, new ObjectAttributeContentInfo(connectorUuid, Resource.CERTIFICATE, newCertificate.getUuid()));
 
         ConditionItem newCondition = new ConditionItem();
         newCondition.setFieldSource(FilterFieldSource.META);
@@ -644,7 +650,7 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
 
         mockServer.stubFor(WireMock
                 .post(WireMock.urlPathMatching("/v2/authorityProvider/authorities/[^/]+/certificates/identify"))
-                .willReturn(WireMock.okJson("{\"meta\":[{\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
+                .willReturn(WireMock.okJson("{\"meta\":[{\"version\": 2,\"uuid\":\"b42ab690-60fd-11ed-9b6a-0242ac120002\",\"name\":\"ejbcaUsername\",\"description\":\"EJBCA Username\",\"content\":[{\"version\": 2, \"reference\":\"ShO0lp7qbnE=\",\"data\":\"ShO0lp7qbnE=\"}],\"type\":\"meta\",\"contentType\":\"string\",\"properties\":{\"label\":\"EJBCA Username\",\"visible\":true,\"group\":null,\"global\":false}}]}")));
 
         Connector connector = new Connector();
         connector.setName("authorityInstanceConnector");
@@ -692,12 +698,23 @@ class TriggerEvaluatorTest extends BaseSpringBootTest {
         LinkedHashMap<String, String> linkedHashSet = new LinkedHashMap<>();
         linkedHashSet.put("data", "data");
         linkedHashSet.put("reference", "ref");
+        linkedHashSet.put("contentType", "string");
         executionItem.setFieldSource(FilterFieldSource.CUSTOM);
         executionItem.setFieldIdentifier("custom|STRING");
         executionItem.setData(List.of(linkedHashSet));
         certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
-        List<ResponseAttributeDto> responseAttributeDtos = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
-        Assertions.assertEquals(1, responseAttributeDtos.get(0).getContent().size());
+        List<ResponseAttribute> responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertEquals(1, ((ResponseAttributeV3) responseAttributes.getFirst()).getContent().size());
+
+        executionItem.setData(null);
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertTrue(responseAttributes.isEmpty());
+
+        executionItem.setData(List.of());
+        certificateTriggerEvaluator.performActions(trigger, new TriggerHistory(), certificate, null);
+        responseAttributes = attributeEngine.getObjectCustomAttributesContent(Resource.CERTIFICATE, certificate.getUuid());
+        Assertions.assertTrue(responseAttributes.isEmpty());
     }
 
     @Test

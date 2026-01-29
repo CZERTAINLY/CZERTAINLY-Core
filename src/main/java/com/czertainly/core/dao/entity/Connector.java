@@ -1,11 +1,12 @@
 package com.czertainly.core.dao.entity;
 
 import com.czertainly.api.model.common.NameAndUuidDto;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
+import com.czertainly.api.model.common.attribute.common.BaseAttribute;
 import com.czertainly.api.model.core.connector.AuthType;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.api.model.core.connector.FunctionGroupDto;
+import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import com.czertainly.core.util.DtoMapper;
 import com.czertainly.core.util.MetaDefinitions;
@@ -21,7 +22,6 @@ import java.io.Serializable;
 import java.util.HashSet;
 import java.util.Objects;
 import java.util.Set;
-import java.util.stream.Collectors;
 
 @Getter
 @Setter
@@ -83,13 +83,13 @@ public class Connector extends UniquelyIdentifiedAndAudited implements Serializa
         dto.setName(this.name);
         dto.setUrl(this.url);
         dto.setAuthType(authType);
-        dto.setAuthAttributes(AttributeDefinitionUtils.getResponseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
+        dto.setAuthAttributes(AttributeEngine.getResponseAttributesFromBaseAttributes(AttributeDefinitionUtils.deserialize(this.authAttributes, BaseAttribute.class)));
         dto.setStatus(this.status);
         dto.setFunctionGroups(this.functionGroups.stream().map(f -> {
             FunctionGroupDto functionGroupDto = f.getFunctionGroup().mapToDto();
             functionGroupDto.setKinds(MetaDefinitions.deserializeArrayString(f.getKinds()));
             return functionGroupDto;
-        }).collect(Collectors.toList()));
+        }).toList());
         return dto;
     }
 

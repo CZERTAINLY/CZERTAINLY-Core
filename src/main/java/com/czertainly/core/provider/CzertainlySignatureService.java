@@ -2,7 +2,7 @@ package com.czertainly.core.provider;
 
 import com.czertainly.api.clients.cryptography.CryptographicOperationsApiClient;
 import com.czertainly.api.exception.ConnectorException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
 import com.czertainly.api.model.connector.cryptography.operations.SignDataRequestDto;
@@ -25,7 +25,7 @@ public class CzertainlySignatureService {
     private static final Logger log = LoggerFactory.getLogger(CzertainlySignatureService.class);
 
     private final CryptographicOperationsApiClient apiClient;
-    private final List<RequestAttributeDto> signatureAttributes;
+    private final List<RequestAttribute> signatureAttributes;
     private final String algorithm;
 
     public CzertainlySignatureService(CryptographicOperationsApiClient apiClient, String algorithm) {
@@ -34,7 +34,7 @@ public class CzertainlySignatureService {
         this.algorithm = algorithm;
     }
 
-    public List<RequestAttributeDto> mapSignatureAttributesFromSignatureAlgorithm(String algorithm) {
+    public List<RequestAttribute> mapSignatureAttributesFromSignatureAlgorithm(String algorithm) {
         switch (algorithm) {
             case "NONEwithRSA" -> {
                 return List.of(

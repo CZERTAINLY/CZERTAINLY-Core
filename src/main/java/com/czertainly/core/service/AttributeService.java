@@ -3,10 +3,7 @@ package com.czertainly.core.service;
 import com.czertainly.api.exception.AlreadyExistException;
 import com.czertainly.api.exception.AttributeException;
 import com.czertainly.api.exception.NotFoundException;
-import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.attribute.AttributeDefinitionDto;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.client.attribute.ResponseAttributeDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeCreateRequestDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.custom.CustomAttributeDefinitionDto;
@@ -15,15 +12,9 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
-import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.BaseAttribute;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContent;
+import com.czertainly.api.model.common.attribute.common.CustomAttribute;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.core.auth.Resource;
-import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
-import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.security.authz.SecurityFilter;
 
 import java.util.List;
@@ -143,76 +134,11 @@ public interface AttributeService extends ResourceExtensionService {
     /**
      * Function to get the list of custom attributes that are applicable for the resource
      *
-     * @param filter : SecurityFilter to load object permissions
+     * @param filter   : SecurityFilter to load object permissions
      * @param resource Name of the resource to get the list of custom attributes
      * @return List of data attributes
      */
-    List<BaseAttribute> getResourceAttributes(SecurityFilter filter, Resource resource);
-
-    /**
-     * Function to validate if the custom attributes contains the correct information
-     *
-     * @param attributes List of request attributes
-     * @param resource   Resource to which the custom attributes should be validated for
-     * @throws ValidationException Thrown if the validation fails
-     */
-//    void validateCustomAttributes(List<RequestAttributeDto> attributes, Resource resource) throws ValidationException;
-
-    /**
-     * Create the content for the attribute
-     *
-     * @param objectUuid UUID of the object
-     * @param attributes List of custom attributes
-     * @param resource   Resource for the attribute and value
-     */
-//    void createAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) throws NotFoundException, AttributeException;
-
-    /**
-     * Update the content for the attribute
-     *
-     * @param objectUuid UUID of the object
-     * @param attributes List of custom attributes
-     * @param resource   Resource for the attribute and value
-     */
-//    void updateAttributeContent(UUID objectUuid, List<RequestAttributeDto> attributes, Resource resource) throws NotFoundException, AttributeException;
-
-    /**
-     * Update the content for a single attribute
-     *
-     * @param objectUuid UUID of the object
-     * @param attributeUuid UUID of custom attributes
-     * @param attributeContent Attribute content
-     * @param resource   Resource for the attribute and value
-     */
-//    void updateAttributeContent(UUID objectUuid, UUID attributeUuid, List<BaseAttributeContent> attributeContent, Resource resource) throws NotFoundException, AttributeException;
-
-    /**
-     * Function to delete all the attribute content for an individual object. This method to be used when deleting the object
-     *
-     * @param objectUuid UUID of the object
-     * @param resource   Resource type
-     */
-//    void deleteAttributeContent(UUID objectUuid, Resource resource);
-
-    /**
-     * Function to delete all the attribute content for an individual object with the parent resource.
-     *
-     * @param objectUuid UUID of the object
-     * @param resource   Resource type
-     * @param parentObjectUuid Parent Object UUID
-     * @param parentResource Parent Object resource
-     * @param type Type of the attribute to be deleted. Either Custom or Metadata
-     */
-//    void deleteAttributeContent(UUID objectUuid, Resource resource, UUID parentObjectUuid, Resource parentResource, AttributeType type);
-
-    /**
-     * Function to get the list of custom attributes associated with a specific object
-     *
-     * @param uuid     UUID of the object
-     * @param resource Type of the object
-     * @return List of the custo attributes with values
-     */
-//    List<ResponseAttributeDto> getCustomAttributesWithValues(UUID uuid, Resource resource);
+    List<CustomAttribute> getResourceAttributes(SecurityFilter filter, Resource resource);
 
     /**
      * Function to get the list of supported resources for which the custom attributes are supported
@@ -245,24 +171,4 @@ public interface AttributeService extends ResourceExtensionService {
      * @param uuid    UUID of the global metadata
      */
     void demoteConnectorMetadata(UUID uuid) throws NotFoundException;
-
-    /**
-     * Check and create the reference attributes in the database
-     */
-//    AttributeDefinition createAttributeDefinition(UUID connectorUuid, BaseAttribute attribute) throws AttributeException;
-
-    /**
-     * Function to get the reference attributes. This function will check and return if there is a reference
-     * attribute available for the given attribute uuid and the connector UUID
-     */
-//    DataAttribute getReferenceAttribute(UUID connectorUUid, String attributeName);
-
-    /**
-     *
-     * @return
-     */
-//    List<SearchFieldDataByGroupDto> getResourceSearchableFieldInformation(Resource resource);
-
-//    List<UUID> getResourceObjectUuidsByFilters(Resource resource, SecurityFilter securityFilter, List<SearchFilterRequestDto> searchFilters);
-
 }

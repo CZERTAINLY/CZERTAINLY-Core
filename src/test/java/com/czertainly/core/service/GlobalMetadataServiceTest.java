@@ -9,18 +9,16 @@ import com.czertainly.api.model.client.attribute.metadata.ConnectorMetadataRespo
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataCreateRequestDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataDefinitionDetailDto;
 import com.czertainly.api.model.client.attribute.metadata.GlobalMetadataUpdateRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.DataAttribute;
-import com.czertainly.api.model.common.attribute.v2.MetadataAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.properties.DataAttributeProperties;
-import com.czertainly.api.model.common.attribute.v2.properties.MetadataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.v2.DataAttributeV2;
+import com.czertainly.api.model.common.attribute.v2.MetadataAttributeV2;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.DataAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.properties.MetadataAttributeProperties;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.entity.Connector;
 import com.czertainly.core.dao.repository.*;
-import com.czertainly.core.security.authz.SecuredUUID;
-import com.czertainly.core.security.authz.SecurityFilter;
 import com.czertainly.core.util.BaseSpringBootTest;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.BeforeEach;
@@ -31,7 +29,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public class GlobalMetadataServiceTest extends BaseSpringBootTest {
+class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     @Autowired
     private AttributeService attributeService;
@@ -44,25 +42,25 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
 
     private Connector connector;
     private AttributeDefinition definition;
-    private DataAttribute attribute;
-    private MetadataAttribute metaAttribute;
-    private MetadataAttribute connectorMetaAttribute;
+    private DataAttributeV2 attribute;
+    private MetadataAttributeV2 metaAttribute;
+    private MetadataAttributeV2 connectorMetaAttribute;
     private AttributeDefinition metaDefinition;
     private AttributeDefinition connectorMetaDefinition;
 
     @BeforeEach
-    public void setUp() {
+    void setUp() {
         connector = new Connector();
         connector.setName("test");
         connector.setUrl("http://localhost:3665");
         connector.setStatus(ConnectorStatus.CONNECTED);
         connector = connectorRepository.save(connector);
 
-        attribute = new DataAttribute();
+        attribute = new DataAttributeV2();
         attribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba06e");
         attribute.setName("attribute");
         attribute.setDescription("Attribute");
-        attribute.setType(AttributeType.CUSTOM);
+        attribute.setType(AttributeType.DATA);
         attribute.setContentType(AttributeContentType.STRING);
         DataAttributeProperties urlProperties = new DataAttributeProperties();
         urlProperties.setLabel("Attribute");
@@ -73,7 +71,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         urlProperties.setMultiSelect(false);
         attribute.setProperties(urlProperties);
 
-        metaAttribute = new MetadataAttribute();
+        metaAttribute = new MetadataAttributeV2();
         metaAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba07e");
         metaAttribute.setName("attribute1");
         metaAttribute.setDescription("Attribute1");
@@ -85,7 +83,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         properties.setGlobal(true);
         metaAttribute.setProperties(properties);
 
-        connectorMetaAttribute = new MetadataAttribute();
+        connectorMetaAttribute = new MetadataAttributeV2();
         connectorMetaAttribute.setUuid("87e968ca-9404-4128-8b58-3ab5db2ba08e");
         connectorMetaAttribute.setName("connectorAttribute");
         connectorMetaAttribute.setDescription("Connector Attribute");
@@ -101,7 +99,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
         definition.setName(attribute.getName());
         definition.setAttributeUuid(UUID.fromString(attribute.getUuid()));
         definition.setContentType(attribute.getContentType());
-        definition.setType(AttributeType.CUSTOM);
+        definition.setType(AttributeType.DATA);
         definition.setEnabled(true);
         definition.setLabel(attribute.getProperties().getLabel());
         definition.setRequired(attribute.getProperties().isRequired());
@@ -131,7 +129,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testListGlobalMetadata() {
+    void testListGlobalMetadata() {
         List<AttributeDefinitionDto> metadata = attributeService.listGlobalMetadata();
         Assertions.assertNotNull(metadata);
         Assertions.assertFalse(metadata.isEmpty());
@@ -140,40 +138,42 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGetGlobalMetadata() throws NotFoundException {
+    void testGetGlobalMetadata() throws NotFoundException {
         GlobalMetadataDefinitionDetailDto dto = attributeService.getGlobalMetadata(metaDefinition.getUuid());
         Assertions.assertNotNull(dto);
         Assertions.assertFalse(dto.getUuid().isEmpty());
         Assertions.assertEquals(metaDefinition.getUuid().toString(), dto.getUuid());
         Assertions.assertEquals(metaAttribute.getName(), dto.getName());
-        Assertions.assertEquals(metaAttribute.getType(), AttributeType.META);
-        Assertions.assertEquals(metaAttribute.getContentType(), AttributeContentType.STRING);
+        Assertions.assertEquals(AttributeType.META, metaAttribute.getType());
+        Assertions.assertEquals(AttributeContentType.STRING, metaAttribute.getContentType());
     }
 
     @Test
-    public void testGlobalAttributeNotFound() throws NotFoundException {
+    void testGlobalAttributeNotFound() {
         Assertions.assertThrows(NotFoundException.class, () -> attributeService.getGlobalMetadata(UUID.fromString(attribute.getUuid())));
     }
 
     @Test
-    public void testCreateGlobalMetadata() throws ValidationException, AlreadyExistException, AttributeException {
+    void testCreateGlobalMetadata() throws ValidationException, AlreadyExistException, AttributeException {
         GlobalMetadataCreateRequestDto request = new GlobalMetadataCreateRequestDto();
         request.setName("testAttribute");
         request.setDescription("Sample description");
         request.setLabel("TestAttribute");
-        request.setContentType(AttributeContentType.STRING);
+        request.setContentType(AttributeContentType.RESOURCE);
         request.setVisible(true);
+        Assertions.assertThrows(AttributeException.class, () -> attributeService.createGlobalMetadata(request));
 
+        request.setContentType(AttributeContentType.STRING);
         GlobalMetadataDefinitionDetailDto response = attributeService.createGlobalMetadata(request);
         Assertions.assertNotNull(response);
         Assertions.assertFalse(response.getUuid().isEmpty());
         Assertions.assertEquals(request.getName(), response.getName());
-        Assertions.assertEquals(response.getType(), AttributeType.META);
-        Assertions.assertEquals(request.getContentType(), AttributeContentType.STRING);
+        Assertions.assertEquals(AttributeType.META, response.getType());
+        Assertions.assertEquals(AttributeContentType.STRING, request.getContentType());
     }
 
     @Test
-    public void testCreateGlobalMetadataAlreadyExistsException() throws ValidationException {
+    void testCreateGlobalMetadataAlreadyExistsException() throws ValidationException {
         GlobalMetadataCreateRequestDto request = new GlobalMetadataCreateRequestDto();
         request.setName("attribute1");
         request.setDescription("Attribute");
@@ -185,14 +185,14 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testCreateGlobalMetadataValidationException() throws ValidationException, AlreadyExistException {
+    void testCreateGlobalMetadataValidationException() throws ValidationException {
         GlobalMetadataCreateRequestDto request = new GlobalMetadataCreateRequestDto();
 
         Assertions.assertThrows(AttributeException.class, () -> attributeService.createGlobalMetadata(request));
     }
 
     @Test
-    public void testEditGlobalMetadata() throws NotFoundException, AttributeException {
+    void testEditGlobalMetadata() throws NotFoundException, AttributeException {
         GlobalMetadataUpdateRequestDto request = new GlobalMetadataUpdateRequestDto();
         request.setLabel("Updated Attribute");
         request.setDescription("Desc");
@@ -203,7 +203,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testEditGlobalMetadataNotFoundException() throws NotFoundException {
+    void testEditGlobalMetadataNotFoundException() {
         GlobalMetadataUpdateRequestDto request = new GlobalMetadataUpdateRequestDto();
         request.setLabel("Updated Attribute");
         request.setDescription("Desc");
@@ -212,24 +212,24 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void testGlobalMetadataAttribute() throws NotFoundException {
+    void testGlobalMetadataAttribute() throws NotFoundException {
         attributeService.demoteConnectorMetadata(metaDefinition.getUuid());
         Assertions.assertThrows(NotFoundException.class, () -> attributeService.getGlobalMetadata(metaDefinition.getUuid()));
     }
 
     @Test
-    public void testDeleteGlobalMetadataNotFoundException() throws NotFoundException {
+    void testDeleteGlobalMetadataNotFoundException() {
         Assertions.assertThrows(NotFoundException.class, () -> attributeService.demoteConnectorMetadata(UUID.fromString(attribute.getUuid())));
     }
 
     @Test
-    public void testBulkDeleteGlobalMetadata() throws NotFoundException {
+    void testBulkDeleteGlobalMetadata() {
         attributeService.bulkDeleteCustomAttributes(List.of(metaDefinition.getUuid().toString()));
         Assertions.assertThrows(NotFoundException.class, () -> attributeService.getCustomAttribute(metaDefinition.getUuid()));
     }
 
     @Test
-    public void getConnectorMetadata() {
+    void getConnectorMetadata() {
         List<ConnectorMetadataResponseDto> metadata = attributeService.getConnectorMetadata(Optional.empty());
         Assertions.assertEquals(1, metadata.size());
         Assertions.assertEquals(metadata.get(0).getUuid(), connectorMetaAttribute.getUuid());
@@ -237,7 +237,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void getConnectorMetadata_ItemNotFound() {
+    void getConnectorMetadata_ItemNotFound() {
         connectorMetaDefinition.setConnectorUuid(null);
         attributeDefinitionRepository.save(connectorMetaDefinition);
         List<ConnectorMetadataResponseDto> metadata = attributeService.getConnectorMetadata(Optional.empty());
@@ -245,7 +245,7 @@ public class GlobalMetadataServiceTest extends BaseSpringBootTest {
     }
 
     @Test
-    public void promoteConnectorMetadata() throws NotFoundException {
+    void promoteConnectorMetadata() throws NotFoundException {
         attributeService.promoteConnectorMetadata(UUID.fromString(connectorMetaAttribute.getUuid()), connector.getUuid());
         List<AttributeDefinitionDto> dto = attributeService.listGlobalMetadata();
         Assertions.assertEquals(2, dto.size());

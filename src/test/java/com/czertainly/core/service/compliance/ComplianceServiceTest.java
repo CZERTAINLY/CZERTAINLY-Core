@@ -2,11 +2,11 @@ package com.czertainly.core.service.compliance;
 
 import com.czertainly.api.exception.NotFoundException;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
+import com.czertainly.api.model.client.attribute.RequestAttributeV3;
 import com.czertainly.api.model.client.certificate.UploadCertificateRequestDto;
 import com.czertainly.api.model.client.compliance.v2.ComplianceInternalRuleRequestDto;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.content.IntegerAttributeContent;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.v3.content.IntegerAttributeContentV3;
 import com.czertainly.api.model.common.enums.cryptography.KeyAlgorithm;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateState;
@@ -240,12 +240,12 @@ class ComplianceServiceTest extends BaseComplianceTest {
         complianceCheckResult = complianceService.getComplianceCheckResult(Resource.CRYPTOGRAPHIC_KEY_ITEM, keyItem.getUuid());
         Assertions.assertEquals(ComplianceStatus.NA, complianceCheckResult.getStatus(), "Compliance status should be Not applicable due to incompatible attributes setting");
 
-        RequestAttributeDto requestAttributeDto = new RequestAttributeDto();
-        requestAttributeDto.setUuid("7ed00886-e706-11ec-8fea-0242ac120002");
-        requestAttributeDto.setName("KeyLength");
-        requestAttributeDto.setContentType(AttributeContentType.INTEGER);
-        requestAttributeDto.setContent(List.of(new IntegerAttributeContent(2048)));
-        v2RuleAssoc.setAttributes(List.of(requestAttributeDto));
+        RequestAttributeV3 requestAttribute = new RequestAttributeV3();
+        requestAttribute.setUuid(UUID.fromString("7ed00886-e706-11ec-8fea-0242ac120002"));
+        requestAttribute.setName("KeyLength");
+        requestAttribute.setContentType(AttributeContentType.INTEGER);
+        requestAttribute.setContent(List.of(new IntegerAttributeContentV3(2048)));
+        v2RuleAssoc.setAttributes(List.of(requestAttribute));
         complianceProfileRuleRepository.save(v2RuleAssoc);
 
         complianceService.checkResourceObjectCompliance(Resource.CRYPTOGRAPHIC_KEY, key.getUuid());

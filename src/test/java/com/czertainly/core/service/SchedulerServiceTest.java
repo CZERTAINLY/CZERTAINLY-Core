@@ -1,12 +1,13 @@
 package com.czertainly.core.service;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.attribute.ResponseAttributeV3;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.CustomAttribute;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
-import com.czertainly.api.model.common.attribute.v2.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.properties.CustomAttributeProperties;
+import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
 import com.czertainly.api.model.core.connector.ConnectorStatus;
@@ -99,7 +100,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
     @Test
     void runScheduledDiscoveryWithTriggers() throws AlreadyExistException, NotFoundException, AttributeException, SchedulerException, CertificateException, IOException, EventException {
         // register custom attribute
-        CustomAttribute certificateDomainAttr = new CustomAttribute();
+        CustomAttributeV3 certificateDomainAttr = new CustomAttributeV3();
         certificateDomainAttr.setUuid(UUID.randomUUID().toString());
         certificateDomainAttr.setName("domain");
         certificateDomainAttr.setType(AttributeType.CUSTOM);
@@ -305,7 +306,7 @@ class SchedulerServiceTest extends BaseSpringBootTest {
 
                 matched = true;
                 Assertions.assertEquals(1, certificateDetailDto.getCustomAttributes().size());
-                Assertions.assertEquals("CZ", certificateDetailDto.getCustomAttributes().getFirst().getContent().getFirst().getData());
+                Assertions.assertEquals("CZ", ((ResponseAttributeV3) certificateDetailDto.getCustomAttributes().getFirst()).getContent().getFirst().getData());
             }
             if (discoveryCertificate.getCommonName().contains("Hybrid")) {
                 matchedHybrid = true;

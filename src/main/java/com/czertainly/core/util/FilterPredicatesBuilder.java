@@ -2,8 +2,8 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationException;
 import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
-import com.czertainly.api.model.common.attribute.v2.AttributeType;
-import com.czertainly.api.model.common.attribute.v2.content.AttributeContentType;
+import com.czertainly.api.model.common.attribute.common.AttributeType;
+import com.czertainly.api.model.common.attribute.common.content.AttributeContentType;
 import com.czertainly.api.model.common.enums.BitMaskEnum;
 import com.czertainly.api.model.common.enums.IPlatformEnum;
 import com.czertainly.api.model.core.auth.Resource;
@@ -48,11 +48,13 @@ public class FilterPredicatesBuilder {
         Map<String, From> joinedAssociations = new HashMap<>();
 
         List<Predicate> predicates = new ArrayList<>();
-        for (SearchFilterRequestDto filterDto : filterDtos) {
-            if (filterDto.getFieldSource() == FilterFieldSource.PROPERTY) {
-                predicates.add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto, joinedAssociations));
-            } else {
-                predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto));
+        if (filterDtos != null) {
+            for (SearchFilterRequestDto filterDto : filterDtos) {
+                if (filterDto.getFieldSource() == FilterFieldSource.PROPERTY) {
+                    predicates.add(getPropertyFilterPredicate(criteriaBuilder, query, root, filterDto, joinedAssociations));
+                } else {
+                    predicates.add(getAttributeFilterPredicate(criteriaBuilder, query, root, filterDto));
+                }
             }
         }
 

@@ -1,13 +1,18 @@
 package com.czertainly.core.tasks;
 
 import com.czertainly.api.model.scheduler.SchedulerJobExecutionStatus;
+import com.czertainly.core.dao.repository.acme.AcmeNonceRepository;
 import com.czertainly.core.model.ScheduledTaskResult;
 import com.czertainly.core.service.ApprovalService;
 import com.czertainly.core.service.CertificateService;
 import jakarta.transaction.Transactional;
 import lombok.NoArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
+
+import java.util.Date;
 
 @Component
 @NoArgsConstructor
@@ -16,9 +21,11 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
 
     private static final String JOB_NAME = "updateCertificateStatusJob";
     private static final String CRON_EXPRESSION = "0 0 * ? * *";
+    private static final Logger logger = LoggerFactory.getLogger(UpdateCertificateStatusTask.class);
 
     private ApprovalService approvalService;
     private CertificateService certificateService;
+    private AcmeNonceRepository acmeNonceRepository;
 
     public String getDefaultJobName() {
         return JOB_NAME;
@@ -53,6 +60,14 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
             message += " Handled %d expiring certificates.".formatted(expiringCertificates);
         }
 
+        // clean up of ACME nonces
+        Long deletedAcmeNonces = acmeNonceRepository.deleteByExpiresBefore(new Date());
+        if (deletedAcmeNonces > 0) {
+            message += " Deleted %d expired ACME nonces.".formatted(deletedAcmeNonces);
+        }
+
+        logger.debug("UpdateCertificateStatusTask completed: {}", message);
+
         return new ScheduledTaskResult(SchedulerJobExecutionStatus.SUCCESS, message);
     }
 
@@ -68,4 +83,8 @@ public class UpdateCertificateStatusTask implements ScheduledJobTask {
         this.approvalService = approvalService;
     }
 
+    @Autowired
+    public void setAcmeNonceRepository(AcmeNonceRepository acmeNonceRepository) {
+        this.acmeNonceRepository = acmeNonceRepository;
+    }
 }

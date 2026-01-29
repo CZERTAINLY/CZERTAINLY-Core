@@ -2,8 +2,8 @@ package com.czertainly.core.util;
 
 import com.czertainly.api.exception.ValidationError;
 import com.czertainly.api.exception.ValidationException;
-import com.czertainly.api.model.client.attribute.RequestAttributeDto;
-import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContent;
+import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.common.attribute.v2.content.StringAttributeContentV2;
 import com.czertainly.api.model.common.enums.cryptography.DigestAlgorithm;
 import com.czertainly.api.model.common.enums.cryptography.KeyFormat;
 import com.czertainly.api.model.common.enums.cryptography.RsaSignatureScheme;
@@ -23,19 +23,19 @@ import java.util.Base64;
 import java.util.List;
 
 public class CryptographyUtil {
-    public static AlgorithmIdentifier prepareSignatureAlgorithm(KeyAlgorithm keyAlgorithm, String publicKey, List<RequestAttributeDto> signatureAttributes) {
+    public static AlgorithmIdentifier prepareSignatureAlgorithm(KeyAlgorithm keyAlgorithm, String publicKey, List<RequestAttribute> signatureAttributes) {
         String signatureAlgorithm;
 
         switch (keyAlgorithm) {
             case RSA -> {
                 final RsaSignatureScheme scheme = RsaSignatureScheme.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                                        RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, signatureAttributes, StringAttributeContent.class)
+                                        RsaSignatureAttributes.ATTRIBUTE_DATA_RSA_SIG_SCHEME, signatureAttributes, StringAttributeContentV2.class)
                                 .getData()
                 );
                 final DigestAlgorithm digest = DigestAlgorithm.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                                        RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContent.class)
+                                        RsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContentV2.class)
                                 .getData()
                 );
 
@@ -49,7 +49,7 @@ public class CryptographyUtil {
             case ECDSA -> {
                 final DigestAlgorithm digest = DigestAlgorithm.findByCode(
                         AttributeDefinitionUtils.getSingleItemAttributeContentValue(
-                                        EcdsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContent.class)
+                                        EcdsaSignatureAttributes.ATTRIBUTE_DATA_SIG_DIGEST, signatureAttributes, StringAttributeContentV2.class)
                                 .getData()
                 );
 
