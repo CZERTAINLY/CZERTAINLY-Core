@@ -30,6 +30,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
