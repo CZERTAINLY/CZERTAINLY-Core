@@ -54,7 +54,7 @@ SET custom_attributes = (
   SELECT jsonb_agg(
            outer_elem
            || jsonb_build_object(
-                'version', '3',
+                'version', 'v3',
                 'content',
                 CASE
                   WHEN jsonb_typeof(outer_elem->'content') = 'array'
