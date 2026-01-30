@@ -5,6 +5,7 @@ import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.cbom.client.CbomRepositoryException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.AuthHelper;
@@ -29,6 +30,7 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
 import java.util.List;
+import java.util.function.BiConsumer;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
@@ -533,5 +535,24 @@ public class ExceptionHandlingAdvice {
     public ErrorMessageDto handleException(Exception ex) {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
+    }
+
+    /**
+     * Handler for {@ling CbomRepositoryException}
+     *
+     * @return {@line ErrorMessageDto}
+     */
+    @ExceptionHandler(CbomRepositoryException.class)
+    public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException (CbomRepositoryException ex) {
+        int status = ex.getProblemDetail().getStatus();
+        BiConsumer<String, Object[]> log = LOG::error;
+        if (status >= 400 && status <= 499)
+            log = LOG::info;
+        log.accept("HTTP {} (CbomRepositoryException): {}, {}", new Object[]{status, ex.getMessage(), ex.getCause().getMessage()});
+
+        ResponseEntity.BodyBuilder response = ResponseEntity.status(status).contentType(MediaType.valueOf("application/problem+json"));
+        ErrorMessageDto responseDto = new ErrorMessageDto(ex.getMessage());
+
+        return response.body(responseDto);
     }
 }
