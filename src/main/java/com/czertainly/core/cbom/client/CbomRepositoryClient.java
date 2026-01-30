@@ -1,21 +1,5 @@
 package com.czertainly.core.cbom.client;
 
-import java.util.List;
-import java.util.function.Function;
-
-import lombok.Getter;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
-import org.springframework.context.annotation.DependsOn;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.ProblemDetail;
-import org.springframework.stereotype.Component;
-import org.springframework.web.reactive.function.client.ClientResponse;
-import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.util.UriBuilder;
-
 import com.czertainly.api.model.core.cbom.CbomUploadRequestDto;
 import com.czertainly.api.model.core.settings.PlatformSettingsDto;
 import com.czertainly.api.model.core.settings.SettingsSection;
@@ -25,9 +9,25 @@ import com.czertainly.core.model.cbom.BomResponseDto;
 import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
-
+import lombok.Getter;
+import org.apache.commons.logging.Log;
+import org.apache.commons.logging.LogFactory;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.core.ParameterizedTypeReference;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ProblemDetail;
+import org.springframework.stereotype.Component;
+import org.springframework.web.reactive.function.client.ClientResponse;
+import org.springframework.web.reactive.function.client.ExchangeFilterFunction;
+import org.springframework.web.reactive.function.client.WebClient;
+import org.springframework.web.util.UriBuilder;
 import reactor.core.Exceptions;
 import reactor.core.publisher.Mono;
+
+import java.util.List;
+import java.util.function.Function;
+
 
 @Component
 @DependsOn("settingService")
@@ -51,9 +51,10 @@ public class CbomRepositoryClient {
 
     public void create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
-            processRequest(r -> r
+        processRequest(r -> r
                             .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
                             .body(Mono.just(data), CbomUploadRequestDto.class)
+                            .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
                             .retrieve()
                             .toEntity(BomCreateResponseDto.class)
                             .block().getBody(),
