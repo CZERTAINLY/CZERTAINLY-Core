@@ -25,6 +25,7 @@ import com.czertainly.api.model.common.attribute.v3.CustomAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.DataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.MetadataAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.*;
+import com.czertainly.api.model.common.attribute.v3.content.data.ResourceObjectContentData;
 import com.czertainly.api.model.core.auth.AttributeResource;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDetailDto;
@@ -533,6 +534,14 @@ class AttributeEngineTest extends BaseSpringBootTest {
         testAttributeEncryption(AttributeContentType.OBJECT, new ObjectAttributeContentV3("{\"key\":\"value\"}"), "{\"key\":\"value\"}");
         CodeBlockAttributeContentData codeBlockAttributeContentData = new CodeBlockAttributeContentData(ProgrammingLanguageEnum.PYTHON, "print('Hello, World!')");
         testAttributeEncryption(AttributeContentType.CODEBLOCK, new CodeBlockAttributeContentV3("ref", codeBlockAttributeContentData), codeBlockAttributeContentData);
+        testAttributeEncryption(AttributeContentType.BOOLEAN, new BooleanAttributeContentV3(true), true);
+        ResourceObjectContentData resourceObjectContentData = new ResourceObjectContentData();
+        resourceObjectContentData.setAttributes(List.of(new ResponseAttributeV3()));
+        resourceObjectContentData.setResource(AttributeResource.AUTHORITY);
+        resourceObjectContentData.setUuid(UUID.randomUUID().toString());
+        resourceObjectContentData.setContent("content");
+        resourceObjectContentData.setName("name");
+        testAttributeEncryption(AttributeContentType.RESOURCE, new ResourceObjectContent("ref", resourceObjectContentData), resourceObjectContentData);
     }
 
 
@@ -545,7 +554,9 @@ class AttributeEngineTest extends BaseSpringBootTest {
         DataAttributeProperties properties = new DataAttributeProperties();
         properties.setProtectionLevel(ProtectionLevel.ENCRYPTED);
         properties.setLabel("Secret Attribute");
+        properties.setResource(AttributeResource.AUTHORITY);
         secretAttribute.setProperties(properties);
+        secretAttribute.setAttributeCallback(new AttributeCallback());
         attributeEngine.updateDataAttributeDefinitions(connectorAuthority.getUuid(), null, List.of(secretAttribute));
         RequestAttributeV3 requestAttribute = new RequestAttributeV3();
         requestAttribute.setUuid(UUID.fromString(secretAttribute.getUuid()));

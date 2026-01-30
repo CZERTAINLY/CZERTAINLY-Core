@@ -81,9 +81,9 @@ public class AttributeVersionHelper {
 
     public static AttributeContent decryptContent(AttributeContent content, int version, AttributeContentType contentType, String encryptedData) {
         if (version == 2) {
-            BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
+            BaseAttributeContentV2 contentV2 = new BaseAttributeContentV2<>();
             contentV2.setReference(content.getReference());
-            contentV2.setData(content.getDataFromDecrypted(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1)));
+            contentV2.setData((Serializable) AttributeContentType.DATA_FROM_DECRYPTED_MAP.get(contentType).apply(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1)));
             return contentV2;
         }
         if (version == 3) {
