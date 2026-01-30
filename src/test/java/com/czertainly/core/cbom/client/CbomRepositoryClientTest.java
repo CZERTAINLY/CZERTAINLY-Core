@@ -15,7 +15,6 @@ import com.github.tomakehurst.wiremock.junit5.WireMockExtension;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.RegisterExtension;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.OffsetDateTime;
 import java.util.HashMap;
@@ -77,7 +76,7 @@ class CbomRepositoryClientTest {
 
         // Assert
         wireMock.verify(postRequestedFor(urlEqualTo("/v1/bom"))
-                .withHeader("Content-Type", equalTo("application/json")));
+                .withHeader("Content-Type", equalTo("application/vnd.cyclonedx+json")));
     }
 
     @Test
