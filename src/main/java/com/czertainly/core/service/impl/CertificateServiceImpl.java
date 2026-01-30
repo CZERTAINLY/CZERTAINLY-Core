@@ -95,6 +95,7 @@ import org.springframework.transaction.TransactionStatus;
 import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.DefaultTransactionDefinition;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 import java.io.*;
 import java.net.URI;
@@ -471,8 +472,15 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
         attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
 
+        TransactionStatus txStatus = null;
+        if (!TransactionSynchronizationManager.isActualTransactionActive()) {
+            txStatus = transactionManager.getTransaction(new DefaultTransactionDefinition());
+        }
         scepProfileRepository.clearCaCertificateReference(certificate.getUuid());
         cmpProfileRepository.clearSigningCertificateReference(certificate.getUuid());
+        if (txStatus != null) {
+            transactionManager.commit(txStatus);
+        }
 
         CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null) : null;
         certificateRepository.delete(certificate);
