@@ -361,9 +361,6 @@ public class AttributeEngine {
             }
         }
 
-        // Return without encrypted content
-        attributeDefinition.setDefinition(customAttributeV3NotEncrypted);
-
         return attributeDefinition;
     }
 
@@ -788,7 +785,11 @@ public class AttributeEngine {
             } else {
                 responseAttribute = mapping.get(uuid);
             }
-            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, objectContent.contentItem(), objectContent.version());
+            AttributeContent contentItem = objectContent.contentItem();
+            if (objectContent.encryptedContent() != null) {
+                contentItem = AttributeVersionHelper.decryptContent(objectContent.contentItem(), objectContent.version(), objectContent.contentType(), objectContent.encryptedContent());
+            }
+            AttributeVersionHelper.addResponseAttributeContent(responseAttribute, contentItem, objectContent.version());
         }
 
         return mapping.values().stream().toList();

@@ -160,7 +160,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
 
         AttributeDefinition encryptedDefinition = attributeDefinitionRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
         Assertions.assertEquals(ProtectionLevel.ENCRYPTED, encryptedDefinition.getProtectionLevel());
-        Assertions.assertNull(response.getContent().getFirst().getData());
+        Assertions.assertNotNull(response.getContent().getFirst().getData());
         Assertions.assertNull(((List<StringAttributeContentV3>) encryptedDefinition.getDefinition().getContent()).getFirst().getData());
         Assertions.assertNotNull(encryptedDefinition.getEncryptedData());
     }
@@ -210,7 +210,7 @@ class CustomAttributeServiceTest extends BaseSpringBootTest {
         response = attributeService.editCustomAttribute(definition.getUuid(), request);
         AttributeDefinition encryptedDefinition = attributeDefinitionRepository.findByUuid(UUID.fromString(response.getUuid())).orElseThrow();
         Assertions.assertEquals(ProtectionLevel.ENCRYPTED, encryptedDefinition.getProtectionLevel());
-        Assertions.assertNull(response.getContent().getFirst().getData());
+        Assertions.assertNotNull(response.getContent().getFirst().getData());
         Assertions.assertNull(((List<StringAttributeContentV3>) encryptedDefinition.getDefinition().getContent()).getFirst().getData());
         Assertions.assertNotNull(encryptedDefinition.getEncryptedData());
 

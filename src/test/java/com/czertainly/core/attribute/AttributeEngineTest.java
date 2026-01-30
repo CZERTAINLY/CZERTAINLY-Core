@@ -571,7 +571,11 @@ class AttributeEngineTest extends BaseSpringBootTest {
         );
         Assertions.assertEquals(1, responseAttributes.size());
         ResponseAttributeV3 responseAttribute = (ResponseAttributeV3) responseAttributes.getFirst();
-        Assertions.assertNull(responseAttribute.getContent().getFirst().getData());
+        Assertions.assertNotNull(responseAttribute.getContent().getFirst().getData());
+        UUID definitionUuid = attributeDefinitionRepository.findByAttributeUuid(UUID.fromString(secretAttribute.getUuid())).orElseThrow().getUuid();
+        AttributeContentItem attributeContentItem = attributeContentItemRepository.findByAttributeDefinitionUuid(definitionUuid).getFirst();
+        Assertions.assertNotEquals(contentV3, attributeContentItem.getJson());
+        Assertions.assertNotNull(attributeContentItem.getEncryptedData());
 
         // Decrypt check
         List<RequestAttribute> decryptedAttributes = attributeEngine.getRequestObjectDataAttributesContent(connectorAuthority.getUuid(), null, Resource.CERTIFICATE, certificate.getUuid());

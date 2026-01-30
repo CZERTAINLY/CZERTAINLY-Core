@@ -134,6 +134,32 @@ public class AttributeDefinition extends UniquelyIdentified implements ObjectAcc
         return new NameAndUuidDto(uuid.toString(), name);
     }
 
+
+    public AttributeDefinition copy() {
+        AttributeDefinition copy = new AttributeDefinition();
+        copy.setConnector(this.connector);
+        copy.setConnectorUuid(this.connectorUuid);
+        copy.setAttributeUuid(this.attributeUuid);
+        copy.setName(this.name);
+        copy.setType(this.type);
+        copy.setContentType(this.contentType);
+        copy.setLabel(this.label);
+        copy.setRequired(this.required);
+        copy.setReadOnly(this.readOnly);
+        copy.setVersion(this.version);
+        copy.setDefinition(this.definition); // Consider deep copy if mutable
+        copy.setEnabled(this.enabled);
+        copy.setGlobal(this.global);
+        copy.setOperation(this.operation);
+        copy.setProtectionLevel(this.protectionLevel);
+        copy.setEncryptedData(this.encryptedData != null ? new ArrayList<>(this.encryptedData) : null);
+        // Do not copy uuid, createdAt, updatedAt, contentItems, relations by default
+        copy.setUuid(this.uuid);
+        copy.setCreatedAt(this.createdAt);
+        copy.setUpdatedAt(this.updatedAt);
+        return copy;
+    }
+
     public CustomAttributeDefinitionDto mapToCustomAttributeDefinitionDto() {
         CustomAttributeDefinitionDto dto = new CustomAttributeDefinitionDto();
         CustomAttributeV3 attribute = (CustomAttributeV3) this.definition;
