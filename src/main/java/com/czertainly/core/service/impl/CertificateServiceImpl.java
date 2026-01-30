@@ -471,6 +471,9 @@ public class CertificateServiceImpl implements CertificateService, AttributeReso
         objectAssociationService.removeObjectAssociations(Resource.CERTIFICATE, uuid.getValue());
         attributeEngine.deleteAllObjectAttributeContent(Resource.CERTIFICATE, uuid.getValue());
 
+        scepProfileRepository.clearCaCertificateReference(certificate.getUuid());
+        cmpProfileRepository.clearSigningCertificateReference(certificate.getUuid());
+
         CertificateContent content = (certificate.getCertificateContent() != null && discoveryCertificateRepository.findByCertificateContent(certificate.getCertificateContent()).isEmpty()) ? certificateContentRepository.findById(certificate.getCertificateContent().getId()).orElse(null) : null;
         certificateRepository.delete(certificate);
         if (content != null) {
