@@ -18,26 +18,10 @@ public class CbomRepositoryException extends RuntimeException {
         this.problemDetail = problemDetail;
     }
 
-    public CbomRepositoryException(String message, Throwable cause) {
-        super(message, cause);
-        this.problemDetail = extractProblemDetail(cause);
-    }
-
-    private static ProblemDetail extractProblemDetail(Throwable cause) {
-        if (cause instanceof WebClientResponseException e) {
-            try {
-                return e.getResponseBodyAs(ProblemDetail.class);
-            } catch (Exception ex) {
-                return null;
-            }
-        }
-        return null;
-    }
-
-    @Override
-    public String getMessage() {
-        return problemDetail != null 
-            ? super.getMessage() + ": " + problemDetail.getDetail()
-            : super.getMessage();
+    public CbomRepositoryException(String message, ProblemDetail problemDetail) {
+        super(problemDetail != null
+                ? message + ": " + problemDetail.getDetail()
+                : message);
+        this.problemDetail = problemDetail;
     }
 }
