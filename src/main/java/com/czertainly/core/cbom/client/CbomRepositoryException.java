@@ -2,7 +2,6 @@ package com.czertainly.core.cbom.client;
 
 import lombok.Getter;
 import org.springframework.http.ProblemDetail;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
 
 @Getter
 public class CbomRepositoryException extends RuntimeException {
