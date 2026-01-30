@@ -129,6 +129,7 @@ public class AttributeServiceImpl implements AttributeService {
         properties.setMultiSelect(request.isMultiSelect());
         properties.setReadOnly(request.isReadOnly());
         properties.setRequired(request.isRequired());
+        properties.setProtectionLevel(request.getProtectionLevel());
         attribute.setProperties(properties);
 
         return attributeEngine.updateCustomAttributeDefinition(attribute, request.getResources()).mapToCustomAttributeDefinitionDetailDto();
@@ -185,6 +186,7 @@ public class AttributeServiceImpl implements AttributeService {
         attribute.getProperties().setMultiSelect(request.isMultiSelect());
         attribute.getProperties().setReadOnly(request.isReadOnly());
         attribute.getProperties().setRequired(request.isRequired());
+        attribute.getProperties().setProtectionLevel(request.getProtectionLevel());
 
         return attributeEngine.updateCustomAttributeDefinition(attribute, request.getResources()).mapToCustomAttributeDefinitionDetailDto();
     }

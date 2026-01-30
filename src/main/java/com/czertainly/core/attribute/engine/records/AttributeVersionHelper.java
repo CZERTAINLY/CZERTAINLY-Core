@@ -14,6 +14,9 @@ import com.czertainly.api.model.common.attribute.common.content.AttributeContent
 import com.czertainly.api.model.common.attribute.v2.content.BaseAttributeContentV2;
 import com.czertainly.api.model.common.attribute.v3.GroupAttributeV3;
 import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContentV3;
+import com.czertainly.core.attribute.engine.EncryptedAttributeContent;
+import com.czertainly.core.util.SecretEncodingVersion;
+import com.czertainly.core.util.SecretsUtil;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 
 import java.io.Serializable;
@@ -23,7 +26,8 @@ import java.util.UUID;
 
 public class AttributeVersionHelper {
 
-    private AttributeVersionHelper(){}
+    private AttributeVersionHelper() {
+    }
 
     public static ResponseAttribute getResponseAttribute(UUID uuid, String name, String label, List<? extends AttributeContent> content, AttributeContentType contentType, AttributeType attributeType, int version) {
         if (version == 2) {
@@ -75,6 +79,23 @@ public class AttributeVersionHelper {
         return null;
     }
 
+    public static AttributeContent decryptContent(AttributeContent content, int version, AttributeContentType contentType, String encryptedData) {
+        if (version == 2) {
+            BaseAttributeContentV2 contentV2 = new BaseAttributeContentV2<>();
+            contentV2.setReference(content.getReference());
+            contentV2.setData((Serializable) AttributeContentType.DATA_FROM_DECRYPTED_MAP.get(contentType).apply(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1)));
+            return contentV2;
+        }
+        if (version == 3) {
+            BaseAttributeContentV3 contentV3 = new BaseAttributeContentV3<>();
+            contentV3.setReference(content.getReference());
+            contentV3.setData((Serializable) AttributeContentType.DATA_FROM_DECRYPTED_MAP.get(contentType).apply(SecretsUtil.decodeAndDecryptSecretString(encryptedData, SecretEncodingVersion.V1)));
+            return contentV3;
+        }
+        return content;
+    }
+
+
     public static void addResponseMetadataContent(int version, ResponseMetadata responseMetadata, AttributeContent contentItem) {
         if (version == 2) {
             addResponseMetadataContentV2(responseMetadata, contentItem);
@@ -99,6 +120,21 @@ public class AttributeVersionHelper {
         if (!responseMetadataV3.getContent().contains(contentItem)) {
             responseMetadataV3.getContent().add(attributeContentV3);
         }
+    }
+
+    public static AttributeContent createEncryptedContent(String reference, AttributeContentType contentType, int version) {
+        if (version == 2) {
+            BaseAttributeContentV2<?> contentV2 = new BaseAttributeContentV2<>();
+            contentV2.setReference(reference);
+            return contentV2;
+        }
+        if (version == 3) {
+           BaseAttributeContentV3<?> contentV3 = new BaseAttributeContentV3<>();
+           contentV3.setReference(reference);
+           contentV3.setContentType(contentType);
+           return contentV3;
+        }
+        return null;
     }
 
 
@@ -157,7 +193,7 @@ public class AttributeVersionHelper {
 
     public static BaseAttributeContentV3<?> convertAttributeContentToV3(AttributeContent attributeContent, AttributeContentType contentType) {
         if (attributeContent.getContentType() != null) return (BaseAttributeContentV3<?>) attributeContent;
-       else  {
+        else {
             return convertV2ToV3((BaseAttributeContentV2<?>) attributeContent, contentType);
         }
     }

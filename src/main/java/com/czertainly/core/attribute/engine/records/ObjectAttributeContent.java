@@ -13,6 +13,7 @@ public record ObjectAttributeContent(
     AttributeType type,
     AttributeContentType contentType,
     AttributeContent contentItem,
-    int version
+    int version,
+    String encryptedContent
 )
 {}

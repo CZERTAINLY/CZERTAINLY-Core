@@ -37,6 +37,9 @@ public class AttributeContentItem extends UniquelyIdentified {
     @ToString.Exclude
     private List<AttributeContent2Object> objects;
 
+    @Column(name = "encrypted_data", length = Integer.MAX_VALUE)
+    private String encryptedData;
+
     public void setAttributeDefinition(AttributeDefinition attributeDefinition) {
         this.attributeDefinition = attributeDefinition;
         this.attributeDefinitionUuid = attributeDefinition.getUuid();
