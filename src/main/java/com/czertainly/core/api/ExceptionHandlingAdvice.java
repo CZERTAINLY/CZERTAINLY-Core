@@ -25,6 +25,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.net.ConnectException;
@@ -526,9 +527,21 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link WebClientRequestException}.
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(WebClientRequestException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorMessageDto handleWebClientRequestException(WebClientRequestException ex) {
+        LOG.error("WebClient request error occurred: {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
      * Handler for {@link Exception}.
      *
-     * @return
+     * @return {@link ErrorMessageDto}
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
@@ -538,21 +551,14 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
-     * Handler for {@ling CbomRepositoryException}
+     * Handler for {@link CbomRepositoryException}
      *
-     * @return {@line ErrorMessageDto}
+     * @return {@link ErrorMessageDto}
      */
     @ExceptionHandler(CbomRepositoryException.class)
     public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException (CbomRepositoryException ex) {
-        int status = ex.getProblemDetail().getStatus();
-        BiConsumer<String, Object[]> log = LOG::error;
-        if (status >= 400 && status <= 499)
-            log = LOG::info;
-        log.accept("HTTP {} (CbomRepositoryException): {}, {}", new Object[]{status, ex.getMessage(), ex.getCause().getMessage()});
-
-        ResponseEntity.BodyBuilder response = ResponseEntity.status(status).contentType(MediaType.valueOf("application/problem+json"));
-        ErrorMessageDto responseDto = new ErrorMessageDto(ex.getMessage());
-
-        return response.body(responseDto);
+        LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail().toString());
+        return ResponseEntity.status(ex.getProblemDetail().getStatus())
+                .body(new ErrorMessageDto(ex.getMessage()));
     }
 }

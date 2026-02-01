@@ -49,62 +49,62 @@ public class CbomRepositoryClient {
         this.cbomRepositoryBaseUrl = platformSettings.getUtils().getCbomRepositoryUrl();
     }
 
-    public void create(final CbomUploadRequestDto data) throws CbomRepositoryException {
+    public BomCreateResponseDto create(final CbomUploadRequestDto data) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.POST);
-        processRequest(r -> r
-                            .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
-                            .body(Mono.just(data), CbomUploadRequestDto.class)
-                            .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
-                            .retrieve()
-                            .toEntity(BomCreateResponseDto.class)
-                            .block().getBody(),
-                    request);
+        return processRequest(r -> r
+                        .uri(cbomRepositoryBaseUrl + CBOM_CREATE)
+                        .body(Mono.just(data), CbomUploadRequestDto.class)
+                        .header(HttpHeaders.CONTENT_TYPE, "application/vnd.cyclonedx+json")
+                        .retrieve()
+                        .toEntity(BomCreateResponseDto.class)
+                        .block().getBody(),
+                request);
     }
 
     public List<BomEntryDto> search(final BomSearchRequestDto query) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-            return processRequest(r -> r
-                            .uri(uriBuilder -> uriBuilder
-                                    .path(CBOM_SEARCH)
-                                    .queryParam("after", query.getAfter())
-                                    .build())
-                            .retrieve()
-                            .toEntity(new ParameterizedTypeReference<List<BomEntryDto>>() {
-                            })
-                            .block().getBody(),
-                    request);
+        return processRequest(r -> r
+                        .uri(uriBuilder -> uriBuilder
+                                .path(CBOM_SEARCH)
+                                .queryParam("after", query.getAfter())
+                                .build())
+                        .retrieve()
+                        .toEntity(new ParameterizedTypeReference<List<BomEntryDto>>() {
+                        })
+                        .block().getBody(),
+                request);
     }
 
     public BomResponseDto read(final String urn, final Integer version) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-            return processRequest(r -> r
-                            .uri(uriBuilder -> {
-                                UriBuilder builder = uriBuilder
-                                        .path(CBOM_READ);
-                                if (version != null) {
-                                    builder.queryParam("version", version);
-                                }
-                                return builder.build(urn);
-                            })
-                            .retrieve()
-                            .toEntity(BomResponseDto.class)
-                            .block().getBody(),
-                    request);
+        return processRequest(r -> r
+                        .uri(uriBuilder -> {
+                            UriBuilder builder = uriBuilder
+                                    .path(CBOM_READ);
+                            if (version != null) {
+                                builder.queryParam("version", version);
+                            }
+                            return builder.build(urn);
+                        })
+                        .retrieve()
+                        .toEntity(BomResponseDto.class)
+                        .block().getBody(),
+                request);
     }
 
     public List<BomVersionDto> versions(final String urn) throws CbomRepositoryException {
         final WebClient.RequestBodyUriSpec request = prepareRequest(HttpMethod.GET);
-            return processRequest(r -> r
-                            .uri(uriBuilder -> {
-                                UriBuilder builder = uriBuilder
-                                        .path(CBOM_READ_VERSIONS);
-                                return builder.build(urn);
-                            })
-                            .retrieve()
-                            .toEntity(new ParameterizedTypeReference<List<BomVersionDto>>() {
-                            })
-                            .block().getBody(),
-                    request);
+        return processRequest(r -> r
+                        .uri(uriBuilder -> {
+                            UriBuilder builder = uriBuilder
+                                    .path(CBOM_READ_VERSIONS);
+                            return builder.build(urn);
+                        })
+                        .retrieve()
+                        .toEntity(new ParameterizedTypeReference<List<BomVersionDto>>() {
+                        })
+                        .block().getBody(),
+                request);
     }
 
     private WebClient.RequestBodyUriSpec prepareRequest(final HttpMethod method) {
@@ -122,8 +122,10 @@ public class CbomRepositoryClient {
         try {
             return func.apply(request);
         } catch (Exception e) {
-            CbomRepositoryException unwrapped = (CbomRepositoryException) Exceptions.unwrap(e);
-            logger.error(unwrapped.getMessage(), unwrapped);
+            Throwable unwrappedCause = Exceptions.unwrap(e);
+            if (unwrappedCause instanceof CbomRepositoryException cbomRepositoryException) {
+                throw cbomRepositoryException;
+            }
             throw e;
         }
     }
