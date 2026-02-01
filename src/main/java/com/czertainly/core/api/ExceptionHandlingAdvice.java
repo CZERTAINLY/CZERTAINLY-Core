@@ -31,7 +31,6 @@ import org.springframework.web.servlet.NoHandlerFoundException;
 import java.net.ConnectException;
 import java.security.cert.CertificateException;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 @RestControllerAdvice
 public class ExceptionHandlingAdvice {
@@ -557,7 +556,7 @@ public class ExceptionHandlingAdvice {
      */
     @ExceptionHandler(CbomRepositoryException.class)
     public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException (CbomRepositoryException ex) {
-        LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail().toString());
+        LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail());
         return ResponseEntity.status(ex.getProblemDetail().getStatus())
                 .body(new ErrorMessageDto(ex.getMessage()));
     }

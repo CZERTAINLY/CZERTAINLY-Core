@@ -10,8 +10,6 @@ import com.czertainly.core.model.cbom.BomSearchRequestDto;
 import com.czertainly.core.model.cbom.BomVersionDto;
 import com.czertainly.core.settings.SettingsCache;
 import lombok.Getter;
-import org.apache.commons.logging.Log;
-import org.apache.commons.logging.LogFactory;
 import org.springframework.context.annotation.DependsOn;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpHeaders;
@@ -32,8 +30,6 @@ import java.util.function.Function;
 @Component
 @DependsOn("settingService")
 public class CbomRepositoryClient {
-
-    private static final Log logger = LogFactory.getLog(CbomRepositoryClient.class);
 
     private WebClient client;
     private static final String CBOM_CREATE = "/v1/bom";
