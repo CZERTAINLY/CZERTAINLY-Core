@@ -45,6 +45,9 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     private AttributeEngine attributeEngine;
 
     @Autowired
+    private CertificateService certificateService;
+
+    @Autowired
     private ScepProfileService scepProfileService;
 
     @Autowired
@@ -199,11 +202,16 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
     @Test
     void testGetScepProfileByUuid() throws NotFoundException {
         scepProfile.setEnabled(true);
+        scepProfile.setCaCertificateUuid(certificate.getUuid());
         scepProfileRepository.save(scepProfile);
-        ScepProfileDetailDto dto = scepProfileService.getScepProfile(scepProfile.getSecuredUuid());
+        SecuredUUID scepProfileSecuredUuid = scepProfile.getSecuredUuid();
+        ScepProfileDetailDto dto = scepProfileService.getScepProfile(scepProfileSecuredUuid);
         Assertions.assertNotNull(dto);
         Assertions.assertEquals(scepProfile.getUuid().toString(), dto.getUuid());
         Assertions.assertNotNull(dto.getCertificateAssociations());
+
+        certificateService.deleteCertificate(certificate.getSecuredUuid());
+        Assertions.assertDoesNotThrow(() -> scepProfileService.getScepProfile(scepProfileSecuredUuid));
     }
 
     @Test
