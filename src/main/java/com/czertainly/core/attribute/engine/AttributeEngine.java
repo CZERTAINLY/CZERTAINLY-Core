@@ -502,8 +502,6 @@ public class AttributeEngine {
             attributeDefinition.setEncryptedData(encryptedContents);
             dataAttribute.setContent(encryptedContentItems);
         }
-
-
         attributeDefinition.setDefinition(dataAttribute);
         attributeDefinitionRepository.save(attributeDefinition);
     }
