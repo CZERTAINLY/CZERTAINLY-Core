@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.DiscoveryApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.certificate.DiscoveryResponseDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.discovery.DiscoveryCertificateResponseDto;
 import com.czertainly.api.model.client.discovery.DiscoveryDto;
@@ -21,6 +22,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.discovery.DiscoveryStatus;
 import com.czertainly.api.model.core.other.ResourceEvent;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -95,6 +97,13 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     private DiscoveryCertificateRepository discoveryCertificateRepository;
     private CertificateContentRepository certificateContentRepository;
 
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
+
     @Autowired
     public void setTriggerService(TriggerService triggerService) {
         this.triggerService = triggerService;
@@ -167,7 +176,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
 
-        final TriFunction<Root<DiscoveryHistory>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<DiscoveryHistory>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
         final List<DiscoveryHistoryDto> listedDiscoveriesDTOs = discoveryRepository.findUsingSecurityFilter(filter, List.of(), additionalWhereClause, p, (root, cb) -> cb.desc(root.get("created")))
                 .stream()
                 .map(DiscoveryHistory::mapToListDto).toList();
@@ -418,6 +427,8 @@ public class DiscoveryServiceImpl implements DiscoveryService {
             dataAttributes = attributeEngine.getDefinitionObjectAttributeContent(AttributeType.DATA, connector.getUuid(), null, Resource.DISCOVERY, discovery.getUuid());
 
             credentialService.loadFullCredentialData(dataAttributes);
+            resourceService.loadResourceObjectContentData(dataAttributes);
+
         } catch (Exception e) {
             message = e.getMessage();
         }
@@ -681,7 +692,7 @@ public class DiscoveryServiceImpl implements DiscoveryService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource discoveries.");
     }
 

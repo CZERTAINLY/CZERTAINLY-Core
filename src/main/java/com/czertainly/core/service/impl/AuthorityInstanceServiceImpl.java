@@ -6,15 +6,18 @@ import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
 import com.czertainly.api.model.client.attribute.ResponseAttribute;
 import com.czertainly.api.model.client.authority.AuthorityInstanceUpdateRequestDto;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
 import com.czertainly.api.model.common.NameAndIdDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
 import com.czertainly.api.model.common.attribute.common.BaseAttribute;
+
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceDto;
 import com.czertainly.api.model.connector.authority.AuthorityProviderInstanceRequestDto;
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.authority.AuthorityInstanceDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.*;
 import com.czertainly.core.dao.repository.AuthorityInstanceReferenceRepository;
@@ -22,10 +25,7 @@ import com.czertainly.core.model.auth.ResourceAction;
 import com.czertainly.core.security.authz.ExternalAuthorization;
 import com.czertainly.core.security.authz.SecuredUUID;
 import com.czertainly.core.security.authz.SecurityFilter;
-import com.czertainly.core.service.AuthorityInstanceService;
-import com.czertainly.core.service.ConnectorService;
-import com.czertainly.core.service.CredentialService;
-import com.czertainly.core.service.RaProfileService;
+import com.czertainly.core.service.*;
 import com.czertainly.core.util.AttributeDefinitionUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -40,7 +40,7 @@ import java.util.stream.Collectors;
 
 @Service(Resource.Codes.AUTHORITY)
 @Transactional
-public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
+public class AuthorityInstanceServiceImpl implements AuthorityInstanceService, AttributeResourceService {
     private static final Logger logger = LoggerFactory.getLogger(AuthorityInstanceServiceImpl.class);
 
     private AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository;
@@ -50,6 +50,12 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
     private EndEntityProfileApiClient endEntityProfileApiClient;
     private RaProfileService raProfileService;
     private AttributeEngine attributeEngine;
+    private ResourceService resourceService;
+
+    @Autowired
+    public void setResourceService(ResourceService resourceService) {
+        this.resourceService = resourceService;
+    }
 
     @Autowired
     public void setAuthorityInstanceReferenceRepository(AuthorityInstanceReferenceRepository authorityInstanceReferenceRepository) {
@@ -150,9 +156,10 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         attributeEngine.validateCustomAttributesContent(Resource.AUTHORITY, request.getCustomAttributes());
         connectorService.mergeAndValidateAttributes(connector.getSecuredUuid(), codeToSearch, request.getAttributes(), request.getKind());
 
-        // Load complete credential data
+        // Load complete credential data and resource data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
         authorityInstanceDto.setAttributes(AttributeDefinitionUtils.getClientAttributes(dataAttributes));
@@ -197,6 +204,7 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         // Load complete credential data
         var dataAttributes = attributeEngine.getDataAttributesByContent(connector.getUuid(), request.getAttributes());
         credentialService.loadFullCredentialData(dataAttributes);
+        resourceService.loadResourceObjectContentData(dataAttributes);
 
         AuthorityProviderInstanceRequestDto authorityInstanceDto = new AuthorityProviderInstanceRequestDto();
         authorityInstanceDto.setKind(ref.getKind());
@@ -319,8 +327,8 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
 
     @Override
     @ExternalAuthorization(resource = Resource.AUTHORITY, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        return authorityInstanceReferenceRepository.listResourceObjects(filter, AuthorityInstanceReference_.name, null, pagination);
     }
 
     @Override
@@ -358,5 +366,10 @@ public class AuthorityInstanceServiceImpl implements AuthorityInstanceService {
         }
         attributeEngine.deleteAllObjectAttributeContent(Resource.AUTHORITY, authorityInstanceRef.getUuid());
         authorityInstanceReferenceRepository.delete(authorityInstanceRef);
+    }
+
+    @Override
+    public String getResourceObjectContent(UUID uuid) {
+        return null;
     }
 }

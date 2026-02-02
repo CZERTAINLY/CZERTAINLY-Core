@@ -3,6 +3,7 @@ package com.czertainly.core.service.impl;
 import com.czertainly.api.clients.cryptography.KeyManagementApiClient;
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.certificate.SearchRequestDto;
 import com.czertainly.api.model.client.cryptography.CryptographicKeyResponseDto;
 import com.czertainly.api.model.client.cryptography.key.*;
@@ -20,6 +21,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.auth.UserDto;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.cryptography.key.*;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.api.model.core.search.FilterFieldSource;
 import com.czertainly.api.model.core.search.SearchFieldDataByGroupDto;
 import com.czertainly.api.model.core.search.SearchFieldDataDto;
@@ -178,7 +180,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         RequestValidatorHelper.revalidateSearchRequestDto(request);
 
         final Pageable p = PageRequest.of(request.getPageNumber() - 1, request.getItemsPerPage());
-        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
+        final TriFunction<Root<CryptographicKeyItem>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = (root, cb, cr) -> FilterPredicatesBuilder.getFiltersPredicate(cb, cr, root, request.getFilters());
 
         List<UUID> filteredKeyUuids = cryptographicKeyItemRepository.findUuidsUsingSecurityFilter(
                 filter,
@@ -223,7 +225,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
         logger.debug("Requesting key list for Token profile with UUID {}", tokenProfileUuid);
         filter.setParentRefProperty("tokenInstanceReferenceUuid");
 
-        TriFunction<Root<CryptographicKey>, CriteriaBuilder, CriteriaQuery, Predicate> additionalWhereClause = null;
+        TriFunction<Root<CryptographicKey>, CriteriaBuilder, CriteriaQuery<?>, Predicate> additionalWhereClause = null;
         if (tokenProfileUuid.isPresent() && !tokenProfileUuid.get().isEmpty()) {
             additionalWhereClause = (root, cb, cr) -> cb.equal(root.get(CryptographicKey_.tokenProfileUuid), UUID.fromString(tokenProfileUuid.get()));
         }
@@ -801,7 +803,7 @@ public class CryptographicKeyServiceImpl implements CryptographicKeyService {
     }
 
     @Override
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         throw new NotSupportedException("Listing of resource objects is not supported for resource cryptographic keys.");
     }
 

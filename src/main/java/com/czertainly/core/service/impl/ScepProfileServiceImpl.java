@@ -2,6 +2,7 @@ package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
 import com.czertainly.api.model.client.attribute.RequestAttribute;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileEditRequestDto;
 import com.czertainly.api.model.client.scep.ScepProfileRequestDto;
 import com.czertainly.api.model.common.BulkActionMessageDto;
@@ -11,6 +12,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.certificate.CertificateDto;
 import com.czertainly.api.model.core.scep.ScepProfileDetailDto;
 import com.czertainly.api.model.core.scep.ScepProfileDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.attribute.engine.AttributeOperation;
 import com.czertainly.core.attribute.engine.records.ObjectAttributeContentInfo;
@@ -373,7 +375,7 @@ public class ScepProfileServiceImpl implements ScepProfileService {
 
     @Override
     @ExternalAuthorization(resource = Resource.SCEP_PROFILE, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
         return scepProfileRepository.listResourceObjects(filter, ScepProfile_.name);
     }
 

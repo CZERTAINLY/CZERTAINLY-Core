@@ -1,6 +1,7 @@
 package com.czertainly.core.service.impl;
 
 import com.czertainly.api.exception.*;
+import com.czertainly.api.model.client.certificate.SearchFilterRequestDto;
 import com.czertainly.api.model.client.credential.CredentialRequestDto;
 import com.czertainly.api.model.client.credential.CredentialUpdateRequestDto;
 import com.czertainly.api.model.common.NameAndUuidDto;
@@ -19,6 +20,7 @@ import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.connector.ConnectorDto;
 import com.czertainly.api.model.core.connector.FunctionGroupCode;
 import com.czertainly.api.model.core.credential.CredentialDto;
+import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
 import com.czertainly.core.dao.entity.Credential;
 import com.czertainly.core.dao.entity.Credential_;
@@ -225,7 +227,7 @@ public class CredentialServiceImpl implements CredentialService {
                 if (AttributeContentType.CREDENTIAL.equals(mapping.getAttributeContentType())) {
                     for (AttributeValueTarget target : mapping.getTargets()) {
                         switch (target) {
-                            case PATH_VARIABLE, REQUEST_PARAMETER:
+                            case PATH_VARIABLE, REQUEST_PARAMETER, FILTER:
                                 logger.warn("Illegal 'from' Attribute type {} for target {}",
                                         mapping.getAttributeType(), target);
                                 break;
@@ -282,8 +284,8 @@ public class CredentialServiceImpl implements CredentialService {
 
     @Override
     @ExternalAuthorization(resource = Resource.CREDENTIAL, action = ResourceAction.LIST)
-    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter) {
-        return credentialRepository.listResourceObjects(filter, Credential_.name);
+    public List<NameAndUuidDto> listResourceObjects(SecurityFilter filter, List<SearchFilterRequestDto> filters, PaginationRequestDto pagination) {
+        return credentialRepository.listResourceObjects(filter, Credential_.name, null, pagination);
     }
 
     @Override

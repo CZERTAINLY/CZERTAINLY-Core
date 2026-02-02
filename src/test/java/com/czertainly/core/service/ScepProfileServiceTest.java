@@ -353,7 +353,7 @@ class ScepProfileServiceTest extends BaseSpringBootTest {
 
     @Test
     void testGetObjectsForResource() {
-        List<NameAndUuidDto> dtos = scepProfileService.listResourceObjects(SecurityFilter.create());
+        List<NameAndUuidDto> dtos = scepProfileService.listResourceObjects(SecurityFilter.create(), null, null);
         Assertions.assertEquals(1, dtos.size());
     }
 }

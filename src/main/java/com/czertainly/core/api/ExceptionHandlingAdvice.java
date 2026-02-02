@@ -5,6 +5,7 @@ import com.czertainly.api.model.common.AuthenticationServiceExceptionDto;
 import com.czertainly.api.model.common.ErrorMessageDto;
 import com.czertainly.api.model.core.acme.ProblemDocument;
 import com.czertainly.api.model.core.auth.Resource;
+import com.czertainly.core.cbom.client.CbomRepositoryException;
 import com.czertainly.core.security.authn.CzertainlyAuthenticationException;
 import com.czertainly.core.security.exception.AuthenticationServiceException;
 import com.czertainly.core.util.AuthHelper;
@@ -24,6 +25,7 @@ import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.reactive.function.client.WebClientRequestException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 
 import java.net.ConnectException;
@@ -524,14 +526,38 @@ public class ExceptionHandlingAdvice {
     }
 
     /**
+     * Handler for {@link WebClientRequestException}.
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(WebClientRequestException.class)
+    @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
+    public ErrorMessageDto handleWebClientRequestException(WebClientRequestException ex) {
+        LOG.error("WebClient request error occurred: {}", ex.getMessage(), ex);
+        return ErrorMessageDto.getInstance(ex.getMessage());
+    }
+
+    /**
      * Handler for {@link Exception}.
      *
-     * @return
+     * @return {@link ErrorMessageDto}
      */
     @ExceptionHandler(Exception.class)
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     public ErrorMessageDto handleException(Exception ex) {
         LOG.error("General error occurred: {}", ex.getMessage(), ex);
         return ErrorMessageDto.getInstance("Internal server error.");
+    }
+
+    /**
+     * Handler for {@link CbomRepositoryException}
+     *
+     * @return {@link ErrorMessageDto}
+     */
+    @ExceptionHandler(CbomRepositoryException.class)
+    public ResponseEntity<ErrorMessageDto> handleCbomRepositoryException (CbomRepositoryException ex) {
+        LOG.error("CBOM repository error occurred: {}. Detail: {}", ex.getMessage(), ex.getProblemDetail());
+        return ResponseEntity.status(ex.getProblemDetail().getStatus())
+                .body(new ErrorMessageDto(ex.getMessage()));
     }
 }
