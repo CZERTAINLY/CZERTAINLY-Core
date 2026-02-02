@@ -25,7 +25,7 @@ import com.czertainly.api.model.common.attribute.v3.content.BaseAttributeContent
 import com.czertainly.api.model.core.auth.Resource;
 import com.czertainly.api.model.core.scheduler.PaginationRequestDto;
 import com.czertainly.core.attribute.engine.AttributeEngine;
-import com.czertainly.core.attribute.engine.records.AttributeVersionHelper;
+import com.czertainly.core.attribute.engine.AttributeVersionHelper;
 import com.czertainly.core.dao.entity.AttributeDefinition;
 import com.czertainly.core.dao.repository.AttributeDefinitionRepository;
 import com.czertainly.core.model.auth.ResourceAction;
