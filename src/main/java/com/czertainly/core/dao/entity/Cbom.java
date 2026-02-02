@@ -1,10 +1,12 @@
 package com.czertainly.core.dao.entity;
 
 import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.UUID;
 
-import org.hibernate.proxy.HibernateProxy;
-
+import com.czertainly.api.model.core.cbom.CbomDto;
+import com.czertainly.core.util.DtoMapper;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
@@ -13,6 +15,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.ToString;
+import org.hibernate.proxy.HibernateProxy;
 
 @Getter
 @Setter
@@ -20,7 +23,7 @@ import lombok.ToString;
 @RequiredArgsConstructor
 @Entity
 @Table(name = "cbom")
-public class Cbom {
+public class Cbom implements DtoMapper<CbomDto> {
 
     @Id
     @Column(name = "uuid", nullable = false, unique = true, updatable = false)
@@ -30,7 +33,7 @@ public class Cbom {
     private String serialNumber;
 
     @Column(name = "version", nullable = false)
-    private int version;
+    private String version;
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
@@ -52,6 +55,23 @@ public class Cbom {
 
     @Column(name = "total_assets_count", nullable = false)
     private int totalAssetsCount;
+
+    @Override
+    public CbomDto mapToDto() {
+        CbomDto dto = new CbomDto();
+        OffsetDateTime timestamp = this.createdAt.atOffset(ZoneOffset.UTC);
+
+        dto.setSerialNumber(this.serialNumber);
+        dto.setVersion(this.version);
+        dto.setTimestamp(timestamp);
+        dto.setSource(this.source);
+        dto.setAlgorithms(this.algorithmsCount);
+        dto.setCertificates(this.certificatesCount);
+        dto.setProtocols(this.protocolsCount);
+        dto.setCryptoMaterial(this.cryptoMaterialCount);
+        dto.setTotalAssets(this.totalAssetsCount);
+        return dto;
+    }
 
     @Override
     public final int hashCode() {
